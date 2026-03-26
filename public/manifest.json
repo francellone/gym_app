@@ -1,0 +1,17 @@
+{
+  "name": "GymCoach",
+  "short_name": "GymCoach",
+  "description": "Gestión de entrenamiento para coach y alumnos",
+  "theme_color": "#ea580c",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
