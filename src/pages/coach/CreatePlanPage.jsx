@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Plus, Save, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Save, AlertCircle, Dumbbell, BarChart2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
 import {
   SECTIONS, emptyPlanExercise, uiExToDBEx
 } from '../../utils/planHelpers'
+import { EVAL_TYPES } from '../../utils/evalHelpers'
 
 export default function CreatePlanPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const [exercises, setExercises] = useState([])
+  const [exerciseTags, setExerciseTags] = useState([])
+  const [tagAssignments, setTagAssignments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -22,6 +25,8 @@ export default function CreatePlanPage() {
     sessions_per_week: 3,
     duration_weeks: '',
     is_template: false,
+    plan_type: 'training',
+    eval_type: '',
   })
 
   const [planExercises, setPlanExercises] = useState({
@@ -33,8 +38,14 @@ export default function CreatePlanPage() {
   const [activeSection, setActiveSection] = useState('activation')
 
   useEffect(() => {
-    supabase.from('exercises').select('*').order('name').then(({ data }) => {
-      setExercises(data || [])
+    Promise.all([
+      supabase.from('exercises').select('*').order('name'),
+      supabase.from('exercise_tags').select('*').order('name'),
+      supabase.from('exercise_tag_assignments').select('*'),
+    ]).then(([exRes, tagsRes, assignRes]) => {
+      setExercises(exRes.data || [])
+      setExerciseTags(tagsRes.data || [])
+      setTagAssignments(assignRes.data || [])
     })
   }, [])
 
@@ -68,24 +79,31 @@ export default function CreatePlanPage() {
       setError('El nombre del plan es obligatorio')
       return
     }
+    if (plan.plan_type === 'evaluation' && !plan.eval_type) {
+      setError('Seleccioná el tipo de evaluación')
+      return
+    }
     setError(null)
     setLoading(true)
 
     try {
-      // Crear plan
       const { data: newPlan, error: planError } = await supabase
         .from('plans')
         .insert({
-          ...plan,
-          created_by: profile.id,
+          title: plan.title,
+          description: plan.description,
+          goal: plan.goal,
           sessions_per_week: parseInt(plan.sessions_per_week) || 3,
           duration_weeks: plan.duration_weeks ? parseInt(plan.duration_weeks) : null,
+          is_template: plan.is_template,
+          plan_type: plan.plan_type,
+          eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
+          created_by: profile.id,
         })
         .select()
         .single()
       if (planError) throw planError
 
-      // Insertar ejercicios de todas las secciones
       const allExercises = []
       for (const section of ['activation', 'day_a', 'day_b']) {
         planExercises[section]
@@ -109,6 +127,7 @@ export default function CreatePlanPage() {
   }
 
   const currentExercises = planExercises[activeSection]
+  const isEval = plan.plan_type === 'evaluation'
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -122,6 +141,82 @@ export default function CreatePlanPage() {
       {/* Plan info */}
       <div className="card space-y-4">
         <h2 className="font-semibold text-gray-900">Información del plan</h2>
+
+        {/* Tipo de plan */}
+        <div>
+          <label className="label">Tipo de plan</label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setPlan(p => ({ ...p, plan_type: 'training', eval_type: '' }))}
+              className={`rounded-2xl border-2 p-3 flex items-center gap-2 text-left transition-all ${
+                plan.plan_type === 'training'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Dumbbell size={18} className={plan.plan_type === 'training' ? 'text-primary-600' : 'text-gray-400'} />
+              <div>
+                <p className={`text-sm font-semibold ${plan.plan_type === 'training' ? 'text-primary-700' : 'text-gray-700'}`}>
+                  Entrenamiento
+                </p>
+                <p className="text-xs text-gray-400">Rutina regular</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlan(p => ({ ...p, plan_type: 'evaluation' }))}
+              className={`rounded-2xl border-2 p-3 flex items-center gap-2 text-left transition-all ${
+                plan.plan_type === 'evaluation'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <BarChart2 size={18} className={plan.plan_type === 'evaluation' ? 'text-purple-600' : 'text-gray-400'} />
+              <div>
+                <p className={`text-sm font-semibold ${plan.plan_type === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}>
+                  Evaluación
+                </p>
+                <p className="text-xs text-gray-400">Protocolo de test</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Tipo de evaluación */}
+        {isEval && (
+          <div>
+            <label className="label">Categoría de evaluación</label>
+            <div className="space-y-1.5">
+              {EVAL_TYPES.map(et => (
+                <button
+                  key={et.key}
+                  type="button"
+                  onClick={() => setPlan(p => ({ ...p, eval_type: et.key }))}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                    plan.eval_type === et.key
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-lg">{et.icon}</span>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${plan.eval_type === et.key ? 'text-purple-700' : 'text-gray-700'}`}>
+                      {et.label}
+                    </p>
+                    <p className="text-xs text-gray-400">{et.description}</p>
+                  </div>
+                  {plan.eval_type === et.key && (
+                    <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
             <label className="label">Nombre del plan *</label>
@@ -142,40 +237,38 @@ export default function CreatePlanPage() {
               onChange={e => setPlan(p => ({ ...p, description: e.target.value }))}
             />
           </div>
-          <div>
-            <label className="label">Objetivo</label>
-            <input
-              className="input"
-              placeholder="Fuerza, hipertrofia..."
-              value={plan.goal}
-              onChange={e => setPlan(p => ({ ...p, goal: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="label">Días por semana</label>
-            <input
-              type="number"
-              min="1"
-              max="7"
-              className="input"
-              value={plan.sessions_per_week}
-              onChange={e => setPlan(p => ({ ...p, sessions_per_week: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="label">Duración (semanas)</label>
-            <input
-              type="number"
-              className="input"
-              placeholder="Opcional"
-              value={plan.duration_weeks}
-              onChange={e => setPlan(p => ({ ...p, duration_weeks: e.target.value }))}
-            />
-          </div>
+          {!isEval && (
+            <>
+              <div>
+                <label className="label">Objetivo</label>
+                <input
+                  className="input"
+                  placeholder="Fuerza, hipertrofia..."
+                  value={plan.goal}
+                  onChange={e => setPlan(p => ({ ...p, goal: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label">Días por semana</label>
+                <input
+                  type="number" min="1" max="7" className="input"
+                  value={plan.sessions_per_week}
+                  onChange={e => setPlan(p => ({ ...p, sessions_per_week: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label">Duración (semanas)</label>
+                <input
+                  type="number" className="input" placeholder="Opcional"
+                  value={plan.duration_weeks}
+                  onChange={e => setPlan(p => ({ ...p, duration_weeks: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-2 mt-2">
             <input
-              type="checkbox"
-              id="is_template"
+              type="checkbox" id="is_template"
               className="w-4 h-4 rounded text-primary-600"
               checked={plan.is_template}
               onChange={e => setPlan(p => ({ ...p, is_template: e.target.checked }))}
@@ -189,9 +282,10 @@ export default function CreatePlanPage() {
 
       {/* Ejercicios */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Ejercicios</h2>
+        <h2 className="font-semibold text-gray-900">
+          {isEval ? 'Ejercicios / Protocolo' : 'Ejercicios'}
+        </h2>
 
-        {/* Section tabs */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
           {SECTIONS.map(s => (
             <button
@@ -213,7 +307,6 @@ export default function CreatePlanPage() {
           ))}
         </div>
 
-        {/* Exercise list */}
         <div className="space-y-3">
           {currentExercises.map((ex, i) => (
             <PlanExerciseRow
@@ -221,6 +314,8 @@ export default function CreatePlanPage() {
               ex={ex}
               index={i}
               exercises={exercises}
+              exerciseTags={exerciseTags}
+              tagAssignments={tagAssignments}
               onUpdate={(idx, field, value) => updateExercise(activeSection, idx, field, value)}
               onRemove={(idx) => removeExercise(activeSection, idx)}
             />
@@ -253,10 +348,7 @@ export default function CreatePlanPage() {
           {loading ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            <>
-              <Save size={16} />
-              Guardar plan
-            </>
+            <><Save size={16} /> Guardar plan</>
           )}
         </button>
       </div>

@@ -585,6 +585,7 @@ export default function TodayWorkoutPage() {
             student_id: profile.id,
             plan_id: assignment.plan_id,
             logged_date: selectedDate,
+            logged_late: !isToday,
             ...data,
           })
           .select()
@@ -616,6 +617,7 @@ export default function TodayWorkoutPage() {
           plan_id: assignment.plan_id,
           plan_exercise_id: planExerciseId,
           logged_date: selectedDate,
+          logged_late: !isToday,
         })
         .select()
         .single()

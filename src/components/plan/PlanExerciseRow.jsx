@@ -1,28 +1,43 @@
-import { Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Trash2, Tag } from 'lucide-react'
 import {
   BLOCK_LETTERS, BLOCK_NUMBERS, PSE_OPTIONS,
-  createRepsArray
 } from '../../utils/planHelpers'
 
 /**
  * Fila de ejercicio dentro del editor de plan.
- * Incorpora:
- *  - Bloque letra (A-Z) + subbloque número (1-10)
- *  - Reps por serie: cuando suggested_sets > 0, muestra N inputs
- *  - Validaciones inline
+ * Props:
+ *  - ex: datos del ejercicio en el plan (UI format)
+ *  - index: índice en el array de sección
+ *  - exercises: lista completa de ejercicios
+ *  - exerciseTags: [{ id, name, color }] — tags del coach
+ *  - tagAssignments: [{ exercise_id, tag_id }] — asignaciones
+ *  - onUpdate(index, field, value)
+ *  - onRemove(index)
  */
-export default function PlanExerciseRow({ ex, index, onUpdate, onRemove, exercises }) {
+export default function PlanExerciseRow({
+  ex, index, onUpdate, onRemove,
+  exercises = [],
+  exerciseTags = [],
+  tagAssignments = [],
+}) {
+  const [tagFilter, setTagFilter] = useState('')
   const setsCount = parseInt(ex.suggested_sets) || 0
+
+  // Filtrar ejercicios según tag seleccionado
+  const filteredExercises = tagFilter
+    ? exercises.filter(e =>
+        tagAssignments.some(ta => ta.exercise_id === e.id && ta.tag_id === tagFilter)
+      )
+    : exercises
 
   function handleSetsChange(val) {
     const n = parseInt(val) || 0
-    // Ajustar el array de reps según el nuevo número de series
     const currentReps = ex.suggested_reps_array || []
     let newReps
     if (n === 0) {
       newReps = ['']
     } else if (n > currentReps.length) {
-      // Extender con el último valor o vacío
       const lastVal = currentReps[currentReps.length - 1] || ''
       newReps = [...currentReps, ...Array(n - currentReps.length).fill(lastVal)]
     } else {
@@ -38,26 +53,76 @@ export default function PlanExerciseRow({ ex, index, onUpdate, onRemove, exercis
     onUpdate(index, 'suggested_reps_array', newReps)
   }
 
+  // Tag del ejercicio seleccionado (para mostrarlo)
+  const selectedExTags = ex.exercise_id
+    ? tagAssignments
+        .filter(ta => ta.exercise_id === ex.exercise_id)
+        .map(ta => exerciseTags.find(t => t.id === ta.tag_id))
+        .filter(Boolean)
+    : []
+
   return (
     <div className="bg-gray-50 rounded-xl p-3 space-y-3">
       <div className="flex items-start gap-2">
         <div className="flex-1 space-y-3">
 
-          {/* Ejercicio + Bloque */}
+          {/* Filtro de etiqueta + selector de ejercicio + bloque */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Ejercicio *</label>
-              <select
-                className="input text-sm"
-                value={ex.exercise_id}
-                onChange={e => onUpdate(index, 'exercise_id', e.target.value)}
-              >
-                <option value="">Seleccionar...</option>
-                {exercises.map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+            <div className="sm:col-span-2 space-y-2">
+              {/* Tag filter */}
+              {exerciseTags.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Tag size={13} className="text-gray-400 flex-shrink-0" />
+                  <select
+                    className="input text-xs py-1.5"
+                    value={tagFilter}
+                    onChange={e => setTagFilter(e.target.value)}
+                  >
+                    <option value="">Todos los ejercicios</option>
+                    {exerciseTags.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  {tagFilter && (
+                    <span className="text-xs text-gray-400">
+                      {filteredExercises.length} ej.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Exercise select */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Ejercicio *</label>
+                <select
+                  className="input text-sm"
+                  value={ex.exercise_id}
+                  onChange={e => onUpdate(index, 'exercise_id', e.target.value)}
+                >
+                  <option value="">Seleccionar...</option>
+                  {filteredExercises.map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+
+                {/* Tags del ejercicio elegido */}
+                {selectedExTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedExTags.map(t => (
+                      <span
+                        key={t.id}
+                        className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: t.color + '22', color: t.color }}
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Bloque */}
             <div className="grid grid-cols-2 gap-1">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Bloque</label>
@@ -71,7 +136,7 @@ export default function PlanExerciseRow({ ex, index, onUpdate, onRemove, exercis
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Sub-bloque</label>
+                <label className="text-xs text-gray-500 mb-1 block">Sub</label>
                 <select
                   className="input text-sm"
                   value={ex.block_number}
@@ -85,7 +150,7 @@ export default function PlanExerciseRow({ ex, index, onUpdate, onRemove, exercis
             </div>
           </div>
 
-          {/* Series */}
+          {/* Series, peso, descanso, PSE */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Series</label>
