@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, Dumbbell,
-  LogOut, Menu, X, ChevronRight
+  LogOut, Menu, X, ChevronRight, BarChart2
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/coach/students', label: 'Alumnos', icon: Users },
   { to: '/coach/plans', label: 'Planes', icon: ClipboardList },
   { to: '/coach/exercises', label: 'Ejercicios', icon: Dumbbell },
+  { to: '/coach/evaluations', label: 'Evaluaciones', icon: BarChart2 },
 ]
 
 export default function CoachLayout() {
