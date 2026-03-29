@@ -1,180 +1,257 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import {
-  EVAL_TYPES, evalTypeColor, evalTypeLabel, evalTypeIcon,
-  MOVEMENT_SCREEN_PATTERNS, SCREEN_SCORES, ROM_ZONES, SKINFOLD_SITES, cooperVO2Max
-} from '../../utils/evalHelpers'
+import { EVAL_TYPES, METHODS, evalTypeColor, evalTypeLabel, evalTypeIcon } from '../../utils/evalHelpers'
 import { ArrowLeft, Users, Calendar, ChevronDown, ChevronUp, Edit2, ExternalLink } from 'lucide-react'
 
-// ---- Per-result viewers per eval_type -------------------
-
-function MovementScreenView({ results }) {
-  if (!results?.patterns) return <p className="text-sm text-gray-400">Sin datos</p>
+// ============================================================
+// Shared mini components
+// ============================================================
+function Stat({ label, value, unit, colorClass = 'bg-gray-50' }) {
+  if (!value && value !== 0) return null
   return (
-    <div className="space-y-4">
-      {results.patterns.map((pattern, pi) => {
-        const def = MOVEMENT_SCREEN_PATTERNS.find(p => p.key === pattern.key)
-        if (!def) return null
-        return (
-          <div key={pattern.key}>
-            <p className="text-xs font-semibold text-gray-700 mb-2">{def.label}</p>
-            <div className="space-y-1.5">
-              {def.criteria.map(c => {
-                const val = pattern.criteria?.[c.key]
-                if (!val) return null
-                const leftScore = SCREEN_SCORES.find(s => s.value === val.left)
-                const rightScore = SCREEN_SCORES.find(s => s.value === val.right)
-                return (
-                  <div key={c.key} className="flex items-center gap-2 text-xs">
-                    <span className="text-gray-600 flex-1">{c.label}</span>
-                    {leftScore && <span className={`badge ${leftScore.color}`}>I: {leftScore.label}</span>}
-                    {rightScore && <span className={`badge ${rightScore.color}`}>D: {rightScore.label}</span>}
-                    {val.obs && <span className="text-gray-400 italic truncate">{val.obs}</span>}
-                  </div>
-                )
-              })}
-            </div>
-            {pattern.obs && (
-              <p className="text-xs text-gray-500 mt-1 italic">{pattern.obs}</p>
-            )}
-          </div>
-        )
-      })}
-      {results.general_notes && (
-        <p className="text-sm text-gray-600 border-t pt-2">{results.general_notes}</p>
-      )}
+    <div className={`${colorClass} rounded-xl p-3 text-center`}>
+      <p className="text-lg font-bold text-gray-900">
+        {value}
+        {unit && <span className="text-xs font-normal text-gray-500 ml-1">{unit}</span>}
+      </p>
+      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
     </div>
   )
 }
 
-function StrengthAmrapView({ results }) {
+function MethodBadge({ method, evalType }) {
+  if (!method) return null
+  const m = (METHODS[evalType] || []).find(m => m.key === method)
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium">
+      {m?.label || method}
+    </span>
+  )
+}
+
+// ============================================================
+// Result viewers per eval_type
+// ============================================================
+
+function OneRMView({ results }) {
   if (!results?.exercises?.length) return <p className="text-sm text-gray-400">Sin datos</p>
+  const hasResults = results.exercises.some(ex => ex.one_rm)
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <MethodBadge method={results.method} evalType="one_rm" />
       {results.exercises.map((ex, i) => (
-        <div key={i} className="flex items-center gap-3 text-sm">
-          <span className="font-medium text-gray-900 flex-1">{ex.name}</span>
-          {ex.reps && <span className="badge bg-red-100 text-red-700">{ex.reps} reps</span>}
-          {ex.weight && <span className="badge bg-gray-100 text-gray-700">{ex.weight} kg</span>}
-          {ex.notes && <span className="text-xs text-gray-400 italic">{ex.notes}</span>}
+        <div key={i} className="flex flex-col gap-1 bg-gray-50 rounded-xl p-3">
+          <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
+          <div className="flex flex-wrap gap-2">
+            {ex.weight_kg && <span className="badge bg-gray-100 text-gray-600">{ex.weight_kg} kg</span>}
+            {ex.reps && <span className="badge bg-gray-100 text-gray-600">× {ex.reps} reps</span>}
+            {ex.one_rm && <span className="badge bg-red-100 text-red-700 font-bold">1RM: {ex.one_rm} kg</span>}
+          </div>
         </div>
       ))}
-      {results.notes && <p className="text-sm text-gray-500 border-t pt-2">{results.notes}</p>}
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
 
-function FlexibilityRomView({ results }) {
-  if (!results?.measurements?.length) return <p className="text-sm text-gray-400">Sin datos</p>
-  const filled = results.measurements.filter(m => m.left_deg || m.right_deg)
-  if (!filled.length) return <p className="text-sm text-gray-400">Sin datos</p>
-  return (
-    <div className="space-y-1.5">
-      {filled.map((m, i) => {
-        const zone = ROM_ZONES.find(z => z.key === m.zone)
-        return (
-          <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="text-gray-700 flex-1">{zone?.label || m.zone}</span>
-            {m.left_deg && <span className="badge bg-green-100 text-green-700">I: {m.left_deg}°</span>}
-            {m.right_deg && <span className="badge bg-green-100 text-green-700">D: {m.right_deg}°</span>}
-          </div>
-        )
-      })}
-      {results.notes && <p className="text-sm text-gray-500 border-t pt-2">{results.notes}</p>}
-    </div>
-  )
-}
-
-function JumpView({ results }) {
-  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
-  const best = results.attempts?.filter(a => a.cm).map(a => parseFloat(a.cm)).filter(v => !isNaN(v))
-  const max = best?.length ? Math.max(...best) : null
+function MaxRepsView({ results }) {
+  if (!results?.reps) return <p className="text-sm text-gray-400">Sin datos</p>
   return (
     <div className="space-y-2">
-      {max && (
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-gray-900">{max}</span>
-          <span className="text-sm text-gray-500">cm (mejor intento)</span>
-        </div>
-      )}
-      {results.attempts?.map((a, i) => a.cm && (
-        <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
-          <span>Intento {i + 1}:</span>
-          <span className="font-medium">{a.cm} cm</span>
-          {a.notes && <span className="text-gray-400 italic">{a.notes}</span>}
-        </div>
-      ))}
-      {results.technique_notes && <p className="text-sm text-gray-500 border-t pt-2">{results.technique_notes}</p>}
+      <MethodBadge method={results.method} evalType="max_reps" />
+      <div className="flex flex-wrap gap-2 mt-2">
+        <span className="badge bg-orange-100 text-orange-700 font-bold text-sm">{results.reps} reps</span>
+        {results.weight_kg && <span className="badge bg-gray-100 text-gray-600">{results.weight_kg} kg</span>}
+        {results.volume && <span className="badge bg-orange-50 text-orange-600">Vol: {results.volume} kg</span>}
+      </div>
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
 
-function CooperView({ results }) {
+function PowerView({ results }) {
   if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
-  const vo2 = results.distance_m ? cooperVO2Max(results.distance_m) : null
   return (
     <div className="space-y-2">
-      {results.distance_m && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-blue-50 rounded-xl p-3 text-center">
-            <p className="text-xl font-bold text-blue-700">{results.distance_m} m</p>
-            <p className="text-xs text-blue-500">Distancia (12 min)</p>
-          </div>
-          {vo2 && (
-            <div className="bg-blue-50 rounded-xl p-3 text-center">
-              <p className="text-xl font-bold text-blue-700">{vo2}</p>
-              <p className="text-xs text-blue-500">VO₂ max (ml/kg/min)</p>
+      <MethodBadge method={results.method} evalType="power" />
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {results.mass_kg && <Stat label="Masa corporal" value={results.mass_kg} unit="kg" />}
+        {results.jump_cm && <Stat label="Altura de salto" value={results.jump_cm} unit="cm" colorClass="bg-yellow-50" />}
+        {results.distance_m && <Stat label="Distancia" value={results.distance_m} unit="m" colorClass="bg-yellow-50" />}
+        {results.time_sec && <Stat label="Tiempo" value={results.time_sec} unit="seg" colorClass="bg-yellow-50" />}
+      </div>
+      {/* Rendered result stored in results.result */}
+      {results.result && (
+        <div className="space-y-1">
+          {results.result.power_w !== undefined && (
+            <div className="bg-yellow-100 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-yellow-800">{results.result.power_w} W</p>
+              <p className="text-xs text-yellow-600">Potencia media</p>
+            </div>
+          )}
+          {results.result.peak_w !== undefined && (
+            <div className="bg-yellow-100 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-yellow-800">{results.result.peak_w} W</p>
+              <p className="text-xs text-yellow-600">Potencia pico · Media: {results.result.mean_w} W</p>
+            </div>
+          )}
+          {results.result.time_sec !== undefined && (
+            <div className="bg-yellow-100 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-yellow-800">{results.result.time_sec} seg</p>
+              <p className="text-xs text-yellow-600">Velocidad: {results.result.speed_ms} m/s</p>
             </div>
           )}
         </div>
       )}
-      {results.heart_rate_end && (
-        <p className="text-sm text-gray-600">FC final: {results.heart_rate_end} bpm</p>
-      )}
-      {results.notes && <p className="text-sm text-gray-500 border-t pt-2">{results.notes}</p>}
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+    </div>
+  )
+}
+
+function CardioView({ results }) {
+  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  return (
+    <div className="space-y-2">
+      <MethodBadge method={results.method} evalType="cardio" />
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {results.distance_m && <Stat label="Distancia" value={results.distance_m} unit="m" />}
+        {results.time_min && <Stat label="Tiempo" value={results.time_min} unit="min" />}
+        {results.heart_rate && <Stat label="FC final" value={results.heart_rate} unit="bpm" />}
+        {results.vo2max && (
+          <Stat label="VO₂max" value={results.vo2max} unit="ml/kg/min" colorClass="bg-blue-50" />
+        )}
+        {results.method === 'harvard' && results.vo2max && (
+          <Stat label="PFI" value={results.vo2max} unit="pts" colorClass="bg-blue-50" />
+        )}
+      </div>
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
 
 function BodyCompView({ results }) {
   if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const r = results.result
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {results.weight_kg && (
-          <div className="bg-orange-50 rounded-xl p-2">
-            <p className="text-lg font-bold text-orange-700">{results.weight_kg} kg</p>
-            <p className="text-xs text-orange-500">Peso</p>
+    <div className="space-y-2">
+      <MethodBadge method={results.method} evalType="body_comp" />
+      {results.weight_kg && (
+        <Stat label="Peso corporal" value={results.weight_kg} unit="kg" />
+      )}
+      {r && (
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          <div className="bg-green-50 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-green-700">{r.fat_pct}%</p>
+            <p className="text-xs text-green-600">Grasa corporal</p>
           </div>
-        )}
-        {results.body_fat_pct && (
-          <div className="bg-orange-50 rounded-xl p-2">
-            <p className="text-lg font-bold text-orange-700">{results.body_fat_pct}%</p>
-            <p className="text-xs text-orange-500">Grasa corporal</p>
-          </div>
-        )}
-        {results.muscle_mass_kg && (
-          <div className="bg-orange-50 rounded-xl p-2">
-            <p className="text-lg font-bold text-orange-700">{results.muscle_mass_kg} kg</p>
-            <p className="text-xs text-orange-500">Masa muscular</p>
-          </div>
-        )}
-      </div>
-      {results.skinfolds && Object.entries(results.skinfolds).filter(([_, v]) => v).length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-600 mb-1.5">Pliegues cutáneos</p>
-          <div className="grid grid-cols-2 gap-1">
-            {SKINFOLD_SITES.map(s => results.skinfolds?.[s.key] ? (
-              <div key={s.key} className="flex justify-between text-xs text-gray-600 bg-gray-50 rounded-lg px-2 py-1">
-                <span>{s.label.replace(' (mm)', '')}</span>
-                <span className="font-medium">{results.skinfolds[s.key]} mm</span>
-              </div>
-            ) : null)}
-          </div>
+          {r.fat_kg && (
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-gray-700">{r.fat_kg} kg</p>
+              <p className="text-xs text-gray-500">Masa grasa</p>
+            </div>
+          )}
+          {r.lean_kg && (
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-gray-700">{r.lean_kg} kg</p>
+              <p className="text-xs text-gray-500">Masa magra</p>
+            </div>
+          )}
         </div>
       )}
-      {results.notes && <p className="text-sm text-gray-500 border-t pt-2">{results.notes}</p>}
+      {r?.sum_mm && (
+        <p className="text-xs text-gray-400 text-center">Σ pliegues: {r.sum_mm} mm</p>
+      )}
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+    </div>
+  )
+}
+
+const SCORE_COLORS_TEXT = ['text-red-600', 'text-orange-500', 'text-yellow-500', 'text-green-600']
+const SCORE_BG = ['bg-red-50', 'bg-orange-50', 'bg-yellow-50', 'bg-green-50']
+
+function ScoredView({ results }) {
+  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const method = results.method || 'fms'
+
+  return (
+    <div className="space-y-2">
+      <MethodBadge method={method} evalType="scored" />
+
+      {method === 'fms' && results.fms_patterns && (
+        <div className="space-y-1.5 mt-2">
+          {results.fms_patterns.map((p, i) => {
+            if (p.pain) {
+              return (
+                <div key={p.key} className="flex items-center gap-2 text-sm">
+                  <span className="flex-1 text-gray-700">{p.label}</span>
+                  <span className="badge bg-red-100 text-red-600">⚠️ Dolor</span>
+                </div>
+              )
+            }
+            const sc = p.bilateral
+              ? Math.min(p.score_left ?? 3, p.score_right ?? 3)
+              : (p.score ?? 3)
+            if (sc === null || sc === undefined) return null
+            const hasAsymmetry = p.bilateral && p.score_left !== p.score_right
+            return (
+              <div key={p.key} className="flex items-center gap-2 text-sm">
+                <span className="flex-1 text-gray-700">{p.label}</span>
+                {p.bilateral && (
+                  <span className="text-xs text-gray-400">I:{p.score_left ?? '?'} D:{p.score_right ?? '?'}</span>
+                )}
+                <span className={`badge font-bold ${SCORE_BG[sc]} ${SCORE_COLORS_TEXT[sc]}`}>{sc}</span>
+                {hasAsymmetry && <span className="text-xs text-orange-500">⚡ asimetría</span>}
+              </div>
+            )
+          })}
+
+          {results.result && (
+            <div className={`mt-3 rounded-xl p-3 text-center ${results.result.total >= 14 ? 'bg-green-50' : 'bg-red-50'}`}>
+              <p className={`text-2xl font-bold ${results.result.total >= 14 ? 'text-green-700' : 'text-red-600'}`}>
+                {results.result.total} <span className="text-sm font-normal">/ 21</span>
+              </p>
+              <p className={`text-xs mt-0.5 ${results.result.total >= 14 ? 'text-green-600' : 'text-red-500'}`}>
+                {results.result.total < 14 ? '⚠️ Riesgo de lesión (< 14)' : '✅ Score aceptable'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {method === 'sit_reach' && results.distance_left_cm && (
+        <div className="bg-purple-50 rounded-xl p-3 text-center mt-2">
+          <p className="text-xl font-bold text-purple-700">{results.distance_left_cm} cm</p>
+          <p className="text-xs text-purple-500">Flexibilidad isquiosural</p>
+        </div>
+      )}
+
+      {method === 'shoulder_mob' && results.distance_left_cm && results.distance_right_cm && (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <Stat label="Mano D arriba" value={results.distance_left_cm} unit="cm" colorClass="bg-purple-50" />
+          <Stat label="Mano I arriba" value={results.distance_right_cm} unit="cm" colorClass="bg-purple-50" />
+        </div>
+      )}
+
+      {method === 'y_balance' && (
+        <div className="space-y-2 mt-2 text-xs">
+          {[
+            ['reach_anterior', 'Anterior'],
+            ['reach_posteromedial', 'Posteromedial'],
+            ['reach_posterolateral', 'Posterolateral'],
+          ].map(([field, label]) => (
+            (results[`${field}_l`] || results[`${field}_r`]) && (
+              <div key={field} className="flex items-center gap-2">
+                <span className="text-gray-600 flex-1">{label}</span>
+                {results[`${field}_l`] && <span className="badge bg-purple-50 text-purple-600">I: {results[`${field}_l`]} cm</span>}
+                {results[`${field}_r`] && <span className="badge bg-purple-50 text-purple-600">D: {results[`${field}_r`]} cm</span>}
+              </div>
+            )
+          ))}
+        </div>
+      )}
+
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
@@ -185,30 +262,31 @@ function CustomView({ results }) {
     <div className="space-y-1.5">
       {results.fields.filter(f => f.label || f.value).map((f, i) => (
         <div key={i} className="flex items-center gap-2 text-sm">
-          <span className="text-gray-700 flex-1">{f.label || `Campo ${i+1}`}</span>
-          <span className="font-medium text-gray-900">{f.value}{f.unit ? ` ${f.unit}` : ''}</span>
+          <span className="text-gray-600 flex-1">{f.label || `Campo ${i + 1}`}</span>
+          <span className="font-semibold text-gray-900">{f.value}{f.unit ? ` ${f.unit}` : ''}</span>
         </div>
       ))}
-      {results.notes && <p className="text-sm text-gray-500 border-t pt-2">{results.notes}</p>}
+      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
 
 function ResultViewer({ evalType, results }) {
   switch (evalType) {
-    case 'movement_screen': return <MovementScreenView results={results} />
-    case 'strength_amrap': return <StrengthAmrapView results={results} />
-    case 'flexibility_rom': return <FlexibilityRomView results={results} />
-    case 'jump': return <JumpView results={results} />
-    case 'cardio_cooper': return <CooperView results={results} />
+    case 'one_rm':    return <OneRMView results={results} />
+    case 'max_reps':  return <MaxRepsView results={results} />
+    case 'power':     return <PowerView results={results} />
+    case 'cardio':    return <CardioView results={results} />
     case 'body_comp': return <BodyCompView results={results} />
-    case 'custom': return <CustomView results={results} />
-    default: return <pre className="text-xs text-gray-500">{JSON.stringify(results, null, 2)}</pre>
+    case 'scored':    return <ScoredView results={results} />
+    case 'custom':    return <CustomView results={results} />
+    default:          return <pre className="text-xs text-gray-500 overflow-auto">{JSON.stringify(results, null, 2)}</pre>
   }
 }
 
-// ---- Student results card ---------------------------------
-
+// ============================================================
+// Student result card
+// ============================================================
 function StudentResultCard({ assignment, allResults, evalType }) {
   const [expanded, setExpanded] = useState(false)
   const studentResults = allResults
@@ -220,7 +298,7 @@ function StudentResultCard({ assignment, allResults, evalType }) {
     <div className="bg-gray-50 rounded-xl overflow-hidden">
       <button
         className="w-full flex items-center gap-3 p-3 text-left"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => studentResults.length > 0 && setExpanded(!expanded)}
       >
         <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
           <span className="text-primary-700 font-semibold text-sm">
@@ -243,20 +321,26 @@ function StudentResultCard({ assignment, allResults, evalType }) {
           <ExternalLink size={14} />
         </Link>
         {studentResults.length > 0 && (
-          expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />
+          expanded
+            ? <ChevronUp size={16} className="text-gray-400" />
+            : <ChevronDown size={16} className="text-gray-400" />
         )}
       </button>
 
       {expanded && studentResults.length > 0 && (
-        <div className="border-t border-gray-200 px-3 pb-3 pt-2 space-y-4">
+        <div className="border-t border-gray-200 px-3 pb-3 pt-2 space-y-5">
           {studentResults.map(res => (
             <div key={res.id}>
-              <p className="text-xs font-semibold text-gray-500 mb-2">
-                📅 {new Date(res.eval_date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              <p className="text-xs font-semibold text-gray-400 mb-2">
+                📅 {new Date(res.eval_date).toLocaleDateString('es-AR', {
+                  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                })}
               </p>
               <ResultViewer evalType={evalType} results={res.results} />
               {res.notes && (
-                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">{res.notes}</p>
+                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">
+                  💬 {res.notes}
+                </p>
               )}
             </div>
           ))}
@@ -266,8 +350,9 @@ function StudentResultCard({ assignment, allResults, evalType }) {
   )
 }
 
-// ---- Main page --------------------------------------------
-
+// ============================================================
+// Main page
+// ============================================================
 export default function EvaluationDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -357,12 +442,19 @@ export default function EvaluationDetailPage() {
 
       {/* Type info */}
       {typeInfo && (
-        <div className="card bg-gradient-to-r from-gray-50 to-white">
+        <div className="card">
           <div className="flex items-start gap-3">
             <span className="text-2xl">{typeInfo.icon}</span>
             <div>
               <p className="font-semibold text-gray-900">{typeInfo.label}</p>
               <p className="text-sm text-gray-500">{typeInfo.description}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {(METHODS[plan.eval_type] || []).map(m => (
+                  <span key={m.key} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">
+                    {m.label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -372,9 +464,7 @@ export default function EvaluationDetailPage() {
       <div className="card space-y-3">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-gray-500" />
-          <h3 className="font-semibold text-sm text-gray-900">
-            Resultados por alumno
-          </h3>
+          <h3 className="font-semibold text-sm text-gray-900">Resultados por alumno</h3>
         </div>
 
         {assignments.length === 0 ? (
@@ -399,7 +489,6 @@ export default function EvaluationDetailPage() {
         )}
       </div>
 
-      {/* No results at all */}
       {assignments.length > 0 && results.length === 0 && (
         <div className="card text-center py-6">
           <Calendar className="w-10 h-10 text-gray-200 mx-auto mb-2" />
