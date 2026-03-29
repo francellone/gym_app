@@ -202,7 +202,9 @@ export default function StudentDetailPage() {
                 { label: 'Peso objetivo', value: student.target_weight_kg ? `${student.target_weight_kg} kg` : '—' },
                 { label: 'DNI', value: student.dni || '—' },
                 { label: 'Nacimiento', value: student.birth_date ? format(parseISO(student.birth_date), 'dd/MM/yyyy') : '—' },
+                { label: 'Sexo', value: student.gender === 'male' ? 'Masculino' : student.gender === 'female' ? 'Femenino' : student.gender === 'other' ? 'Otro' : '—' },
                 { label: 'Frecuencia', value: student.weekly_frequency ? `${student.weekly_frequency} días/sem` : '—' },
+                { label: 'Objetivo', value: student.goal || '—' },
               ].map(item => (
                 <div key={item.label}>
                   <p className="text-xs text-gray-500">{item.label}</p>
@@ -211,6 +213,13 @@ export default function StudentDetailPage() {
               ))}
             </div>
           </div>
+
+          {student.observations && (
+            <div className="card border-l-4 border-l-blue-400">
+              <h3 className="font-semibold text-gray-900 text-sm mb-2">Observaciones</h3>
+              <p className="text-sm text-gray-600 whitespace-pre-wrap">{student.observations}</p>
+            </div>
+          )}
 
           {student.coach_notes && (
             <div className="card border-l-4 border-l-primary-400">

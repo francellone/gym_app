@@ -14,6 +14,7 @@ import PlansPage from './pages/coach/PlansPage'
 import PlanDetailPage from './pages/coach/PlanDetailPage'
 import CreatePlanPage from './pages/coach/CreatePlanPage'
 import ExercisesLibraryPage from './pages/coach/ExercisesLibraryPage'
+import EditPlanPage from './pages/coach/EditPlanPage'
 
 // Student pages
 import StudentLayout from './components/layout/StudentLayout'
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="plans" element={<PlansPage />} />
         <Route path="plans/new" element={<CreatePlanPage />} />
         <Route path="plans/:id" element={<PlanDetailPage />} />
+        <Route path="plans/:id/edit" element={<EditPlanPage />} />
         <Route path="exercises" element={<ExercisesLibraryPage />} />
       </Route>
 

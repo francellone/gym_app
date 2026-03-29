@@ -5,6 +5,7 @@ import {
   ArrowLeft, Edit2, Users, Dumbbell, ExternalLink,
   ChevronDown, ChevronUp, Plus, Trash2, Save
 } from 'lucide-react'
+import { displayReps } from '../../utils/planHelpers'
 
 const SECTION_LABELS = {
   activation: 'Activación',
@@ -31,7 +32,7 @@ function ExerciseItem({ ex, onEdit, onDelete }) {
           <p className="text-xs text-gray-500">
             {[
               ex.suggested_sets && `${ex.suggested_sets} series`,
-              ex.suggested_reps && `× ${ex.suggested_reps}`,
+              ex.suggested_reps && `× ${displayReps(ex.suggested_reps)}`,
               ex.suggested_weight && `· ${ex.suggested_weight}`,
               ex.rest_time && `· ${ex.rest_time} pausa`,
             ].filter(Boolean).join(' ')}

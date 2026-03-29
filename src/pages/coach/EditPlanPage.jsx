@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Plus, Save, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
 import {
-  SECTIONS, emptyPlanExercise, uiExToDBEx
+  SECTIONS, emptyPlanExercise, dbExToUIEx, uiExToDBEx
 } from '../../utils/planHelpers'
 
-export default function CreatePlanPage() {
+export default function EditPlanPage() {
+  const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const [exercises, setExercises] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
   const [plan, setPlan] = useState({
@@ -31,12 +33,43 @@ export default function CreatePlanPage() {
   })
 
   const [activeSection, setActiveSection] = useState('activation')
+  // IDs de ejercicios de plan a eliminar
+  const [toDelete, setToDelete] = useState([])
 
   useEffect(() => {
-    supabase.from('exercises').select('*').order('name').then(({ data }) => {
-      setExercises(data || [])
-    })
-  }, [])
+    Promise.all([
+      supabase.from('exercises').select('*').order('name'),
+      supabase.from('plans')
+        .select(`*, plan_exercises(*, exercise:exercises!exercise_id(*))`)
+        .eq('id', id)
+        .single(),
+    ]).then(([exRes, planRes]) => {
+      setExercises(exRes.data || [])
+      if (planRes.data) {
+        const p = planRes.data
+        setPlan({
+          title: p.title || '',
+          description: p.description || '',
+          goal: p.goal || '',
+          sessions_per_week: p.sessions_per_week || 3,
+          duration_weeks: p.duration_weeks || '',
+          is_template: p.is_template || false,
+        })
+
+        // Agrupar ejercicios por sección y convertir a formato UI
+        const grouped = { activation: [], day_a: [], day_b: [] }
+        ;(p.plan_exercises || [])
+          .sort((a, b) => a.order_index - b.order_index)
+          .forEach(ex => {
+            const section = ex.section || 'activation'
+            if (grouped[section]) {
+              grouped[section].push(dbExToUIEx(ex))
+            }
+          })
+        setPlanExercises(grouped)
+      }
+    }).finally(() => setLoading(false))
+  }, [id])
 
   function addExercise(section) {
     const newEx = emptyPlanExercise(section)
@@ -57,6 +90,9 @@ export default function CreatePlanPage() {
   }
 
   function removeExercise(section, index) {
+    const ex = planExercises[section][index]
+    // Si tiene ID de DB, marcar para borrar
+    if (ex.id) setToDelete(prev => [...prev, ex.id])
     setPlanExercises(prev => ({
       ...prev,
       [section]: prev[section].filter((_, i) => i !== index),
@@ -69,44 +105,67 @@ export default function CreatePlanPage() {
       return
     }
     setError(null)
-    setLoading(true)
+    setSaving(true)
 
     try {
-      // Crear plan
-      const { data: newPlan, error: planError } = await supabase
+      // 1. Actualizar info del plan
+      const { error: planError } = await supabase
         .from('plans')
-        .insert({
+        .update({
           ...plan,
-          created_by: profile.id,
           sessions_per_week: parseInt(plan.sessions_per_week) || 3,
           duration_weeks: plan.duration_weeks ? parseInt(plan.duration_weeks) : null,
         })
-        .select()
-        .single()
+        .eq('id', id)
       if (planError) throw planError
 
-      // Insertar ejercicios de todas las secciones
-      const allExercises = []
-      for (const section of ['activation', 'day_a', 'day_b']) {
-        planExercises[section]
-          .filter(ex => ex.exercise_id)
-          .forEach((ex, i) => {
-            allExercises.push(uiExToDBEx(ex, newPlan.id, section, i))
-          })
+      // 2. Eliminar ejercicios marcados para borrar
+      if (toDelete.length > 0) {
+        const { error: delError } = await supabase
+          .from('plan_exercises')
+          .delete()
+          .in('id', toDelete)
+        if (delError) throw delError
       }
 
-      if (allExercises.length > 0) {
-        const { error: exError } = await supabase.from('plan_exercises').insert(allExercises)
-        if (exError) throw exError
+      // 3. Upsert ejercicios (update si tienen id, insert si son nuevos)
+      const allSections = ['activation', 'day_a', 'day_b']
+      for (const section of allSections) {
+        const sectionExs = planExercises[section].filter(ex => ex.exercise_id)
+        for (let i = 0; i < sectionExs.length; i++) {
+          const ex = sectionExs[i]
+          const dbData = uiExToDBEx(ex, id, section, i)
+
+          if (ex.id) {
+            // Update existente
+            const { error: upError } = await supabase
+              .from('plan_exercises')
+              .update(dbData)
+              .eq('id', ex.id)
+            if (upError) throw upError
+          } else {
+            // Insert nuevo
+            const { error: inError } = await supabase
+              .from('plan_exercises')
+              .insert(dbData)
+            if (inError) throw inError
+          }
+        }
       }
 
-      navigate(`/coach/plans/${newPlan.id}`)
+      navigate(`/coach/plans/${id}`)
     } catch (err) {
-      setError(err.message || 'Error al guardar el plan')
+      setError(err.message || 'Error al guardar los cambios')
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
+
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
 
   const currentExercises = planExercises[activeSection]
 
@@ -116,7 +175,7 @@ export default function CreatePlanPage() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Nuevo plan</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Editar plan</h1>
       </div>
 
       {/* Plan info */}
@@ -217,7 +276,7 @@ export default function CreatePlanPage() {
         <div className="space-y-3">
           {currentExercises.map((ex, i) => (
             <PlanExerciseRow
-              key={i}
+              key={ex.id || `new-${i}`}
               ex={ex}
               index={i}
               exercises={exercises}
@@ -247,15 +306,15 @@ export default function CreatePlanPage() {
         <button onClick={() => navigate(-1)} className="btn-secondary flex-1">Cancelar</button>
         <button
           onClick={handleSave}
-          disabled={loading}
+          disabled={saving}
           className="btn-primary flex-1 flex items-center justify-center gap-2"
         >
-          {loading ? (
+          {saving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
               <Save size={16} />
-              Guardar plan
+              Guardar cambios
             </>
           )}
         </button>
