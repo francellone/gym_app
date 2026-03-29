@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ClipboardList, Plus, Search, ChevronRight, Copy, Trash2 } from 'lucide-react'
+import { ClipboardList, Plus, Search, ChevronRight, Copy, BarChart2 } from 'lucide-react'
+import DuplicatePlanModal from '../../components/plan/DuplicatePlanModal'
+import { evalTypeColor, evalTypeIcon } from '../../utils/evalHelpers'
 
 export default function PlansPage() {
+  const navigate = useNavigate()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [duplicatingPlan, setDuplicatingPlan] = useState(null)
+  const [filterType, setFilterType] = useState('all') // 'all' | 'training' | 'evaluation'
 
   useEffect(() => { fetchPlans() }, [])
 
@@ -29,44 +34,31 @@ export default function PlansPage() {
     }
   }
 
-  async function clonePlan(plan) {
-    try {
-      // Clone plan
-      const { data: newPlan, error } = await supabase
-        .from('plans')
-        .insert({ ...plan, id: undefined, title: `${plan.title} (copia)`, created_at: undefined })
-        .select()
-        .single()
-      if (error) throw error
-
-      // Clone exercises
-      const { data: exercises } = await supabase
-        .from('plan_exercises')
-        .select('*')
-        .eq('plan_id', plan.id)
-
-      if (exercises?.length) {
-        await supabase.from('plan_exercises').insert(
-          exercises.map(e => ({ ...e, id: undefined, plan_id: newPlan.id, created_at: undefined }))
-        )
-      }
-
-      fetchPlans()
-    } catch (err) {
-      console.error(err)
+  function handleDuplicateDone(newPlan) {
+    setDuplicatingPlan(null)
+    if (newPlan.plan_type === 'evaluation') {
+      navigate(`/coach/evaluations/${newPlan.id}`)
+    } else {
+      navigate(`/coach/plans/${newPlan.id}/edit`)
     }
   }
 
-  const filtered = plans.filter(p =>
-    p.title?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = plans.filter(p => {
+    const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
+    const matchType = filterType === 'all' || (p.plan_type || 'training') === filterType
+    return matchSearch && matchType
+  })
+
+  const trainingCount = plans.filter(p => !p.plan_type || p.plan_type === 'training').length
+  const evalCount = plans.filter(p => p.plan_type === 'evaluation').length
 
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planes</h1>
-          <p className="text-sm text-gray-500">{plans.length} planes</p>
+          <p className="text-sm text-gray-500">{plans.length} planes en total</p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
@@ -74,6 +66,33 @@ export default function PlansPage() {
         </Link>
       </div>
 
+      {/* Type filter tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        {[
+          { key: 'all', label: 'Todos', count: plans.length },
+          { key: 'training', label: 'Entrenamiento', count: trainingCount },
+          { key: 'evaluation', label: 'Evaluación', count: evalCount },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setFilterType(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              filterType === tab.key
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.key === 'evaluation' && <BarChart2 size={13} />}
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.key === 'all' ? 'Todos' : tab.key === 'training' ? 'Entr.' : 'Eval.'}</span>
+            <span className={`text-xs ${filterType === tab.key ? 'text-gray-500' : 'text-gray-400'}`}>
+              ({tab.count})
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -85,9 +104,10 @@ export default function PlansPage() {
         />
       </div>
 
+      {/* List */}
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="card animate-pulse">
               <div className="h-5 bg-gray-200 rounded w-2/3 mb-2" />
               <div className="h-4 bg-gray-100 rounded w-1/3" />
@@ -107,34 +127,51 @@ export default function PlansPage() {
         <div className="space-y-2">
           {filtered.map(plan => {
             const activeAssignments = plan.plan_assignments?.filter(a => a.active) || []
+            const isEval = plan.plan_type === 'evaluation'
+
             return (
               <div key={plan.id} className="card">
                 <div className="flex items-start gap-3">
-                  <Link to={`/coach/plans/${plan.id}`} className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <Link
+                    to={isEval ? `/coach/evaluations/${plan.id}` : `/coach/plans/${plan.id}`}
+                    className="flex-1 min-w-0"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-gray-900 truncate">{plan.title}</p>
                       {plan.is_template && (
                         <span className="badge bg-purple-100 text-purple-700">Plantilla</span>
                       )}
+                      {isEval && plan.eval_type && (
+                        <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
+                          {evalTypeIcon(plan.eval_type)} Evaluación
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {plan.plan_exercises?.length || 0} ejercicios
-                      {plan.sessions_per_week ? ` · ${plan.sessions_per_week} días/sem` : ''}
-                      {activeAssignments.length > 0 ? ` · ${activeAssignments.length} alumno${activeAssignments.length > 1 ? 's' : ''}` : ''}
+                      {isEval ? 'Protocolo de evaluación' : `${plan.plan_exercises?.length || 0} ejercicios`}
+                      {plan.sessions_per_week && !isEval ? ` · ${plan.sessions_per_week} días/sem` : ''}
+                      {activeAssignments.length > 0
+                        ? ` · ${activeAssignments.length} alumno${activeAssignments.length > 1 ? 's' : ''}`
+                        : ''}
                     </p>
                     {plan.description && (
                       <p className="text-xs text-gray-400 mt-1 truncate">{plan.description}</p>
                     )}
                   </Link>
+
+                  {/* Actions */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
-                      onClick={() => clonePlan(plan)}
+                      onClick={() => setDuplicatingPlan(plan)}
                       className="btn-ghost p-2 text-gray-500"
-                      title="Clonar plan"
+                      title="Duplicar plan"
                     >
                       <Copy size={16} />
                     </button>
-                    <Link to={`/coach/plans/${plan.id}`} className="btn-ghost p-2">
+                    <Link
+                      to={isEval ? `/coach/evaluations/${plan.id}` : `/coach/plans/${plan.id}`}
+                      className="btn-ghost p-2"
+                    >
                       <ChevronRight size={16} className="text-gray-400" />
                     </Link>
                   </div>
@@ -143,6 +180,15 @@ export default function PlansPage() {
             )
           })}
         </div>
+      )}
+
+      {/* Duplicate modal */}
+      {duplicatingPlan && (
+        <DuplicatePlanModal
+          plan={duplicatingPlan}
+          onClose={() => setDuplicatingPlan(null)}
+          onDone={handleDuplicateDone}
+        />
       )}
     </div>
   )

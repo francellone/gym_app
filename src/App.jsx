@@ -15,6 +15,8 @@ import PlanDetailPage from './pages/coach/PlanDetailPage'
 import CreatePlanPage from './pages/coach/CreatePlanPage'
 import ExercisesLibraryPage from './pages/coach/ExercisesLibraryPage'
 import EditPlanPage from './pages/coach/EditPlanPage'
+import EvaluationsPage from './pages/coach/EvaluationsPage'
+import EvaluationDetailPage from './pages/coach/EvaluationDetailPage'
 
 // Student pages
 import StudentLayout from './components/layout/StudentLayout'
@@ -23,6 +25,7 @@ import TodayWorkoutPage from './pages/student/TodayWorkoutPage'
 import ProgressPage from './pages/student/ProgressPage'
 import HistoryPage from './pages/student/HistoryPage'
 import ProfilePage from './pages/student/ProfilePage'
+import EvalWorkoutPage from './pages/student/EvalWorkoutPage'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, profile, loading } = useAuth()
@@ -82,6 +85,8 @@ function AppRoutes() {
         <Route path="plans/:id" element={<PlanDetailPage />} />
         <Route path="plans/:id/edit" element={<EditPlanPage />} />
         <Route path="exercises" element={<ExercisesLibraryPage />} />
+        <Route path="evaluations" element={<EvaluationsPage />} />
+        <Route path="evaluations/:id" element={<EvaluationDetailPage />} />
       </Route>
 
       {/* Student routes */}
@@ -92,6 +97,7 @@ function AppRoutes() {
       }>
         <Route index element={<StudentDashboard />} />
         <Route path="workout" element={<TodayWorkoutPage />} />
+        <Route path="eval/:planId" element={<EvalWorkoutPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />

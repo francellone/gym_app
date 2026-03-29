@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { format, parseISO, subDays, eachDayOfInterval, isToday } from 'date-fns'
+import { format, subDays, eachDayOfInterval, isToday } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Dumbbell, TrendingUp, Calendar, ChevronRight, Flame } from 'lucide-react'
+import { Dumbbell, TrendingUp, Calendar, ChevronRight, Flame, BarChart2 } from 'lucide-react'
+import { evalTypeIcon, evalTypeLabel } from '../../utils/evalHelpers'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
-  const [activePlan, setActivePlan] = useState(null)
+  const [assignments, setAssignments] = useState([])
   const [weekLogs, setWeekLogs] = useState([])
   const [streak, setStreak] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -22,15 +23,13 @@ export default function StudentDashboard() {
       const weekAgo = format(subDays(new Date(), 6), 'yyyy-MM-dd')
       const today = format(new Date(), 'yyyy-MM-dd')
 
-      const [planRes, logsRes] = await Promise.all([
+      const [assignmentsRes, logsRes] = await Promise.all([
         supabase
           .from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
           .eq('student_id', profile.id)
           .eq('active', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single(),
+          .order('created_at', { ascending: false }),
         supabase
           .from('workout_logs')
           .select('logged_date, completed')
@@ -39,12 +38,12 @@ export default function StudentDashboard() {
           .lte('logged_date', today)
       ])
 
-      setActivePlan(planRes.data)
+      setAssignments(assignmentsRes.data || [])
 
       const logs = logsRes.data || []
       setWeekLogs(logs)
 
-      // Calcular racha
+      // Streak
       let streakCount = 0
       let checkDate = new Date()
       while (true) {
@@ -63,12 +62,12 @@ export default function StudentDashboard() {
     }
   }
 
-  const last7Days = eachDayOfInterval({
-    start: subDays(new Date(), 6),
-    end: new Date()
-  })
-
+  const last7Days = eachDayOfInterval({ start: subDays(new Date(), 6), end: new Date() })
   const trainingDays = new Set(weekLogs.filter(l => l.completed).map(l => l.logged_date))
+
+  const trainingPlans = assignments.filter(a => !a.plan?.plan_type || a.plan?.plan_type === 'training')
+  const evalPlans = assignments.filter(a => a.plan?.plan_type === 'evaluation')
+  const activePlan = trainingPlans[0]
 
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
@@ -85,7 +84,6 @@ export default function StudentDashboard() {
           {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
         </p>
 
-        {/* Streak */}
         {streak > 0 && (
           <div className="flex items-center gap-2 mt-4 bg-white/10 rounded-xl px-3 py-2 w-fit">
             <Flame size={18} className="text-orange-300" />
@@ -139,21 +137,31 @@ export default function StudentDashboard() {
           </div>
         </Link>
 
-        {/* Plan info */}
-        {activePlan?.plan && (
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Calendar size={18} className="text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-gray-900 truncate">{activePlan.plan.title}</p>
-                <p className="text-xs text-gray-500">
-                  {activePlan.plan.sessions_per_week} días/semana
-                  {activePlan.plan.goal ? ` · ${activePlan.plan.goal}` : ''}
-                </p>
-              </div>
-            </div>
+        {/* Evaluation plans */}
+        {evalPlans.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <BarChart2 size={14} className="text-purple-500" />
+              Mis evaluaciones
+            </h3>
+            {evalPlans.map(a => (
+              <Link
+                key={a.id}
+                to={`/student/eval/${a.plan_id}`}
+                className="block card hover:shadow-md transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
+                    {evalTypeIcon(a.plan?.eval_type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{a.plan?.title}</p>
+                    <p className="text-xs text-gray-500">{evalTypeLabel(a.plan?.eval_type)}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-400" />
+                </div>
+              </Link>
+            ))}
           </div>
         )}
 
