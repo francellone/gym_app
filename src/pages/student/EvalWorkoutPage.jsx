@@ -410,9 +410,9 @@ function CardioForm({ results, onChange }) {
         <div className="space-y-3">
           <p className="text-xs text-gray-500">Pulso de recuperación: contar durante 30 seg y multiplicar × 2</p>
           <div className="grid grid-cols-3 gap-3">
-            <NumInput label="FC 1'–1'30\"" unit="bpm" placeholder="150" value={results.hr1 || ''} onChange={v => onChange({ ...results, hr1: v })} />
-            <NumInput label="FC 2'–2'30\"" unit="bpm" placeholder="130" value={results.hr2 || ''} onChange={v => onChange({ ...results, hr2: v })} />
-            <NumInput label="FC 3'–3'30\"" unit="bpm" placeholder="120" value={results.hr3 || ''} onChange={v => onChange({ ...results, hr3: v })} />
+            <NumInput label={`FC 1'–1'30"`} unit="bpm" placeholder="150" value={results.hr1 || ''} onChange={v => onChange({ ...results, hr1: v })} />
+            <NumInput label={`FC 2'–2'30"`} unit="bpm" placeholder="130" value={results.hr2 || ''} onChange={v => onChange({ ...results, hr2: v })} />
+            <NumInput label={`FC 3'–3'30"`} unit="bpm" placeholder="120" value={results.hr3 || ''} onChange={v => onChange({ ...results, hr3: v })} />
           </div>
           <NumInput label="Duración del test" unit="seg" placeholder="300" value={results.step_duration_sec || '300'} onChange={v => onChange({ ...results, step_duration_sec: v })} hint="Máx 300 seg (5 min)" />
         </div>
