@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -7,35 +7,24 @@ import {
   emptyResults, evalTypeLabel, evalTypeIcon,
   calc1RM, calcPower, calcVO2max, calcBodyComp, calcFMSScore,
 } from '../../utils/evalHelpers'
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock } from 'lucide-react'
 
 // ============================================================
-// Shared: Method selector
+// Shared: Method badge (locked by coach, not selectable)
 // ============================================================
-function MethodSelector({ evalType, value, onChange }) {
+function MethodBadge({ evalType, methodKey }) {
   const methods = METHODS[evalType] || []
+  const m = methods.find(x => x.key === methodKey)
+  if (!m) return null
   return (
-    <div className="space-y-2">
-      <label className="label">Método de evaluación</label>
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {methods.map(m => (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => onChange(m.key)}
-            className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
-              value === m.key
-                ? 'bg-primary-600 text-white border-primary-600 shadow'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'
-            }`}
-          >
-            {m.label}
-          </button>
-        ))}
+    <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl p-3">
+      <Lock size={14} className="text-purple-500 mt-0.5 flex-shrink-0" />
+      <div>
+        <p className="text-xs font-semibold text-purple-700">
+          Método: {m.label}
+        </p>
+        {m.note && <p className="text-xs text-purple-500 mt-0.5">{m.note}</p>}
       </div>
-      {methods.find(m => m.key === value)?.note && (
-        <p className="text-xs text-gray-400">{methods.find(m => m.key === value).note}</p>
-      )}
     </div>
   )
 }
@@ -101,60 +90,55 @@ function SexSelector({ value, onChange }) {
 // ============================================================
 // FORM: 1RM
 // ============================================================
-function OneRMForm({ results, onChange }) {
-  const method = results.method || 'brzycki'
+function OneRMForm({ results, onChange, planMethod, planExercises }) {
+  const method = planMethod || results.method || 'brzycki'
+  const usePlanExercises = planExercises && planExercises.length > 0
 
   function updateExercise(i, field, value) {
     const exercises = [...(results.exercises || [])]
     exercises[i] = { ...exercises[i], [field]: value }
-    // recalculate 1RM
     if (field === 'weight_kg' || field === 'reps') {
       const w = field === 'weight_kg' ? value : exercises[i].weight_kg
       const r = field === 'reps' ? value : exercises[i].reps
       exercises[i].one_rm = calc1RM(method, w, r)
     }
-    onChange({ ...results, exercises })
+    onChange({ ...results, method, exercises })
   }
 
   function addExercise() {
     const ex = { name: '', weight_kg: '', reps: '', one_rm: null }
-    onChange({ ...results, exercises: [...(results.exercises || []), ex] })
+    onChange({ ...results, method, exercises: [...(results.exercises || []), ex] })
   }
 
   function removeExercise(i) {
     onChange({ ...results, exercises: results.exercises.filter((_, idx) => idx !== i) })
   }
 
-  function changeMethod(m) {
-    // Recalculate all exercises with new method
-    const exercises = (results.exercises || []).map(ex => ({
-      ...ex,
-      one_rm: calc1RM(m, ex.weight_kg, ex.reps),
-    }))
-    onChange({ ...results, method: m, exercises })
-  }
-
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="one_rm" value={method} onChange={changeMethod} />
+      <MethodBadge evalType="one_rm" methodKey={method} />
 
       {(results.exercises || []).map((ex, i) => (
         <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500">Ejercicio {i + 1}</span>
-            {(results.exercises || []).length > 1 && (
+            <span className="text-xs font-bold text-gray-500">
+              {ex.name || `Ejercicio ${i + 1}`}
+            </span>
+            {!usePlanExercises && (results.exercises || []).length > 1 && (
               <button onClick={() => removeExercise(i)} className="ml-auto text-red-400 hover:text-red-600 p-1">
                 <Trash2 size={14} />
               </button>
             )}
           </div>
 
-          <input
-            className="input text-sm"
-            placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
-            value={ex.name || ''}
-            onChange={e => updateExercise(i, 'name', e.target.value)}
-          />
+          {!usePlanExercises && (
+            <input
+              className="input text-sm"
+              placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
+              value={ex.name || ''}
+              onChange={e => updateExercise(i, 'name', e.target.value)}
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <NumInput
@@ -185,13 +169,15 @@ function OneRMForm({ results, onChange }) {
         </div>
       ))}
 
-      <button
-        type="button"
-        onClick={addExercise}
-        className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-      >
-        <Plus size={14} /> Agregar ejercicio
-      </button>
+      {!usePlanExercises && (
+        <button
+          type="button"
+          onClick={addExercise}
+          className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+        >
+          <Plus size={14} /> Agregar ejercicio
+        </button>
+      )}
 
       <div>
         <label className="label">Notas</label>
@@ -210,18 +196,70 @@ function OneRMForm({ results, onChange }) {
 // ============================================================
 // FORM: Max Reps
 // ============================================================
-function MaxRepsForm({ results, onChange }) {
-  const method = results.method || 'pushup'
+function MaxRepsForm({ results, onChange, planMethod, planExercises }) {
+  const method = planMethod || results.method || 'pushup'
+  const usePlanExercises = planExercises && planExercises.length > 0
   const needsWeight = method === 'submax'
   const needsTime = method === 'situp'
 
+  if (usePlanExercises) {
+    // Multi-exercise mode: each exercise gets its own reps entry
+    function updateExercise(i, field, value) {
+      const exercises = [...(results.exercises || [])]
+      exercises[i] = { ...exercises[i], [field]: value }
+      onChange({ ...results, method, exercises })
+    }
+
+    return (
+      <div className="space-y-5">
+        <MethodBadge evalType="max_reps" methodKey={method} />
+
+        {(results.exercises || []).map((ex, i) => (
+          <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumInput
+                label={needsTime ? 'Reps en 60 seg' : 'Repeticiones máximas'}
+                placeholder="Ej: 25"
+                value={ex.reps || ''}
+                onChange={v => updateExercise(i, 'reps', v)}
+              />
+              {needsWeight && (
+                <NumInput
+                  label="Peso utilizado"
+                  unit="kg"
+                  step="0.5"
+                  placeholder="Ej: 60"
+                  value={ex.weight_kg || ''}
+                  onChange={v => updateExercise(i, 'weight_kg', v)}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+
+        <div>
+          <label className="label">Notas</label>
+          <textarea
+            className="input resize-none text-sm"
+            rows={2}
+            placeholder="Condiciones del test, fatiga, pausas..."
+            value={results.notes || ''}
+            onChange={e => onChange({ ...results, notes: e.target.value })}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Single exercise mode (free-form)
   const totalReps = parseInt(results.reps) || 0
   const weight = parseFloat(results.weight_kg) || 0
   const volume = needsWeight && totalReps && weight ? +(totalReps * weight).toFixed(1) : null
 
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="max_reps" value={method} onChange={m => onChange({ ...results, method: m, reps: '', weight_kg: '', volume: null })} />
+      <MethodBadge evalType="max_reps" methodKey={method} />
 
       <div className="grid grid-cols-1 gap-3">
         <NumInput
@@ -230,7 +268,6 @@ function MaxRepsForm({ results, onChange }) {
           value={results.reps || ''}
           onChange={v => onChange({ ...results, reps: v })}
         />
-
         {needsWeight && (
           <NumInput
             label="Peso utilizado"
@@ -270,8 +307,8 @@ function MaxRepsForm({ results, onChange }) {
 // ============================================================
 // FORM: Power
 // ============================================================
-function PowerForm({ results, onChange }) {
-  const method = results.method || 'harman'
+function PowerForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'harman'
 
   const computed = calcPower(method, {
     mass_kg: results.mass_kg,
@@ -280,6 +317,18 @@ function PowerForm({ results, onChange }) {
     distance_m: results.distance_m,
   })
 
+  // Store computed result in results JSONB on every change
+  function update(field, value) {
+    const updated = { ...results, method, [field]: value }
+    const c = calcPower(method, {
+      mass_kg: updated.mass_kg,
+      jump_cm: updated.jump_cm,
+      time_sec: updated.time_sec,
+      distance_m: updated.distance_m,
+    })
+    onChange({ ...updated, result: c || null })
+  }
+
   const needsMass = ['lewis', 'harman'].includes(method)
   const needsJump = ['lewis', 'harman'].includes(method)
   const needsDist = ['broad_jump', 'sprint'].includes(method)
@@ -287,48 +336,24 @@ function PowerForm({ results, onChange }) {
 
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="power" value={method} onChange={m => onChange({ ...results, method: m, result: null })} />
+      <MethodBadge evalType="power" methodKey={method} />
 
       <div className="grid grid-cols-2 gap-3">
         {needsMass && (
-          <NumInput
-            label="Masa corporal"
-            unit="kg"
-            step="0.1"
-            placeholder="70"
-            value={results.mass_kg || ''}
-            onChange={v => onChange({ ...results, mass_kg: v })}
-          />
+          <NumInput label="Masa corporal" unit="kg" step="0.1" placeholder="70"
+            value={results.mass_kg || ''} onChange={v => update('mass_kg', v)} />
         )}
         {needsJump && (
-          <NumInput
-            label="Altura de salto"
-            unit="cm"
-            step="0.5"
-            placeholder="45"
-            value={results.jump_cm || ''}
-            onChange={v => onChange({ ...results, jump_cm: v })}
-          />
+          <NumInput label="Altura de salto" unit="cm" step="0.5" placeholder="45"
+            value={results.jump_cm || ''} onChange={v => update('jump_cm', v)} />
         )}
         {needsDist && (
-          <NumInput
-            label="Distancia"
-            unit="m"
-            step="0.01"
-            placeholder="Ej: 2.35"
-            value={results.distance_m || ''}
-            onChange={v => onChange({ ...results, distance_m: v })}
-          />
+          <NumInput label="Distancia" unit="m" step="0.01" placeholder="Ej: 2.35"
+            value={results.distance_m || ''} onChange={v => update('distance_m', v)} />
         )}
         {needsTime && (
-          <NumInput
-            label="Tiempo"
-            unit="seg"
-            step="0.01"
-            placeholder="Ej: 1.85"
-            value={results.time_sec || ''}
-            onChange={v => onChange({ ...results, time_sec: v })}
-          />
+          <NumInput label="Tiempo" unit="seg" step="0.01" placeholder="Ej: 1.85"
+            value={results.time_sec || ''} onChange={v => update('time_sec', v)} />
         )}
       </div>
 
@@ -366,43 +391,49 @@ function PowerForm({ results, onChange }) {
 // ============================================================
 // FORM: Cardio
 // ============================================================
-function CardioForm({ results, onChange }) {
-  const method = results.method || 'cooper'
+function CardioForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'cooper'
+
+  function update(patch) {
+    const updated = { ...results, method, ...patch }
+    const vo2 = calcVO2max(method, updated)
+    onChange({ ...updated, vo2max: vo2 })
+  }
 
   const vo2 = calcVO2max(method, results)
 
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="cardio" value={method} onChange={m => onChange({ ...results, method: m, vo2max: null })} />
+      <MethodBadge evalType="cardio" methodKey={method} />
 
       {method === 'cooper' && (
         <NumInput label="Distancia recorrida en 12 min" unit="m" placeholder="2800"
           value={results.distance_m || ''}
-          onChange={v => onChange({ ...results, distance_m: v })}
+          onChange={v => update({ distance_m: v })}
           hint="Test Cooper clásico: correr 12 minutos y medir distancia"
         />
       )}
 
       {method === 'rockport' && (
         <div className="space-y-3">
-          <SexSelector value={results.sex || 'male'} onChange={v => onChange({ ...results, sex: v })} />
+          <SexSelector value={results.sex || 'male'} onChange={v => update({ sex: v })} />
           <div className="grid grid-cols-2 gap-3">
-            <NumInput label="Edad" unit="años" placeholder="30" value={results.age || ''} onChange={v => onChange({ ...results, age: v })} />
-            <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => onChange({ ...results, weight_kg: v })} />
-            <NumInput label="Tiempo en caminar 1 milla" unit="min" step="0.01" placeholder="12.5" value={results.time_min || ''} onChange={v => onChange({ ...results, time_min: v })} hint="1 milla = 1609 m" />
-            <NumInput label="FC al finalizar" unit="bpm" placeholder="150" value={results.heart_rate || ''} onChange={v => onChange({ ...results, heart_rate: v })} />
+            <NumInput label="Edad" unit="años" placeholder="30" value={results.age || ''} onChange={v => update({ age: v })} />
+            <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => update({ weight_kg: v })} />
+            <NumInput label="Tiempo en caminar 1 milla" unit="min" step="0.01" placeholder="12.5" value={results.time_min || ''} onChange={v => update({ time_min: v })} hint="1 milla = 1609 m" />
+            <NumInput label="FC al finalizar" unit="bpm" placeholder="150" value={results.heart_rate || ''} onChange={v => update({ heart_rate: v })} />
           </div>
         </div>
       )}
 
       {method === 'yoyo' && (
-        <NumInput label="Nivel alcanzado (Yo-Yo Nivel 1)" placeholder="Ej: 16.3" value={results.yoyo_level || ''} onChange={v => onChange({ ...results, yoyo_level: v })} hint="Nivel en formato etapa.número (ej: 16.3)" />
+        <NumInput label="Nivel alcanzado (Yo-Yo Nivel 1)" placeholder="Ej: 16.3" value={results.yoyo_level || ''} onChange={v => update({ yoyo_level: v })} hint="Nivel en formato etapa.número (ej: 16.3)" />
       )}
 
       {method === 'beep' && (
         <div className="grid grid-cols-2 gap-3">
-          <NumInput label="Nivel alcanzado" placeholder="Ej: 12" value={results.beep_level || ''} onChange={v => onChange({ ...results, beep_level: v })} />
-          <NumInput label="Velocidad (km/h)" step="0.1" placeholder="12" value={results.beep_speed || ''} onChange={v => onChange({ ...results, beep_speed: v })} />
+          <NumInput label="Nivel alcanzado" placeholder="Ej: 12" value={results.beep_level || ''} onChange={v => update({ beep_level: v })} />
+          <NumInput label="Velocidad (km/h)" step="0.1" placeholder="12" value={results.beep_speed || ''} onChange={v => update({ beep_speed: v })} />
         </div>
       )}
 
@@ -410,11 +441,11 @@ function CardioForm({ results, onChange }) {
         <div className="space-y-3">
           <p className="text-xs text-gray-500">Pulso de recuperación: contar durante 30 seg y multiplicar × 2</p>
           <div className="grid grid-cols-3 gap-3">
-            <NumInput label={`FC 1'–1'30"`} unit="bpm" placeholder="150" value={results.hr1 || ''} onChange={v => onChange({ ...results, hr1: v })} />
-            <NumInput label={`FC 2'–2'30"`} unit="bpm" placeholder="130" value={results.hr2 || ''} onChange={v => onChange({ ...results, hr2: v })} />
-            <NumInput label={`FC 3'–3'30"`} unit="bpm" placeholder="120" value={results.hr3 || ''} onChange={v => onChange({ ...results, hr3: v })} />
+            <NumInput label={`FC 1'-1'30"`} unit="bpm" placeholder="150" value={results.hr1 || ''} onChange={v => update({ hr1: v })} />
+            <NumInput label={`FC 2'-2'30"`} unit="bpm" placeholder="130" value={results.hr2 || ''} onChange={v => update({ hr2: v })} />
+            <NumInput label={`FC 3'-3'30"`} unit="bpm" placeholder="120" value={results.hr3 || ''} onChange={v => update({ hr3: v })} />
           </div>
-          <NumInput label="Duración del test" unit="seg" placeholder="300" value={results.step_duration_sec || '300'} onChange={v => onChange({ ...results, step_duration_sec: v })} hint="Máx 300 seg (5 min)" />
+          <NumInput label="Duración del test" unit="seg" placeholder="300" value={results.step_duration_sec || '300'} onChange={v => update({ step_duration_sec: v })} hint="Máx 300 seg (5 min)" />
         </div>
       )}
 
@@ -447,11 +478,9 @@ function CardioForm({ results, onChange }) {
 // ============================================================
 // FORM: Body Composition
 // ============================================================
-function BodyCompForm({ results, onChange }) {
-  const method = results.method || 'jp3'
+function BodyCompForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'jp3'
   const sex = results.sex || 'male'
-
-  const computed = calcBodyComp(method, results)
 
   const skinfoldFields = {
     jp3: sex === 'male'
@@ -472,24 +501,37 @@ function BodyCompForm({ results, onChange }) {
   const sFields = skinfoldFields[method] || []
   const pFields = perimeterFields[method] || []
 
+  function update(patch) {
+    const updated = { ...results, method, ...patch }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
+  }
+
   function updateSkinfold(key, value) {
-    onChange({ ...results, skinfolds: { ...results.skinfolds, [key]: value } })
+    const updated = { ...results, method, skinfolds: { ...results.skinfolds, [key]: value } }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
   }
+
   function updatePerimeter(key, value) {
-    onChange({ ...results, perimeters: { ...results.perimeters, [key]: value } })
+    const updated = { ...results, method, perimeters: { ...results.perimeters, [key]: value } }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
   }
+
+  const computed = calcBodyComp(method, results)
 
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="body_comp" value={method} onChange={m => onChange({ ...results, method: m, result: null })} />
+      <MethodBadge evalType="body_comp" methodKey={method} />
 
-      <SexSelector value={sex} onChange={v => onChange({ ...results, sex: v })} />
+      <SexSelector value={sex} onChange={v => update({ sex: v })} />
 
       <div className="grid grid-cols-2 gap-3">
-        <NumInput label="Edad" unit="años" placeholder="28" value={results.age || ''} onChange={v => onChange({ ...results, age: v })} />
-        <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => onChange({ ...results, weight_kg: v })} />
+        <NumInput label="Edad" unit="años" placeholder="28" value={results.age || ''} onChange={v => update({ age: v })} />
+        <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => update({ weight_kg: v })} />
         {method === 'navy' && (
-          <NumInput label="Talla" unit="cm" step="0.5" placeholder="175" value={results.height_cm || ''} onChange={v => onChange({ ...results, height_cm: v })} />
+          <NumInput label="Talla" unit="cm" step="0.5" placeholder="175" value={results.height_cm || ''} onChange={v => update({ height_cm: v })} />
         )}
       </div>
 
@@ -555,7 +597,6 @@ function BodyCompForm({ results, onChange }) {
 // ============================================================
 const SCORES = [0, 1, 2, 3]
 const SCORE_COLORS = ['bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-green-500']
-const SCORE_LABELS = ['0 – Dolor', '1 – No pasa', '2 – Compensado', '3 – Óptimo']
 
 function ScoreButton({ value, selected, onClick }) {
   return (
@@ -573,21 +614,21 @@ function ScoreButton({ value, selected, onClick }) {
   )
 }
 
-function ScoredForm({ results, onChange }) {
-  const method = results.method || 'fms'
+function ScoredForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'fms'
 
   function updateFMS(i, field, value) {
     const patterns = [...(results.fms_patterns || [])]
     patterns[i] = { ...patterns[i], [field]: value }
     const { total, asymmetries } = calcFMSScore(patterns)
-    onChange({ ...results, fms_patterns: patterns, result: { total, asymmetries } })
+    onChange({ ...results, method, fms_patterns: patterns, result: { total, asymmetries } })
   }
 
   const fmsTotal = results.result?.total
 
   return (
     <div className="space-y-5">
-      <MethodSelector evalType="scored" value={method} onChange={m => onChange({ ...results, method: m, result: null })} />
+      <MethodBadge evalType="scored" methodKey={method} />
 
       {method === 'fms' && (
         <div className="space-y-4">
@@ -791,15 +832,16 @@ function CustomForm({ results, onChange }) {
 // ============================================================
 // Dispatcher
 // ============================================================
-function EvalForm({ evalType, results, onChange }) {
+function EvalForm({ evalType, results, onChange, planMethod, planExercises }) {
+  const props = { results, onChange, planMethod, planExercises }
   switch (evalType) {
-    case 'one_rm':    return <OneRMForm results={results} onChange={onChange} />
-    case 'max_reps':  return <MaxRepsForm results={results} onChange={onChange} />
-    case 'power':     return <PowerForm results={results} onChange={onChange} />
-    case 'cardio':    return <CardioForm results={results} onChange={onChange} />
-    case 'body_comp': return <BodyCompForm results={results} onChange={onChange} />
-    case 'scored':    return <ScoredForm results={results} onChange={onChange} />
-    case 'custom':    return <CustomForm results={results} onChange={onChange} />
+    case 'one_rm':    return <OneRMForm {...props} />
+    case 'max_reps':  return <MaxRepsForm {...props} />
+    case 'power':     return <PowerForm {...props} />
+    case 'cardio':    return <CardioForm {...props} />
+    case 'body_comp': return <BodyCompForm {...props} />
+    case 'scored':    return <ScoredForm {...props} />
+    case 'custom':    return <CustomForm {...props} />
     default:          return <p className="text-sm text-gray-400">Tipo de evaluación no reconocido.</p>
   }
 }
@@ -813,6 +855,7 @@ export default function EvalWorkoutPage() {
   const { user } = useAuth()
 
   const [plan, setPlan] = useState(null)
+  const [planExercises, setPlanExercises] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -833,8 +876,34 @@ export default function EvalWorkoutPage() {
         .single()
       if (error) throw error
       setPlan(data)
-      setResults(emptyResults(data.eval_type))
 
+      // For exercise-based eval types, pre-load the plan's exercises
+      let planEx = []
+      if (['one_rm', 'max_reps'].includes(data.eval_type)) {
+        const { data: exData } = await supabase
+          .from('plan_exercises')
+          .select('*, exercises(name)')
+          .eq('plan_id', planId)
+          .eq('section', 'day_a')
+          .order('order_index')
+        planEx = exData || []
+        setPlanExercises(planEx)
+      }
+
+      // Build initial results with method and pre-loaded exercises
+      const initResults = emptyResults(data.eval_type, data.eval_method || '')
+      if (planEx.length > 0) {
+        initResults.exercises = planEx.map(pe => ({
+          exercise_id: pe.exercise_id,
+          name: pe.exercises?.name || 'Ejercicio',
+          weight_kg: '',
+          reps: '',
+          one_rm: null,
+        }))
+      }
+      setResults(initResults)
+
+      // Load existing result for today (if any)
       const { data: existing } = await supabase
         .from('evaluation_results')
         .select('*')
@@ -844,7 +913,18 @@ export default function EvalWorkoutPage() {
         .single()
 
       if (existing) {
-        setResults(existing.results)
+        // Merge exercise names from plan (in case they're missing from stored data)
+        let loadedResults = existing.results
+        if (planEx.length > 0 && loadedResults.exercises) {
+          loadedResults = {
+            ...loadedResults,
+            exercises: loadedResults.exercises.map((ex, i) => ({
+              ...ex,
+              name: ex.name || planEx[i]?.exercises?.name || `Ejercicio ${i + 1}`,
+            })),
+          }
+        }
+        setResults(loadedResults)
         setNotes(existing.notes || '')
       }
     } catch (err) {
@@ -914,7 +994,17 @@ export default function EvalWorkoutPage() {
           max={new Date().toISOString().slice(0, 10)}
           onChange={e => {
             setEvalDate(e.target.value)
-            setResults(emptyResults(plan.eval_type))
+            const initResults = emptyResults(plan.eval_type, plan.eval_method || '')
+            if (planExercises.length > 0) {
+              initResults.exercises = planExercises.map(pe => ({
+                exercise_id: pe.exercise_id,
+                name: pe.exercises?.name || 'Ejercicio',
+                weight_kg: '',
+                reps: '',
+                one_rm: null,
+              }))
+            }
+            setResults(initResults)
           }}
         />
       </div>
@@ -926,6 +1016,8 @@ export default function EvalWorkoutPage() {
           evalType={plan.eval_type}
           results={results}
           onChange={setResults}
+          planMethod={plan.eval_method || ''}
+          planExercises={planExercises}
         />
       </div>
 
@@ -947,6 +1039,7 @@ export default function EvalWorkoutPage() {
           <span>{error}</span>
         </div>
       )}
+
       {saved && (
         <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl p-3 text-sm">
           <CheckCircle size={16} />

@@ -7,7 +7,7 @@ import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
 import {
   SECTIONS, emptyPlanExercise, uiExToDBEx
 } from '../../utils/planHelpers'
-import { EVAL_TYPES } from '../../utils/evalHelpers'
+import { EVAL_TYPES, METHODS } from '../../utils/evalHelpers'
 
 export default function CreatePlanPage() {
   const navigate = useNavigate()
@@ -27,6 +27,7 @@ export default function CreatePlanPage() {
     is_template: false,
     plan_type: 'training',
     eval_type: '',
+    eval_method: '',
   })
 
   const [planExercises, setPlanExercises] = useState({
@@ -98,6 +99,7 @@ export default function CreatePlanPage() {
           is_template: plan.is_template,
           plan_type: plan.plan_type,
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
+          eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
           created_by: profile.id,
         })
         .select()
@@ -183,7 +185,7 @@ export default function CreatePlanPage() {
           </div>
         </div>
 
-        {/* Tipo de evaluación */}
+        {/* Categoría de evaluación */}
         {isEval && (
           <div>
             <label className="label">Categoría de evaluación</label>
@@ -192,7 +194,7 @@ export default function CreatePlanPage() {
                 <button
                   key={et.key}
                   type="button"
-                  onClick={() => setPlan(p => ({ ...p, eval_type: et.key }))}
+                  onClick={() => setPlan(p => ({ ...p, eval_type: et.key, eval_method: '' }))}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
                     plan.eval_type === et.key
                       ? 'border-purple-500 bg-purple-50'
@@ -207,6 +209,39 @@ export default function CreatePlanPage() {
                     <p className="text-xs text-gray-400">{et.description}</p>
                   </div>
                   {plan.eval_type === et.key && (
+                    <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Método del protocolo */}
+        {isEval && plan.eval_type && METHODS[plan.eval_type]?.length > 0 && (
+          <div>
+            <label className="label">Método / Protocolo</label>
+            <div className="space-y-1.5">
+              {METHODS[plan.eval_type].map(m => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setPlan(p => ({ ...p, eval_method: m.key }))}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                    plan.eval_method === m.key
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${plan.eval_method === m.key ? 'text-purple-700' : 'text-gray-700'}`}>
+                      {m.label}
+                    </p>
+                    <p className="text-xs text-gray-400">{m.note}</p>
+                  </div>
+                  {plan.eval_method === m.key && (
                     <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
                       <div className="w-2 h-2 bg-white rounded-full" />
                     </div>
@@ -280,56 +315,67 @@ export default function CreatePlanPage() {
         </div>
       </div>
 
-      {/* Ejercicios */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">
-          {isEval ? 'Ejercicios / Protocolo' : 'Ejercicios'}
-        </h2>
+      {/* Ejercicios — solo para planes de entrenamiento o evals que lo requieren */}
+      {(!isEval || ['one_rm', 'max_reps'].includes(plan.eval_type)) && (
+        <div className="card space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">
+              {isEval ? 'Ejercicios a evaluar' : 'Ejercicios'}
+            </h2>
+            {isEval && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                Agregá los ejercicios que el alumno va a evaluar. Se mostrarán en el formulario del alumno.
+              </p>
+            )}
+          </div>
 
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-          {SECTIONS.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setActiveSection(s.id)}
-              className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
-                activeSection === s.id
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500'
-              }`}
-            >
-              {s.label}
-              {planExercises[s.id].length > 0 && (
-                <span className="ml-1 bg-primary-100 text-primary-700 rounded-full px-1.5 text-xs">
-                  {planExercises[s.id].length}
-                </span>
-              )}
-            </button>
-          ))}
+          {!isEval && (
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+              {SECTIONS.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveSection(s.id)}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                    activeSection === s.id
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500'
+                  }`}
+                >
+                  {s.label}
+                  {planExercises[s.id].length > 0 && (
+                    <span className="ml-1 bg-primary-100 text-primary-700 rounded-full px-1.5 text-xs">
+                      {planExercises[s.id].length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {(isEval ? planExercises['day_a'] : currentExercises).map((ex, i) => (
+              <PlanExerciseRow
+                key={i}
+                ex={ex}
+                index={i}
+                exercises={exercises}
+                exerciseTags={exerciseTags}
+                tagAssignments={tagAssignments}
+                onUpdate={(idx, field, value) => updateExercise(isEval ? 'day_a' : activeSection, idx, field, value)}
+                onRemove={(idx) => removeExercise(isEval ? 'day_a' : activeSection, idx)}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => addExercise(isEval ? 'day_a' : activeSection)}
+            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+          >
+            <Plus size={16} />
+            Agregar ejercicio
+          </button>
         </div>
-
-        <div className="space-y-3">
-          {currentExercises.map((ex, i) => (
-            <PlanExerciseRow
-              key={i}
-              ex={ex}
-              index={i}
-              exercises={exercises}
-              exerciseTags={exerciseTags}
-              tagAssignments={tagAssignments}
-              onUpdate={(idx, field, value) => updateExercise(activeSection, idx, field, value)}
-              onRemove={(idx) => removeExercise(activeSection, idx)}
-            />
-          ))}
-        </div>
-
-        <button
-          onClick={() => addExercise(activeSection)}
-          className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-        >
-          <Plus size={16} />
-          Agregar ejercicio
-        </button>
-      </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
