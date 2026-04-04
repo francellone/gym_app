@@ -5,7 +5,7 @@ import {
   ArrowLeft, Edit2, Users, ExternalLink,
   ChevronDown, ChevronUp, Trash2, Plus, X, UserPlus
 } from 'lucide-react'
-import { displayReps, getDynamicSections, SECTION_LABELS } from '../../utils/planHelpers'
+import { displayReps, parseReps, getDynamicSections, SECTION_LABELS } from '../../utils/planHelpers'
 import { format } from 'date-fns'
 
 function ExerciseItem({ ex, onDelete }) {
@@ -28,7 +28,17 @@ function ExerciseItem({ ex, onDelete }) {
             {[
               ex.suggested_sets && `${ex.suggested_sets} series`,
               ex.suggested_reps && `× ${displayReps(ex.suggested_reps)}`,
-              ex.suggested_weight && `· ${ex.suggested_weight}`,
+              (() => {
+                // Mostrar pesos por serie si hay variación, o peso único
+                if (ex.suggested_weights) {
+                  const arr = parseReps(ex.suggested_weights).filter(w => w !== '' && w != null)
+                  if (arr.length > 0) {
+                    const unique = [...new Set(arr)]
+                    return `· ${unique.length === 1 ? unique[0] : arr.join('/')}kg`
+                  }
+                }
+                return ex.suggested_weight ? `· ${ex.suggested_weight}` : null
+              })(),
               ex.rest_time && `· ${ex.rest_time} pausa`,
             ].filter(Boolean).join(' ')}
           </p>

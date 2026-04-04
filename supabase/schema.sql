@@ -104,10 +104,11 @@ create table public.plan_exercises (
   block_label text,       -- 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
   order_index int default 0,
   suggested_sets int,
-  suggested_reps text,    -- puede ser "8cl", "30 seg", "3x10"
-  suggested_weight text,
-  rest_time text,         -- "1 min 30 seg"
-  suggested_pse text,     -- "DURO (5-6)", "MUY DURO (7-9)"
+  suggested_reps text,     -- puede ser "8", "[8,10,12]" (JSON array por serie)
+  suggested_weight text,   -- legacy: peso único de referencia (retrocompat)
+  suggested_weights text,  -- pesos por serie como JSON array. Ej: "[20,22.5,25]"
+  rest_time text,          -- "1 min 30 seg"
+  suggested_pse text,      -- "DURO (5-6)", "MUY DURO (7-9)"
   extra_notes text,
   created_at timestamptz default now()
 );

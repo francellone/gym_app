@@ -33,24 +33,46 @@ export default function PlanExerciseRow({
 
   function handleSetsChange(val) {
     const n = parseInt(val) || 0
+
+    // Redimensionar reps
     const currentReps = ex.suggested_reps_array || []
     let newReps
     if (n === 0) {
       newReps = ['']
     } else if (n > currentReps.length) {
-      const lastVal = currentReps[currentReps.length - 1] || ''
-      newReps = [...currentReps, ...Array(n - currentReps.length).fill(lastVal)]
+      const lastRep = currentReps[currentReps.length - 1] || ''
+      newReps = [...currentReps, ...Array(n - currentReps.length).fill(lastRep)]
     } else {
       newReps = currentReps.slice(0, n)
     }
+
+    // Redimensionar pesos por serie
+    const currentWeights = ex.suggested_weights_array || []
+    let newWeights
+    if (n === 0) {
+      newWeights = ['']
+    } else if (n > currentWeights.length) {
+      const lastWeight = currentWeights[currentWeights.length - 1] || ''
+      newWeights = [...currentWeights, ...Array(n - currentWeights.length).fill(lastWeight)]
+    } else {
+      newWeights = currentWeights.slice(0, n)
+    }
+
     onUpdate(index, 'suggested_sets', val)
     onUpdate(index, 'suggested_reps_array', newReps)
+    onUpdate(index, 'suggested_weights_array', newWeights)
   }
 
   function handleRepChange(serieIdx, val) {
     const newReps = [...(ex.suggested_reps_array || [])]
     newReps[serieIdx] = val
     onUpdate(index, 'suggested_reps_array', newReps)
+  }
+
+  function handleWeightChange(serieIdx, val) {
+    const newWeights = [...(ex.suggested_weights_array || [])]
+    newWeights[serieIdx] = val
+    onUpdate(index, 'suggested_weights_array', newWeights)
   }
 
   // Tag del ejercicio seleccionado (para mostrarlo)
@@ -150,8 +172,8 @@ export default function PlanExerciseRow({
             </div>
           </div>
 
-          {/* Series, peso, descanso, PSE */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* Series, descanso, PSE */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Series</label>
               <input
@@ -162,15 +184,6 @@ export default function PlanExerciseRow({
                 placeholder="3"
                 value={ex.suggested_sets}
                 onChange={e => handleSetsChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Peso sugerido</label>
-              <input
-                className="input text-sm"
-                placeholder="10kg, corporal..."
-                value={ex.suggested_weight}
-                onChange={e => onUpdate(index, 'suggested_weight', e.target.value)}
               />
             </div>
             <div>
@@ -195,25 +208,43 @@ export default function PlanExerciseRow({
             </div>
           </div>
 
-          {/* Reps por serie */}
+          {/* Reps + Peso por serie */}
           {setsCount > 0 && (
             <div>
               <label className="text-xs text-gray-500 mb-2 block font-medium">
-                Repeticiones por serie
+                Repeticiones y peso por serie
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {Array.from({ length: setsCount }, (_, i) => (
-                  <div key={i}>
-                    <label className="text-xs text-gray-400 mb-1 block">Serie {i + 1}</label>
-                    <input
-                      className="input text-sm text-center"
-                      placeholder="10"
-                      value={(ex.suggested_reps_array || [])[i] || ''}
-                      onChange={e => handleRepChange(i, e.target.value)}
-                    />
-                  </div>
-                ))}
+              {/* Encabezados de columna */}
+              <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
+                <div />
+                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                  Reps
+                </div>
+                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                  Peso (kg)
+                </div>
               </div>
+              {/* Fila por serie */}
+              {Array.from({ length: setsCount }, (_, i) => (
+                <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
+                  <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
+                  <input
+                    className="input text-sm text-center"
+                    placeholder="10"
+                    value={(ex.suggested_reps_array || [])[i] || ''}
+                    onChange={e => handleRepChange(i, e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    className="input text-sm text-center"
+                    placeholder="kg"
+                    value={(ex.suggested_weights_array || [])[i] || ''}
+                    onChange={e => handleWeightChange(i, e.target.value)}
+                  />
+                </div>
+              ))}
             </div>
           )}
 

@@ -188,8 +188,17 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   // maxSets: tope duro (99 = sin tope cuando el coach no lo definió)
   const maxSets = setsCount || 99
 
-  // Peso sugerido como valor numérico pre-rellenable
-  const defaultWeight = parseSuggestedWeight(planEx.suggested_weight)
+  // Pesos sugeridos por serie (nuevo) con fallback al campo legacy (único peso)
+  const legacyWeight = parseSuggestedWeight(planEx.suggested_weight)
+  const suggestedWeightsArr = (() => {
+    if (planEx.suggested_weights) {
+      const parsed = parseReps(planEx.suggested_weights)
+      if (parsed.length > 0) return parsed
+    }
+    // Fallback: rellenar todas las series con el peso legacy
+    const n = setsCount > 0 ? setsCount : 1
+    return Array.from({ length: n }, () => legacyWeight)
+  })()
 
   // Inicializar reps con valores sugeridos si no hay log previo
   const initRepsArr = () => {
@@ -205,18 +214,18 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
       : [suggestedRepsArr[0] || '']
   }
 
-  // Inicializar pesos por serie: desde log guardado o desde sugerido del coach
+  // Inicializar pesos por serie: desde log guardado o desde sugerido del coach (por serie)
   const initWeightsArr = () => {
     const n = setsCount > 0 ? setsCount : 1
     if (log?.actual_weights) {
       const parsed = parseReps(log.actual_weights)
       if (parsed.length !== n) {
-        return Array.from({ length: n }, (_, i) => parsed[i] ?? defaultWeight)
+        return Array.from({ length: n }, (_, i) => parsed[i] ?? suggestedWeightsArr[i] ?? '')
       }
       return parsed
     }
-    // Sin log previo: pre-rellenar con el peso sugerido por el coach
-    return Array.from({ length: n }, () => defaultWeight)
+    // Sin log previo: pre-rellenar con el peso sugerido por serie del coach
+    return Array.from({ length: n }, (_, i) => suggestedWeightsArr[i] ?? '')
   }
 
   const [logData, setLogData] = useState({
@@ -260,9 +269,9 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
 
     if (n === 0) {
       newReps = ['']
-      newWeights = [defaultWeight]
+      newWeights = [suggestedWeightsArr[0] ?? '']
     } else if (n > currentReps.length) {
-      // Al agregar series, pre-rellenar reps sugeridas y peso sugerido
+      // Al agregar series, pre-rellenar reps sugeridas y peso sugerido por serie
       newReps = [
         ...currentReps,
         ...Array.from({ length: n - currentReps.length }, (_, i) =>
@@ -271,7 +280,9 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
       ]
       newWeights = [
         ...currentWeights,
-        ...Array.from({ length: n - currentWeights.length }, () => defaultWeight)
+        ...Array.from({ length: n - currentWeights.length }, (_, i) =>
+          suggestedWeightsArr[currentWeights.length + i] ?? ''
+        )
       ]
     } else {
       newReps = currentReps.slice(0, n)
@@ -381,7 +392,13 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
               Sugerido: {[
                 planEx.suggested_sets && `${planEx.suggested_sets} series`,
                 suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
-                planEx.suggested_weight && planEx.suggested_weight !== 'None' && `· ${planEx.suggested_weight}`,
+                // Mostrar pesos por serie si hay variación, o peso único si todos iguales
+                (() => {
+                  const uniqueWeights = [...new Set(suggestedWeightsArr.filter(w => w !== '' && w != null))]
+                  if (uniqueWeights.length === 0) return null
+                  if (uniqueWeights.length === 1) return `· ${uniqueWeights[0]}kg`
+                  return `· ${suggestedWeightsArr.join('/')}kg`
+                })(),
               ].filter(Boolean).join(' ')}
             </p>
             {log && !expanded && (
@@ -482,11 +499,6 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                     </div>
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
                       Peso (kg)
-                      {defaultWeight && (
-                        <span className="ml-1 text-primary-500 font-normal normal-case">
-                          sug: {defaultWeight}
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -505,7 +517,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                         step="0.5"
                         min="0"
                         className="input text-sm text-center"
-                        placeholder={defaultWeight || '0'}
+                        placeholder={suggestedWeightsArr[i] || '0'}
                         value={logData.actual_weights_arr[i] ?? ''}
                         onChange={e => handleWeightChange(i, e.target.value)}
                       />

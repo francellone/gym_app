@@ -141,7 +141,8 @@ export function emptyPlanExercise(section) {
     block_number: section === 'activation' ? '' : '1',
     suggested_sets: '',
     suggested_reps_array: [''],
-    suggested_weight: '',
+    suggested_weights_array: [''],  // peso por serie
+    suggested_weight: '',           // legacy: retrocompat
     rest_time: '',
     suggested_pse: '',
     extra_notes: '',
@@ -154,6 +155,8 @@ export function emptyPlanExercise(section) {
 export function dbExToUIEx(ex) {
   const { letter, number } = parseBlockLabel(ex.block_label)
   const setsCount = parseInt(ex.suggested_sets) || 1
+
+  // Parsear reps array
   let repsArray
   try {
     const parsed = JSON.parse(ex.suggested_reps)
@@ -166,6 +169,24 @@ export function dbExToUIEx(ex) {
     repsArray = Array(setsCount).fill(ex.suggested_reps || '')
   }
 
+  // Parsear pesos por serie
+  // Prioridad: suggested_weights (array) → fallback a suggested_weight (legacy)
+  let weightsArray
+  const legacyWeight = ex.suggested_weight
+    ? String(ex.suggested_weight).replace(/[^\d.]/g, '') || ex.suggested_weight
+    : ''
+  try {
+    const parsed = JSON.parse(ex.suggested_weights)
+    if (Array.isArray(parsed)) {
+      weightsArray = parsed
+    } else {
+      weightsArray = Array(setsCount).fill(ex.suggested_weights || legacyWeight)
+    }
+  } catch {
+    // Sin suggested_weights: usar suggested_weight como valor base para todas las series
+    weightsArray = Array(setsCount).fill(legacyWeight)
+  }
+
   return {
     id: ex.id, // existing DB id, used for updates
     exercise_id: ex.exercise_id,
@@ -173,7 +194,8 @@ export function dbExToUIEx(ex) {
     block_number: number,
     suggested_sets: ex.suggested_sets?.toString() || '',
     suggested_reps_array: repsArray,
-    suggested_weight: ex.suggested_weight || '',
+    suggested_weights_array: weightsArray, // peso por serie
+    suggested_weight: ex.suggested_weight || '', // legacy: mantenido para retrocompat
     rest_time: ex.rest_time || '',
     suggested_pse: ex.suggested_pse || '',
     extra_notes: ex.extra_notes || '',
@@ -184,6 +206,13 @@ export function dbExToUIEx(ex) {
 
 // Convertir de UI a formato para insertar/update en DB
 export function uiExToDBEx(ex, planId, section, index) {
+  // Serializar pesos por serie
+  const weightsArr = ex.suggested_weights_array || []
+  const serializedWeights = serializeReps(weightsArr) || null
+  // suggested_weight (legacy): primer peso válido del array para retrocompat
+  const firstWeight = weightsArr.find(w => w !== '' && w !== null && w !== undefined)
+  const legacyWeight = firstWeight != null ? String(firstWeight) : (ex.suggested_weight || null)
+
   return {
     plan_id: planId,
     exercise_id: ex.exercise_id,
@@ -192,7 +221,8 @@ export function uiExToDBEx(ex, planId, section, index) {
     order_index: index,
     suggested_sets: ex.suggested_sets ? parseInt(ex.suggested_sets) : null,
     suggested_reps: serializeReps(ex.suggested_reps_array) || null,
-    suggested_weight: ex.suggested_weight || null,
+    suggested_weights: serializedWeights, // nuevo: array de pesos por serie
+    suggested_weight: legacyWeight,       // legacy: primer peso (retrocompat)
     rest_time: ex.rest_time || null,
     suggested_pse: ex.suggested_pse || null,
     extra_notes: ex.extra_notes || null,
