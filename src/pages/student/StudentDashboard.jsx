@@ -13,6 +13,7 @@ export default function StudentDashboard() {
   const [weekLogs, setWeekLogs] = useState([])
   const [streak, setStreak] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [pendingIntake, setPendingIntake] = useState(false)
 
   useEffect(() => {
     if (profile?.id) fetchData()
@@ -23,7 +24,7 @@ export default function StudentDashboard() {
       const weekAgo = format(subDays(new Date(), 6), 'yyyy-MM-dd')
       const today = format(new Date(), 'yyyy-MM-dd')
 
-      const [assignmentsRes, logsRes] = await Promise.all([
+      const [assignmentsRes, logsRes, intakeRes] = await Promise.all([
         supabase
           .from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
@@ -35,8 +36,16 @@ export default function StudentDashboard() {
           .select('logged_date, completed')
           .eq('student_id', profile.id)
           .gte('logged_date', weekAgo)
-          .lte('logged_date', today)
+          .lte('logged_date', today),
+        supabase
+          .from('intake_form_assignments')
+          .select('id')
+          .eq('student_id', profile.id)
+          .in('status', ['pending', 'in_progress'])
+          .limit(1)
       ])
+
+      setPendingIntake((intakeRes.data?.length ?? 0) > 0)
 
       setAssignments(assignmentsRes.data || [])
 
@@ -74,6 +83,23 @@ export default function StudentDashboard() {
 
   return (
     <div className="max-w-lg mx-auto">
+      {/* Banner formulario pendiente */}
+      {pendingIntake && (
+        <Link
+          to="/student/intake"
+          className="block mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📋</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">Tenés un formulario pendiente</p>
+              <p className="text-xs text-amber-600">Tu coach te envió el formulario de ingreso. Completalo para empezar.</p>
+            </div>
+            <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
+          </div>
+        </Link>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-8">
         <p className="text-primary-200 text-sm">{saludo}</p>

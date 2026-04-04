@@ -26,6 +26,8 @@ import ProgressPage from './pages/student/ProgressPage'
 import HistoryPage from './pages/student/HistoryPage'
 import ProfilePage from './pages/student/ProfilePage'
 import EvalWorkoutPage from './pages/student/EvalWorkoutPage'
+import FormBuilderPage from './pages/coach/FormBuilderPage'
+import IntakeFormPage from './pages/student/IntakeFormPage'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, profile, loading } = useAuth()
@@ -87,6 +89,7 @@ function AppRoutes() {
         <Route path="exercises" element={<ExercisesLibraryPage />} />
         <Route path="evaluations" element={<EvaluationsPage />} />
         <Route path="evaluations/:id" element={<EvaluationDetailPage />} />
+        <Route path="form-builder" element={<FormBuilderPage />} />
       </Route>
 
       {/* Student routes */}
@@ -101,6 +104,7 @@ function AppRoutes() {
         <Route path="progress" element={<ProgressPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="intake" element={<IntakeFormPage />} />
       </Route>
 
       {/* Default redirect */}
