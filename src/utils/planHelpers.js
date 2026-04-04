@@ -88,18 +88,50 @@ export function borgColor(val) {
   return 'bg-green-500 text-white'
 }
 
-// Secciones del plan
+// ============================================================
+// SISTEMA DE SECCIONES DINÁMICAS
+// ============================================================
+
+// IDs de secciones por día (máximo 7)
+export const DAY_SECTION_IDS = ['day_a', 'day_b', 'day_c', 'day_d', 'day_e', 'day_f', 'day_g']
+
+// Labels de todas las secciones posibles
+export const SECTION_LABELS = {
+  activation: 'Activación',
+  day_a: 'Principal Día A',
+  day_b: 'Principal Día B',
+  day_c: 'Principal Día C',
+  day_d: 'Principal Día D',
+  day_e: 'Principal Día E',
+  day_f: 'Principal Día F',
+  day_g: 'Principal Día G',
+}
+
+/**
+ * Genera las secciones activas según la configuración del plan.
+ * @param {number|string} sessionsPerWeek - Días por semana (1–7)
+ * @param {boolean} hasActivation - Si incluye bloque de Activación
+ * @returns {Array<{id: string, label: string}>}
+ */
+export function getDynamicSections(sessionsPerWeek, hasActivation) {
+  const n = Math.max(1, Math.min(7, parseInt(sessionsPerWeek) || 1))
+  const sections = []
+  if (hasActivation) {
+    sections.push({ id: 'activation', label: 'Activación' })
+  }
+  for (let i = 0; i < n; i++) {
+    const id = DAY_SECTION_IDS[i]
+    sections.push({ id, label: SECTION_LABELS[id] })
+  }
+  return sections
+}
+
+// Secciones fijas (retrocompatibilidad — preferir getDynamicSections)
 export const SECTIONS = [
   { id: 'activation', label: 'Activación' },
   { id: 'day_a', label: 'Principal Día A' },
   { id: 'day_b', label: 'Principal Día B' },
 ]
-
-export const SECTION_LABELS = {
-  activation: 'Activación',
-  day_a: 'Principal Día A',
-  day_b: 'Principal Día B',
-}
 
 // Crear ejercicio vacío para el plan
 export function emptyPlanExercise(section) {

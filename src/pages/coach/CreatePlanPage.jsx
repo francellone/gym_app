@@ -5,7 +5,7 @@ import { ArrowLeft, Plus, Save, AlertCircle, Dumbbell, BarChart2 } from 'lucide-
 import { useAuth } from '../../contexts/AuthContext'
 import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
 import {
-  SECTIONS, emptyPlanExercise, uiExToDBEx
+  getDynamicSections, emptyPlanExercise, uiExToDBEx, DAY_SECTION_IDS
 } from '../../utils/planHelpers'
 import { EVAL_TYPES, METHODS } from '../../utils/evalHelpers'
 
@@ -23,6 +23,7 @@ export default function CreatePlanPage() {
     description: '',
     goal: '',
     sessions_per_week: 3,
+    has_activation: false,
     duration_weeks: '',
     is_template: false,
     plan_type: 'training',
@@ -30,13 +31,14 @@ export default function CreatePlanPage() {
     eval_method: '',
   })
 
+  // Estado de ejercicios: keys dinámicas según sessions_per_week y has_activation
+  // Valor inicial: 3 días, sin activación → { day_a, day_b, day_c }
   const [planExercises, setPlanExercises] = useState({
-    activation: [],
-    day_a: [],
-    day_b: [],
+    day_a: [], day_b: [], day_c: [],
   })
 
-  const [activeSection, setActiveSection] = useState('activation')
+  // Sección activa por defecto: primer día
+  const [activeSection, setActiveSection] = useState('day_a')
 
   useEffect(() => {
     Promise.all([
@@ -50,12 +52,34 @@ export default function CreatePlanPage() {
     })
   }, [])
 
+  // Sincronizar planExercises cuando cambia sessions_per_week o has_activation
+  useEffect(() => {
+    if (plan.plan_type === 'evaluation') return
+
+    const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
+
+    setPlanExercises(prev => {
+      const next = {}
+      for (const s of sections) {
+        // Preservar ejercicios existentes si la sección ya estaba
+        next[s.id] = prev[s.id] || []
+      }
+      return next
+    })
+
+    // Si la sección activa ya no existe, ir a la primera disponible
+    setActiveSection(prev => {
+      if (sections.find(s => s.id === prev)) return prev
+      return sections[0]?.id || 'day_a'
+    })
+  }, [plan.sessions_per_week, plan.has_activation, plan.plan_type])
+
   function addExercise(section) {
     const newEx = emptyPlanExercise(section)
-    newEx.order_index = planExercises[section].length
+    newEx.order_index = (planExercises[section] || []).length
     setPlanExercises(prev => ({
       ...prev,
-      [section]: [...prev[section], newEx],
+      [section]: [...(prev[section] || []), newEx],
     }))
   }
 
@@ -95,6 +119,7 @@ export default function CreatePlanPage() {
           description: plan.description,
           goal: plan.goal,
           sessions_per_week: parseInt(plan.sessions_per_week) || 3,
+          has_activation: plan.plan_type === 'training' ? plan.has_activation : false,
           duration_weeks: plan.duration_weeks ? parseInt(plan.duration_weeks) : null,
           is_template: plan.is_template,
           plan_type: plan.plan_type,
@@ -106,13 +131,25 @@ export default function CreatePlanPage() {
         .single()
       if (planError) throw planError
 
+      // Guardar ejercicios usando las secciones dinámicas actuales
+      const dynamicSections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
       const allExercises = []
-      for (const section of ['activation', 'day_a', 'day_b']) {
-        planExercises[section]
+
+      if (plan.plan_type === 'evaluation') {
+        // Para evaluaciones solo se usa day_a
+        ;(planExercises['day_a'] || [])
           .filter(ex => ex.exercise_id)
           .forEach((ex, i) => {
-            allExercises.push(uiExToDBEx(ex, newPlan.id, section, i))
+            allExercises.push(uiExToDBEx(ex, newPlan.id, 'day_a', i))
           })
+      } else {
+        for (const s of dynamicSections) {
+          ;(planExercises[s.id] || [])
+            .filter(ex => ex.exercise_id)
+            .forEach((ex, i) => {
+              allExercises.push(uiExToDBEx(ex, newPlan.id, s.id, i))
+            })
+        }
       }
 
       if (allExercises.length > 0) {
@@ -128,8 +165,9 @@ export default function CreatePlanPage() {
     }
   }
 
-  const currentExercises = planExercises[activeSection]
   const isEval = plan.plan_type === 'evaluation'
+  const dynamicSections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
+  const currentExercises = planExercises[activeSection] || []
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -272,6 +310,7 @@ export default function CreatePlanPage() {
               onChange={e => setPlan(p => ({ ...p, description: e.target.value }))}
             />
           </div>
+
           {!isEval && (
             <>
               <div>
@@ -299,9 +338,36 @@ export default function CreatePlanPage() {
                   onChange={e => setPlan(p => ({ ...p, duration_weeks: e.target.value }))}
                 />
               </div>
+
+              {/* Toggle de Activación */}
+              <div
+                className={`sm:col-span-2 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                  plan.has_activation
+                    ? 'border-amber-400 bg-amber-50'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+                onClick={() => setPlan(p => ({ ...p, has_activation: !p.has_activation }))}
+              >
+                <input
+                  type="checkbox"
+                  id="has_activation"
+                  className="w-4 h-4 rounded text-amber-500 pointer-events-none"
+                  checked={plan.has_activation}
+                  readOnly
+                />
+                <label htmlFor="has_activation" className="cursor-pointer flex-1">
+                  <span className={`text-sm font-medium ${plan.has_activation ? 'text-amber-800' : 'text-gray-700'}`}>
+                    Incluir bloque de Activación
+                  </span>
+                  <span className="text-xs text-gray-400 block">
+                    Movilidad, activación neuromuscular, calentamiento, etc.
+                  </span>
+                </label>
+              </div>
             </>
           )}
-          <div className="flex items-center gap-2 mt-2">
+
+          <div className="flex items-center gap-2 mt-1">
             <input
               type="checkbox" id="is_template"
               className="w-4 h-4 rounded text-primary-600"
@@ -329,20 +395,21 @@ export default function CreatePlanPage() {
             )}
           </div>
 
+          {/* Tabs de secciones dinámicas */}
           {!isEval && (
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-              {SECTIONS.map(s => (
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+              {dynamicSections.map(s => (
                 <button
                   key={s.id}
                   onClick={() => setActiveSection(s.id)}
-                  className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                  className={`flex-shrink-0 py-2 px-3 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
                     activeSection === s.id
                       ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {s.label}
-                  {planExercises[s.id].length > 0 && (
+                  {(planExercises[s.id]?.length || 0) > 0 && (
                     <span className="ml-1 bg-primary-100 text-primary-700 rounded-full px-1.5 text-xs">
                       {planExercises[s.id].length}
                     </span>
@@ -353,7 +420,7 @@ export default function CreatePlanPage() {
           )}
 
           <div className="space-y-3">
-            {(isEval ? planExercises['day_a'] : currentExercises).map((ex, i) => (
+            {(isEval ? planExercises['day_a'] || [] : currentExercises).map((ex, i) => (
               <PlanExerciseRow
                 key={i}
                 ex={ex}

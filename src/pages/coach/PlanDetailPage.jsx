@@ -5,14 +5,8 @@ import {
   ArrowLeft, Edit2, Users, ExternalLink,
   ChevronDown, ChevronUp, Trash2, Plus, X, UserPlus
 } from 'lucide-react'
-import { displayReps } from '../../utils/planHelpers'
+import { displayReps, getDynamicSections, SECTION_LABELS } from '../../utils/planHelpers'
 import { format } from 'date-fns'
-
-const SECTION_LABELS = {
-  activation: 'Activación',
-  day_a: 'Principal Día A',
-  day_b: 'Principal Día B',
-}
 
 function ExerciseItem({ ex, onDelete }) {
   const [expanded, setExpanded] = useState(false)
@@ -253,10 +247,15 @@ export default function PlanDetailPage() {
 
   if (!plan) return <div className="text-center py-12 text-gray-500">Plan no encontrado</div>
 
-  const groupedBySection = {
-    activation: exercises.filter(e => e.section === 'activation').sort((a, b) => (a.order_index || 0) - (b.order_index || 0)),
-    day_a: exercises.filter(e => e.section === 'day_a').sort((a, b) => (a.order_index || 0) - (b.order_index || 0)),
-    day_b: exercises.filter(e => e.section === 'day_b').sort((a, b) => (a.order_index || 0) - (b.order_index || 0)),
+  // Generar secciones activas según la configuración del plan
+  const activeSections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
+
+  // Agrupar ejercicios por sección
+  const groupedBySection = {}
+  for (const s of activeSections) {
+    groupedBySection[s.id] = exercises
+      .filter(e => e.section === s.id)
+      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
   }
 
   return (
@@ -349,25 +348,28 @@ export default function PlanDetailPage() {
         )}
       </div>
 
-      {/* Exercises by section */}
-      {Object.entries(groupedBySection).map(([section, sectionExs]) => (
-        <div key={section} className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">{SECTION_LABELS[section]}</h3>
-            <span className="badge bg-gray-100 text-gray-600">{sectionExs.length} ejercicios</span>
-          </div>
-
-          {sectionExs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin ejercicios en esta sección</p>
-          ) : (
-            <div className="space-y-2">
-              {sectionExs.map(ex => (
-                <ExerciseItem key={ex.id} ex={ex} onDelete={deleteExercise} />
-              ))}
+      {/* Ejercicios agrupados por sección dinámica */}
+      {activeSections.map(s => {
+        const sectionExs = groupedBySection[s.id] || []
+        return (
+          <div key={s.id} className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">{s.label}</h3>
+              <span className="badge bg-gray-100 text-gray-600">{sectionExs.length} ejercicios</span>
             </div>
-          )}
-        </div>
-      ))}
+
+            {sectionExs.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Sin ejercicios en esta sección</p>
+            ) : (
+              <div className="space-y-2">
+                {sectionExs.map(ex => (
+                  <ExerciseItem key={ex.id} ex={ex} onDelete={deleteExercise} />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
