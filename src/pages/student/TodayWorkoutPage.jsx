@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp,
   ExternalLink, Dumbbell, PlayCircle, Info,
-  Calendar, AlertTriangle, Clock
+  Calendar, AlertTriangle, Clock, Lock
 } from 'lucide-react'
 import { BORG_LABELS, borgColor, parseReps, serializeReps, SECTION_LABELS, displayReps } from '../../utils/planHelpers'
 
@@ -20,6 +20,13 @@ const PSE_OPTIONS = [
   { value: 7, label: '7 - Muy duro' }, { value: 8, label: '8 - Muy duro +' },
   { value: 9, label: '9 - Casi máximo' }, { value: 10, label: '10 - Máximo esfuerzo' },
 ]
+
+// Parsear el peso sugerido del coach a número (ej: "20kg" → 20, "20" → 20, "BW" → "")
+function parseSuggestedWeight(val) {
+  if (!val || val === 'None' || val === 'none') return ''
+  const n = parseFloat(String(val).replace(/[^\d.]/g, ''))
+  return isNaN(n) ? '' : n.toString()
+}
 
 // ============================================================
 // Modal de aviso de validación
@@ -47,17 +54,37 @@ function ValidationWarning({ message, onConfirm, onCancel }) {
 }
 
 // ============================================================
-// Modal Escala de Borg al finalizar
+// Modal de esfuerzo percibido del día (al finalizar)
 // ============================================================
-function BorgModal({ session, onSave, onClose }) {
-  const [borg, setBorg] = useState(session?.borg_scale ?? null)
-  const [borgNotes, setBorgNotes] = useState(session?.borg_notes || '')
+function DailyEffortModal({ session, onSave, onClose }) {
+  const [effort, setEffort] = useState(session?.borg_scale ?? null)
+  const [notes, setNotes] = useState(session?.borg_notes || '')
   const [saving, setSaving] = useState(false)
 
+  // PSE del día: 1–10 con colores consistentes con el PSE por ejercicio
+  const PSE_DAY = [
+    { value: 1, label: 'Muy fácil' },
+    { value: 2, label: 'Fácil' },
+    { value: 3, label: 'Moderado' },
+    { value: 4, label: 'Algo duro' },
+    { value: 5, label: 'Duro' },
+    { value: 6, label: 'Duro +' },
+    { value: 7, label: 'Muy duro' },
+    { value: 8, label: 'Muy duro +' },
+    { value: 9, label: 'Casi máximo' },
+    { value: 10, label: 'Máximo' },
+  ]
+
+  function effortColor(n) {
+    if (n >= 8) return 'bg-red-500 text-white'
+    if (n >= 5) return 'bg-orange-400 text-white'
+    return 'bg-green-500 text-white'
+  }
+
   async function handleSave() {
-    if (borg === null) return
+    if (effort === null) return
     setSaving(true)
-    await onSave(borg, borgNotes)
+    await onSave(effort, notes)
     setSaving(false)
   }
 
@@ -65,46 +92,62 @@ function BorgModal({ session, onSave, onClose }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
         <div className="p-5 space-y-4">
+          {/* Encabezado */}
           <div className="text-center">
             <p className="text-3xl mb-1">🎉</p>
             <h2 className="font-bold text-gray-900 text-lg">¡Entrenamiento completo!</h2>
             <p className="text-sm text-gray-500 mt-1">
-              ¿Qué tan intenso fue el entrenamiento de hoy?
+              ¿Cómo fue el esfuerzo del día en general?
             </p>
           </div>
 
-          {/* Escala de Borg 0-10 */}
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-gray-700 text-center">Escala de Borg (0-10)</p>
-            <div className="grid grid-cols-4 gap-2">
-              {Object.entries(BORG_LABELS).map(([val, label]) => {
-                const n = parseInt(val)
-                return (
-                  <button
-                    key={n}
-                    onClick={() => setBorg(n)}
-                    className={`rounded-xl p-2 text-center transition-all ${
-                      borg === n
-                        ? borgColor(n) + ' ring-2 ring-offset-1 ring-current'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <span className="block text-lg font-bold">{n}</span>
-                    <span className="block text-xs leading-tight mt-0.5">{label}</span>
-                  </button>
-                )
-              })}
+          {/* Selector PSE 1–10 */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-600 text-center uppercase tracking-wide">
+              Esfuerzo percibido del día (PSE)
+            </p>
+            <div className="grid grid-cols-5 gap-2">
+              {PSE_DAY.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setEffort(effort === value ? null : value)}
+                  className={`rounded-xl p-2 text-center transition-all ${
+                    effort === value
+                      ? effortColor(value) + ' ring-2 ring-offset-1 ring-current scale-105'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <span className="block text-base font-bold">{value}</span>
+                  <span className="block text-[10px] leading-tight mt-0.5">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Referencia visual */}
+            <div className="flex justify-between text-[10px] text-gray-400 px-1 mt-1">
+              <span>😌 Muy fácil</span>
+              <span>💀 Máximo</span>
             </div>
           </div>
 
+          {/* Nota seleccionada */}
+          {effort !== null && (
+            <div className={`rounded-xl p-2 text-center text-sm font-medium ${effortColor(effort)}`}>
+              PSE {effort} — {PSE_DAY[effort - 1]?.label}
+            </div>
+          )}
+
+          {/* Observaciones */}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Observaciones del entrenamiento (opcional)</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              Observaciones del entrenamiento (opcional)
+            </label>
             <textarea
               className="input resize-none text-sm"
               rows={2}
               placeholder="¿Cómo te sentiste hoy?"
-              value={borgNotes}
-              onChange={e => setBorgNotes(e.target.value)}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
             />
           </div>
 
@@ -114,8 +157,8 @@ function BorgModal({ session, onSave, onClose }) {
             </button>
             <button
               onClick={handleSave}
-              disabled={borg === null || saving}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
+              disabled={effort === null || saving}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               {saving
                 ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -138,17 +181,23 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   const [saving, setSaving] = useState(false)
   const [warning, setWarning] = useState(null)
   const [pendingData, setPendingData] = useState(null)
+  const [setsWarning, setSetsWarning] = useState(false)
 
   // Parsear reps sugeridas (puede ser array o string)
   const suggestedRepsRaw = planEx.suggested_reps
   const suggestedRepsArr = parseReps(suggestedRepsRaw)
-  const setsCount = parseInt(suggestedSets || planEx.suggested_sets) || 0
+
+  // Máximo de series permitido por el coach
+  const maxSets = parseInt(suggestedSets || planEx.suggested_sets) || 99
+  const setsCount = maxSets
+
+  // Peso sugerido como número (pre-rellenar el campo)
+  const defaultWeight = parseSuggestedWeight(planEx.suggested_weight)
 
   // Inicializar log data con valores actuales o sugeridos
   const initRepsArr = () => {
     if (log?.actual_reps) {
       const parsed = parseReps(log.actual_reps)
-      // Ajustar longitud si es necesario
       if (setsCount > 0 && parsed.length !== setsCount) {
         return Array.from({ length: setsCount }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
       }
@@ -162,7 +211,8 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   const [logData, setLogData] = useState({
     actual_sets: log?.actual_sets?.toString() || suggestedSets?.toString() || '',
     actual_reps_arr: initRepsArr(),
-    actual_weight: log?.actual_weight?.toString() || '',
+    // PRE-LLENAR peso con el valor sugerido por el coach si no hay log previo
+    actual_weight: log?.actual_weight?.toString() || defaultWeight,
     perceived_difficulty: log?.perceived_difficulty || null,
     notes: log?.notes || '',
     completed: log?.completed || false,
@@ -177,17 +227,32 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   }
 
   function handleSetsChange(val) {
-    const n = parseInt(val) || 0
+    let n = parseInt(val) || 0
+
+    // No superar el máximo definido por el coach
+    if (maxSets < 99 && n > maxSets) {
+      n = maxSets
+      setSetsWarning(true)
+      setTimeout(() => setSetsWarning(false), 2500)
+    } else {
+      setSetsWarning(false)
+    }
+
     const currentReps = logData.actual_reps_arr
     let newReps
     if (n === 0) {
       newReps = ['']
     } else if (n > currentReps.length) {
-      newReps = [...currentReps, ...Array(n - currentReps.length).fill('')]
+      newReps = [
+        ...currentReps,
+        ...Array(n - currentReps.length).fill('').map((_, i) =>
+          suggestedRepsArr[currentReps.length + i] || ''
+        )
+      ]
     } else {
       newReps = currentReps.slice(0, n)
     }
-    setLogData(p => ({ ...p, actual_sets: val, actual_reps_arr: newReps }))
+    setLogData(p => ({ ...p, actual_sets: n.toString(), actual_reps_arr: newReps }))
   }
 
   function buildSaveData() {
@@ -205,16 +270,15 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   }
 
   function validate(data) {
-    // Validar peso: máx razonable
     if (data.actual_weight && data.actual_weight > 500) {
       return `Peso registrado (${data.actual_weight}kg) parece muy alto. ¿Es correcto?`
     }
-    // Validar series: ±50% del sugerido
-    if (suggestedSets && data.actual_sets) {
-      const suggested = parseInt(suggestedSets)
+    // La validación de series ya está controlada upstream (no puede superar el máx),
+    // pero validamos si es muy por debajo del sugerido
+    if (maxSets < 99 && data.actual_sets) {
       const actual = data.actual_sets
-      if (actual < suggested * 0.5 || actual > suggested * 1.5) {
-        return `Registraste ${actual} series (el plan sugiere ${suggested}). ¿Es correcto?`
+      if (actual < maxSets * 0.5) {
+        return `Registraste ${actual} series (el plan sugiere ${maxSets}). ¿Es correcto?`
       }
     }
     return null
@@ -287,7 +351,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                 {planEx.exercise?.name}
               </p>
             </div>
-            {/* Sugerido */}
+            {/* Sugerido por el coach */}
             <p className="text-xs text-gray-400 mt-0.5">
               Sugerido: {[
                 planEx.suggested_sets && `${planEx.suggested_sets} series`,
@@ -347,45 +411,61 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">Registrar entrenamiento</p>
 
-                {/* Series input */}
+                {/* Series + Peso */}
                 <div className="grid grid-cols-2 gap-2">
+                  {/* Series: editable pero con tope del coach */}
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Series realizadas</label>
-                    <div className="flex items-center gap-2">
-                      {planEx.suggested_sets && (
-                        <span className="text-xs text-gray-400">Sug: {planEx.suggested_sets}</span>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      Series realizadas
+                      {maxSets < 99 && (
+                        <span className="ml-1 text-gray-400 font-normal">(máx. {maxSets})</span>
                       )}
+                    </label>
+                    <div className="relative">
                       <input
                         type="number"
                         min="0"
-                        max="30"
-                        className="input text-sm text-center flex-1"
-                        placeholder={planEx.suggested_sets || '—'}
+                        max={maxSets < 99 ? maxSets : undefined}
+                        className={`input text-sm text-center w-full pr-7 ${
+                          setsWarning ? 'border-orange-400 ring-1 ring-orange-400' : ''
+                        }`}
+                        placeholder={maxSets < 99 ? maxSets.toString() : '—'}
                         value={logData.actual_sets}
                         onChange={e => handleSetsChange(e.target.value)}
                       />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Peso (kg)</label>
-                    <div className="flex items-center gap-2">
-                      {planEx.suggested_weight && planEx.suggested_weight !== 'None' && (
-                        <span className="text-xs text-gray-400 truncate max-w-16">Sug: {planEx.suggested_weight}</span>
+                      {maxSets < 99 && (
+                        <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300" />
                       )}
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="input text-sm text-center flex-1"
-                        placeholder="0"
-                        value={logData.actual_weight}
-                        onChange={e => setLogData(p => ({ ...p, actual_weight: e.target.value }))}
-                      />
                     </div>
+                    {setsWarning && (
+                      <p className="text-xs text-orange-500 mt-1 flex items-center gap-1">
+                        <AlertTriangle size={11} />
+                        Máximo {maxSets} series
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Peso: pre-rellenado con el valor del coach */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      Peso (kg)
+                      {defaultWeight && (
+                        <span className="ml-1 text-primary-600 font-normal">· sug. {defaultWeight}kg</span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center w-full"
+                      placeholder={defaultWeight || '0'}
+                      value={logData.actual_weight}
+                      onChange={e => setLogData(p => ({ ...p, actual_weight: e.target.value }))}
+                    />
                   </div>
                 </div>
 
-                {/* Reps por serie */}
+                {/* Reps por serie: pre-rellenadas con sugerido */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block font-medium">
                     Repeticiones por serie
@@ -415,7 +495,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                   </div>
                 </div>
 
-                {/* PSE */}
+                {/* PSE por ejercicio */}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Esfuerzo percibido (PSE)</label>
                   <div className="flex gap-1.5 flex-wrap">
@@ -492,7 +572,7 @@ export default function TodayWorkoutPage() {
   const [logs, setLogs] = useState({})
   const [session, setSession] = useState(null)
   const [activeDay, setActiveDay] = useState('day_a')
-  const [showBorg, setShowBorg] = useState(false)
+  const [showDailyEffort, setShowDailyEffort] = useState(false)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const sessionStartRef = useRef(null)
 
@@ -627,14 +707,15 @@ export default function TodayWorkoutPage() {
     setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
   }
 
-  async function saveBorg(borgScale, borgNotes) {
+  // Guardar esfuerzo percibido del día (borg_scale en workout_sessions)
+  async function saveDailyEffort(effortScale, effortNotes) {
     const finishedAt = new Date().toISOString()
     await upsertSession({
-      borg_scale: borgScale,
-      borg_notes: borgNotes || null,
+      borg_scale: effortScale,
+      borg_notes: effortNotes || null,
       finished_at: finishedAt,
     })
-    setShowBorg(false)
+    setShowDailyEffort(false)
   }
 
   const sections = {
@@ -647,10 +728,10 @@ export default function TodayWorkoutPage() {
   const totalCount = planExercises.length
   const allCompleted = completedCount === totalCount && totalCount > 0
 
-  // Cuando se completan todos, si no se registró Borg, mostrar modal
+  // Cuando se completan todos, mostrar modal de esfuerzo del día
   useEffect(() => {
-    if (allCompleted && !session?.borg_scale && !showBorg) {
-      setShowBorg(true)
+    if (allCompleted && !session?.borg_scale && !showDailyEffort) {
+      setShowDailyEffort(true)
     }
   }, [allCompleted])
 
@@ -681,11 +762,11 @@ export default function TodayWorkoutPage() {
 
   return (
     <>
-      {showBorg && (
-        <BorgModal
+      {showDailyEffort && (
+        <DailyEffortModal
           session={session}
-          onSave={saveBorg}
-          onClose={() => setShowBorg(false)}
+          onSave={saveDailyEffort}
+          onClose={() => setShowDailyEffort(false)}
         />
       )}
 
@@ -713,13 +794,19 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Borg registrado */}
+          {/* Esfuerzo del día registrado */}
           {session?.borg_scale !== null && session?.borg_scale !== undefined && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-primary-200 text-xs">Intensidad general:</span>
+              <span className="text-primary-200 text-xs">Esfuerzo del día:</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${borgColor(session.borg_scale)}`}>
-                {session.borg_scale} - {BORG_LABELS[session.borg_scale]}
+                PSE {session.borg_scale}
               </span>
+              <button
+                onClick={() => setShowDailyEffort(true)}
+                className="text-primary-300 text-xs underline"
+              >
+                Editar
+              </button>
             </div>
           )}
 
@@ -814,22 +901,27 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Completado - botón para Borg si no se registró */}
-          {allCompleted && !showBorg && (
+          {/* Completado */}
+          {allCompleted && !showDailyEffort && (
             <div className="card bg-gradient-to-r from-green-500 to-emerald-500 text-center py-6">
               <p className="text-3xl mb-2">🎉</p>
               <p className="text-white font-bold text-lg">¡Entrenamiento completo!</p>
-              {!session?.borg_scale && (
+              {!session?.borg_scale ? (
                 <button
-                  onClick={() => setShowBorg(true)}
+                  onClick={() => setShowDailyEffort(true)}
                   className="mt-3 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-2 rounded-xl transition"
                 >
-                  Registrar intensidad general
+                  Registrar esfuerzo del día
                 </button>
-              )}
-              {session?.borg_scale !== null && session?.borg_scale !== undefined && (
+              ) : (
                 <p className="text-green-100 text-sm mt-1">
-                  Intensidad: {session.borg_scale}/10 — {BORG_LABELS[session.borg_scale]}
+                  Esfuerzo del día: PSE {session.borg_scale}
+                  <button
+                    onClick={() => setShowDailyEffort(true)}
+                    className="ml-2 underline text-green-200"
+                  >
+                    Editar
+                  </button>
                 </p>
               )}
             </div>
