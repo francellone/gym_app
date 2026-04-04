@@ -5,10 +5,10 @@ import { format, subDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp,
-  ExternalLink, Dumbbell, PlayCircle, Info,
+  Dumbbell, PlayCircle, Info,
   Calendar, AlertTriangle, Clock, Lock
 } from 'lucide-react'
-import { BORG_LABELS, borgColor, parseReps, serializeReps, SECTION_LABELS, displayReps } from '../../utils/planHelpers'
+import { borgColor, parseReps, serializeReps, displayReps } from '../../utils/planHelpers'
 
 // ============================================================
 // Constantes
@@ -21,15 +21,31 @@ const PSE_OPTIONS = [
   { value: 9, label: '9 - Casi máximo' }, { value: 10, label: '10 - Máximo esfuerzo' },
 ]
 
-// Parsear el peso sugerido del coach a número (ej: "20kg" → 20, "20" → 20, "BW" → "")
+// Etiquetas cortas PSE para el modal del día
+const PSE_SHORT = [
+  { value: 1, label: 'Muy fácil' }, { value: 2, label: 'Fácil' },
+  { value: 3, label: 'Moderado' }, { value: 4, label: 'Algo duro' },
+  { value: 5, label: 'Duro' }, { value: 6, label: 'Duro +' },
+  { value: 7, label: 'Muy duro' }, { value: 8, label: 'Muy duro +' },
+  { value: 9, label: 'Casi máx.' }, { value: 10, label: 'Máximo' },
+]
+
+// Parsear el peso sugerido del coach a número (ej: "20kg" → "20", "BW" → "")
 function parseSuggestedWeight(val) {
   if (!val || val === 'None' || val === 'none') return ''
   const n = parseFloat(String(val).replace(/[^\d.]/g, ''))
   return isNaN(n) ? '' : n.toString()
 }
 
+// Color del PSE por valor
+function pseColor(n) {
+  if (n >= 8) return 'bg-red-500 text-white'
+  if (n >= 5) return 'bg-orange-400 text-white'
+  return 'bg-green-500 text-white'
+}
+
 // ============================================================
-// Modal de aviso de validación
+// Modal de aviso de validación (solo para peso inusual)
 // ============================================================
 function ValidationWarning({ message, onConfirm, onCancel }) {
   return (
@@ -54,32 +70,12 @@ function ValidationWarning({ message, onConfirm, onCancel }) {
 }
 
 // ============================================================
-// Modal de esfuerzo percibido del día (al finalizar)
+// Modal de esfuerzo percibido del día (por cada día)
 // ============================================================
-function DailyEffortModal({ session, onSave, onClose }) {
-  const [effort, setEffort] = useState(session?.borg_scale ?? null)
-  const [notes, setNotes] = useState(session?.borg_notes || '')
+function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose }) {
+  const [effort, setEffort] = useState(currentEffort ?? null)
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
-
-  // PSE del día: 1–10 con colores consistentes con el PSE por ejercicio
-  const PSE_DAY = [
-    { value: 1, label: 'Muy fácil' },
-    { value: 2, label: 'Fácil' },
-    { value: 3, label: 'Moderado' },
-    { value: 4, label: 'Algo duro' },
-    { value: 5, label: 'Duro' },
-    { value: 6, label: 'Duro +' },
-    { value: 7, label: 'Muy duro' },
-    { value: 8, label: 'Muy duro +' },
-    { value: 9, label: 'Casi máximo' },
-    { value: 10, label: 'Máximo' },
-  ]
-
-  function effortColor(n) {
-    if (n >= 8) return 'bg-red-500 text-white'
-    if (n >= 5) return 'bg-orange-400 text-white'
-    return 'bg-green-500 text-white'
-  }
 
   async function handleSave() {
     if (effort === null) return
@@ -94,26 +90,28 @@ function DailyEffortModal({ session, onSave, onClose }) {
         <div className="p-5 space-y-4">
           {/* Encabezado */}
           <div className="text-center">
-            <p className="text-3xl mb-1">🎉</p>
-            <h2 className="font-bold text-gray-900 text-lg">¡Entrenamiento completo!</h2>
+            <p className="text-3xl mb-1">💪</p>
+            <h2 className="font-bold text-gray-900 text-lg">
+              ¡{dayLabel} completado!
+            </h2>
             <p className="text-sm text-gray-500 mt-1">
-              ¿Cómo fue el esfuerzo del día en general?
+              ¿Cómo fue el esfuerzo general de {dayLabel}?
             </p>
           </div>
 
           {/* Selector PSE 1–10 */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-600 text-center uppercase tracking-wide">
-              Esfuerzo percibido del día (PSE)
+              Esfuerzo percibido — {dayLabel}
             </p>
             <div className="grid grid-cols-5 gap-2">
-              {PSE_DAY.map(({ value, label }) => (
+              {PSE_SHORT.map(({ value, label }) => (
                 <button
                   key={value}
                   onClick={() => setEffort(effort === value ? null : value)}
                   className={`rounded-xl p-2 text-center transition-all ${
                     effort === value
-                      ? effortColor(value) + ' ring-2 ring-offset-1 ring-current scale-105'
+                      ? pseColor(value) + ' ring-2 ring-offset-1 ring-current scale-105'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -122,30 +120,28 @@ function DailyEffortModal({ session, onSave, onClose }) {
                 </button>
               ))}
             </div>
-
-            {/* Referencia visual */}
-            <div className="flex justify-between text-[10px] text-gray-400 px-1 mt-1">
+            <div className="flex justify-between text-[10px] text-gray-400 px-1">
               <span>😌 Muy fácil</span>
               <span>💀 Máximo</span>
             </div>
           </div>
 
-          {/* Nota seleccionada */}
+          {/* Muestra la selección */}
           {effort !== null && (
-            <div className={`rounded-xl p-2 text-center text-sm font-medium ${effortColor(effort)}`}>
-              PSE {effort} — {PSE_DAY[effort - 1]?.label}
+            <div className={`rounded-xl p-2 text-center text-sm font-medium ${pseColor(effort)}`}>
+              PSE {effort} — {PSE_SHORT[effort - 1]?.label}
             </div>
           )}
 
           {/* Observaciones */}
           <div>
             <label className="text-xs text-gray-500 mb-1 block">
-              Observaciones del entrenamiento (opcional)
+              Observaciones de {dayLabel} (opcional)
             </label>
             <textarea
               className="input resize-none text-sm"
               rows={2}
-              placeholder="¿Cómo te sentiste hoy?"
+              placeholder={`¿Cómo te fue en ${dayLabel}?`}
               value={notes}
               onChange={e => setNotes(e.target.value)}
             />
@@ -162,7 +158,7 @@ function DailyEffortModal({ session, onSave, onClose }) {
             >
               {saving
                 ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : 'Guardar y finalizar'
+                : 'Guardar'
               }
             </button>
           </div>
@@ -181,37 +177,37 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   const [saving, setSaving] = useState(false)
   const [warning, setWarning] = useState(null)
   const [pendingData, setPendingData] = useState(null)
-  const [setsWarning, setSetsWarning] = useState(false)
+  const [setsLimitHit, setSetsLimitHit] = useState(false)
 
-  // Parsear reps sugeridas (puede ser array o string)
+  // Parsear reps sugeridas
   const suggestedRepsRaw = planEx.suggested_reps
   const suggestedRepsArr = parseReps(suggestedRepsRaw)
 
-  // Máximo de series permitido por el coach
+  // Máximo de series: definido por el coach, NO superable
   const maxSets = parseInt(suggestedSets || planEx.suggested_sets) || 99
-  const setsCount = maxSets
 
-  // Peso sugerido como número (pre-rellenar el campo)
+  // Peso sugerido como valor numérico pre-rellenable
   const defaultWeight = parseSuggestedWeight(planEx.suggested_weight)
 
-  // Inicializar log data con valores actuales o sugeridos
+  // Inicializar reps con valores sugeridos si no hay log previo
   const initRepsArr = () => {
     if (log?.actual_reps) {
       const parsed = parseReps(log.actual_reps)
-      if (setsCount > 0 && parsed.length !== setsCount) {
-        return Array.from({ length: setsCount }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
+      if (maxSets > 0 && parsed.length !== maxSets) {
+        return Array.from({ length: maxSets }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
       }
       return parsed
     }
-    return setsCount > 0
-      ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
+    return maxSets > 0
+      ? Array.from({ length: maxSets }, (_, i) => suggestedRepsArr[i] || '')
       : [suggestedRepsArr[0] || '']
   }
 
   const [logData, setLogData] = useState({
-    actual_sets: log?.actual_sets?.toString() || suggestedSets?.toString() || '',
+    // Series: pre-rellenado con el máximo del coach
+    actual_sets: log?.actual_sets?.toString() || (maxSets < 99 ? maxSets.toString() : ''),
     actual_reps_arr: initRepsArr(),
-    // PRE-LLENAR peso con el valor sugerido por el coach si no hay log previo
+    // Peso: pre-rellenado con el peso sugerido por el coach
     actual_weight: log?.actual_weight?.toString() || defaultWeight,
     perceived_difficulty: log?.perceived_difficulty || null,
     notes: log?.notes || '',
@@ -229,13 +225,12 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   function handleSetsChange(val) {
     let n = parseInt(val) || 0
 
-    // No superar el máximo definido por el coach
+    // TOPE DURO: no puede superar el máximo definido por el coach
     if (maxSets < 99 && n > maxSets) {
       n = maxSets
-      setSetsWarning(true)
-      setTimeout(() => setSetsWarning(false), 2500)
-    } else {
-      setSetsWarning(false)
+      // Mostrar aviso breve sin pregunta de confirmación
+      setSetsLimitHit(true)
+      setTimeout(() => setSetsLimitHit(false), 2000)
     }
 
     const currentReps = logData.actual_reps_arr
@@ -243,9 +238,10 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     if (n === 0) {
       newReps = ['']
     } else if (n > currentReps.length) {
+      // Al agregar series, pre-rellenar con reps sugeridas si las hay
       newReps = [
         ...currentReps,
-        ...Array(n - currentReps.length).fill('').map((_, i) =>
+        ...Array.from({ length: n - currentReps.length }, (_, i) =>
           suggestedRepsArr[currentReps.length + i] || ''
         )
       ]
@@ -270,16 +266,9 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   }
 
   function validate(data) {
+    // Solo validar peso inusual — las series ya tienen tope duro
     if (data.actual_weight && data.actual_weight > 500) {
       return `Peso registrado (${data.actual_weight}kg) parece muy alto. ¿Es correcto?`
-    }
-    // La validación de series ya está controlada upstream (no puede superar el máx),
-    // pero validamos si es muy por debajo del sugerido
-    if (maxSets < 99 && data.actual_sets) {
-      const actual = data.actual_sets
-      if (actual < maxSets * 0.5) {
-        return `Registraste ${actual} series (el plan sugiere ${maxSets}). ¿Es correcto?`
-      }
     }
     return null
   }
@@ -310,7 +299,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     }
   }
 
-  const actualSetsCount = parseInt(logData.actual_sets) || setsCount || 1
+  const actualSetsCount = parseInt(logData.actual_sets) || (maxSets < 99 ? maxSets : 1)
 
   return (
     <>
@@ -382,7 +371,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                 <PlayCircle size={18} />
               </a>
             )}
-            {expanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+            {expanded ? <ChevronDown size={18} className="text-gray-400 rotate-180" /> : <ChevronDown size={18} className="text-gray-400" />}
           </div>
         </div>
 
@@ -413,44 +402,41 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
 
                 {/* Series + Peso */}
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Series: editable pero con tope del coach */}
+                  {/* Series con tope duro */}
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">
+                    <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                       Series realizadas
                       {maxSets < 99 && (
-                        <span className="ml-1 text-gray-400 font-normal">(máx. {maxSets})</span>
+                        <span className="flex items-center gap-0.5 text-gray-400">
+                          <Lock size={10} />
+                          máx. {maxSets}
+                        </span>
                       )}
                     </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        max={maxSets < 99 ? maxSets : undefined}
-                        className={`input text-sm text-center w-full pr-7 ${
-                          setsWarning ? 'border-orange-400 ring-1 ring-orange-400' : ''
-                        }`}
-                        placeholder={maxSets < 99 ? maxSets.toString() : '—'}
-                        value={logData.actual_sets}
-                        onChange={e => handleSetsChange(e.target.value)}
-                      />
-                      {maxSets < 99 && (
-                        <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300" />
-                      )}
-                    </div>
-                    {setsWarning && (
-                      <p className="text-xs text-orange-500 mt-1 flex items-center gap-1">
-                        <AlertTriangle size={11} />
-                        Máximo {maxSets} series
+                    <input
+                      type="number"
+                      min="0"
+                      max={maxSets < 99 ? maxSets : undefined}
+                      className={`input text-sm text-center w-full transition-colors ${
+                        setsLimitHit ? 'border-orange-400 bg-orange-50' : ''
+                      }`}
+                      placeholder={maxSets < 99 ? maxSets.toString() : '—'}
+                      value={logData.actual_sets}
+                      onChange={e => handleSetsChange(e.target.value)}
+                    />
+                    {setsLimitHit && (
+                      <p className="text-[11px] text-orange-500 mt-0.5 flex items-center gap-1">
+                        <Lock size={10} /> Límite del plan: {maxSets} series
                       </p>
                     )}
                   </div>
 
-                  {/* Peso: pre-rellenado con el valor del coach */}
+                  {/* Peso pre-rellenado con sugerido del coach */}
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">
                       Peso (kg)
                       {defaultWeight && (
-                        <span className="ml-1 text-primary-600 font-normal">· sug. {defaultWeight}kg</span>
+                        <span className="ml-1 text-primary-500 font-normal">· sug. {defaultWeight}</span>
                       )}
                     </label>
                     <input
@@ -505,7 +491,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                         onClick={() => setLogData(p => ({ ...p, perceived_difficulty: p.perceived_difficulty === n ? null : n }))}
                         className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
                           logData.perceived_difficulty === n
-                            ? n >= 8 ? 'bg-red-500 text-white' : n >= 5 ? 'bg-orange-400 text-white' : 'bg-green-500 text-white'
+                            ? pseColor(n)
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
@@ -572,15 +558,23 @@ export default function TodayWorkoutPage() {
   const [logs, setLogs] = useState({})
   const [session, setSession] = useState(null)
   const [activeDay, setActiveDay] = useState('day_a')
-  const [showDailyEffort, setShowDailyEffort] = useState(false)
+  // PSE modal por día: null | 'day_a' | 'day_b'
+  const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const sessionStartRef = useRef(null)
+  // Evitar disparar el modal varias veces en el mismo render
+  const pseTriggeredRef = useRef({ day_a: false, day_b: false })
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
   useEffect(() => {
     if (profile?.id) fetchWorkout()
   }, [profile, selectedDate])
+
+  // Al cambiar de fecha, resetear los triggers de PSE
+  useEffect(() => {
+    pseTriggeredRef.current = { day_a: false, day_b: false }
+  }, [selectedDate])
 
   // Registrar inicio de sesión al montar (solo si es hoy)
   useEffect(() => {
@@ -707,33 +701,81 @@ export default function TodayWorkoutPage() {
     setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
   }
 
-  // Guardar esfuerzo percibido del día (borg_scale en workout_sessions)
-  async function saveDailyEffort(effortScale, effortNotes) {
-    const finishedAt = new Date().toISOString()
+  // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
+  async function saveDayPSE(day, effortScale, effortNotes) {
+    const currentPerDay = session?.borg_per_day || {}
+    const newPerDay = {
+      ...currentPerDay,
+      [day]: effortScale,
+      ...(effortNotes ? { [`${day}_notes`]: effortNotes } : {}),
+    }
+    // Si es el último día completado, también marcar finished_at
+    const isLastDay = !hasMultipleDays || (day === 'day_b')
     await upsertSession({
-      borg_scale: effortScale,
-      borg_notes: effortNotes || null,
-      finished_at: finishedAt,
+      borg_per_day: newPerDay,
+      ...(isLastDay ? { finished_at: new Date().toISOString() } : {}),
     })
-    setShowDailyEffort(false)
+    pseTriggeredRef.current[day] = true
+    setShowPSEForDay(null)
   }
 
+  // Secciones de ejercicios
   const sections = {
     activation: planExercises.filter(e => e.section === 'activation'),
     day_a: planExercises.filter(e => e.section === 'day_a'),
     day_b: planExercises.filter(e => e.section === 'day_b'),
   }
 
+  const hasMultipleDays = sections.day_b.length > 0
+
+  // Lógica de completado por día
+  const activationDone =
+    sections.activation.length === 0 ||
+    sections.activation.every(ex => logs[ex.id]?.completed)
+
+  const dayADone =
+    sections.day_a.length > 0 &&
+    activationDone &&
+    sections.day_a.every(ex => logs[ex.id]?.completed)
+
+  const dayBDone =
+    sections.day_b.length > 0 &&
+    sections.day_b.every(ex => logs[ex.id]?.completed)
+
+  // Totales para progress bar
   const completedCount = Object.values(logs).filter(l => l.completed).length
   const totalCount = planExercises.length
-  const allCompleted = completedCount === totalCount && totalCount > 0
 
-  // Cuando se completan todos, mostrar modal de esfuerzo del día
+  // PSE guardados en la sesión
+  const borgPerDay = session?.borg_per_day || {}
+
+  // Disparar modal PSE cuando se completa el Día A
   useEffect(() => {
-    if (allCompleted && !session?.borg_scale && !showDailyEffort) {
-      setShowDailyEffort(true)
+    if (
+      !loading &&
+      dayADone &&
+      borgPerDay.day_a === undefined &&
+      !pseTriggeredRef.current.day_a &&
+      showPSEForDay === null
+    ) {
+      pseTriggeredRef.current.day_a = true
+      setShowPSEForDay('day_a')
     }
-  }, [allCompleted])
+  }, [dayADone, loading])
+
+  // Disparar modal PSE cuando se completa el Día B
+  useEffect(() => {
+    if (
+      !loading &&
+      dayBDone &&
+      borgPerDay.day_b === undefined &&
+      !pseTriggeredRef.current.day_b &&
+      showPSEForDay === null
+    ) {
+      pseTriggeredRef.current.day_b = true
+      setShowPSEForDay('day_b')
+    }
+  }, [dayBDone, loading])
 
   // Últimos 7 días para el selector de fecha
   const dateOptions = Array.from({ length: 7 }, (_, i) => {
@@ -743,6 +785,9 @@ export default function TodayWorkoutPage() {
       label: i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : format(d, "EEE d/MM", { locale: es }),
     }
   })
+
+  // Labels de días para el modal
+  const DAY_LABELS = { day_a: 'Día A', day_b: 'Día B' }
 
   if (loading) return (
     <div className="flex justify-center py-16">
@@ -762,11 +807,16 @@ export default function TodayWorkoutPage() {
 
   return (
     <>
-      {showDailyEffort && (
-        <DailyEffortModal
-          session={session}
-          onSave={saveDailyEffort}
-          onClose={() => setShowDailyEffort(false)}
+      {/* Modal PSE del día activo */}
+      {showPSEForDay && (
+        <DailyPSEModal
+          dayLabel={DAY_LABELS[showPSEForDay]}
+          currentEffort={borgPerDay[showPSEForDay] ?? null}
+          onSave={(effort, notes) => saveDayPSE(showPSEForDay, effort, notes)}
+          onClose={() => {
+            pseTriggeredRef.current[showPSEForDay] = true
+            setShowPSEForDay(null)
+          }}
         />
       )}
 
@@ -794,19 +844,37 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Esfuerzo del día registrado */}
-          {session?.borg_scale !== null && session?.borg_scale !== undefined && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-primary-200 text-xs">Esfuerzo del día:</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${borgColor(session.borg_scale)}`}>
-                PSE {session.borg_scale}
-              </span>
-              <button
-                onClick={() => setShowDailyEffort(true)}
-                className="text-primary-300 text-xs underline"
-              >
-                Editar
-              </button>
+          {/* PSE por día registrado */}
+          {(borgPerDay.day_a !== undefined || borgPerDay.day_b !== undefined) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {borgPerDay.day_a !== undefined && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary-200 text-xs">Día A:</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_a)}`}>
+                    PSE {borgPerDay.day_a}
+                  </span>
+                  <button
+                    onClick={() => setShowPSEForDay('day_a')}
+                    className="text-primary-300 text-xs underline"
+                  >
+                    Editar
+                  </button>
+                </div>
+              )}
+              {borgPerDay.day_b !== undefined && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary-200 text-xs">Día B:</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_b)}`}>
+                    PSE {borgPerDay.day_b}
+                  </span>
+                  <button
+                    onClick={() => setShowPSEForDay('day_b')}
+                    className="text-primary-300 text-xs underline"
+                  >
+                    Editar
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -826,7 +894,7 @@ export default function TodayWorkoutPage() {
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          {/* Selector de fecha (últimos 7 días) */}
+          {/* Selector de fecha */}
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-400 flex-shrink-0" />
             <select
@@ -843,23 +911,30 @@ export default function TodayWorkoutPage() {
             )}
           </div>
 
-          {/* Day selector */}
-          {(sections.day_a.length > 0 || sections.day_b.length > 0) && (
+          {/* Selector de día (tabs) */}
+          {hasMultipleDays && (
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
               {[
                 { id: 'day_a', label: 'Día A' },
                 { id: 'day_b', label: 'Día B' },
-              ].filter(d => sections[d.id].length > 0).map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => setActiveDay(d.id)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                    activeDay === d.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                  }`}
-                >
-                  {d.label}
-                </button>
-              ))}
+              ].filter(d => sections[d.id].length > 0).map(d => {
+                const isDone = d.id === 'day_a' ? dayADone : dayBDone
+                const hasPSE = borgPerDay[d.id] !== undefined
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => setActiveDay(d.id)}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      activeDay === d.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    }`}
+                  >
+                    {d.label}
+                    {isDone && (
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`} />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -881,7 +956,7 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Día principal */}
+          {/* Día activo */}
           {sections[activeDay]?.length > 0 && (
             <div>
               <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
@@ -901,28 +976,61 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Completado */}
-          {allCompleted && !showDailyEffort && (
-            <div className="card bg-gradient-to-r from-green-500 to-emerald-500 text-center py-6">
-              <p className="text-3xl mb-2">🎉</p>
-              <p className="text-white font-bold text-lg">¡Entrenamiento completo!</p>
-              {!session?.borg_scale ? (
-                <button
-                  onClick={() => setShowDailyEffort(true)}
-                  className="mt-3 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-2 rounded-xl transition"
-                >
-                  Registrar esfuerzo del día
-                </button>
-              ) : (
-                <p className="text-green-100 text-sm mt-1">
-                  Esfuerzo del día: PSE {session.borg_scale}
+          {/* Banner de completado por día */}
+          {dayADone && (
+            <div className={`card text-center py-4 ${
+              hasMultipleDays
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                : 'bg-gradient-to-r from-green-500 to-emerald-500'
+            }`}>
+              <p className="text-white font-bold">
+                {hasMultipleDays ? '✅ Día A completado' : '🎉 ¡Entrenamiento completo!'}
+              </p>
+              {borgPerDay.day_a !== undefined ? (
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_a)}`}>
+                    PSE {borgPerDay.day_a}
+                  </span>
                   <button
-                    onClick={() => setShowDailyEffort(true)}
-                    className="ml-2 underline text-green-200"
+                    onClick={() => setShowPSEForDay('day_a')}
+                    className="text-white/70 text-xs underline"
                   >
                     Editar
                   </button>
-                </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowPSEForDay('day_a')}
+                  className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
+                >
+                  Registrar esfuerzo Día A
+                </button>
+              )}
+            </div>
+          )}
+
+          {dayBDone && (
+            <div className="card bg-gradient-to-r from-green-500 to-emerald-500 text-center py-4">
+              <p className="text-white font-bold">🎉 ¡Entrenamiento completo!</p>
+              {borgPerDay.day_b !== undefined ? (
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_b)}`}>
+                    PSE {borgPerDay.day_b}
+                  </span>
+                  <button
+                    onClick={() => setShowPSEForDay('day_b')}
+                    className="text-white/70 text-xs underline"
+                  >
+                    Editar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowPSEForDay('day_b')}
+                  className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
+                >
+                  Registrar esfuerzo Día B
+                </button>
               )}
             </div>
           )}
