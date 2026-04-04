@@ -183,8 +183,10 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   const suggestedRepsRaw = planEx.suggested_reps
   const suggestedRepsArr = parseReps(suggestedRepsRaw)
 
-  // Máximo de series: definido por el coach, NO superable
-  const maxSets = parseInt(suggestedSets || planEx.suggested_sets) || 99
+  // setsCount: cantidad sugerida por el coach (para inicialización y display)
+  const setsCount = parseInt(suggestedSets || planEx.suggested_sets) || 0
+  // maxSets: tope duro (99 = sin tope cuando el coach no lo definió)
+  const maxSets = setsCount || 99
 
   // Peso sugerido como valor numérico pre-rellenable
   const defaultWeight = parseSuggestedWeight(planEx.suggested_weight)
@@ -193,19 +195,19 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   const initRepsArr = () => {
     if (log?.actual_reps) {
       const parsed = parseReps(log.actual_reps)
-      if (maxSets > 0 && parsed.length !== maxSets) {
-        return Array.from({ length: maxSets }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
+      if (setsCount > 0 && parsed.length !== setsCount) {
+        return Array.from({ length: setsCount }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
       }
       return parsed
     }
-    return maxSets > 0
-      ? Array.from({ length: maxSets }, (_, i) => suggestedRepsArr[i] || '')
+    return setsCount > 0
+      ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
       : [suggestedRepsArr[0] || '']
   }
 
   const [logData, setLogData] = useState({
-    // Series: pre-rellenado con el máximo del coach
-    actual_sets: log?.actual_sets?.toString() || (maxSets < 99 ? maxSets.toString() : ''),
+    // Series: pre-rellenado con el valor sugerido por el coach
+    actual_sets: log?.actual_sets?.toString() || (setsCount > 0 ? setsCount.toString() : ''),
     actual_reps_arr: initRepsArr(),
     // Peso: pre-rellenado con el peso sugerido por el coach
     actual_weight: log?.actual_weight?.toString() || defaultWeight,
@@ -299,7 +301,7 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     }
   }
 
-  const actualSetsCount = parseInt(logData.actual_sets) || (maxSets < 99 ? maxSets : 1)
+  const actualSetsCount = parseInt(logData.actual_sets) || setsCount || 1
 
   return (
     <>
