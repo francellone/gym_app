@@ -54,13 +54,24 @@ export const DEFAULT_MODULES = [
     order: 1,
     questions: [
       {
-        id: 'nombre_completo',
+        id: 'nombre',
         type: QUESTION_TYPES.TEXT,
-        label: '¿Cuál es tu nombre completo?',
-        placeholder: 'Ej: María González',
+        label: '¿Cuál es tu nombre?',
+        placeholder: 'Ej: María',
         required: true,
         editable: true,
         removable: false,
+        autoComplete: 'given-name',
+      },
+      {
+        id: 'apellido',
+        type: QUESTION_TYPES.TEXT,
+        label: '¿Y tu apellido?',
+        placeholder: 'Ej: González',
+        required: true,
+        editable: true,
+        removable: false,
+        autoComplete: 'family-name',
       },
       {
         id: 'fecha_nacimiento',

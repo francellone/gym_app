@@ -24,10 +24,14 @@ export default function QuestionField({ question, value, onChange, error }) {
     case QUESTION_TYPES.PHONE:
       return (
         <input
-          type={question.type === QUESTION_TYPES.EMAIL ? 'email' : 'text'}
+          type={
+            question.type === QUESTION_TYPES.EMAIL ? 'email' :
+            question.type === QUESTION_TYPES.PHONE ? 'tel' : 'text'
+          }
           value={value || ''}
           onChange={e => handleChange(e.target.value)}
           placeholder={question.placeholder || ''}
+          autoComplete={question.autoComplete || 'off'}
           className={baseInput}
         />
       )
@@ -49,9 +53,12 @@ export default function QuestionField({ question, value, onChange, error }) {
       return (
         <input
           type="number"
+          inputMode="numeric"
           value={value || ''}
           onChange={e => handleChange(e.target.value)}
           placeholder={question.placeholder || ''}
+          min={question.min}
+          max={question.max}
           className={baseInput}
         />
       )
@@ -74,6 +81,7 @@ export default function QuestionField({ question, value, onChange, error }) {
           {(question.options || []).map(option => (
             <label
               key={option}
+              onClick={() => handleChange(option)}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                 value === option
                   ? 'border-blue-500 bg-blue-50 shadow-sm'
@@ -107,6 +115,7 @@ export default function QuestionField({ question, value, onChange, error }) {
             return (
               <label
                 key={option}
+                onClick={() => toggle(option)}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                   isSelected
                     ? 'border-blue-500 bg-blue-50 shadow-sm'

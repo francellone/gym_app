@@ -79,12 +79,18 @@ CREATE TABLE IF NOT EXISTS intake_form_submissions (
 -- ─────────────────────────────────────────────────────────────
 -- Resumen estructurado extraído del formulario.
 -- Usado para: sugerir rutinas, segmentar, analytics.
+--
+-- Nota: el formulario usa question_id 'nombre' y 'apellido'
+-- (antes era 'nombre_completo'). Los perfiles nuevos ya usan
+-- los campos separados; el campo nombre_completo es legacy.
 CREATE TABLE IF NOT EXISTS student_profiles (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id          uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE UNIQUE,
   submission_id       uuid REFERENCES intake_form_submissions(id) ON DELETE SET NULL,
 
   -- Datos clave extraídos (para queries eficientes)
+  nombre              text,   -- antes: nombre_completo (campo separado)
+  apellido            text,
   objetivo_principal  text,
   nivel_experiencia   text,
   frecuencia_semanal  text,
@@ -194,6 +200,8 @@ BEGIN
   INSERT INTO student_profiles (
     student_id,
     submission_id,
+    nombre,
+    apellido,
     objetivo_principal,
     nivel_experiencia,
     frecuencia_semanal,
@@ -204,6 +212,8 @@ BEGIN
   ) VALUES (
     sub.student_id,
     sub.id,
+    resp->>'nombre',
+    resp->>'apellido',
     resp->>'objetivo_principal',
     resp->>'experiencia_nivel',
     resp->>'frecuencia_semanal',
@@ -214,6 +224,8 @@ BEGIN
   )
   ON CONFLICT (student_id) DO UPDATE SET
     submission_id       = EXCLUDED.submission_id,
+    nombre              = EXCLUDED.nombre,
+    apellido            = EXCLUDED.apellido,
     objetivo_principal  = EXCLUDED.objetivo_principal,
     nivel_experiencia   = EXCLUDED.nivel_experiencia,
     frecuencia_semanal  = EXCLUDED.frecuencia_semanal,
