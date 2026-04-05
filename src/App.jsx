@@ -104,8 +104,14 @@ function AppRoutes() {
         <Route path="progress" element={<ProgressPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="intake" element={<IntakeFormPage />} />
       </Route>
+
+      {/* Intake form — fuera del StudentLayout para evitar conflicto de navbars */}
+      <Route path="/student/intake" element={
+        <PrivateRoute requiredRole="student">
+          <IntakeFormPage />
+        </PrivateRoute>
+      } />
 
       {/* Default redirect */}
       <Route path="/" element={
