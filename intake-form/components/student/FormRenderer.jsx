@@ -219,6 +219,13 @@ export default function FormRenderer({
                 {config.intro?.content || config.intro || ''}
               </div>
             </div>
+            {/* Botón empezar inline — visible sin depender del nav fijo */}
+            <button
+              onClick={handleNext}
+              className="w-full py-4 bg-blue-600 text-white text-base font-semibold rounded-2xl hover:bg-blue-700 active:scale-95 transition-all shadow-md"
+            >
+              ¡Empezar! →
+            </button>
           </div>
         )}
 
@@ -269,46 +276,48 @@ export default function FormRenderer({
         )}
       </div>
 
-      {/* ── NAVEGACIÓN (fija al fondo) ───────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg">
-        <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
+      {/* ── NAVEGACIÓN FIJA (solo para módulos, no para intro) ── */}
+      {!isIntro && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
 
-          {currentStep > 0 && (
-            <button
-              onClick={handleBack}
-              className="px-5 py-3 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              ← Atrás
-            </button>
-          )}
+            {currentStep > 0 && (
+              <button
+                onClick={handleBack}
+                className="px-5 py-3 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                ← Atrás
+              </button>
+            )}
 
-          {!isLastStep ? (
-            <button
-              onClick={handleNext}
-              className="flex-1 py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
-            >
-              {isIntro ? '¡Empezar! →' : 'Continuar →'}
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex-1 py-3 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 active:scale-95 transition-all shadow-sm"
-            >
-              {submitting ? 'Enviando...' : '✅ Enviar formulario'}
-            </button>
-          )}
+            {!isLastStep ? (
+              <button
+                onClick={handleNext}
+                className="flex-1 py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
+              >
+                Continuar →
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex-1 py-3 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 active:scale-95 transition-all shadow-sm"
+              >
+                {submitting ? 'Enviando...' : '✅ Enviar formulario'}
+              </button>
+            )}
 
-          {!isIntro && !isLastStep && onSaveDraft && (
-            <button
-              onClick={handleSaveDraft}
-              className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
-            >
-              Guardar borrador
-            </button>
-          )}
+            {!isLastStep && onSaveDraft && (
+              <button
+                onClick={handleSaveDraft}
+                className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+              >
+                Guardar borrador
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
