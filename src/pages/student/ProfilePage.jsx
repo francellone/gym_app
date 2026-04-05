@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { User, LogOut, Save, ChevronRight, Lock } from 'lucide-react'
+import { User, LogOut, Save, ChevronRight, Lock, ClipboardList, FileCheck } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 export default function ProfilePage() {
   const { profile, signOut, refreshProfile } = useAuth()
@@ -16,6 +18,48 @@ export default function ProfilePage() {
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' })
   const [pwError, setPwError] = useState(null)
   const [pwSuccess, setPwSuccess] = useState(false)
+
+  // Intake form
+  const [formSubmission, setFormSubmission] = useState(null)
+  const [formPending, setFormPending] = useState(false)
+  const [formLoading, setFormLoading] = useState(true)
+
+  useEffect(() => {
+    if (!profile?.id) return
+    async function loadForm() {
+      setFormLoading(true)
+      try {
+        const [submissionRes, assignmentRes] = await Promise.all([
+          supabase
+            .from('intake_form_submissions')
+            .select('*')
+            .eq('student_id', profile.id)
+            .order('submitted_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('intake_form_assignments')
+            .select('id, status')
+            .eq('student_id', profile.id)
+            .in('status', ['pending', 'in_progress'])
+            .limit(1)
+            .maybeSingle(),
+        ])
+        setFormSubmission(submissionRes.data || null)
+        setFormPending(!!assignmentRes.data)
+      } finally {
+        setFormLoading(false)
+      }
+    }
+    loadForm()
+  }, [profile?.id])
+
+  function formatIntakeResponse(value) {
+    if (value === null || value === undefined || value === '') return '—'
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No'
+    if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—'
+    return String(value)
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -151,6 +195,83 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Formulario de ingreso */}
+        {!formLoading && (
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={15} className="text-primary-500" />
+                <h3 className="font-semibold text-gray-900 text-sm">Mis datos de ingreso</h3>
+              </div>
+              {formSubmission && (
+                <span className="badge bg-green-100 text-green-700 text-xs flex items-center gap-1">
+                  <FileCheck size={11} /> Completado
+                </span>
+              )}
+            </div>
+
+            {/* Formulario pendiente – invitar a completarlo */}
+            {!formSubmission && formPending && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">Tu coach te envió el formulario de ingreso.</p>
+                <button
+                  onClick={() => navigate('/student/intake')}
+                  className="btn-primary text-sm w-full"
+                >
+                  Completar formulario
+                </button>
+              </div>
+            )}
+
+            {/* Sin formulario aún */}
+            {!formSubmission && !formPending && (
+              <p className="text-sm text-gray-400 italic">
+                Tu coach todavía no te envió el formulario de ingreso.
+              </p>
+            )}
+
+            {/* Respuestas enviadas – read-only */}
+            {formSubmission && (
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400">
+                  Enviado el {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", { locale: es })}
+                </p>
+
+                {(formSubmission.form_snapshot?.modules || [])
+                  .filter(m => m.enabled)
+                  .sort((a, b) => a.order - b.order)
+                  .map(module => {
+                    const answered = (module.questions || []).filter(q => {
+                      if (q.id?.startsWith('consentimiento')) return false
+                      const val = formSubmission.responses?.[q.id]
+                      return val !== undefined && val !== null && val !== '' &&
+                        !(Array.isArray(val) && val.length === 0)
+                    })
+                    if (!answered.length) return null
+                    return (
+                      <div key={module.id} className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                          {module.emoji} {module.title}
+                        </p>
+                        <div className="space-y-2">
+                          {answered.map(q => (
+                            <div key={q.id} className="flex gap-3 text-xs leading-relaxed">
+                              <span className="text-gray-500 w-2/5 flex-shrink-0">{q.label}</span>
+                              <span className="text-gray-900 font-medium flex-1 text-right">
+                                {formatIntakeResponse(formSubmission.responses[q.id])}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })
+                }
+              </div>
+            )}
           </div>
         )}
 

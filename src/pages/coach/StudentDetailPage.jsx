@@ -5,8 +5,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   ArrowLeft, User, Calendar, Target, ClipboardList,
   Activity, TrendingUp, Edit2, Lock, ChevronRight, Plus,
-  Save, X, History, AlertCircle
+  Save, X, History, AlertCircle, Send, FileCheck
 } from 'lucide-react'
+import { buildFormConfig } from '../../../intake-form/schema/default-form.js'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -61,11 +62,17 @@ export default function StudentDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
+  // Intake form
+  const [formAssignment, setFormAssignment] = useState(null)
+  const [formSubmission, setFormSubmission] = useState(null)
+  const [sendingForm, setSendingForm] = useState(false)
+  const [formSentOk, setFormSentOk] = useState(false)
+
   useEffect(() => { fetchStudentData() }, [id])
 
   async function fetchStudentData() {
     try {
-      const [studentRes, assignmentsRes, logsRes, plansRes, historyRes] = await Promise.all([
+      const [studentRes, assignmentsRes, logsRes, plansRes, historyRes, formAssignmentRes, formSubmissionRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
@@ -88,6 +95,20 @@ export default function StudentDetailPage() {
           .eq('student_id', id)
           .order('changed_at', { ascending: false })
           .limit(100),
+        // Intake form: asignación más reciente para este alumno
+        supabase.from('intake_form_assignments')
+          .select('*')
+          .eq('student_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        // Intake form: respuesta enviada (si existe)
+        supabase.from('intake_form_submissions')
+          .select('*')
+          .eq('student_id', id)
+          .order('submitted_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       const studentData = studentRes.data
@@ -97,6 +118,8 @@ export default function StudentDetailPage() {
       setLogs(logsRes.data || [])
       setAllPlans(plansRes.data || [])
       setEditHistory(historyRes.data || [])
+      setFormAssignment(formAssignmentRes.data || null)
+      setFormSubmission(formSubmissionRes.data || null)
 
       const exerciseData = {}
       ;(logsRes.data || []).forEach(log => {
@@ -164,6 +187,49 @@ export default function StudentDetailPage() {
     setSaveError(null)
   }
 
+  // ── Enviar formulario de ingreso al alumno ────────────────
+  async function sendForm() {
+    setSendingForm(true)
+    try {
+      // Cargar la plantilla default del coach (si existe)
+      const { data: template } = await supabase
+        .from('intake_form_templates')
+        .select('*')
+        .eq('coach_id', profile.id)
+        .eq('is_default', true)
+        .maybeSingle()
+
+      const formSnapshot = template?.config || buildFormConfig()
+
+      const { error } = await supabase
+        .from('intake_form_assignments')
+        .insert({
+          template_id: template?.id || null,
+          coach_id: profile.id,
+          student_id: id,
+          form_snapshot: formSnapshot,
+          status: 'pending',
+        })
+
+      if (error) throw error
+      setFormSentOk(true)
+      setTimeout(() => setFormSentOk(false), 3000)
+      fetchStudentData()
+    } catch (err) {
+      console.error('Error al enviar formulario:', err)
+    } finally {
+      setSendingForm(false)
+    }
+  }
+
+  // ── Helper para mostrar respuestas del formulario ─────────
+  function formatIntakeResponse(value) {
+    if (value === null || value === undefined || value === '') return '—'
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No'
+    if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—'
+    return String(value)
+  }
+
   async function assignPlan() {
     if (!selectedPlan) return
     try {
@@ -201,6 +267,11 @@ export default function StudentDetailPage() {
 
   const initials = student.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   const topExercises = Object.entries(progressData).slice(0, 3)
+
+  // Para mostrar formulario de ingreso en Info tab
+  const formModules = formSubmission?.form_snapshot?.modules
+    ?.filter(m => m.enabled)
+    ?.sort((a, b) => a.order - b.order) || []
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -248,6 +319,13 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast – formulario enviado */}
+      {formSentOk && (
+        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+          ✅ Formulario enviado al alumno
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
@@ -428,6 +506,93 @@ export default function StudentDetailPage() {
               <p className="text-sm text-gray-600 whitespace-pre-wrap">
                 {student.coach_notes || <span className="text-gray-400 italic">Sin notas</span>}
               </p>
+            )}
+          </div>
+
+          {/* ── Formulario de ingreso ── */}
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={15} className="text-primary-500" />
+                <h3 className="font-semibold text-gray-900 text-sm">Formulario de ingreso</h3>
+              </div>
+              {formSubmission && (
+                <span className="badge bg-green-100 text-green-700 text-xs flex items-center gap-1">
+                  <FileCheck size={11} /> Completado
+                </span>
+              )}
+              {formAssignment && !formSubmission && (
+                <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pendiente</span>
+              )}
+            </div>
+
+            {/* Sin asignación: botón para enviar */}
+            {!formAssignment && (
+              <div className="text-center py-3 space-y-3">
+                <p className="text-sm text-gray-500">
+                  El alumno todavía no recibió el formulario de ingreso.
+                </p>
+                <button
+                  onClick={sendForm}
+                  disabled={sendingForm}
+                  className="btn-primary flex items-center gap-2 text-sm mx-auto"
+                >
+                  {sendingForm
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Send size={14} />
+                  }
+                  Enviar formulario
+                </button>
+              </div>
+            )}
+
+            {/* Asignado pero sin respuesta aún */}
+            {formAssignment && !formSubmission && (
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  El formulario fue enviado y está esperando respuesta del alumno.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Enviado el {format(parseISO(formAssignment.sent_at), "d 'de' MMMM yyyy", { locale: es })}
+                </p>
+              </div>
+            )}
+
+            {/* Respuestas enviadas – vista read-only */}
+            {formSubmission && (
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400">
+                  Completado el {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", { locale: es })}
+                </p>
+
+                {formModules.map(module => {
+                  const answered = (module.questions || []).filter(q => {
+                    const val = formSubmission.responses?.[q.id]
+                    // Excluir consentimientos (boolean required sin info útil)
+                    if (q.id?.startsWith('consentimiento')) return false
+                    return val !== undefined && val !== null && val !== '' &&
+                      !(Array.isArray(val) && val.length === 0)
+                  })
+                  if (!answered.length) return null
+                  return (
+                    <div key={module.id} className="space-y-2">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        {module.emoji} {module.title}
+                      </p>
+                      <div className="space-y-2">
+                        {answered.map(q => (
+                          <div key={q.id} className="flex gap-3 text-xs leading-relaxed">
+                            <span className="text-gray-500 w-2/5 flex-shrink-0">{q.label}</span>
+                            <span className="text-gray-900 font-medium flex-1 text-right">
+                              {formatIntakeResponse(formSubmission.responses[q.id])}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         </div>
