@@ -118,7 +118,7 @@ export default function ProgressPage() {
         .gte('logged_date', since)
         .order('logged_date'),
       supabase
-        .from('workout_sessions')
+        .from('v_workout_session_intensity')
         .select('*')
         .eq('student_id', profile.id)
         .gte('logged_date', since)
@@ -143,22 +143,58 @@ export default function ProgressPage() {
   // ── DATOS PARA GRÁFICOS ──────────────────────────────────
 
   // 1. Progresión de peso por ejercicio
+  // Usa actual_weights (nuevo) con fallback a actual_weight (legacy)
   const weightData = logs
-    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && l.actual_weight)
-    .map(l => ({
-      date: format(parseISO(l.logged_date), 'dd/MM'),
-      Peso: l.actual_weight,
-      PSE: l.perceived_difficulty,
-    }))
+    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && (l.actual_weights || l.actual_weight))
+    .map(l => {
+      let pesoMax = l.actual_weight || 0
+      if (l.actual_weights) {
+        try {
+          const arr = JSON.parse(l.actual_weights)
+          if (Array.isArray(arr) && arr.length > 0) {
+            pesoMax = Math.max(...arr.map(w => parseFloat(w || 0)))
+          } else {
+            pesoMax = parseFloat(l.actual_weights) || pesoMax
+          }
+        } catch {
+          pesoMax = parseFloat(l.actual_weights) || pesoMax
+        }
+      }
+      return {
+        date: format(parseISO(l.logged_date), 'dd/MM'),
+        Peso: pesoMax,
+        PSE: l.perceived_difficulty,
+      }
+    })
+    .filter(d => d.Peso > 0)
 
   // 2. Volumen por sesión
+  // Usa actual_weights (nuevo, JSON array) con fallback a actual_weight (legacy)
   const volumeByDate = {}
   logs.forEach(l => {
-    if (l.actual_sets && l.actual_weight) {
-      const date = format(parseISO(l.logged_date), 'dd/MM')
+    const date = format(parseISO(l.logged_date), 'dd/MM')
+    if (l.actual_sets && (l.actual_weights || l.actual_weight)) {
       const reps = parseFloat(l.actual_reps) || 10
-      const vol = l.actual_sets * reps * l.actual_weight
-      volumeByDate[date] = (volumeByDate[date] || 0) + vol
+      let weight = 0
+      if (l.actual_weights) {
+        // Promedio de los pesos por serie registrados
+        try {
+          const arr = JSON.parse(l.actual_weights)
+          if (Array.isArray(arr) && arr.length > 0) {
+            weight = arr.reduce((a, b) => a + parseFloat(b || 0), 0) / arr.length
+          } else {
+            weight = parseFloat(l.actual_weights) || 0
+          }
+        } catch {
+          weight = parseFloat(l.actual_weights) || 0
+        }
+      } else {
+        weight = l.actual_weight || 0
+      }
+      if (weight > 0) {
+        const vol = l.actual_sets * reps * weight
+        volumeByDate[date] = (volumeByDate[date] || 0) + vol
+      }
     }
   })
   const volumeData = Object.entries(volumeByDate).map(([date, vol]) => ({
@@ -180,13 +216,13 @@ export default function ProgressPage() {
     'PSE promedio': Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10,
   }))
 
-  // 4. Intensidad general (Borg por sesión)
+  // 4. Intensidad general (borg_value unifica borg_per_day y borg_scale legacy)
   const borgData = sessions
-    .filter(s => s.borg_scale !== null && s.borg_scale !== undefined)
+    .filter(s => s.borg_value !== null && s.borg_value !== undefined)
     .map(s => ({
       date: format(parseISO(s.logged_date), 'dd/MM'),
-      Intensidad: s.borg_scale,
-      label: BORG_LABELS[s.borg_scale],
+      Intensidad: Number(s.borg_value),
+      label: BORG_LABELS[Math.round(Number(s.borg_value))],
     }))
 
   // 5. Duración de sesiones (en minutos)

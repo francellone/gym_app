@@ -12,8 +12,11 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer, BarChart, Bar, Legend, AreaChart, Area,
+  ComposedChart,
 } from 'recharts'
+import { borgColor, BORG_LABELS } from '../../utils/planHelpers'
+import { startOfWeek, endOfWeek, eachDayOfInterval, subDays } from 'date-fns'
 
 // Fields that have human-readable labels for the history log
 const FIELD_LABELS = {
@@ -62,6 +65,15 @@ export default function StudentDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
+  // Progress tab
+  const [sessions, setSessions] = useState([])
+  const [progressPeriod, setProgressPeriod] = useState(90)
+  const [progressLogs, setProgressLogs] = useState([])
+  const [progressLoading, setProgressLoading] = useState(false)
+  const [progressExercises, setProgressExercises] = useState([])
+  const [selectedExercise, setSelectedExercise] = useState('')
+  const [activeChart, setActiveChart] = useState('weight')
+
   // Intake form
   const [formAssignment, setFormAssignment] = useState(null)
   const [formSubmission, setFormSubmission] = useState(null)
@@ -69,6 +81,44 @@ export default function StudentDetailPage() {
   const [formSentOk, setFormSentOk] = useState(false)
 
   useEffect(() => { fetchStudentData() }, [id])
+
+  useEffect(() => {
+    if (activeTab === 'progress' && id) fetchProgressData()
+  }, [activeTab, progressPeriod, id])
+
+  async function fetchProgressData() {
+    setProgressLoading(true)
+    const since = format(subDays(new Date(), progressPeriod), 'yyyy-MM-dd')
+    const [logsRes, sessionsRes] = await Promise.all([
+      supabase
+        .from('workout_logs')
+        .select(`*, plan_exercise:plan_exercises!plan_exercise_id(
+          block_label, section, suggested_sets, suggested_weight,
+          exercise:exercises!exercise_id(id, name)
+        )`)
+        .eq('student_id', id)
+        .gte('logged_date', since)
+        .order('logged_date'),
+      supabase
+        .from('v_workout_session_intensity')
+        .select('*')
+        .eq('student_id', id)
+        .gte('logged_date', since)
+        .order('logged_date'),
+    ])
+    const logData = logsRes.data || []
+    setProgressLogs(logData)
+    setSessions(sessionsRes.data || [])
+    const exMap = {}
+    logData.forEach(l => {
+      const ex = l.plan_exercise?.exercise
+      if (ex) exMap[ex.id] = ex.name
+    })
+    const exList = Object.entries(exMap).map(([id, name]) => ({ id, name }))
+    setProgressExercises(exList)
+    if (exList.length > 0 && !selectedExercise) setSelectedExercise(exList[0].id)
+    setProgressLoading(false)
+  }
 
   async function fetchStudentData() {
     try {
@@ -266,7 +316,6 @@ export default function StudentDetailPage() {
   )
 
   const initials = student.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  const topExercises = Object.entries(progressData).slice(0, 3)
 
   // Para mostrar formulario de ingreso en Info tab
   const formModules = formSubmission?.form_snapshot?.modules
@@ -665,37 +714,385 @@ export default function StudentDetailPage() {
       )}
 
       {/* ===== PROGRESS TAB ===== */}
-      {activeTab === 'progress' && (
-        <div className="space-y-4">
-          {topExercises.length === 0 ? (
-            <div className="card text-center py-8 text-gray-400">
-              <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Sin datos de progreso aún</p>
+      {activeTab === 'progress' && (() => {
+        // ── Computed chart data ────────────────────────────────
+        const weightData = progressLogs
+          .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && (l.actual_weights || l.actual_weight))
+          .map(l => {
+            let pesoMax = l.actual_weight || 0
+            if (l.actual_weights) {
+              try {
+                const arr = JSON.parse(l.actual_weights)
+                pesoMax = Array.isArray(arr) && arr.length > 0
+                  ? Math.max(...arr.map(w => parseFloat(w || 0)))
+                  : parseFloat(l.actual_weights) || pesoMax
+              } catch { pesoMax = parseFloat(l.actual_weights) || pesoMax }
+            }
+            return { date: format(parseISO(l.logged_date), 'dd/MM'), Peso: pesoMax, PSE: l.perceived_difficulty }
+          }).filter(d => d.Peso > 0)
+
+        const volumeByDate = {}
+        progressLogs.forEach(l => {
+          if (l.actual_sets && (l.actual_weights || l.actual_weight)) {
+            const reps = parseFloat(l.actual_reps) || 10
+            let weight = 0
+            if (l.actual_weights) {
+              try {
+                const arr = JSON.parse(l.actual_weights)
+                weight = Array.isArray(arr) && arr.length > 0
+                  ? arr.reduce((a, b) => a + parseFloat(b || 0), 0) / arr.length
+                  : parseFloat(l.actual_weights) || 0
+              } catch { weight = parseFloat(l.actual_weights) || 0 }
+            } else { weight = l.actual_weight || 0 }
+            if (weight > 0) {
+              const date = format(parseISO(l.logged_date), 'dd/MM')
+              volumeByDate[date] = (volumeByDate[date] || 0) + Math.round(l.actual_sets * reps * weight)
+            }
+          }
+        })
+        const volumeData = Object.entries(volumeByDate).map(([date, Volumen]) => ({ date, Volumen }))
+
+        const pseByDate = {}
+        progressLogs.forEach(l => {
+          if (l.perceived_difficulty) {
+            const date = format(parseISO(l.logged_date), 'dd/MM')
+            if (!pseByDate[date]) pseByDate[date] = []
+            pseByDate[date].push(l.perceived_difficulty)
+          }
+        })
+        const pseData = Object.entries(pseByDate).map(([date, vals]) => ({
+          date, 'PSE promedio': Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
+        }))
+
+        const borgData = sessions
+          .filter(s => s.borg_value != null)
+          .map(s => ({
+            date: format(parseISO(s.logged_date), 'dd/MM'),
+            Intensidad: Number(s.borg_value),
+            label: BORG_LABELS?.[Math.round(Number(s.borg_value))] || '',
+          }))
+
+        const durationData = sessions
+          .filter(s => s.started_at && s.finished_at)
+          .map(s => ({
+            date: format(parseISO(s.logged_date), 'dd/MM'),
+            Minutos: Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000),
+          }))
+
+        const compareData = progressLogs
+          .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
+          .map(l => ({
+            date: format(parseISO(l.logged_date), 'dd/MM'),
+            'Series reales': l.actual_sets || 0,
+            'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
+            'Peso real': l.actual_weight || 0,
+          }))
+
+        const sessionDates = new Set(progressLogs.map(l => l.logged_date))
+        const totalSessions = sessionDates.size
+        const totalCompleted = progressLogs.filter(l => l.completed).length
+        const withPSE = progressLogs.filter(l => l.perceived_difficulty)
+        const avgPSE = withPSE.length > 0
+          ? Math.round(withPSE.reduce((a, l) => a + l.perceived_difficulty, 0) / withPSE.length * 10) / 10
+          : null
+        const avgBorg = borgData.length > 0
+          ? Math.round(borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length * 10) / 10
+          : null
+        const maxWeight = progressLogs
+          .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && l.actual_weight)
+          .reduce((mx, l) => Math.max(mx, l.actual_weight), 0)
+
+        // Heatmap asistencia (últimas 8 semanas)
+        const today = new Date()
+        const weeks = Array.from({ length: 8 }, (_, wi) => {
+          const weekStart = startOfWeek(subDays(today, wi * 7), { weekStartsOn: 1 })
+          return eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 1 }) })
+        }).reverse()
+        const logDates = new Set(progressLogs.map(l => l.logged_date))
+
+        const CHARTS = [
+          { id: 'weight', label: 'Peso' },
+          { id: 'volume', label: 'Volumen' },
+          { id: 'pse', label: 'PSE' },
+          { id: 'borg', label: 'Intensidad' },
+          { id: 'duration', label: 'Duración' },
+          { id: 'compare', label: 'Plan vs Real' },
+        ]
+        const PERIODS = [
+          { label: '1m', days: 30 },
+          { label: '3m', days: 90 },
+          { label: '6m', days: 180 },
+          { label: 'Todo', days: 365 },
+        ]
+
+        const TooltipCard = ({ active, payload, label }) => {
+          if (!active || !payload?.length) return null
+          return (
+            <div className="bg-white shadow-lg rounded-xl p-2.5 border border-gray-100 text-xs">
+              <p className="font-semibold text-gray-700 mb-1">{label}</p>
+              {payload.map((e, i) => (
+                <p key={i} style={{ color: e.color }}>{e.name}: {e.value}{e.unit || ''}</p>
+              ))}
             </div>
-          ) : (
-            topExercises.map(([exerciseName, data]) => {
-              const sortedData = [...data].sort((a, b) => a.date > b.date ? 1 : -1)
-              return (
-                <div key={exerciseName} className="card">
-                  <h4 className="font-semibold text-gray-900 text-sm mb-3 truncate">{exerciseName}</h4>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <LineChart data={sortedData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v?.slice(5)} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip
-                        formatter={(value) => [`${value} kg`, 'Peso']}
-                        labelFormatter={(label) => format(parseISO(label), 'dd/MM/yy')}
-                      />
-                      <Line type="monotone" dataKey="weight" stroke="#ea580c" strokeWidth={2} dot={{ fill: '#ea580c', r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+          )
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Selector de período */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+              {PERIODS.map(p => (
+                <button key={p.days} onClick={() => setProgressPeriod(p.days)}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${progressPeriod === p.days ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {progressLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : progressLogs.length === 0 ? (
+              <div className="card text-center py-8 text-gray-400">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Sin datos de progreso en este período</p>
+              </div>
+            ) : (
+              <>
+                {/* Stats resumen */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { val: totalSessions, label: 'Sesiones' },
+                    { val: totalCompleted, label: 'Completados' },
+                    { val: avgPSE ?? '—', label: 'PSE prom.' },
+                  ].map(s => (
+                    <div key={s.label} className="card text-center py-2">
+                      <p className="text-2xl font-bold text-gray-900">{s.val}</p>
+                      <p className="text-xs text-gray-500">{s.label}</p>
+                    </div>
+                  ))}
                 </div>
-              )
-            })
-          )}
-        </div>
-      )}
+
+                {avgBorg !== null && (
+                  <div className="card flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Intensidad promedio</p>
+                      <p className="text-xs text-gray-500">Escala de Borg (0–10)</p>
+                    </div>
+                    <span className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(avgBorg))}`}>
+                      {avgBorg}
+                    </span>
+                  </div>
+                )}
+
+                {maxWeight > 0 && (
+                  <div className="card flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Peso máximo registrado</p>
+                      <p className="text-xs text-gray-500">{progressExercises.find(e => e.id === selectedExercise)?.name}</p>
+                    </div>
+                    <span className="text-2xl font-bold text-primary-600">{maxWeight}kg</span>
+                  </div>
+                )}
+
+                {/* Heatmap asistencia */}
+                <div className="card space-y-3">
+                  <p className="text-sm font-semibold text-gray-900">Asistencia (últimas 8 semanas)</p>
+                  <div className="space-y-1.5">
+                    <div className="flex gap-1">
+                      {['L','M','X','J','V','S','D'].map(d => (
+                        <div key={d} className="flex-1 text-center text-xs text-gray-400">{d}</div>
+                      ))}
+                    </div>
+                    {weeks.map((week, wi) => (
+                      <div key={wi} className="flex gap-1">
+                        {week.map((day, di) => {
+                          const ds = format(day, 'yyyy-MM-dd')
+                          return (
+                            <div key={di} title={ds}
+                              className={`flex-1 h-5 rounded ${day > today ? 'bg-gray-50' : logDates.has(ds) ? 'bg-primary-500' : 'bg-gray-100'}`}
+                            />
+                          )
+                        })}
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 text-xs text-gray-400 justify-end">
+                      <div className="w-3 h-3 rounded bg-gray-100" /> Sin entrenamiento
+                      <div className="w-3 h-3 rounded bg-primary-500" /> Con entrenamiento
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selector de ejercicio */}
+                {progressExercises.length > 0 && (
+                  <select className="input text-sm w-full" value={selectedExercise}
+                    onChange={e => setSelectedExercise(e.target.value)}>
+                    {progressExercises.map(ex => (
+                      <option key={ex.id} value={ex.id}>{ex.name}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Chart tabs */}
+                <div className="overflow-x-auto -mx-5 px-5">
+                  <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-max min-w-full">
+                    {CHARTS.map(c => (
+                      <button key={c.id} onClick={() => setActiveChart(c.id)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${activeChart === c.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gráfico: Peso */}
+                {activeChart === 'weight' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Progresión de peso</p>
+                      <p className="text-xs text-gray-500">Peso máximo levantado por sesión</p>
+                    </div>
+                    {weightData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart data={weightData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
+                          <YAxis yAxisId="right" orientation="right" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                          <Tooltip content={<TooltipCard />} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Area yAxisId="left" type="monotone" dataKey="Peso" fill="#fde68a" stroke="#ea580c" strokeWidth={2.5} dot={{ fill: '#ea580c', r: 4 }} unit="kg" />
+                          <Line yAxisId="right" type="monotone" dataKey="PSE" stroke="#8b5cf6" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de peso para este ejercicio</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Gráfico: Volumen */}
+                {activeChart === 'volume' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Volumen total por sesión</p>
+                      <p className="text-xs text-gray-500">Series × Reps × Peso</p>
+                    </div>
+                    {volumeData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={volumeData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip content={<TooltipCard />} />
+                          <Bar dataKey="Volumen" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Gráfico: PSE */}
+                {activeChart === 'pse' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">PSE promedio por sesión</p>
+                      <p className="text-xs text-gray-500">Esfuerzo percibido (1–10)</p>
+                    </div>
+                    {pseData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={pseData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                          <Tooltip content={<TooltipCard />} />
+                          <Area type="monotone" dataKey="PSE promedio" stroke="#8b5cf6" fill="#ede9fe" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 3 }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de PSE</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Gráfico: Intensidad Borg */}
+                {activeChart === 'borg' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Intensidad general</p>
+                      <p className="text-xs text-gray-500">Escala de Borg por sesión</p>
+                    </div>
+                    {borgData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={borgData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                          <Tooltip content={<TooltipCard />} />
+                          <Bar dataKey="Intensidad" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de Borg registrados</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Gráfico: Duración */}
+                {activeChart === 'duration' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Duración de sesiones</p>
+                      <p className="text-xs text-gray-500">En minutos</p>
+                    </div>
+                    {durationData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={durationData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} unit="min" />
+                          <Tooltip content={<TooltipCard />} />
+                          <Area type="monotone" dataKey="Minutos" stroke="#10b981" fill="#d1fae5" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de duración</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Gráfico: Plan vs Real */}
+                {activeChart === 'compare' && (
+                  <div className="card space-y-3">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">Plan vs Real</p>
+                      <p className="text-xs text-gray-500">Series planificadas vs ejecutadas</p>
+                    </div>
+                    {compareData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={compareData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip content={<TooltipCard />} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="Series sugeridas" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="Series reales" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center text-sm text-gray-400 py-6">Sin datos para este ejercicio</p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ===== LOGS TAB ===== */}
       {activeTab === 'logs' && (
