@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, User, Dumbbell, Save, AlertCircle, AlertTriangle } from 'lucide-react'
 
 // ============================================================
@@ -50,6 +51,7 @@ function FieldError({ msg }) {
 
 export default function CreateStudentPage() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
@@ -105,6 +107,7 @@ export default function CreateStudentPage() {
       coach_notes: form.coach_notes || null,
       observations: form.observations || null,
       target_weight_kg: form.target_weight_kg ? parseFloat(form.target_weight_kg) : null,
+      coach_id: profile?.id || null,
     }
 
     try {
