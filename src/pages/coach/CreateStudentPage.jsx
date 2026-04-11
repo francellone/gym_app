@@ -40,6 +40,40 @@ function validateStudentData(form) {
   return errors
 }
 
+// ============================================================
+// Traducción de errores de Supabase Auth al español
+// ============================================================
+function translateAuthError(msg = '') {
+  const m = msg.toLowerCase()
+
+  if (m.includes('rate limit') || m.includes('over_email_send_rate_limit') || m.includes('email rate limit'))
+    return 'Límite de envío de emails alcanzado. Para evitar esto, desactivá la confirmación de email en Supabase → Authentication → Settings → "Enable email confirmations".'
+
+  if (m.includes('user already registered') || m.includes('already been registered') || m.includes('email already'))
+    return 'Ya existe un alumno registrado con ese email.'
+
+  if (m.includes('email address not authorized') || m.includes('not_authorized'))
+    return 'Email no autorizado. Revisá la configuración de dominios permitidos en Supabase.'
+
+  if (m.includes('invalid email') || m.includes('invalid_email') || m.includes('unable to validate email'))
+    return 'El email ingresado no es válido.'
+
+  if (m.includes('weak password') || m.includes('password should be'))
+    return 'La contraseña es demasiado débil. Usá al menos 6 caracteres.'
+
+  if (m.includes('identities') || m.includes('ya existe un alumno'))
+    return 'Ya existe un alumno registrado con ese email.'
+
+  if (m.includes('confirmación de email') || m.includes('email not confirmed'))
+    return 'No se pudo crear el usuario. Asegurate de desactivar la confirmación de email en Supabase → Authentication → Settings.'
+
+  if (m.includes('network') || m.includes('fetch'))
+    return 'Error de red. Verificá tu conexión a internet.'
+
+  // Si no matchea nada, devolver el mensaje original
+  return msg || 'Error desconocido al crear el alumno.'
+}
+
 function FieldError({ msg }) {
   if (!msg) return null
   return (
@@ -111,40 +145,39 @@ export default function CreateStudentPage() {
     }
 
     try {
-      // Intentar con admin API primero
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: form.email,
-        password: form.password,
-        email_confirm: true,
-        user_metadata: { name: form.name, role: 'student' }
-      })
+      // Llamamos a la Edge Function con permisos de admin.
+      // Ventajas: sin rate limit de emails, sin tocar la sesión del coach,
+      // el alumno queda confirmado al instante (email_confirm: true).
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData?.session?.access_token
 
-      if (authError) throw authError
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-student`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email: form.email,
+            password: form.password,
+            name: form.name,
+            profileData,
+          }),
+        }
+      )
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('id', authData.user.id)
-      if (profileError) throw profileError
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al crear el alumno')
+      }
 
       navigate('/coach/students')
     } catch (err) {
-      // Fallback: signup normal
-      try {
-        const { data: signupData, error: signupError } = await supabase.auth.signUp({
-          email: form.email,
-          password: form.password,
-          options: { data: { name: form.name, role: 'student' } }
-        })
-        if (signupError) throw signupError
-
-        if (signupData.user) {
-          await supabase.from('profiles').update(profileData).eq('id', signupData.user.id)
-        }
-        navigate('/coach/students')
-      } catch (err2) {
-        setError(err2.message || 'Error al crear el alumno')
-      }
+      setError(translateAuthError(err.message))
     } finally {
       setLoading(false)
     }
@@ -287,8 +320,8 @@ export default function CreateStudentPage() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
-            <AlertCircle size={16} />
+          <div className="flex items-start gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
