@@ -1,35 +1,62 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Users, Plus, Search, ChevronRight, TrendingUp } from 'lucide-react'
+import { Users, Plus, Search, ChevronRight, TrendingUp, AlertCircle } from 'lucide-react'
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [fetchError, setFetchError] = useState(null)
 
   useEffect(() => {
     fetchStudents()
   }, [])
 
   async function fetchStudents() {
+    setFetchError(null)
     try {
-      const { data, error } = await supabase
+      // Primero traemos los perfiles de alumnos
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          plan_assignments(
-            id, active,
-            plan:plans!plan_id(title)
-          )
-        `)
+        .select('*')
         .eq('role', 'student')
         .order('name')
 
-      if (error) throw error
-      setStudents(data || [])
+      if (profilesError) throw profilesError
+
+      if (!profilesData || profilesData.length === 0) {
+        setStudents([])
+        return
+      }
+
+      // Luego traemos las asignaciones de plan activas por separado
+      // (evita problemas de RLS en joins anidados)
+      const studentIds = profilesData.map(s => s.id)
+      const { data: assignmentsData } = await supabase
+        .from('plan_assignments')
+        .select('student_id, id, active, plan:plans(title)')
+        .in('student_id', studentIds)
+        .eq('active', true)
+
+      // Combinar en memoria
+      const assignmentsByStudent = {}
+      for (const a of assignmentsData || []) {
+        if (!assignmentsByStudent[a.student_id]) {
+          assignmentsByStudent[a.student_id] = []
+        }
+        assignmentsByStudent[a.student_id].push(a)
+      }
+
+      const enriched = profilesData.map(s => ({
+        ...s,
+        plan_assignments: assignmentsByStudent[s.id] || [],
+      }))
+
+      setStudents(enriched)
     } catch (err) {
-      console.error(err)
+      console.error('[StudentsPage]', err)
+      setFetchError(err.message)
     } finally {
       setLoading(false)
     }
@@ -76,6 +103,14 @@ export default function StudentsPage() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
+
+      {/* Error */}
+      {fetchError && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <span>{fetchError}</span>
+        </div>
+      )}
 
       {/* List */}
       {loading ? (
