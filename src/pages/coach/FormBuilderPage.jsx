@@ -11,13 +11,17 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import FormBuilder from '../../../intake-form/components/coach/FormBuilder'
 import { buildFormConfig } from '../../../intake-form/schema/default-form.js'
+import SendToStudentModal from '../../components/SendToStudentModal'
 
 export default function FormBuilderPage() {
   const { profile } = useAuth()
-  const [formConfig, setFormConfig] = useState(null)
-  const [templates, setTemplates] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState(null) // 'saved' | 'error'
+  const [formConfig, setFormConfig]       = useState(null)
+  const [templateId, setTemplateId]       = useState(null)  // id del template default guardado
+  const [templates, setTemplates]         = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [saveStatus, setSaveStatus]       = useState(null)  // 'saved' | 'error'
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [pendingConfig, setPendingConfig] = useState(null)  // config al momento de abrir el modal
 
   // ── Cargar config y plantillas del coach ─────────────────
   useEffect(() => {
@@ -36,6 +40,7 @@ export default function FormBuilderPage() {
 
         if (defaultForm) {
           setFormConfig(defaultForm.config)
+          setTemplateId(defaultForm.id)
         } else {
           // Primer uso: usar la config base
           setFormConfig(buildFormConfig())
@@ -73,8 +78,9 @@ export default function FormBuilderPage() {
           .from('intake_form_templates')
           .update({ config, updated_at: new Date().toISOString() })
           .eq('id', existing.id)
+        setTemplateId(existing.id)
       } else {
-        await supabase
+        const { data: newTpl } = await supabase
           .from('intake_form_templates')
           .insert({
             coach_id: profile.id,
@@ -82,6 +88,9 @@ export default function FormBuilderPage() {
             config,
             is_default: true,
           })
+          .select('id')
+          .single()
+        if (newTpl) setTemplateId(newTpl.id)
       }
 
       setFormConfig(config)
@@ -90,6 +99,12 @@ export default function FormBuilderPage() {
     } catch {
       setSaveStatus('error')
     }
+  }
+
+  // ── Abrir modal de envío ─────────────────────────────────
+  const handleOpenSendModal = (config) => {
+    setPendingConfig(config)
+    setShowSendModal(true)
   }
 
   // ── Guardar como nueva plantilla ─────────────────────────
@@ -130,8 +145,20 @@ export default function FormBuilderPage() {
         initialConfig={formConfig}
         templates={templates}
         onSave={handleSave}
-        onSendToStudent={() => {}} // TODO: modal de selección de alumno
+        onSendToStudent={handleOpenSendModal}
       />
+
+      {showSendModal && (
+        <SendToStudentModal
+          coachId={profile.id}
+          formConfig={pendingConfig || formConfig}
+          templateId={templateId}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => {
+            // Opcional: podría mostrar un toast adicional aquí
+          }}
+        />
+      )}
     </div>
   )
 }

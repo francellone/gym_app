@@ -15,13 +15,14 @@
  *   - initialConfig: object (del esquema default-form.js)
  *   - templates: array de plantillas guardadas
  *   - onSave: fn(config) → guarda el formulario
- *   - onSendToStudent: fn(studentId, config) → asigna al alumno
+ *   - onSendToStudent: fn(config) → abre el modal de selección de alumno
  */
 
 import { useState, useCallback } from 'react'
 import ModuleCard from './ModuleCard'
 import TemplateManager from './TemplateManager'
 import IntroEditor from './IntroEditor'
+import FormRenderer from '../student/FormRenderer'
 import { buildFormConfig, DEFAULT_MODULES, DEFAULT_INTRO, CONSENT_MODULE } from '../../schema/default-form.js'
 
 export default function FormBuilder({
@@ -35,7 +36,8 @@ export default function FormBuilder({
   const [modules, setModules] = useState(initialConfig?.modules || DEFAULT_MODULES)
   const [saving, setSaving] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
-  const [activeTab, setActiveTab] = useState('form') // 'form' | 'templates' | 'preview'
+  const [activeTab, setActiveTab] = useState('form') // 'form' | 'preview'
+  const [showPreview, setShowPreview] = useState(false)
 
   // ──────────────────────────────────────────────────────────
   // Handlers de módulos
@@ -133,6 +135,12 @@ export default function FormBuilder({
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             📋 Plantillas
+          </button>
+          <button
+            onClick={() => onSendToStudent?.(buildFormConfig({ intro, modules }))}
+            className="px-4 py-2 text-sm border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+          >
+            📤 Enviar
           </button>
           <button
             onClick={handleSave}
@@ -240,12 +248,37 @@ export default function FormBuilder({
       )}
 
       {activeTab === 'preview' && (
-        <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
-          <p className="text-center text-gray-400 text-sm italic">
-            Vista previa disponible próximamente.
-            <br />
-            Usá "Guardar" y luego completá el formulario como si fueras un estudiante para verlo en acción.
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center space-y-3">
+          <p className="text-sm text-gray-500">
+            Simulá cómo verá el formulario un alumno en su pantalla.
           </p>
+          <button
+            onClick={() => setShowPreview(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+          >
+            👁 Abrir vista previa
+          </button>
+        </div>
+      )}
+
+      {/* ── OVERLAY FULL-SCREEN DE VISTA PREVIA ── */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          {/* Botón cerrar flotante */}
+          <button
+            onClick={() => setShowPreview(false)}
+            className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 bg-gray-900 text-white
+                       text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
+          >
+            ✕ Cerrar preview
+          </button>
+
+          <FormRenderer
+            assignment={{ form_snapshot: buildFormConfig({ intro, modules }) }}
+            studentId={null}
+            onSubmit={async () => {}}
+            onSaveDraft={null}
+          />
         </div>
       )}
 
