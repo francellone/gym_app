@@ -30,6 +30,7 @@ export default function FormRenderer({
   studentId,
   onSubmit,
   onSaveDraft,
+  onFinish,   // fn() opcional → botón "Ir al inicio" en pantalla de éxito
 }) {
   const config = assignment?.form_snapshot
 
@@ -162,6 +163,14 @@ export default function FormRenderer({
           <p className="text-gray-500">
             Tu formulario fue enviado. Tu coach lo revisará y se pondrá en contacto pronto.
           </p>
+          {onFinish && (
+            <button
+              onClick={onFinish}
+              className="mt-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
+            >
+              Ir al inicio →
+            </button>
+          )}
         </div>
       </div>
     )

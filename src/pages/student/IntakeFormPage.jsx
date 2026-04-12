@@ -139,6 +139,7 @@ export default function IntakeFormPage() {
       studentId={profile.id}
       onSubmit={handleSubmit}
       onSaveDraft={handleSaveDraft}
+      onFinish={() => navigate('/student')}
     />
   )
 }
