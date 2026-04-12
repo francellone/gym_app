@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar } from 'lucide-react'
-import { format, subDays } from 'date-fns'
+import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar, AlertTriangle } from 'lucide-react'
+import { format, subDays, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export default function CoachDashboard() {
   const { profile } = useAuth()
   const [stats, setStats] = useState({ students: 0, plans: 0, logsToday: 0, logsWeek: 0 })
   const [recentLogs, setRecentLogs] = useState([])
+  const [alerts, setAlerts] = useState({ overdue: [], dueSoon: [], noActivePlan: [] })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,8 +21,12 @@ export default function CoachDashboard() {
     try {
       const today = format(new Date(), 'yyyy-MM-dd')
       const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+      const sevenDaysAhead = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-      const [studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes] = await Promise.all([
+      const [
+        studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes,
+        overdueRes, dueSoonRes, studentsForPlanRes,
+      ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student').eq('active', true),
         supabase.from('plans').select('id', { count: 'exact' }),
         supabase.from('workout_logs').select('id', { count: 'exact' }).eq('logged_date', today),
@@ -35,8 +40,35 @@ export default function CoachDashboard() {
             )
           `)
           .order('created_at', { ascending: false })
-          .limit(10)
+          .limit(10),
+
+        // Alumnos con pago vencido
+        supabase.from('profiles')
+          .select('id, name, next_payment_due')
+          .eq('role', 'student')
+          .not('next_payment_due', 'is', null)
+          .lt('next_payment_due', today),
+
+        // Alumnos que vencen en los próximos 7 días
+        supabase.from('profiles')
+          .select('id, name, next_payment_due')
+          .eq('role', 'student')
+          .not('next_payment_due', 'is', null)
+          .gte('next_payment_due', today)
+          .lte('next_payment_due', sevenDaysAhead),
+
+        // Para detectar alumnos sin plan activo
+        supabase.from('profiles')
+          .select(`
+            id, name,
+            plan_assignments:plan_assignments!student_id(id, active)
+          `)
+          .eq('role', 'student'),
       ])
+
+      const noActivePlan = (studentsForPlanRes.data || []).filter(s =>
+        !s.plan_assignments?.some(a => a.active)
+      )
 
       setStats({
         students: studentsRes.count || 0,
@@ -45,6 +77,11 @@ export default function CoachDashboard() {
         logsWeek: logsWeekRes.count || 0,
       })
       setRecentLogs(recentRes.data || [])
+      setAlerts({
+        overdue: overdueRes.data || [],
+        dueSoon: dueSoonRes.data || [],
+        noActivePlan,
+      })
     } catch (err) {
       console.error(err)
     } finally {
@@ -54,6 +91,9 @@ export default function CoachDashboard() {
 
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+
+  const totalAlerts = alerts.overdue.length + alerts.dueSoon.length + alerts.noActivePlan.length
+  const hasAlerts = totalAlerts > 0
 
   return (
     <div className="space-y-6">
@@ -108,7 +148,90 @@ export default function CoachDashboard() {
         </div>
       </div>
 
-      {/* Recent activity */}
+      {/* Alertas de gestión */}
+      {!loading && hasAlerts && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="section-title flex items-center gap-2">
+              <AlertTriangle size={15} className="text-yellow-500" />
+              Alertas de gestión
+            </h2>
+            <Link to="/coach/students" className="text-xs text-primary-600 font-medium">
+              Ver alumnos →
+            </Link>
+          </div>
+
+          <div className="space-y-2">
+            {alerts.overdue.length > 0 && (
+              <div className="card border-l-4 border-l-red-400 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      🔴 {alerts.overdue.length} pago{alerts.overdue.length !== 1 ? 's' : ''} vencido{alerts.overdue.length !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {alerts.overdue.slice(0, 3).map(s => s.name).join(', ')}
+                      {alerts.overdue.length > 3 ? ` y ${alerts.overdue.length - 3} más` : ''}
+                    </p>
+                  </div>
+                  <Link
+                    to="/coach/students"
+                    className="text-xs text-red-600 font-medium hover:underline"
+                  >
+                    Ver
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {alerts.dueSoon.length > 0 && (
+              <div className="card border-l-4 border-l-yellow-400 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      🟡 {alerts.dueSoon.length} vence{alerts.dueSoon.length !== 1 ? 'n' : ''} en los próximos 7 días
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {alerts.dueSoon.slice(0, 3).map(s => s.name).join(', ')}
+                      {alerts.dueSoon.length > 3 ? ` y ${alerts.dueSoon.length - 3} más` : ''}
+                    </p>
+                  </div>
+                  <Link
+                    to="/coach/students"
+                    className="text-xs text-yellow-600 font-medium hover:underline"
+                  >
+                    Ver
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {alerts.noActivePlan.length > 0 && (
+              <div className="card border-l-4 border-l-gray-300 py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      ⚪ {alerts.noActivePlan.length} alumno{alerts.noActivePlan.length !== 1 ? 's' : ''} sin plan activo
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {alerts.noActivePlan.slice(0, 3).map(s => s.name).join(', ')}
+                      {alerts.noActivePlan.length > 3 ? ` y ${alerts.noActivePlan.length - 3} más` : ''}
+                    </p>
+                  </div>
+                  <Link
+                    to="/coach/students"
+                    className="text-xs text-gray-500 font-medium hover:underline"
+                  >
+                    Ver
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Actividad reciente */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">Actividad reciente</h2>
@@ -116,7 +239,7 @@ export default function CoachDashboard() {
 
         {loading ? (
           <div className="space-y-3">
-            {[1,2,3].map(i => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="card animate-pulse">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-200 rounded-xl" />
