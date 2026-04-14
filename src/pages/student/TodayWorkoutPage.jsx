@@ -785,11 +785,23 @@ export default function TodayWorkoutPage() {
       .delete()
       .eq('id', existingLog.id)
     if (error) throw error
-    setLogs(prev => {
-      const next = { ...prev }
-      delete next[planExerciseId]
-      return next
-    })
+
+    // Calcular los logs que quedan después de esta eliminación
+    const remainingLogs = Object.keys(logs)
+      .filter(id => id !== String(planExerciseId))
+      .reduce((acc, id) => ({ ...acc, [id]: logs[id] }), {})
+
+    setLogs(remainingLogs)
+
+    // Si no quedan logs para este día, eliminar también la workout_session
+    // para que el día no quede marcado como entrenado
+    if (Object.keys(remainingLogs).length === 0 && session?.id) {
+      await supabase
+        .from('workout_sessions')
+        .delete()
+        .eq('id', session.id)
+      setSession(null)
+    }
   }
 
   // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)

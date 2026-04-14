@@ -46,7 +46,7 @@ function AttendanceHeatmap({ logs }) {
     return eachDayOfInterval({ start: weekStart, end: weekEnd })
   }).reverse()
 
-  const logDates = new Set(logs.map(l => l.logged_date))
+  const logDates = new Set(logs.filter(l => l.completed).map(l => l.logged_date))
   const dayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
   return (
