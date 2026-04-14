@@ -445,11 +445,19 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-4">
             {/* Technique notes */}
-            {(planEx.extra_notes || planEx.exercise?.technique_notes) && (
+            {planEx.exercise?.technique_notes && (
               <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
                 <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  {planEx.extra_notes || planEx.exercise?.technique_notes}
+                  {planEx.exercise.technique_notes}
+                </p>
+              </div>
+            )}
+            {planEx.extra_notes && (
+              <div className="bg-yellow-50 rounded-xl p-3 flex gap-2">
+                <Info size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-700 leading-relaxed">
+                  {planEx.extra_notes}
                 </p>
               </div>
             )}
