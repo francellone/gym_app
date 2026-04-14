@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { format, subDays, parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp,
@@ -445,19 +445,11 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-4">
             {/* Technique notes */}
-            {planEx.exercise?.technique_notes && (
+            {(planEx.extra_notes || planEx.exercise?.technique_notes) && (
               <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
                 <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  {planEx.exercise.technique_notes}
-                </p>
-              </div>
-            )}
-            {planEx.extra_notes && (
-              <div className="bg-yellow-50 rounded-xl p-3 flex gap-2">
-                <Info size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-yellow-700 leading-relaxed">
-                  {planEx.extra_notes}
+                  {planEx.extra_notes || planEx.exercise?.technique_notes}
                 </p>
               </div>
             )}
@@ -793,23 +785,11 @@ export default function TodayWorkoutPage() {
       .delete()
       .eq('id', existingLog.id)
     if (error) throw error
-
-    // Calcular los logs que quedan después de esta eliminación
-    const remainingLogs = Object.keys(logs)
-      .filter(id => id !== String(planExerciseId))
-      .reduce((acc, id) => ({ ...acc, [id]: logs[id] }), {})
-
-    setLogs(remainingLogs)
-
-    // Si no quedan logs para este día, eliminar también la workout_session
-    // para que el día no quede marcado como entrenado
-    if (Object.keys(remainingLogs).length === 0 && session?.id) {
-      await supabase
-        .from('workout_sessions')
-        .delete()
-        .eq('id', session.id)
-      setSession(null)
-    }
+    setLogs(prev => {
+      const next = { ...prev }
+      delete next[planExerciseId]
+      return next
+    })
   }
 
   // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
@@ -888,14 +868,8 @@ export default function TodayWorkoutPage() {
     }
   }, [dayBDone, loading])
 
-  // Últimos 7 días para el selector de fecha
-  const dateOptions = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(new Date(), i)
-    return {
-      value: format(d, 'yyyy-MM-dd'),
-      label: i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : format(d, "EEE d/MM", { locale: es }),
-    }
-  })
+  // Fecha máxima permitida: hoy
+  const maxDate = format(new Date(), 'yyyy-MM-dd')
 
   // Labels de días para el modal
   const DAY_LABELS = { day_a: 'Día A', day_b: 'Día B' }
@@ -1008,15 +982,13 @@ export default function TodayWorkoutPage() {
           {/* Selector de fecha */}
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-400 flex-shrink-0" />
-            <select
+            <input
+              type="date"
               className="input text-sm flex-1"
               value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-            >
-              {dateOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              max={maxDate}
+              onChange={e => e.target.value && setSelectedDate(e.target.value)}
+            />
             {!isToday && (
               <span className="badge bg-orange-100 text-orange-700 text-xs">Editando pasado</span>
             )}
