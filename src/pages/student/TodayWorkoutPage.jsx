@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp,
   Dumbbell, PlayCircle, Info,
-  Calendar, AlertTriangle, Clock, Lock
+  Calendar, AlertTriangle, Clock, Lock, Trash2
 } from 'lucide-react'
 import { borgColor, parseReps, serializeReps, displayReps } from '../../utils/planHelpers'
 
@@ -171,10 +171,12 @@ function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose }) {
 // ============================================================
 // Tarjeta de ejercicio individual
 // ============================================================
-function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
+function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [warning, setWarning] = useState(null)
   const [pendingData, setPendingData] = useState(null)
   const [setsLimitHit, setSetsLimitHit] = useState(false)
@@ -188,17 +190,8 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   // maxSets: tope duro (99 = sin tope cuando el coach no lo definió)
   const maxSets = setsCount || 99
 
-  // Pesos sugeridos por serie (nuevo) con fallback al campo legacy (único peso)
-  const legacyWeight = parseSuggestedWeight(planEx.suggested_weight)
-  const suggestedWeightsArr = (() => {
-    if (planEx.suggested_weights) {
-      const parsed = parseReps(planEx.suggested_weights)
-      if (parsed.length > 0) return parsed
-    }
-    // Fallback: rellenar todas las series con el peso legacy
-    const n = setsCount > 0 ? setsCount : 1
-    return Array.from({ length: n }, () => legacyWeight)
-  })()
+  // Peso sugerido como valor numérico pre-rellenable
+  const defaultWeight = parseSuggestedWeight(planEx.suggested_weight)
 
   // Inicializar reps con valores sugeridos si no hay log previo
   const initRepsArr = () => {
@@ -214,26 +207,12 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
       : [suggestedRepsArr[0] || '']
   }
 
-  // Inicializar pesos por serie: desde log guardado o desde sugerido del coach (por serie)
-  const initWeightsArr = () => {
-    const n = setsCount > 0 ? setsCount : 1
-    if (log?.actual_weights) {
-      const parsed = parseReps(log.actual_weights)
-      if (parsed.length !== n) {
-        return Array.from({ length: n }, (_, i) => parsed[i] ?? suggestedWeightsArr[i] ?? '')
-      }
-      return parsed
-    }
-    // Sin log previo: pre-rellenar con el peso sugerido por serie del coach
-    return Array.from({ length: n }, (_, i) => suggestedWeightsArr[i] ?? '')
-  }
-
   const [logData, setLogData] = useState({
     // Series: pre-rellenado con el valor sugerido por el coach
     actual_sets: log?.actual_sets?.toString() || (setsCount > 0 ? setsCount.toString() : ''),
     actual_reps_arr: initRepsArr(),
-    // Peso por serie: cada serie tiene su propio campo, pre-rellenado con sugerido
-    actual_weights_arr: initWeightsArr(),
+    // Peso: pre-rellenado con el peso sugerido por el coach
+    actual_weight: log?.actual_weight?.toString() || defaultWeight,
     perceived_difficulty: log?.perceived_difficulty || null,
     notes: log?.notes || '',
     completed: log?.completed || false,
@@ -247,58 +226,40 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     setLogData(p => ({ ...p, actual_reps_arr: newArr }))
   }
 
-  function handleWeightChange(idx, val) {
-    const newArr = [...logData.actual_weights_arr]
-    newArr[idx] = val
-    setLogData(p => ({ ...p, actual_weights_arr: newArr }))
-  }
-
   function handleSetsChange(val) {
     let n = parseInt(val) || 0
 
     // TOPE DURO: no puede superar el máximo definido por el coach
     if (maxSets < 99 && n > maxSets) {
       n = maxSets
+      // Mostrar aviso breve sin pregunta de confirmación
       setSetsLimitHit(true)
       setTimeout(() => setSetsLimitHit(false), 2000)
     }
 
     const currentReps = logData.actual_reps_arr
-    const currentWeights = logData.actual_weights_arr
-    let newReps, newWeights
-
+    let newReps
     if (n === 0) {
       newReps = ['']
-      newWeights = [suggestedWeightsArr[0] ?? '']
     } else if (n > currentReps.length) {
-      // Al agregar series, pre-rellenar reps sugeridas y peso sugerido por serie
+      // Al agregar series, pre-rellenar con reps sugeridas si las hay
       newReps = [
         ...currentReps,
         ...Array.from({ length: n - currentReps.length }, (_, i) =>
           suggestedRepsArr[currentReps.length + i] || ''
         )
       ]
-      newWeights = [
-        ...currentWeights,
-        ...Array.from({ length: n - currentWeights.length }, (_, i) =>
-          suggestedWeightsArr[currentWeights.length + i] ?? ''
-        )
-      ]
     } else {
       newReps = currentReps.slice(0, n)
-      newWeights = currentWeights.slice(0, n)
     }
-    setLogData(p => ({ ...p, actual_sets: n.toString(), actual_reps_arr: newReps, actual_weights_arr: newWeights }))
+    setLogData(p => ({ ...p, actual_sets: n.toString(), actual_reps_arr: newReps }))
   }
 
   function buildSaveData() {
-    // actual_weight (numérico): primer peso válido para retrocompatibilidad
-    const firstWeight = logData.actual_weights_arr.find(w => w !== '' && w !== null && w !== undefined)
     return {
       actual_sets: logData.actual_sets ? parseInt(logData.actual_sets) : null,
       actual_reps: serializeReps(logData.actual_reps_arr) || null,
-      actual_weight: firstWeight ? parseFloat(firstWeight) : null,
-      actual_weights: serializeReps(logData.actual_weights_arr) || null,
+      actual_weight: logData.actual_weight ? parseFloat(logData.actual_weight) : null,
       perceived_difficulty: logData.perceived_difficulty || null,
       perceived_difficulty_label: logData.perceived_difficulty
         ? PSE_OPTIONS.find(p => p.value === logData.perceived_difficulty)?.label
@@ -309,13 +270,9 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
   }
 
   function validate(data) {
-    // Validar si algún peso por serie parece inusualmente alto
-    const weights = (logData.actual_weights_arr || [])
-      .map(w => parseFloat(w))
-      .filter(n => !isNaN(n))
-    const maxW = weights.length ? Math.max(...weights) : 0
-    if (maxW > 500) {
-      return `Algún peso registrado (${maxW}kg) parece muy alto. ¿Es correcto?`
+    // Solo validar peso inusual — las series ya tienen tope duro
+    if (data.actual_weight && data.actual_weight > 500) {
+      return `Peso registrado (${data.actual_weight}kg) parece muy alto. ¿Es correcto?`
     }
     return null
   }
@@ -346,6 +303,31 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await onDeleteLog(planEx.id)
+      // Resetear estado local al estado inicial (sin log)
+      setLogData({
+        actual_sets: setsCount > 0 ? setsCount.toString() : '',
+        actual_reps_arr: setsCount > 0
+          ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
+          : [suggestedRepsArr[0] || ''],
+        actual_weight: defaultWeight,
+        perceived_difficulty: null,
+        notes: '',
+        completed: false,
+      })
+      setConfirmDelete(false)
+      setEditing(false)
+      setExpanded(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const actualSetsCount = parseInt(logData.actual_sets) || setsCount || 1
 
   return (
@@ -356,6 +338,43 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
           onConfirm={() => doSave(pendingData)}
           onCancel={() => { setWarning(null); setPendingData(null) }}
         />
+      )}
+
+      {/* Modal de confirmación para desmarcar */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Trash2 size={20} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">¿Desmarcar ejercicio?</p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Se borrarán los datos registrados de <strong>{planEx.exercise?.name}</strong>. Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {deleting
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><Trash2 size={14} />Sí, desmarcar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
@@ -392,22 +411,14 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
               Sugerido: {[
                 planEx.suggested_sets && `${planEx.suggested_sets} series`,
                 suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
-                // Mostrar pesos por serie si hay variación, o peso único si todos iguales
-                (() => {
-                  const uniqueWeights = [...new Set(suggestedWeightsArr.filter(w => w !== '' && w != null))]
-                  if (uniqueWeights.length === 0) return null
-                  if (uniqueWeights.length === 1) return `· ${uniqueWeights[0]}kg`
-                  return `· ${suggestedWeightsArr.join('/')}kg`
-                })(),
+                planEx.suggested_weight && planEx.suggested_weight !== 'None' && `· ${planEx.suggested_weight}`,
               ].filter(Boolean).join(' ')}
             </p>
             {log && !expanded && (
               <p className="text-xs text-green-600 mt-0.5 font-medium">
                 ✓ {[
                   log.actual_sets && `${log.actual_sets}s`,
-                  log.actual_weights
-                    ? `${displayReps(log.actual_weights)}kg`
-                    : log.actual_weight && `${log.actual_weight}kg`,
+                  log.actual_weight && `${log.actual_weight}kg`,
                   log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
                 ].filter(Boolean).join(' · ')}
               </p>
@@ -455,74 +466,85 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">Registrar entrenamiento</p>
 
-                {/* Series con tope duro */}
+                {/* Series + Peso */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Series con tope duro */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                      Series realizadas
+                      {maxSets < 99 && (
+                        <span className="flex items-center gap-0.5 text-gray-400">
+                          <Lock size={10} />
+                          máx. {maxSets}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={maxSets < 99 ? maxSets : undefined}
+                      className={`input text-sm text-center w-full transition-colors ${
+                        setsLimitHit ? 'border-orange-400 bg-orange-50' : ''
+                      }`}
+                      placeholder={maxSets < 99 ? maxSets.toString() : '—'}
+                      value={logData.actual_sets}
+                      onChange={e => handleSetsChange(e.target.value)}
+                    />
+                    {setsLimitHit && (
+                      <p className="text-[11px] text-orange-500 mt-0.5 flex items-center gap-1">
+                        <Lock size={10} /> Límite del plan: {maxSets} series
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Peso pre-rellenado con sugerido del coach */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      Peso (kg)
+                      {defaultWeight && (
+                        <span className="ml-1 text-primary-500 font-normal">· sug. {defaultWeight}</span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center w-full"
+                      placeholder={defaultWeight || '0'}
+                      value={logData.actual_weight}
+                      onChange={e => setLogData(p => ({ ...p, actual_weight: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Reps por serie: pre-rellenadas con sugerido */}
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                    Series realizadas
-                    {maxSets < 99 && (
-                      <span className="flex items-center gap-0.5 text-gray-400">
-                        <Lock size={10} />
-                        máx. {maxSets}
+                  <label className="text-xs text-gray-500 mb-2 block font-medium">
+                    Repeticiones por serie
+                    {suggestedRepsRaw && (
+                      <span className="ml-2 text-gray-400 font-normal">
+                        (sugerido: {displayReps(suggestedRepsRaw)})
                       </span>
                     )}
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={maxSets < 99 ? maxSets : undefined}
-                    className={`input text-sm text-center w-24 transition-colors ${
-                      setsLimitHit ? 'border-orange-400 bg-orange-50' : ''
-                    }`}
-                    placeholder={maxSets < 99 ? maxSets.toString() : '—'}
-                    value={logData.actual_sets}
-                    onChange={e => handleSetsChange(e.target.value)}
-                  />
-                  {setsLimitHit && (
-                    <p className="text-[11px] text-orange-500 mt-0.5 flex items-center gap-1">
-                      <Lock size={10} /> Límite del plan: {maxSets} series
-                    </p>
-                  )}
-                </div>
-
-                {/* Reps + Peso por serie */}
-                <div>
-                  {/* Encabezados de columna */}
-                  <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
-                    <div />
-                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Reps
-                      {suggestedRepsRaw && (
-                        <span className="ml-1 text-primary-500 font-normal normal-case">
-                          sug: {displayReps(suggestedRepsRaw)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Peso (kg)
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {Array.from({ length: actualSetsCount }, (_, i) => (
+                      <div key={i} className="space-y-1">
+                        <div className="text-xs text-center text-gray-400">Serie {i + 1}</div>
+                        {suggestedRepsArr[i] && (
+                          <div className="text-xs text-center text-primary-600 font-medium">
+                            Sug: {suggestedRepsArr[i]}
+                          </div>
+                        )}
+                        <input
+                          className="input text-sm text-center"
+                          placeholder={suggestedRepsArr[i] || '—'}
+                          value={logData.actual_reps_arr[i] || ''}
+                          onChange={e => handleRepsChange(i, e.target.value)}
+                        />
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Fila por serie */}
-                  {Array.from({ length: actualSetsCount }, (_, i) => (
-                    <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
-                      <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
-                      <input
-                        className="input text-sm text-center"
-                        placeholder={suggestedRepsArr[i] || '—'}
-                        value={logData.actual_reps_arr[i] || ''}
-                        onChange={e => handleRepsChange(i, e.target.value)}
-                      />
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="input text-sm text-center"
-                        placeholder={suggestedWeightsArr[i] || '0'}
-                        value={logData.actual_weights_arr[i] ?? ''}
-                        onChange={e => handleWeightChange(i, e.target.value)}
-                      />
-                    </div>
-                  ))}
                 </div>
 
                 {/* PSE por ejercicio */}
@@ -570,37 +592,28 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
             ) : (
               <div className="bg-green-50 rounded-xl p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-green-700">✓ Completado</p>
-                {/* Resumen por serie si hay pesos individuales */}
-                {log?.actual_weights && log?.actual_sets ? (
-                  <div className="space-y-1">
-                    {(() => {
-                      const repsArr = parseReps(log.actual_reps)
-                      const weightsArr = parseReps(log.actual_weights)
-                      return Array.from({ length: parseInt(log.actual_sets) }, (_, i) => (
-                        <div key={i} className="flex gap-2 text-xs text-green-700">
-                          <span className="w-12 font-medium">Serie {i + 1}</span>
-                          {repsArr[i] && <span>{repsArr[i]} reps</span>}
-                          {weightsArr[i] && <span>· {weightsArr[i]} kg</span>}
-                        </div>
-                      ))
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-xs text-green-600">
-                    {[
-                      log?.actual_sets && `${log.actual_sets} series`,
-                      log?.actual_reps && `× ${displayReps(log.actual_reps)}`,
-                      log?.actual_weight && `${log.actual_weight}kg`,
-                    ].filter(Boolean).join(' · ')}
-                  </p>
-                )}
-                {log?.perceived_difficulty && (
-                  <p className="text-xs text-green-600">PSE {log.perceived_difficulty}</p>
-                )}
+                <p className="text-xs text-green-600">
+                  {[
+                    log?.actual_sets && `${log.actual_sets} series`,
+                    log?.actual_reps && `× ${displayReps(log.actual_reps)}`,
+                    log?.actual_weight && `${log.actual_weight}kg`,
+                    log?.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                  ].filter(Boolean).join(' · ')}
+                </p>
                 {log?.notes && <p className="text-xs text-green-600 italic">"{log.notes}"</p>}
-                <button onClick={() => setEditing(true)} className="text-xs text-green-700 underline">
-                  Editar
-                </button>
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button onClick={() => setEditing(true)} className="text-xs text-green-700 underline">
+                    Editar
+                  </button>
+                  <span className="text-green-300 text-xs">·</span>
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={11} />
+                    Desmarcar
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -762,6 +775,21 @@ export default function TodayWorkoutPage() {
 
     if (result.error) throw result.error
     setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
+  }
+
+  async function deleteLog(planExerciseId) {
+    const existingLog = logs[planExerciseId]
+    if (!existingLog) return
+    const { error } = await supabase
+      .from('workout_logs')
+      .delete()
+      .eq('id', existingLog.id)
+    if (error) throw error
+    setLogs(prev => {
+      const next = { ...prev }
+      delete next[planExerciseId]
+      return next
+    })
   }
 
   // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
@@ -1012,6 +1040,7 @@ export default function TodayWorkoutPage() {
                     planEx={ex}
                     log={logs[ex.id]}
                     onSaveLog={saveLog}
+                    onDeleteLog={deleteLog}
                     suggestedSets={ex.suggested_sets}
                   />
                 ))}
@@ -1032,6 +1061,7 @@ export default function TodayWorkoutPage() {
                     planEx={ex}
                     log={logs[ex.id]}
                     onSaveLog={saveLog}
+                    onDeleteLog={deleteLog}
                     suggestedSets={ex.suggested_sets}
                   />
                 ))}
