@@ -270,6 +270,10 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
   }
 
   function validate(data) {
+    // Avisar si no se registró el PSE
+    if (!data.perceived_difficulty) {
+      return `No registraste el esfuerzo percibido (PSE). Tu coach lo usa para ajustar el plan.`
+    }
     // Solo validar peso inusual — las series ya tienen tope duro
     if (data.actual_weight && data.actual_weight > 500) {
       return `Peso registrado (${data.actual_weight}kg) parece muy alto. ¿Es correcto?`
