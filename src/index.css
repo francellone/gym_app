@@ -7,7 +7,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-100 text-gray-900;
   }
 }
 
@@ -22,7 +22,7 @@
     @apply hover:bg-gray-100 active:bg-gray-200 text-gray-600 font-medium py-2 px-3 rounded-lg transition-colors duration-150;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-4;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-200 p-4;
   }
   .input {
     @apply w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
@@ -36,4 +36,417 @@
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Plan Detail — Hero / Stats
+───────────────────────────────────────────────────────────── */
+.plan-hero {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.plan-hero-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 16px;
+}
+
+.plan-hero-back {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  flex-shrink: 0;
+  margin-top: 3px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.plan-hero-back:hover {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.plan-hero-info { flex: 1; min-width: 0; }
+
+.plan-hero-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.25;
+}
+
+.plan-hero-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+.plan-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.plan-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.plan-meta-sep {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.plan-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: flex-start;
+}
+
+/* Stats strip */
+.plan-stats-strip {
+  display: flex;
+  border-top: 1px solid #f3f4f6;
+}
+
+.plan-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13px 0;
+  border-right: 1px solid #f3f4f6;
+}
+.plan-stat:last-child { border-right: none; }
+
+.plan-stat-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.plan-stat-lbl {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-top: 3px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Plan Detail — Student chips
+───────────────────────────────────────────────────────────── */
+.plan-student-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 4px 10px 4px 5px;
+  transition: border-color 0.12s;
+}
+.plan-student-chip:hover { border-color: #d1d5db; }
+
+.plan-chip-avatar {
+  width: 20px;
+  height: 20px;
+  background: #f97316;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.plan-add-student-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  border: 1.5px dashed #d1d5db;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.plan-add-student-chip:hover {
+  color: #f97316;
+  border-color: #fcd3a0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Plan Detail — Section tabs
+───────────────────────────────────────────────────────────── */
+.plan-tabs-bar {
+  display: flex;
+  gap: 2px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 6px;
+  margin-bottom: 12px;
+}
+
+.plan-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+.plan-tab:hover { color: #6b7280; background: #f9fafb; }
+.plan-tab--active {
+  background: #f9fafb;
+  color: var(--tab-color, #f97316);
+}
+
+.plan-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.plan-tab-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  transition: background 0.12s, color 0.12s;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Plan Detail — Exercise table
+───────────────────────────────────────────────────────────── */
+
+/* Columnas: block | name | sets | reps | weight | rest | pse | actions */
+:root {
+  --ex-cols: 52px 1fr 52px 96px 100px 60px 72px 36px;
+}
+
+.plan-ex-panel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.plan-ex-col-headers {
+  display: grid;
+  grid-template-columns: var(--ex-cols);
+  padding: 8px 18px;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.plan-ex-col-h {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.plan-ex-col-h--center { text-align: center; }
+
+.plan-ex-row {
+  display: grid;
+  grid-template-columns: var(--ex-cols);
+  padding: 11px 18px;
+  border-bottom: 1px solid #f9fafb;
+  align-items: center;
+  transition: background 0.1s;
+  cursor: default;
+}
+.plan-ex-row:last-child { border-bottom: none; }
+.plan-ex-row:hover { background: #fafafa; }
+.plan-ex-row--open { background: #fafafa; border-bottom: none; }
+
+/* Cells */
+.plan-ex-block {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.plan-ex-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.plan-ex-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan-ex-name-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.plan-ex-row:hover .plan-ex-name-actions { opacity: 1; }
+
+.plan-ex-note-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.plan-ex-note-btn:hover,
+.plan-ex-note-btn--on {
+  background: #fff7ed;
+  border-color: #fcd3a0;
+  color: #c2410c;
+}
+
+.plan-ex-video-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #60a5fa;
+  transition: color 0.1s;
+}
+.plan-ex-video-btn:hover { color: #2563eb; }
+
+.plan-ex-cell {
+  font-size: 12.5px;
+  color: #374151;
+  padding-left: 2px;
+}
+.plan-ex-cell--center { text-align: center; padding-left: 0; }
+
+.plan-ex-mono {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #111827;
+}
+
+.plan-ex-soft {
+  font-size: 12.5px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-ex-pse {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.plan-ex-dash {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.plan-ex-menu-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.1s, color 0.1s;
+}
+.plan-ex-menu-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* Notes inline */
+.plan-ex-notes-row {
+  padding: 0 18px 12px 88px;
+  border-bottom: 1px solid #f9fafb;
+  animation: plan-fadein 0.15s ease;
+}
+.plan-ex-notes-row:last-child { border-bottom: none; }
+
+.plan-ex-notes-inner {
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.plan-ex-notes-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+@keyframes plan-fadein {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
