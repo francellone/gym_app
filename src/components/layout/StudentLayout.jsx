@@ -1,6 +1,6 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import { Home, Dumbbell, BarChart2, Clock, User } from 'lucide-react'
+import { Outlet, NavLink } from 'react-router-dom'
+import { Home, Dumbbell, BarChart2, Clock, User, Sun, Moon } from 'lucide-react'
+import { useTheme } from '../../contexts/ThemeContext'
 
 const navItems = [
   { to: '/student', label: 'Inicio', icon: Home, end: true },
@@ -11,37 +11,50 @@ const navItems = [
 ]
 
 export default function StudentLayout() {
+  const { dark, toggleDark } = useTheme()
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-100 dark:bg-[#0d1117] flex flex-col transition-colors duration-200">
       {/* Main content */}
       <main className="flex-1 pb-20">
         <Outlet />
       </main>
 
-      {/* Bottom nav (mobile-first) */}
-      <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 z-40 safe-area-inset-bottom">
-        <div className="flex items-center justify-around px-2 py-2 max-w-lg mx-auto">
+      {/* Bottom nav */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-[#161b27] border-t border-gray-200 dark:border-[#252e42] safe-area-inset-bottom transition-colors duration-200">
+        <div className="flex items-center justify-around px-1 pt-2 pb-3 max-w-lg mx-auto">
           {navItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-0 ${
-                  isActive
-                    ? 'text-primary-600'
-                    : 'text-gray-400 hover:text-gray-600'
+                `flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-0 ${
+                  isActive ? 'text-primary-500' : 'text-gray-400 dark:text-[#4a5568]'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                  <span className="text-xs font-medium">{item.label}</span>
+                  <item.icon size={21} strokeWidth={isActive ? 2.3 : 1.7} />
+                  <span className="text-[10px] font-semibold">{item.label}</span>
                 </>
               )}
             </NavLink>
           ))}
+
+          {/* Dark mode toggle — dentro de la nav como ítem extra */}
+          <button
+            onClick={toggleDark}
+            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-gray-400 dark:text-[#4a5568] hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            title={dark ? 'Modo claro' : 'Modo oscuro'}
+          >
+            {dark
+              ? <Sun size={21} strokeWidth={1.7} />
+              : <Moon size={21} strokeWidth={1.7} />
+            }
+            <span className="text-[10px] font-semibold">{dark ? 'Claro' : 'Oscuro'}</span>
+          </button>
         </div>
       </nav>
     </div>
