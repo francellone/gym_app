@@ -92,21 +92,31 @@ function displayActualWeight(log) {
 // Las sesiones recientes son columnas dinámicas, se configuran aparte.
 // ─────────────────────────────────────────────────────────────
 const COLUMN_DEFS = [
-  { id: 'block',       label: 'Bloque',          group: 'plan',     defaultVisible: true  },
-  { id: 'plan_sets',   label: 'Series sugeridas',group: 'plan',     defaultVisible: false },
-  { id: 'plan_reps',   label: 'Reps sugeridas',  group: 'plan',     defaultVisible: false },
-  { id: 'plan_weight', label: 'Peso sugerido',   group: 'plan',     defaultVisible: true  },
-  { id: 'plan_pse',    label: 'PSE sugerida',    group: 'plan',     defaultVisible: false },
-  { id: 'max_weight',  label: 'Peso máx.',       group: 'progress', defaultVisible: true  },
-  { id: 'trend',       label: 'Tendencia',       group: 'progress', defaultVisible: true  },
-  { id: 'count',       label: 'Veces',           group: 'volume',   defaultVisible: true  },
-  { id: 'volume',      label: 'Volumen total',   group: 'volume',   defaultVisible: false },
-  { id: 'avg_pse',     label: 'PSE promedio',    group: 'volume',   defaultVisible: false },
+  { id: 'block',       label: 'Bloque',            group: 'plan',     defaultVisible: true  },
+  { id: 'plan_sets',   label: 'Series sugeridas',  group: 'plan',     defaultVisible: false },
+  { id: 'plan_reps',   label: 'Reps sugeridas',    group: 'plan',     defaultVisible: false },
+  { id: 'plan_weight', label: 'Peso sugerido',     group: 'plan',     defaultVisible: true  },
+  { id: 'plan_pse',    label: 'PSE sugerida',      group: 'plan',     defaultVisible: false },
+  // "Último registro" — columnas estáticas (alternativa a las columnas
+  // dinámicas de sesiones). Ocultas por defecto para no duplicar info,
+  // pero disponibles para quien las quiera ver sueltas.
+  { id: 'last_date',   label: 'Fecha última',      group: 'last',     defaultVisible: false },
+  { id: 'last_sets',   label: 'Series reales',     group: 'last',     defaultVisible: false },
+  { id: 'last_reps',   label: 'Reps reales',       group: 'last',     defaultVisible: false },
+  { id: 'last_weight', label: 'Peso real',         group: 'last',     defaultVisible: false },
+  { id: 'last_pse',    label: 'PSE real',          group: 'last',     defaultVisible: false },
+  { id: 'last_notes',  label: 'Notas última',      group: 'last',     defaultVisible: false },
+  { id: 'max_weight',  label: 'Peso máx.',         group: 'progress', defaultVisible: true  },
+  { id: 'trend',       label: 'Tendencia',         group: 'progress', defaultVisible: true  },
+  { id: 'count',       label: 'Veces',             group: 'volume',   defaultVisible: true  },
+  { id: 'volume',      label: 'Volumen total',     group: 'volume',   defaultVisible: false },
+  { id: 'avg_pse',     label: 'PSE promedio',      group: 'volume',   defaultVisible: false },
 ]
 
 const COLUMN_GROUPS = [
-  { id: 'plan',     label: 'Plan'       },
-  { id: 'progress', label: 'Progresión' },
+  { id: 'plan',     label: 'Plan'               },
+  { id: 'last',     label: 'Último registro'    },
+  { id: 'progress', label: 'Progresión'         },
   { id: 'volume',   label: 'Volumen / frecuencia' },
 ]
 
@@ -397,6 +407,13 @@ export default function StudentProgressTableView({ studentId, logs }) {
       {isCol('plan_reps') && <th className="text-right font-semibold px-2 py-2">Reps</th>}
       {isCol('plan_weight') && <th className="text-right font-semibold px-2 py-2">Peso sug.</th>}
       {isCol('plan_pse') && <th className="text-right font-semibold px-2 py-2">PSE sug.</th>}
+      {/* Último registro (columnas opcionales, desglose del último log) */}
+      {isCol('last_date') && <th className="text-center font-semibold px-2 py-2">Fecha últ.</th>}
+      {isCol('last_sets') && <th className="text-right font-semibold px-2 py-2">Series real.</th>}
+      {isCol('last_reps') && <th className="text-right font-semibold px-2 py-2">Reps real.</th>}
+      {isCol('last_weight') && <th className="text-right font-semibold px-2 py-2">Peso real</th>}
+      {isCol('last_pse') && <th className="text-right font-semibold px-2 py-2">PSE real</th>}
+      {isCol('last_notes') && <th className="text-left font-semibold px-2 py-2 min-w-[140px]">Notas últ.</th>}
       {/* Columnas dinámicas de sesiones recientes */}
       {Array.from({ length: effectiveSessionsCount }, (_, i) => (
         <th
@@ -508,6 +525,43 @@ export default function StudentProgressTableView({ studentId, logs }) {
         )}
         {isCol('plan_pse') && (
           <td className="px-2 py-2 text-right text-gray-700">{r.suggested_pse || '—'}</td>
+        )}
+        {/* Último registro (desglose opcional del log más reciente) */}
+        {isCol('last_date') && (
+          <td className="px-2 py-2 text-center text-gray-700">
+            {r.recentLogs[0]?.logged_date
+              ? format(parseISO(r.recentLogs[0].logged_date), 'dd/MM/yy')
+              : <span className="text-gray-300">—</span>}
+          </td>
+        )}
+        {isCol('last_sets') && (
+          <td className="px-2 py-2 text-right text-gray-700">
+            {r.recentLogs[0]?.actual_sets ?? <span className="text-gray-300">—</span>}
+          </td>
+        )}
+        {isCol('last_reps') && (
+          <td className="px-2 py-2 text-right text-gray-700">
+            {r.recentLogs[0]?.actual_reps ?? <span className="text-gray-300">—</span>}
+          </td>
+        )}
+        {isCol('last_weight') && (
+          <td className="px-2 py-2 text-right text-gray-700">
+            {r.recentLogs[0] ? displayActualWeight(r.recentLogs[0]) : <span className="text-gray-300">—</span>}
+          </td>
+        )}
+        {isCol('last_pse') && (
+          <td className="px-2 py-2 text-right">
+            {r.recentLogs[0]?.perceived_difficulty != null
+              ? pseBadge(r.recentLogs[0].perceived_difficulty)
+              : <span className="text-gray-300">—</span>}
+          </td>
+        )}
+        {isCol('last_notes') && (
+          <td className="px-2 py-2 text-left text-gray-600 text-xs italic max-w-[200px]">
+            {r.recentLogs[0]?.notes
+              ? <span className="line-clamp-2" title={r.recentLogs[0].notes}>💬 {r.recentLogs[0].notes}</span>
+              : <span className="text-gray-300 not-italic">—</span>}
+          </td>
         )}
         {/* Columnas dinámicas de sesiones: la 0 (última) queda resaltada */}
         {Array.from({ length: effectiveSessionsCount }, (_, i) =>
