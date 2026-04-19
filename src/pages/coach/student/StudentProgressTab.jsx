@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, BarChart3, Table as TableIcon } from 'lucide-react'
 import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
 import {
   ComposedChart, BarChart, AreaChart,
@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { borgColor, BORG_LABELS } from '../../../utils/planHelpers'
+import StudentProgressTableView from './StudentProgressTableView'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes estáticas fuera del componente (no recrean en render)
@@ -27,6 +28,12 @@ const PERIODS = [
   { label: '3m', days: 90 },
   { label: '6m', days: 180 },
   { label: 'Todo', days: 365 },
+]
+
+// Modos de visualización de la tab Progreso
+const VIEW_MODES = [
+  { id: 'charts', label: 'Gráficos', icon: BarChart3 },
+  { id: 'table',  label: 'Tabla',    icon: TableIcon },
 ]
 
 // Componente de tooltip estable (fuera del render para evitar re-montaje)
@@ -52,36 +59,50 @@ export default function StudentProgressTab({ studentId }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [progressPeriod, setProgressPeriod] = useState(90)
+  // Rango personalizado: si useCustomRange es true, se usa customFrom/customTo en lugar del período
+  const [useCustomRange, setUseCustomRange] = useState(false)
+  const [customFrom, setCustomFrom] = useState(() => format(subDays(new Date(), 30), 'yyyy-MM-dd'))
+  const [customTo, setCustomTo] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [progressExercises, setProgressExercises] = useState([])
   const [selectedExercise, setSelectedExercise] = useState('')
   const [activeChart, setActiveChart] = useState('weight')
+  const [viewMode, setViewMode] = useState('charts') // 'charts' | 'table'
 
   useEffect(() => {
     fetchProgressData()
-  }, [progressPeriod, studentId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressPeriod, studentId, useCustomRange, customFrom, customTo])
 
   async function fetchProgressData() {
     setLoading(true)
-    const since = format(subDays(new Date(), progressPeriod), 'yyyy-MM-dd')
-    const [logsRes, sessionsRes] = await Promise.all([
-      supabase
-        .from('workout_logs')
-        .select(`
-          *, plan_exercise:plan_exercises!plan_exercise_id(
-            block_label, section, suggested_sets, suggested_weight,
-            exercise:exercises!exercise_id(id, name)
-          )
-        `)
-        .eq('student_id', studentId)
-        .gte('logged_date', since)
-        .order('logged_date'),
-      supabase
-        .from('v_workout_session_intensity')
-        .select('*')
-        .eq('student_id', studentId)
-        .gte('logged_date', since)
-        .order('logged_date'),
-    ])
+    // Rango efectivo: personalizado o basado en período
+    const since = useCustomRange
+      ? customFrom
+      : format(subDays(new Date(), progressPeriod), 'yyyy-MM-dd')
+    const until = useCustomRange ? customTo : null
+
+    let logsQuery = supabase
+      .from('workout_logs')
+      .select(`
+        *, plan_exercise:plan_exercises!plan_exercise_id(
+          block_label, section, suggested_sets, suggested_weight,
+          exercise:exercises!exercise_id(id, name)
+        )
+      `)
+      .eq('student_id', studentId)
+      .gte('logged_date', since)
+    if (until) logsQuery = logsQuery.lte('logged_date', until)
+    logsQuery = logsQuery.order('logged_date')
+
+    let sessionsQuery = supabase
+      .from('v_workout_session_intensity')
+      .select('*')
+      .eq('student_id', studentId)
+      .gte('logged_date', since)
+    if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
+    sessionsQuery = sessionsQuery.order('logged_date')
+
+    const [logsRes, sessionsRes] = await Promise.all([logsQuery, sessionsQuery])
 
     const logData = logsRes.data || []
     setProgressLogs(logData)
@@ -225,25 +246,80 @@ export default function StudentProgressTab({ studentId }) {
   // ── Render ─────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Sub-nav: Gráficos / Tabla */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        {VIEW_MODES.map(m => {
+          const Icon = m.icon
+          return (
+            <button
+              key={m.id}
+              onClick={() => setViewMode(m.id)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                viewMode === m.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              <Icon size={13} />
+              {m.label}
+            </button>
+          )
+        })}
+      </div>
+
       {/* Selector de período */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
         {PERIODS.map(p => (
           <button
             key={p.days}
-            onClick={() => setProgressPeriod(p.days)}
+            onClick={() => { setProgressPeriod(p.days); setUseCustomRange(false) }}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              progressPeriod === p.days ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+              !useCustomRange && progressPeriod === p.days ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
             }`}
           >
             {p.label}
           </button>
         ))}
+        <button
+          onClick={() => setUseCustomRange(true)}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+            useCustomRange ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          Personalizado
+        </button>
       </div>
+
+      {/* Inputs de rango personalizado */}
+      {useCustomRange && (
+        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-2">
+          <div className="flex-1">
+            <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">Desde</label>
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo}
+              onChange={e => setCustomFrom(e.target.value)}
+              className="input text-xs py-1.5"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">Hasta</label>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom}
+              onChange={e => setCustomTo(e.target.value)}
+              className="input text-xs py-1.5"
+            />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : viewMode === 'table' ? (
+        <StudentProgressTableView studentId={studentId} logs={progressLogs} />
       ) : progressLogs.length === 0 ? (
         <div className="card text-center py-8 text-gray-400">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
