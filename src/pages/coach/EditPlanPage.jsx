@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Plus, Save, AlertCircle, Dumbbell, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Plus } from 'lucide-react'
 import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
+import BlockCard from '../../components/plan/blocks/BlockCard'
+import AddBlockMenu from '../../components/plan/blocks/AddBlockMenu'
 import {
-  getDynamicSections, emptyPlanExercise, dbExToUIEx, uiExToDBEx
+  getDynamicSections,
+  emptyPlanExercise,
+  emptyBlock,
+  dbBlockToUI,
+  dbExToUIEx,
+  uiExToDBEx,
+  uiBlockToDB,
 } from '../../utils/planHelpers'
 import { EVAL_TYPES, METHODS } from '../../utils/evalHelpers'
 
@@ -31,10 +39,15 @@ export default function EditPlanPage() {
     eval_method: '',
   })
 
-  // Estado de ejercicios: keys dinámicas (se poblan al cargar)
-  const [planExercises, setPlanExercises] = useState({})
+  // { day_a: [block, block], day_b: [block], ... }
+  const [planBlocks, setPlanBlocks] = useState({})
+  // Evaluaciones: lista plana
+  const [evalExercises, setEvalExercises] = useState([])
   const [activeSection, setActiveSection] = useState('day_a')
-  const [toDelete, setToDelete] = useState([])
+
+  // IDs para borrar al guardar
+  const [toDeleteBlocks, setToDeleteBlocks] = useState([])
+  const [toDeleteExercises, setToDeleteExercises] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -42,7 +55,11 @@ export default function EditPlanPage() {
       supabase.from('exercise_tags').select('*').order('name'),
       supabase.from('exercise_tag_assignments').select('*'),
       supabase.from('plans')
-        .select(`*, plan_exercises(*, exercise:exercises!exercise_id(*))`)
+        .select(`
+          *,
+          plan_blocks(*),
+          plan_exercises(*, exercise:exercises!exercise_id(*))
+        `)
         .eq('id', id)
         .single(),
     ]).then(([exRes, tagsRes, assignRes, planRes]) => {
@@ -50,105 +67,179 @@ export default function EditPlanPage() {
       setExerciseTags(tagsRes.data || [])
       setTagAssignments(assignRes.data || [])
 
-      if (planRes.data) {
-        const p = planRes.data
-        const loadedPlan = {
-          title: p.title || '',
-          description: p.description || '',
-          goal: p.goal || '',
-          sessions_per_week: p.sessions_per_week || 3,
-          has_activation: p.has_activation || false,
-          duration_weeks: p.duration_weeks || '',
-          is_template: p.is_template || false,
-          plan_type: p.plan_type || 'training',
-          eval_type: p.eval_type || '',
-          eval_method: p.eval_method || '',
-        }
-        setPlan(loadedPlan)
+      if (!planRes.data) return
 
-        // Generar secciones según la config cargada
+      const p = planRes.data
+      const loadedPlan = {
+        title: p.title || '',
+        description: p.description || '',
+        goal: p.goal || '',
+        sessions_per_week: p.sessions_per_week || 3,
+        has_activation: p.has_activation || false,
+        duration_weeks: p.duration_weeks || '',
+        is_template: p.is_template || false,
+        plan_type: p.plan_type || 'training',
+        eval_type: p.eval_type || '',
+        eval_method: p.eval_method || '',
+      }
+      setPlan(loadedPlan)
+
+      if (loadedPlan.plan_type === 'evaluation') {
+        // Lista plana
+        const evals = (p.plan_exercises || [])
+          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+          .map(dbExToUIEx)
+        setEvalExercises(evals)
+        setActiveSection('day_a')
+      } else {
+        // Armar blocks por sección con sus ejercicios anidados
         const sections = getDynamicSections(
           loadedPlan.sessions_per_week,
           loadedPlan.has_activation
         )
 
-        // Inicializar todas las secciones vacías
-        const grouped = {}
-        for (const s of sections) {
-          grouped[s.id] = []
+        const exsByBlock = {}
+        const orphansBySection = {}
+        for (const ex of (p.plan_exercises || [])) {
+          if (ex.block_id) {
+            if (!exsByBlock[ex.block_id]) exsByBlock[ex.block_id] = []
+            exsByBlock[ex.block_id].push(ex)
+          } else {
+            // huérfanos (deberían ser cero tras v14; fallback por seguridad)
+            const sec = ex.section || 'day_a'
+            if (!orphansBySection[sec]) orphansBySection[sec] = []
+            orphansBySection[sec].push(ex)
+          }
         }
 
-        // Distribuir ejercicios en sus secciones
-        ;(p.plan_exercises || [])
-          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-          .forEach(ex => {
-            const section = ex.section || 'day_a'
-            if (grouped[section] !== undefined) {
-              grouped[section].push(dbExToUIEx(ex))
-            } else {
-              // Sección no esperada: crearla igualmente para no perder datos
-              grouped[section] = [dbExToUIEx(ex)]
-            }
-          })
+        const grouped = {}
+        for (const s of sections) grouped[s.id] = []
 
-        setPlanExercises(grouped)
+        // Bloques reales
+        for (const b of (p.plan_blocks || [])) {
+          const sec = b.section
+          if (grouped[sec] === undefined) grouped[sec] = []
+          grouped[sec].push(dbBlockToUI(b, exsByBlock[b.id] || []))
+        }
 
-        // Activar primera sección disponible
+        // Huérfanos: envolver en bloque strength virtual
+        for (const sec of Object.keys(orphansBySection)) {
+          if (grouped[sec] === undefined) grouped[sec] = []
+          const strength = emptyBlock('strength', sec, grouped[sec].length)
+          strength.exercises = orphansBySection[sec]
+            .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+            .map(e => {
+              const ui = dbExToUIEx(e)
+              ui.exercise_mode = e.exercise_mode || 'reps'
+              ui.duration_seconds = e.duration_seconds != null ? String(e.duration_seconds) : ''
+              return ui
+            })
+          grouped[sec].push(strength)
+        }
+
+        // Ordenar cada sección por order_index
+        for (const k of Object.keys(grouped)) {
+          grouped[k].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        }
+
+        setPlanBlocks(grouped)
         setActiveSection(sections[0]?.id || 'day_a')
       }
     }).catch(err => {
+      console.error(err)
       setError(err.message || 'Error al cargar el plan')
     }).finally(() => setLoading(false))
   }, [id])
 
-  // Sincronizar planExercises cuando el coach cambia sessions_per_week o has_activation
+  // Sincronizar secciones cuando cambia sessions_per_week / has_activation
   useEffect(() => {
-    if (loading) return // No ajustar mientras se está cargando
+    if (loading) return
     if (plan.plan_type === 'evaluation') return
-
     const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
-
-    setPlanExercises(prev => {
+    setPlanBlocks(prev => {
       const next = {}
-      for (const s of sections) {
-        next[s.id] = prev[s.id] || []
+      for (const s of sections) next[s.id] = prev[s.id] || []
+      // Mover a delete los bloques de secciones que desaparecieron
+      for (const k of Object.keys(prev)) {
+        if (!sections.find(s => s.id === k)) {
+          for (const b of (prev[k] || [])) {
+            if (b.id) setToDeleteBlocks(prevDel => [...prevDel, b.id])
+            for (const ex of (b.exercises || [])) {
+              if (ex.id) setToDeleteExercises(prevDel => [...prevDel, ex.id])
+            }
+          }
+        }
       }
       return next
     })
-
     setActiveSection(prev => {
       if (sections.find(s => s.id === prev)) return prev
       return sections[0]?.id || 'day_a'
     })
   }, [plan.sessions_per_week, plan.has_activation, plan.plan_type, loading])
 
-  function addExercise(section) {
-    const newEx = emptyPlanExercise(section)
-    newEx.order_index = (planExercises[section] || []).length
-    setPlanExercises(prev => ({
-      ...prev,
-      [section]: [...(prev[section] || []), newEx],
-    }))
+  // ============================================================
+  // Manipulación de bloques
+  // ============================================================
+  function addBlock(section, type) {
+    setPlanBlocks(prev => {
+      const current = prev[section] || []
+      const newBlock = emptyBlock(type, section, current.length)
+      return { ...prev, [section]: [...current, newBlock] }
+    })
   }
 
-  function updateExercise(section, index, field, value) {
-    setPlanExercises(prev => ({
+  function updateBlock(section, index, patch) {
+    setPlanBlocks(prev => ({
       ...prev,
-      [section]: prev[section].map((ex, i) =>
-        i === index ? { ...ex, [field]: value } : ex
+      [section]: (prev[section] || []).map((b, i) =>
+        i === index ? { ...b, ...patch } : b
       ),
     }))
   }
 
-  function removeExercise(section, index) {
-    const ex = planExercises[section][index]
-    if (ex.id) setToDelete(prev => [...prev, ex.id])
-    setPlanExercises(prev => ({
-      ...prev,
-      [section]: prev[section].filter((_, i) => i !== index),
-    }))
+  function updateBlockExercises(section, index, nextExercises) {
+    const prevBlock = (planBlocks[section] || [])[index]
+    if (prevBlock) {
+      const prevIds = new Set((prevBlock.exercises || []).map(e => e.id).filter(Boolean))
+      const nextIds = new Set(nextExercises.map(e => e.id).filter(Boolean))
+      const removed = [...prevIds].filter(i => !nextIds.has(i))
+      if (removed.length) setToDeleteExercises(d => [...d, ...removed])
+    }
+    updateBlock(section, index, { exercises: nextExercises })
   }
 
+  function removeBlock(section, index) {
+    setPlanBlocks(prev => {
+      const block = (prev[section] || [])[index]
+      if (block?.id) setToDeleteBlocks(d => [...d, block.id])
+      // Los ejercicios se borran por cascada en DB, pero igual los trackeamos
+      // por si quedaron sin block_id en modo virtual.
+      for (const ex of (block?.exercises || [])) {
+        if (ex.id && !block?.id) setToDeleteExercises(d => [...d, ex.id])
+      }
+      return {
+        ...prev,
+        [section]: (prev[section] || []).filter((_, i) => i !== index)
+          .map((b, i) => ({ ...b, order_index: i })),
+      }
+    })
+  }
+
+  function moveBlock(section, index, direction) {
+    const j = index + direction
+    setPlanBlocks(prev => {
+      const list = [...(prev[section] || [])]
+      if (j < 0 || j >= list.length) return prev
+      const [item] = list.splice(index, 1)
+      list.splice(j, 0, item)
+      return { ...prev, [section]: list.map((b, i) => ({ ...b, order_index: i })) }
+    })
+  }
+
+  // ============================================================
+  // Guardar
+  // ============================================================
   async function handleSave() {
     if (!plan.title.trim()) {
       setError('El nombre del plan es obligatorio')
@@ -162,7 +253,7 @@ export default function EditPlanPage() {
     setSaving(true)
 
     try {
-      // 1. Actualizar info del plan
+      // 1. Update plan
       const { error: planError } = await supabase
         .from('plans')
         .update({
@@ -180,48 +271,93 @@ export default function EditPlanPage() {
         .eq('id', id)
       if (planError) throw planError
 
-      // 2. Eliminar ejercicios marcados para borrar
-      if (toDelete.length > 0) {
-        const { error: delError } = await supabase
-          .from('plan_exercises')
+      // 2. Borrar bloques marcados (cascade borra sus exercises también)
+      if (toDeleteBlocks.length > 0) {
+        const { error: dErr } = await supabase
+          .from('plan_blocks')
           .delete()
-          .in('id', toDelete)
-        if (delError) throw delError
+          .in('id', toDeleteBlocks)
+        if (dErr) throw dErr
       }
 
-      // 3. Upsert ejercicios usando secciones dinámicas
-      const sectionsToSave = plan.plan_type === 'evaluation'
-        ? [{ id: 'day_a' }]
-        : getDynamicSections(plan.sessions_per_week, plan.has_activation)
+      // 3. Borrar ejercicios marcados (huérfanos o removidos de un bloque vivo)
+      if (toDeleteExercises.length > 0) {
+        const { error: eErr } = await supabase
+          .from('plan_exercises')
+          .delete()
+          .in('id', toDeleteExercises)
+        if (eErr) throw eErr
+      }
 
-      for (const s of sectionsToSave) {
-        const sectionExs = (planExercises[s.id] || []).filter(ex => ex.exercise_id)
-        for (let i = 0; i < sectionExs.length; i++) {
-          const ex = sectionExs[i]
-          const dbData = uiExToDBEx(ex, id, s.id, i)
-
+      if (plan.plan_type === 'evaluation') {
+        // Evaluaciones: upsert plano
+        for (let i = 0; i < evalExercises.length; i++) {
+          const ex = evalExercises[i]
+          if (!ex.exercise_id) continue
+          const dbData = uiExToDBEx(ex, id, 'day_a', i, null)
           if (ex.id) {
-            const { error: upError } = await supabase
-              .from('plan_exercises')
-              .update(dbData)
-              .eq('id', ex.id)
-            if (upError) throw upError
+            const { error: uErr } = await supabase
+              .from('plan_exercises').update(dbData).eq('id', ex.id)
+            if (uErr) throw uErr
           } else {
-            const { error: inError } = await supabase
-              .from('plan_exercises')
-              .insert(dbData)
-            if (inError) throw inError
+            const { error: iErr } = await supabase
+              .from('plan_exercises').insert(dbData)
+            if (iErr) throw iErr
+          }
+        }
+      } else {
+        // Entrenamiento: upsert bloques + ejercicios
+        const sectionsToSave = getDynamicSections(plan.sessions_per_week, plan.has_activation)
+        for (const s of sectionsToSave) {
+          const blocks = planBlocks[s.id] || []
+          for (let bi = 0; bi < blocks.length; bi++) {
+            const block = blocks[bi]
+            const blockPayload = uiBlockToDB(block, id, bi)
+
+            let blockId = block.id
+            if (blockId) {
+              const { error: bErr } = await supabase
+                .from('plan_blocks')
+                .update(blockPayload)
+                .eq('id', blockId)
+              if (bErr) throw bErr
+            } else {
+              const { data: inserted, error: bErr } = await supabase
+                .from('plan_blocks')
+                .insert(blockPayload)
+                .select()
+                .single()
+              if (bErr) throw bErr
+              blockId = inserted.id
+            }
+
+            // Ejercicios del bloque
+            const exs = (block.exercises || []).filter(ex => ex.exercise_id)
+            for (let i = 0; i < exs.length; i++) {
+              const ex = exs[i]
+              const dbData = uiExToDBEx(ex, id, s.id, i, blockId)
+              if (ex.id) {
+                const { error: uErr } = await supabase
+                  .from('plan_exercises').update(dbData).eq('id', ex.id)
+                if (uErr) throw uErr
+              } else {
+                const { error: iErr } = await supabase
+                  .from('plan_exercises').insert(dbData)
+                if (iErr) throw iErr
+              }
+            }
           }
         }
       }
 
-      // 4. Navegar al detalle correcto según tipo
-      if (plan.plan_type === 'evaluation') {
-        navigate(`/coach/evaluations/${id}`)
-      } else {
-        navigate(`/coach/plans/${id}`)
-      }
+      // Limpiar buffers
+      setToDeleteBlocks([])
+      setToDeleteExercises([])
+
+      if (plan.plan_type === 'evaluation') navigate(`/coach/evaluations/${id}`)
+      else navigate(`/coach/plans/${id}`)
     } catch (err) {
+      console.error(err)
       setError(err.message || 'Error al guardar los cambios')
     } finally {
       setSaving(false)
@@ -236,7 +372,16 @@ export default function EditPlanPage() {
 
   const isEval = plan.plan_type === 'evaluation'
   const dynamicSections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
-  const currentExercises = planExercises[activeSection] || []
+  const currentBlocks = planBlocks[activeSection] || []
+
+  // Numerar "Fuerza 1", "Fuerza 2"
+  let strengthCounter = 0
+  const strengthIndexMap = currentBlocks.map(b => {
+    if (b.block_type !== 'strength') return 0
+    const idx = strengthCounter
+    strengthCounter += 1
+    return idx
+  })
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -292,7 +437,7 @@ export default function EditPlanPage() {
           </div>
         </div>
 
-        {/* Categoría de evaluación */}
+        {/* Categoría y método de evaluación */}
         {isEval && (
           <div>
             <label className="label">Categoría de evaluación</label>
@@ -315,18 +460,11 @@ export default function EditPlanPage() {
                     </p>
                     <p className="text-xs text-gray-400">{et.description}</p>
                   </div>
-                  {plan.eval_type === et.key && (
-                    <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full" />
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
           </div>
         )}
-
-        {/* Método del protocolo */}
         {isEval && plan.eval_type && METHODS[plan.eval_type]?.length > 0 && (
           <div>
             <label className="label">Método / Protocolo</label>
@@ -348,11 +486,6 @@ export default function EditPlanPage() {
                     </p>
                     <p className="text-xs text-gray-400">{m.note}</p>
                   </div>
-                  {plan.eval_method === m.key && (
-                    <div className="w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full" />
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
@@ -408,18 +541,14 @@ export default function EditPlanPage() {
                 />
               </div>
 
-              {/* Toggle de Activación */}
               <div
                 className={`sm:col-span-2 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                  plan.has_activation
-                    ? 'border-amber-400 bg-amber-50'
-                    : 'border-gray-200 bg-gray-50'
+                  plan.has_activation ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'
                 }`}
                 onClick={() => setPlan(p => ({ ...p, has_activation: !p.has_activation }))}
               >
                 <input
-                  type="checkbox"
-                  id="has_activation"
+                  type="checkbox" id="has_activation"
                   className="w-4 h-4 rounded text-amber-500 pointer-events-none"
                   checked={plan.has_activation}
                   readOnly
@@ -450,24 +579,58 @@ export default function EditPlanPage() {
         </div>
       </div>
 
-      {/* Ejercicios — solo para planes de entrenamiento o evals que lo requieren */}
-      {(!isEval || ['one_rm', 'max_reps'].includes(plan.eval_type)) && (
+      {/* Evaluación plano */}
+      {isEval && ['one_rm', 'max_reps'].includes(plan.eval_type) && (
         <div className="card space-y-4">
           <div>
-            <h2 className="font-semibold text-gray-900">
-              {isEval ? 'Ejercicios a evaluar' : 'Ejercicios'}
-            </h2>
-            {isEval && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                Estos ejercicios se mostrarán en el formulario del alumno para que registre su desempeño.
-              </p>
-            )}
+            <h2 className="font-semibold text-gray-900">Ejercicios a evaluar</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Se mostrarán en el formulario del alumno.
+            </p>
           </div>
+          <div className="space-y-3">
+            {evalExercises.map((ex, i) => (
+              <PlanExerciseRow
+                key={ex.id || `new-${i}`}
+                ex={ex}
+                index={i}
+                exercises={exercises}
+                exerciseTags={exerciseTags}
+                tagAssignments={tagAssignments}
+                onUpdate={(idx, field, value) =>
+                  setEvalExercises(prev => prev.map((e, k) => k === idx ? { ...e, [field]: value } : e))
+                }
+                onRemove={(idx) => {
+                  const target = evalExercises[idx]
+                  if (target?.id) setToDeleteExercises(d => [...d, target.id])
+                  setEvalExercises(prev => prev.filter((_, k) => k !== idx))
+                }}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              const newEx = emptyPlanExercise('day_a')
+              newEx.order_index = evalExercises.length
+              setEvalExercises(prev => [...prev, newEx])
+            }}
+            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+          >
+            <Plus size={16} />
+            Agregar ejercicio
+          </button>
+        </div>
+      )}
 
-          {/* Tabs de secciones dinámicas */}
-          {!isEval && (
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
-              {dynamicSections.map(s => (
+      {/* Entrenamiento con bloques */}
+      {!isEval && (
+        <div className="card space-y-4">
+          <h2 className="font-semibold text-gray-900">Bloques del plan</h2>
+
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+            {dynamicSections.map(s => {
+              const blockCount = (planBlocks[s.id] || []).length
+              return (
                 <button
                   key={s.id}
                   onClick={() => setActiveSection(s.id)}
@@ -478,38 +641,43 @@ export default function EditPlanPage() {
                   }`}
                 >
                   {s.label}
-                  {(planExercises[s.id]?.length || 0) > 0 && (
+                  {blockCount > 0 && (
                     <span className="ml-1 bg-primary-100 text-primary-700 rounded-full px-1.5 text-xs">
-                      {planExercises[s.id].length}
+                      {blockCount}
                     </span>
                   )}
                 </button>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
 
           <div className="space-y-3">
-            {(isEval ? planExercises['day_a'] || [] : currentExercises).map((ex, i) => (
-              <PlanExerciseRow
-                key={ex.id || `new-${i}`}
-                ex={ex}
-                index={i}
+            {currentBlocks.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-3">
+                Esta sección no tiene bloques todavía.
+              </p>
+            )}
+
+            {currentBlocks.map((block, i) => (
+              <BlockCard
+                key={block.id || `new-${i}`}
+                block={block}
+                blockIndexInSection={i}
+                strengthIndexInSection={strengthIndexMap[i]}
+                onUpdate={patch => updateBlock(activeSection, i, patch)}
+                onUpdateExercises={next => updateBlockExercises(activeSection, i, next)}
+                onRemove={() => removeBlock(activeSection, i)}
+                onMove={dir => moveBlock(activeSection, i, dir)}
+                canMoveUp={i > 0}
+                canMoveDown={i < currentBlocks.length - 1}
                 exercises={exercises}
                 exerciseTags={exerciseTags}
                 tagAssignments={tagAssignments}
-                onUpdate={(idx, field, value) => updateExercise(isEval ? 'day_a' : activeSection, idx, field, value)}
-                onRemove={(idx) => removeExercise(isEval ? 'day_a' : activeSection, idx)}
               />
             ))}
-          </div>
 
-          <button
-            onClick={() => addExercise(isEval ? 'day_a' : activeSection)}
-            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-          >
-            <Plus size={16} />
-            Agregar ejercicio
-          </button>
+            <AddBlockMenu onAdd={type => addBlock(activeSection, type)} />
+          </div>
         </div>
       )}
 

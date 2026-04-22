@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { format, parseISO } from 'date-fns'
@@ -8,7 +8,13 @@ import {
   Dumbbell, PlayCircle, Info,
   Calendar, AlertTriangle, Clock, Lock, Trash2
 } from 'lucide-react'
-import { borgColor, parseReps, serializeReps, displayReps } from '../../utils/planHelpers'
+import {
+  borgColor, parseReps, serializeReps, displayReps,
+  DAY_SECTION_IDS, SECTION_LABELS,
+  groupExercisesIntoBlocks, blockDisplayTitle,
+} from '../../utils/planHelpers'
+import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
+import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 
 // ============================================================
 // Constantes
@@ -29,6 +35,19 @@ const PSE_SHORT = [
   { value: 7, label: 'Muy duro' }, { value: 8, label: 'Muy duro +' },
   { value: 9, label: 'Casi máx.' }, { value: 10, label: 'Máximo' },
 ]
+
+// Labels cortas para días (tabs y modal)
+const DAY_SHORT_LABELS = {
+  day_a: 'Día A', day_b: 'Día B', day_c: 'Día C',
+  day_d: 'Día D', day_e: 'Día E', day_f: 'Día F', day_g: 'Día G',
+}
+
+// Emojis para el header de sección
+const SECTION_EMOJIS = {
+  activation: '🔥',
+  day_a: '💪', day_b: '🏋️', day_c: '🏃', day_d: '🎯',
+  day_e: '⚡', day_f: '🔱', day_g: '🧘',
+}
 
 // Parsear el peso sugerido del coach a número (ej: "20kg" → "20", "BW" → "")
 function parseSuggestedWeight(val) {
@@ -169,7 +188,7 @@ function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose }) {
 }
 
 // ============================================================
-// Tarjeta de ejercicio individual
+// Tarjeta de ejercicio individual (bloques de fuerza)
 // ============================================================
 function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
   const [expanded, setExpanded] = useState(false)
@@ -696,6 +715,92 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
 }
 
 // ============================================================
+// Render de un bloque (delegador al tipo)
+// ============================================================
+function BlockRenderer({
+  block, strengthIndexInSection,
+  logs, blockLog, saveLog, deleteLog, saveBlockLog, deleteBlockLog,
+}) {
+  if (block.block_type === 'aerobic') {
+    return (
+      <AerobicBlockRunCard
+        block={block}
+        blockLog={blockLog}
+        onSaveLog={(data) => saveBlockLog(block.id, data)}
+        onDeleteLog={() => deleteBlockLog(block.id)}
+      />
+    )
+  }
+
+  if (block.block_type === 'circuit') {
+    // Logs por ejercicio del circuito
+    const exLogsForBlock = {}
+    for (const ex of (block.plan_exercises || [])) {
+      if (logs[ex.id]) exLogsForBlock[ex.id] = logs[ex.id]
+    }
+    return (
+      <CircuitBlockRunCard
+        block={block}
+        blockLog={blockLog}
+        exerciseLogs={exLogsForBlock}
+        onSaveBlockLog={(data) => saveBlockLog(block.id, data)}
+        onSaveExerciseLog={saveLog}
+        onDeleteBlockLog={() => deleteBlockLog(block.id)}
+      />
+    )
+  }
+
+  // Strength: lista plana de ExerciseCard.
+  // Si hay más de un strength block en la misma sección, mostrar subtítulo.
+  const exercises = (block.plan_exercises || [])
+    .slice()
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+
+  // Mostrar subtítulo sólo si el coach puso título o hay varios strength en la sección
+  const hasExplicitTitle = !!block.title
+  const showSubtitle = hasExplicitTitle || strengthIndexInSection > 0
+
+  return (
+    <div className="space-y-2">
+      {showSubtitle && (
+        <p className="text-xs font-semibold text-gray-500 px-1">
+          {block.title || `Fuerza ${strengthIndexInSection + 1}`}
+        </p>
+      )}
+      {exercises.map(ex => (
+        <ExerciseCard
+          key={ex.id}
+          planEx={ex}
+          log={logs[ex.id]}
+          onSaveLog={saveLog}
+          onDeleteLog={deleteLog}
+          suggestedSets={ex.suggested_sets}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ============================================================
+// Helpers de completado
+// ============================================================
+function isBlockCompleted(block, logs, blockLogs) {
+  if (block.block_type === 'strength') {
+    const exs = block.plan_exercises || []
+    if (exs.length === 0) return false
+    return exs.every(ex => logs[ex.id]?.completed)
+  }
+  // aerobic / circuit: el estado de completado vive en workout_block_logs
+  if (block.__virtual) return false // no debería caer aquí, pero por seguridad
+  return !!blockLogs[block.id]?.completed
+}
+
+function isSectionCompleted(sectionBlocks, logs, blockLogs) {
+  if (!sectionBlocks || sectionBlocks.length === 0) return false
+  return sectionBlocks.every(b => isBlockCompleted(b, logs, blockLogs))
+}
+
+// ============================================================
 // Página principal
 // ============================================================
 export default function TodayWorkoutPage() {
@@ -703,15 +808,17 @@ export default function TodayWorkoutPage() {
   const [loading, setLoading] = useState(true)
   const [assignment, setAssignment] = useState(null)
   const [planExercises, setPlanExercises] = useState([])
+  const [planBlocks, setPlanBlocks] = useState([])
   const [logs, setLogs] = useState({})
+  const [blockLogs, setBlockLogs] = useState({})
   const [session, setSession] = useState(null)
   const [activeDay, setActiveDay] = useState('day_a')
-  // PSE modal por día: null | 'day_a' | 'day_b'
+  // PSE modal por día: null | 'day_a' | 'day_b' | ...
   const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const sessionStartRef = useRef(null)
   // Evitar disparar el modal varias veces en el mismo render
-  const pseTriggeredRef = useRef({ day_a: false, day_b: false })
+  const pseTriggeredRef = useRef({})
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
@@ -721,7 +828,7 @@ export default function TodayWorkoutPage() {
 
   // Al cambiar de fecha, resetear los triggers de PSE
   useEffect(() => {
-    pseTriggeredRef.current = { day_a: false, day_b: false }
+    pseTriggeredRef.current = {}
   }, [selectedDate])
 
   // Registrar inicio de sesión al montar (solo si es hoy)
@@ -747,14 +854,25 @@ export default function TodayWorkoutPage() {
       if (!assignData) { setLoading(false); return }
       setAssignment(assignData)
 
-      const [exercisesRes, logsRes, sessionRes] = await Promise.all([
+      const [exercisesRes, blocksRes, logsRes, blockLogsRes, sessionRes] = await Promise.all([
         supabase
           .from('plan_exercises')
           .select('*, exercise:exercises!exercise_id(*)')
           .eq('plan_id', assignData.plan_id)
           .order('order_index'),
         supabase
+          .from('plan_blocks')
+          .select('*')
+          .eq('plan_id', assignData.plan_id)
+          .order('order_index'),
+        supabase
           .from('workout_logs')
+          .select('*')
+          .eq('student_id', profile.id)
+          .eq('plan_id', assignData.plan_id)
+          .eq('logged_date', selectedDate),
+        supabase
+          .from('workout_block_logs')
           .select('*')
           .eq('student_id', profile.id)
           .eq('plan_id', assignData.plan_id)
@@ -769,10 +887,16 @@ export default function TodayWorkoutPage() {
       ])
 
       setPlanExercises(exercisesRes.data || [])
+      setPlanBlocks(blocksRes.data || [])
 
       const logsMap = {}
       ;(logsRes.data || []).forEach(log => { logsMap[log.plan_exercise_id] = log })
       setLogs(logsMap)
+
+      const blockLogsMap = {}
+      ;(blockLogsRes.data || []).forEach(bl => { blockLogsMap[bl.plan_block_id] = bl })
+      setBlockLogs(blockLogsMap)
+
       setSession(sessionRes.data)
     } catch (err) {
       console.error(err)
@@ -864,6 +988,98 @@ export default function TodayWorkoutPage() {
     })
   }
 
+  async function saveBlockLog(planBlockId, data) {
+    // Bloques virtuales (legacy sin block_id en DB) no se persisten
+    if (typeof planBlockId === 'string' && planBlockId.startsWith('virtual-')) {
+      console.warn('Intento de guardar log de bloque virtual, ignorado:', planBlockId)
+      return
+    }
+    const existing = blockLogs[planBlockId]
+    let result
+    if (existing) {
+      result = await supabase
+        .from('workout_block_logs')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select()
+        .single()
+    } else {
+      result = await supabase
+        .from('workout_block_logs')
+        .insert({
+          ...data,
+          student_id: profile.id,
+          plan_id: assignment.plan_id,
+          plan_block_id: planBlockId,
+          logged_date: selectedDate,
+          logged_late: !isToday,
+        })
+        .select()
+        .single()
+    }
+    if (result.error) throw result.error
+    setBlockLogs(prev => ({ ...prev, [planBlockId]: result.data }))
+  }
+
+  async function deleteBlockLog(planBlockId) {
+    const existing = blockLogs[planBlockId]
+    if (!existing) return
+    const { error } = await supabase
+      .from('workout_block_logs')
+      .delete()
+      .eq('id', existing.id)
+    if (error) throw error
+    setBlockLogs(prev => {
+      const next = { ...prev }
+      delete next[planBlockId]
+      return next
+    })
+  }
+
+  // ====================================================
+  // Agrupar bloques con sus ejercicios y por sección
+  // ====================================================
+  const blocksBySection = useMemo(() => {
+    const all = groupExercisesIntoBlocks(planExercises, planBlocks)
+    const bySection = {}
+    for (const b of all) {
+      if (!b.section) continue
+      if (!bySection[b.section]) bySection[b.section] = []
+      bySection[b.section].push(b)
+    }
+    Object.values(bySection).forEach(arr =>
+      arr.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+    )
+    return bySection
+  }, [planExercises, planBlocks])
+
+  // Días que tienen contenido (incluye activación como sección aparte)
+  const activeDays = useMemo(
+    () => DAY_SECTION_IDS.filter(id => (blocksBySection[id] || []).length > 0),
+    [blocksBySection]
+  )
+
+  // Si el día activo ya no existe (cambió el plan), ir al primero disponible
+  useEffect(() => {
+    if (activeDays.length > 0 && !activeDays.includes(activeDay)) {
+      setActiveDay(activeDays[0])
+    }
+  }, [activeDays, activeDay])
+
+  // Índice de strength por sección (para numeración "Fuerza 2")
+  function strengthIndexMap(sectionId) {
+    const blocks = blocksBySection[sectionId] || []
+    let idx = 0
+    const map = {}
+    for (const b of blocks) {
+      if (b.block_type === 'strength') {
+        map[b.id] = idx
+        idx += 1
+      }
+    }
+    return map
+  }
+
   // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
   async function saveDayPSE(day, effortScale, effortNotes) {
     const currentPerDay = session?.borg_per_day || {}
@@ -872,8 +1088,8 @@ export default function TodayWorkoutPage() {
       [day]: effortScale,
       ...(effortNotes ? { [`${day}_notes`]: effortNotes } : {}),
     }
-    // Si es el último día completado, también marcar finished_at
-    const isLastDay = !hasMultipleDays || (day === 'day_b')
+    // Si es el último día del plan, marcar finished_at
+    const isLastDay = activeDays.length > 0 && day === activeDays[activeDays.length - 1]
     await upsertSession({
       borg_per_day: newPerDay,
       ...(isLastDay ? { finished_at: new Date().toISOString() } : {}),
@@ -882,69 +1098,63 @@ export default function TodayWorkoutPage() {
     setShowPSEForDay(null)
   }
 
-  // Secciones de ejercicios
-  const sections = {
-    activation: planExercises.filter(e => e.section === 'activation'),
-    day_a: planExercises.filter(e => e.section === 'day_a'),
-    day_b: planExercises.filter(e => e.section === 'day_b'),
-  }
-
-  const hasMultipleDays = sections.day_b.length > 0
-
-  // Lógica de completado por día
+  // Activación completa (si no hay activación, se considera completa)
+  const activationBlocks = blocksBySection.activation || []
   const activationDone =
-    sections.activation.length === 0 ||
-    sections.activation.every(ex => logs[ex.id]?.completed)
+    activationBlocks.length === 0 ||
+    isSectionCompleted(activationBlocks, logs, blockLogs)
 
-  const dayADone =
-    sections.day_a.length > 0 &&
-    activationDone &&
-    sections.day_a.every(ex => logs[ex.id]?.completed)
-
-  const dayBDone =
-    sections.day_b.length > 0 &&
-    sections.day_b.every(ex => logs[ex.id]?.completed)
-
-  // Totales para progress bar
-  const completedCount = Object.values(logs).filter(l => l.completed).length
-  const totalCount = planExercises.length
+  // Mapa día → completado (requiere activación + todos los bloques del día)
+  const dayDoneMap = useMemo(() => {
+    const m = {}
+    for (const id of activeDays) {
+      const sectionDone = isSectionCompleted(blocksBySection[id] || [], logs, blockLogs)
+      // El primer día exige también que activación esté completa
+      const gate = id === activeDays[0] ? activationDone : true
+      m[id] = sectionDone && gate
+    }
+    return m
+  }, [activeDays, blocksBySection, logs, blockLogs, activationDone])
 
   // PSE guardados en la sesión
   const borgPerDay = session?.borg_per_day || {}
 
-  // Disparar modal PSE cuando se completa el Día A
-  useEffect(() => {
-    if (
-      !loading &&
-      dayADone &&
-      borgPerDay.day_a === undefined &&
-      !pseTriggeredRef.current.day_a &&
-      showPSEForDay === null
-    ) {
-      pseTriggeredRef.current.day_a = true
-      setShowPSEForDay('day_a')
+  // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito)
+  const { completedCount, totalCount } = useMemo(() => {
+    let done = 0, total = 0
+    for (const section of Object.keys(blocksBySection)) {
+      for (const block of blocksBySection[section]) {
+        if (block.block_type === 'strength') {
+          const exs = block.plan_exercises || []
+          total += exs.length
+          done += exs.filter(ex => logs[ex.id]?.completed).length
+        } else {
+          total += 1
+          if (blockLogs[block.id]?.completed) done += 1
+        }
+      }
     }
-  }, [dayADone, loading])
+    return { completedCount: done, totalCount: total }
+  }, [blocksBySection, logs, blockLogs])
 
-  // Disparar modal PSE cuando se completa el Día B
+  // Disparar modal PSE cuando se completa un día (dinámico)
   useEffect(() => {
-    if (
-      !loading &&
-      dayBDone &&
-      borgPerDay.day_b === undefined &&
-      !pseTriggeredRef.current.day_b &&
-      showPSEForDay === null
-    ) {
-      pseTriggeredRef.current.day_b = true
-      setShowPSEForDay('day_b')
+    if (loading || showPSEForDay !== null) return
+    for (const id of activeDays) {
+      if (
+        dayDoneMap[id] &&
+        borgPerDay[id] === undefined &&
+        !pseTriggeredRef.current[id]
+      ) {
+        pseTriggeredRef.current[id] = true
+        setShowPSEForDay(id)
+        return
+      }
     }
-  }, [dayBDone, loading])
+  }, [loading, dayDoneMap, borgPerDay, activeDays, showPSEForDay])
 
   // Fecha máxima permitida: hoy
   const maxDate = format(new Date(), 'yyyy-MM-dd')
-
-  // Labels de días para el modal
-  const DAY_LABELS = { day_a: 'Día A', day_b: 'Día B' }
 
   if (loading) return (
     <div className="flex justify-center py-16">
@@ -962,12 +1172,16 @@ export default function TodayWorkoutPage() {
     </div>
   )
 
+  const hasMultipleDays = activeDays.length > 1
+  const activationStrengthMap = strengthIndexMap('activation')
+  const activeDayStrengthMap = strengthIndexMap(activeDay)
+
   return (
     <>
       {/* Modal PSE del día activo */}
       {showPSEForDay && (
         <DailyPSEModal
-          dayLabel={DAY_LABELS[showPSEForDay]}
+          dayLabel={DAY_SHORT_LABELS[showPSEForDay] || SECTION_LABELS[showPSEForDay] || 'Día'}
           currentEffort={borgPerDay[showPSEForDay] ?? null}
           onSave={(effort, notes) => saveDayPSE(showPSEForDay, effort, notes)}
           onClose={() => {
@@ -1002,43 +1216,29 @@ export default function TodayWorkoutPage() {
           )}
 
           {/* PSE por día registrado */}
-          {(borgPerDay.day_a !== undefined || borgPerDay.day_b !== undefined) && (
+          {activeDays.some(id => borgPerDay[id] !== undefined) && (
             <div className="mt-2 flex flex-wrap gap-2">
-              {borgPerDay.day_a !== undefined && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-primary-200 text-xs">Día A:</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_a)}`}>
-                    PSE {borgPerDay.day_a}
+              {activeDays.filter(id => borgPerDay[id] !== undefined).map(id => (
+                <div key={id} className="flex items-center gap-1.5">
+                  <span className="text-primary-200 text-xs">{DAY_SHORT_LABELS[id]}:</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}>
+                    PSE {borgPerDay[id]}
                   </span>
                   <button
-                    onClick={() => setShowPSEForDay('day_a')}
+                    onClick={() => setShowPSEForDay(id)}
                     className="text-primary-300 text-xs underline"
                   >
                     Editar
                   </button>
                 </div>
-              )}
-              {borgPerDay.day_b !== undefined && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-primary-200 text-xs">Día B:</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_b)}`}>
-                    PSE {borgPerDay.day_b}
-                  </span>
-                  <button
-                    onClick={() => setShowPSEForDay('day_b')}
-                    className="text-primary-300 text-xs underline"
-                  >
-                    Editar
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
           )}
 
           {/* Progress */}
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-primary-200 text-xs">{completedCount} / {totalCount} ejercicios</span>
+              <span className="text-primary-200 text-xs">{completedCount} / {totalCount} unidades</span>
               <span className="text-primary-200 text-xs">{Math.round(completedCount / Math.max(totalCount, 1) * 100)}%</span>
             </div>
             <div className="h-2 bg-white/20 rounded-full overflow-hidden">
@@ -1066,24 +1266,21 @@ export default function TodayWorkoutPage() {
             )}
           </div>
 
-          {/* Selector de día (tabs) */}
+          {/* Selector de día (tabs) — dinámico 2..7 */}
           {hasMultipleDays && (
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-              {[
-                { id: 'day_a', label: 'Día A' },
-                { id: 'day_b', label: 'Día B' },
-              ].filter(d => sections[d.id].length > 0).map(d => {
-                const isDone = d.id === 'day_a' ? dayADone : dayBDone
-                const hasPSE = borgPerDay[d.id] !== undefined
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+              {activeDays.map(id => {
+                const isDone = dayDoneMap[id]
+                const hasPSE = borgPerDay[id] !== undefined
                 return (
                   <button
-                    key={d.id}
-                    onClick={() => setActiveDay(d.id)}
-                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                      activeDay === d.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    key={id}
+                    onClick={() => setActiveDay(id)}
+                    className={`flex-1 min-w-[70px] py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      activeDay === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                     }`}
                   >
-                    {d.label}
+                    {DAY_SHORT_LABELS[id]}
                     {isDone && (
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`} />
                     )}
@@ -1094,18 +1291,23 @@ export default function TodayWorkoutPage() {
           )}
 
           {/* Activación */}
-          {sections.activation.length > 0 && (
+          {activationBlocks.length > 0 && (
             <div>
-              <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">🔥 Activación</h2>
+              <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
+                {SECTION_EMOJIS.activation} {SECTION_LABELS.activation}
+              </h2>
               <div className="space-y-2">
-                {sections.activation.map(ex => (
-                  <ExerciseCard
-                    key={ex.id}
-                    planEx={ex}
-                    log={logs[ex.id]}
-                    onSaveLog={saveLog}
-                    onDeleteLog={deleteLog}
-                    suggestedSets={ex.suggested_sets}
+                {activationBlocks.map(block => (
+                  <BlockRenderer
+                    key={block.id}
+                    block={block}
+                    strengthIndexInSection={activationStrengthMap[block.id] ?? 0}
+                    logs={logs}
+                    blockLog={blockLogs[block.id]}
+                    saveLog={saveLog}
+                    deleteLog={deleteLog}
+                    saveBlockLog={saveBlockLog}
+                    deleteBlockLog={deleteBlockLog}
                   />
                 ))}
               </div>
@@ -1113,84 +1315,72 @@ export default function TodayWorkoutPage() {
           )}
 
           {/* Día activo */}
-          {sections[activeDay]?.length > 0 && (
+          {(blocksBySection[activeDay] || []).length > 0 && (
             <div>
               <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {activeDay === 'day_a' ? '💪 Principal Día A' : '🏋️ Principal Día B'}
+                {SECTION_EMOJIS[activeDay] || '🏋️'} {SECTION_LABELS[activeDay] || 'Día'}
               </h2>
               <div className="space-y-2">
-                {sections[activeDay].map(ex => (
-                  <ExerciseCard
-                    key={ex.id}
-                    planEx={ex}
-                    log={logs[ex.id]}
-                    onSaveLog={saveLog}
-                    onDeleteLog={deleteLog}
-                    suggestedSets={ex.suggested_sets}
+                {(blocksBySection[activeDay] || []).map(block => (
+                  <BlockRenderer
+                    key={block.id}
+                    block={block}
+                    strengthIndexInSection={activeDayStrengthMap[block.id] ?? 0}
+                    logs={logs}
+                    blockLog={blockLogs[block.id]}
+                    saveLog={saveLog}
+                    deleteLog={deleteLog}
+                    saveBlockLog={saveBlockLog}
+                    deleteBlockLog={deleteBlockLog}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Banner de completado por día */}
-          {dayADone && (
-            <div className={`card text-center py-4 ${
-              hasMultipleDays
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-                : 'bg-gradient-to-r from-green-500 to-emerald-500'
-            }`}>
-              <p className="text-white font-bold">
-                {hasMultipleDays ? '✅ Día A completado' : '🎉 ¡Entrenamiento completo!'}
-              </p>
-              {borgPerDay.day_a !== undefined ? (
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_a)}`}>
-                    PSE {borgPerDay.day_a}
-                  </span>
+          {/* Banner de completado por día (dinámico) */}
+          {activeDays.map(id => {
+            if (!dayDoneMap[id]) return null
+            const isLast = id === activeDays[activeDays.length - 1]
+            const showAll = activeDays.every(d => dayDoneMap[d])
+            const isFinalBanner = isLast && showAll
+            return (
+              <div
+                key={id}
+                className={`card text-center py-4 ${
+                  isFinalBanner
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                    : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                }`}
+              >
+                <p className="text-white font-bold">
+                  {isFinalBanner
+                    ? '🎉 ¡Entrenamiento completo!'
+                    : `✅ ${DAY_SHORT_LABELS[id]} completado`}
+                </p>
+                {borgPerDay[id] !== undefined ? (
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}>
+                      PSE {borgPerDay[id]}
+                    </span>
+                    <button
+                      onClick={() => setShowPSEForDay(id)}
+                      className="text-white/70 text-xs underline"
+                    >
+                      Editar
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={() => setShowPSEForDay('day_a')}
-                    className="text-white/70 text-xs underline"
+                    onClick={() => setShowPSEForDay(id)}
+                    className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
                   >
-                    Editar
+                    Registrar esfuerzo {DAY_SHORT_LABELS[id]}
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowPSEForDay('day_a')}
-                  className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
-                >
-                  Registrar esfuerzo Día A
-                </button>
-              )}
-            </div>
-          )}
-
-          {dayBDone && (
-            <div className="card bg-gradient-to-r from-green-500 to-emerald-500 text-center py-4">
-              <p className="text-white font-bold">🎉 ¡Entrenamiento completo!</p>
-              {borgPerDay.day_b !== undefined ? (
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay.day_b)}`}>
-                    PSE {borgPerDay.day_b}
-                  </span>
-                  <button
-                    onClick={() => setShowPSEForDay('day_b')}
-                    className="text-white/70 text-xs underline"
-                  >
-                    Editar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowPSEForDay('day_b')}
-                  className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
-                >
-                  Registrar esfuerzo Día B
-                </button>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </>

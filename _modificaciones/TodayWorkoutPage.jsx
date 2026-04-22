@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { format, subDays, parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp,
   Dumbbell, PlayCircle, Info,
-  Calendar, AlertTriangle, Clock, Lock
+  Calendar, AlertTriangle, Clock, Lock, Trash2
 } from 'lucide-react'
 import { borgColor, parseReps, serializeReps, displayReps } from '../../utils/planHelpers'
 
@@ -171,10 +171,12 @@ function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose }) {
 // ============================================================
 // Tarjeta de ejercicio individual
 // ============================================================
-function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
+function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [warning, setWarning] = useState(null)
   const [pendingData, setPendingData] = useState(null)
   const [setsLimitHit, setSetsLimitHit] = useState(false)
@@ -301,6 +303,31 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await onDeleteLog(planEx.id)
+      // Resetear estado local al estado inicial (sin log)
+      setLogData({
+        actual_sets: setsCount > 0 ? setsCount.toString() : '',
+        actual_reps_arr: setsCount > 0
+          ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
+          : [suggestedRepsArr[0] || ''],
+        actual_weight: defaultWeight,
+        perceived_difficulty: null,
+        notes: '',
+        completed: false,
+      })
+      setConfirmDelete(false)
+      setEditing(false)
+      setExpanded(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const actualSetsCount = parseInt(logData.actual_sets) || setsCount || 1
 
   return (
@@ -311,6 +338,43 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
           onConfirm={() => doSave(pendingData)}
           onCancel={() => { setWarning(null); setPendingData(null) }}
         />
+      )}
+
+      {/* Modal de confirmación para desmarcar */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Trash2 size={20} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">¿Desmarcar ejercicio?</p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Se borrarán los datos registrados de <strong>{planEx.exercise?.name}</strong>. Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {deleting
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><Trash2 size={14} />Sí, desmarcar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
@@ -537,9 +601,19 @@ function ExerciseCard({ planEx, log, onSaveLog, suggestedSets }) {
                   ].filter(Boolean).join(' · ')}
                 </p>
                 {log?.notes && <p className="text-xs text-green-600 italic">"{log.notes}"</p>}
-                <button onClick={() => setEditing(true)} className="text-xs text-green-700 underline">
-                  Editar
-                </button>
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button onClick={() => setEditing(true)} className="text-xs text-green-700 underline">
+                    Editar
+                  </button>
+                  <span className="text-green-300 text-xs">·</span>
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={11} />
+                    Desmarcar
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -703,6 +777,21 @@ export default function TodayWorkoutPage() {
     setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
   }
 
+  async function deleteLog(planExerciseId) {
+    const existingLog = logs[planExerciseId]
+    if (!existingLog) return
+    const { error } = await supabase
+      .from('workout_logs')
+      .delete()
+      .eq('id', existingLog.id)
+    if (error) throw error
+    setLogs(prev => {
+      const next = { ...prev }
+      delete next[planExerciseId]
+      return next
+    })
+  }
+
   // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
   async function saveDayPSE(day, effortScale, effortNotes) {
     const currentPerDay = session?.borg_per_day || {}
@@ -779,14 +868,8 @@ export default function TodayWorkoutPage() {
     }
   }, [dayBDone, loading])
 
-  // Últimos 7 días para el selector de fecha
-  const dateOptions = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(new Date(), i)
-    return {
-      value: format(d, 'yyyy-MM-dd'),
-      label: i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : format(d, "EEE d/MM", { locale: es }),
-    }
-  })
+  // Fecha máxima permitida: hoy
+  const maxDate = format(new Date(), 'yyyy-MM-dd')
 
   // Labels de días para el modal
   const DAY_LABELS = { day_a: 'Día A', day_b: 'Día B' }
@@ -899,15 +982,13 @@ export default function TodayWorkoutPage() {
           {/* Selector de fecha */}
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-400 flex-shrink-0" />
-            <select
+            <input
+              type="date"
               className="input text-sm flex-1"
               value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-            >
-              {dateOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              max={maxDate}
+              onChange={e => e.target.value && setSelectedDate(e.target.value)}
+            />
             {!isToday && (
               <span className="badge bg-orange-100 text-orange-700 text-xs">Editando pasado</span>
             )}
@@ -951,6 +1032,7 @@ export default function TodayWorkoutPage() {
                     planEx={ex}
                     log={logs[ex.id]}
                     onSaveLog={saveLog}
+                    onDeleteLog={deleteLog}
                     suggestedSets={ex.suggested_sets}
                   />
                 ))}
@@ -971,6 +1053,7 @@ export default function TodayWorkoutPage() {
                     planEx={ex}
                     log={logs[ex.id]}
                     onSaveLog={saveLog}
+                    onDeleteLog={deleteLog}
                     suggestedSets={ex.suggested_sets}
                   />
                 ))}
