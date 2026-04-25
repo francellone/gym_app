@@ -7,7 +7,7 @@ import {
   emptyResults, evalTypeLabel, evalTypeIcon,
   calc1RM, calcPower, calcVO2max, calcBodyComp, calcFMSScore,
 } from '../../utils/evalHelpers'
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle } from 'lucide-react'
 
 // ============================================================
 // Shared: Method badge (locked by coach, not selectable)
@@ -124,6 +124,18 @@ function OneRMForm({ results, onChange, planMethod, planExercises }) {
             <span className="text-xs font-bold text-gray-500">
               {ex.name || `Ejercicio ${i + 1}`}
             </span>
+            {ex.video_url && ex.video_url.startsWith('http') && (
+              <a
+                href={ex.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg"
+                title="Ver video del ejercicio"
+              >
+                <PlayCircle size={16} />
+              </a>
+            )}
             {!usePlanExercises && (results.exercises || []).length > 1 && (
               <button onClick={() => removeExercise(i)} className="ml-auto text-red-400 hover:text-red-600 p-1">
                 <Trash2 size={14} />
@@ -216,7 +228,21 @@ function MaxRepsForm({ results, onChange, planMethod, planExercises }) {
 
         {(results.exercises || []).map((ex, i) => (
           <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
+              {ex.video_url && ex.video_url.startsWith('http') && (
+                <a
+                  href={ex.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg"
+                  title="Ver video del ejercicio"
+                >
+                  <PlayCircle size={16} />
+                </a>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <NumInput
                 label={needsTime ? 'Reps en 60 seg' : 'Repeticiones máximas'}
@@ -882,7 +908,7 @@ export default function EvalWorkoutPage() {
       if (['one_rm', 'max_reps'].includes(data.eval_type)) {
         const { data: exData } = await supabase
           .from('plan_exercises')
-          .select('*, exercises(name)')
+          .select('*, exercises(name, video_url)')
           .eq('plan_id', planId)
           .eq('section', 'day_a')
           .order('order_index')
@@ -896,6 +922,7 @@ export default function EvalWorkoutPage() {
         initResults.exercises = planEx.map(pe => ({
           exercise_id: pe.exercise_id,
           name: pe.exercises?.name || 'Ejercicio',
+          video_url: pe.exercises?.video_url || null,
           weight_kg: '',
           reps: '',
           one_rm: null,
@@ -913,7 +940,7 @@ export default function EvalWorkoutPage() {
         .single()
 
       if (existing) {
-        // Merge exercise names from plan (in case they're missing from stored data)
+        // Merge exercise names and video_url from plan (in case they're missing from stored data)
         let loadedResults = existing.results
         if (planEx.length > 0 && loadedResults.exercises) {
           loadedResults = {
@@ -921,6 +948,7 @@ export default function EvalWorkoutPage() {
             exercises: loadedResults.exercises.map((ex, i) => ({
               ...ex,
               name: ex.name || planEx[i]?.exercises?.name || `Ejercicio ${i + 1}`,
+              video_url: planEx[i]?.exercises?.video_url || ex.video_url || null,
             })),
           }
         }
