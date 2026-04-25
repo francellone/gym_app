@@ -26,6 +26,13 @@ export default function StrengthBlockEditor({
     onUpdateExercises(next)
   }
 
+  // Versión multi-campo: aplica varios campos a la vez en un solo render,
+  // evitando que llamadas sucesivas lean un `list` desactualizado del closure.
+  function updateExerciseMulti(index, patches) {
+    const next = list.map((ex, i) => i === index ? { ...ex, ...patches } : ex)
+    onUpdateExercises(next)
+  }
+
   function removeExercise(index) {
     onUpdateExercises(list.filter((_, i) => i !== index))
   }
@@ -47,6 +54,7 @@ export default function StrengthBlockEditor({
           exerciseTags={exerciseTags}
           tagAssignments={tagAssignments}
           onUpdate={updateExercise}
+          onUpdateMulti={updateExerciseMulti}
           onRemove={removeExercise}
         />
       ))}

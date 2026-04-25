@@ -16,7 +16,7 @@ import {
  *  - onRemove(index)
  */
 export default function PlanExerciseRow({
-  ex, index, onUpdate, onRemove,
+  ex, index, onUpdate, onUpdateMulti, onRemove,
   exercises = [],
   exerciseTags = [],
   tagAssignments = [],
@@ -58,9 +58,21 @@ export default function PlanExerciseRow({
       newWeights = currentWeights.slice(0, n)
     }
 
-    onUpdate(index, 'suggested_sets', val)
-    onUpdate(index, 'suggested_reps_array', newReps)
-    onUpdate(index, 'suggested_weights_array', newWeights)
+    // Si el padre soporta actualización multi-campo, lo usamos en una sola
+    // llamada para evitar que React descarte las actualizaciones anteriores
+    // por stale closure (el bug clásico de "Series no guarda el valor").
+    if (onUpdateMulti) {
+      onUpdateMulti(index, {
+        suggested_sets: val,
+        suggested_reps_array: newReps,
+        suggested_weights_array: newWeights,
+      })
+    } else {
+      // Fallback: el padre usa setEstado(prev => ...) que sí es correcto
+      onUpdate(index, 'suggested_sets', val)
+      onUpdate(index, 'suggested_reps_array', newReps)
+      onUpdate(index, 'suggested_weights_array', newWeights)
+    }
   }
 
   function handleRepChange(serieIdx, val) {
