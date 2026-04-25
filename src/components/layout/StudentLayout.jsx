@@ -1,6 +1,7 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User } from 'lucide-react'
+import NotificationBell from '../notifications/NotificationBell'
 
 const navItems = [
   { to: '/student', label: 'Inicio', icon: Home, end: true },
@@ -11,10 +12,25 @@ const navItems = [
 ]
 
 export default function StudentLayout() {
+  const { profile } = useAuth()
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Main content */}
-      <main className="flex-1 pb-20">
+
+      {/* ── Header con campana ─────────────────────────────── */}
+      <header className="fixed top-0 inset-x-0 z-40 bg-white border-b border-gray-100
+                         flex items-center justify-between px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-primary-500 rounded-lg flex items-center justify-center">
+            <Dumbbell className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className="font-bold text-gray-900 text-sm">GymCoach</span>
+        </div>
+        <NotificationBell userId={profile?.id} theme="light" />
+      </header>
+
+      {/* Main content (ajustado por el header fijo) */}
+      <main className="flex-1 pb-20 pt-14">
         <Outlet />
       </main>
 

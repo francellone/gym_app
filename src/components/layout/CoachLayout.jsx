@@ -5,6 +5,7 @@ import {
   LogOut, Menu, X, ChevronRight, BarChart2, FileText
 } from 'lucide-react'
 import { useState } from 'react'
+import NotificationBell from '../notifications/NotificationBell'
 
 const navItems = [
   { to: '/coach', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -63,8 +64,13 @@ export default function CoachLayout() {
           ))}
         </nav>
 
-        {/* User */}
+        {/* Notifications + User */}
         <div className="px-2.5 py-3 border-t border-[#252e42]">
+          {/* Campana en sidebar desktop */}
+          <div className="flex items-center justify-between px-3 py-1.5 mb-1">
+            <span className="text-xs text-slate-500 font-medium">Notificaciones</span>
+            <NotificationBell userId={profile?.id} theme="dark" />
+          </div>
           <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
             <div className="w-7 h-7 bg-primary-500/20 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-primary-400 font-semibold text-xs">
@@ -94,12 +100,15 @@ export default function CoachLayout() {
           </div>
           <span className="font-bold text-slate-100 text-sm">GymCoach</span>
         </div>
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="p-2 rounded-lg text-slate-400 hover:bg-white/8 transition-colors"
-        >
-          {menuOpen ? <X size={19} /> : <Menu size={19} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell userId={profile?.id} theme="dark" />
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 rounded-lg text-slate-400 hover:bg-white/8 transition-colors"
+          >
+            {menuOpen ? <X size={19} /> : <Menu size={19} />}
+          </button>
+        </div>
       </div>
 
       {/* ── Mobile drawer ─────────────────────────────────── */}
