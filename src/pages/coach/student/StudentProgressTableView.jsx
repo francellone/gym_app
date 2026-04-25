@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { Columns3, Filter, Table as TableIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -185,25 +185,8 @@ export default function StudentProgressTableView({ studentId, logs }) {
   const [sessionFields, setSessionFields] = useState(defaultSessionFields())
   const [showFieldsPicker, setShowFieldsPicker] = useState(false)
 
-  // Popover de notas
-  const [activeNote, setActiveNote] = useState(null) // { key, text, x, y }
-  const popoverRef = useRef(null)
-
-  // Cerrar popover al hacer click fuera
-  useEffect(() => {
-    if (!activeNote) return
-    const handleOutside = (e) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
-        setActiveNote(null)
-      }
-    }
-    document.addEventListener('mousedown', handleOutside)
-    document.addEventListener('touchstart', handleOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleOutside)
-      document.removeEventListener('touchstart', handleOutside)
-    }
-  }, [activeNote])
+  // Modal de notas
+  const [activeNote, setActiveNote] = useState(null) // { key, text }
 
   // ── Cargar plan_exercises de los planes activos ────────────
   useEffect(() => {
@@ -473,17 +456,10 @@ export default function StudentProgressTableView({ studentId, logs }) {
     [logsByExAndDate, logsByExerciseAndDate]
   )
 
-  // Abrir/cerrar popover de nota
+  // Abrir/cerrar modal de nota
   const handleNoteClick = (e, key, text) => {
     e.stopPropagation()
-    if (activeNote?.key === key) { setActiveNote(null); return }
-    const rect = e.currentTarget.getBoundingClientRect()
-    setActiveNote({
-      key,
-      text,
-      x: rect.left,
-      y: rect.bottom + (typeof window !== 'undefined' ? window.scrollY : 0) + 6,
-    })
+    setActiveNote(prev => prev?.key === key ? null : { key, text })
   }
 
   // Emoji de estado comparando log actual con el anterior
@@ -785,31 +761,30 @@ export default function StudentProgressTableView({ studentId, logs }) {
   return (
     <div className="space-y-3">
 
-      {/* ── Popover de nota completa ── */}
+      {/* ── Modal de nota completa ── */}
       {activeNote && (
         <div
-          ref={popoverRef}
-          className="fixed z-50 bg-white shadow-xl rounded-xl p-3 max-w-[280px] border border-gray-100"
-          style={{
-            top: activeNote.y,
-            left: Math.min(
-              activeNote.x,
-              (typeof window !== 'undefined' ? window.innerWidth : 400) - 296
-            ),
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setActiveNote(null)}
         >
-          <div className="flex items-start gap-2">
-            <span className="text-base flex-shrink-0">💬</span>
-            <p className="text-xs text-gray-700 flex-1 leading-relaxed whitespace-pre-wrap">
-              {activeNote.text}
-            </p>
-            <button
-              onClick={() => setActiveNote(null)}
-              className="flex-shrink-0 text-gray-300 hover:text-gray-600 ml-1 mt-0.5"
-              aria-label="Cerrar"
-            >
-              <X size={13} />
-            </button>
+          <div className="absolute inset-0 bg-black/20" />
+          <div
+            className="relative bg-white shadow-2xl rounded-2xl p-4 max-w-sm w-full border border-gray-100"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl flex-shrink-0 mt-0.5">💬</span>
+              <p className="text-sm text-gray-800 flex-1 leading-relaxed whitespace-pre-wrap">
+                {activeNote.text}
+              </p>
+              <button
+                onClick={() => setActiveNote(null)}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-700 ml-1"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
         </div>
       )}
