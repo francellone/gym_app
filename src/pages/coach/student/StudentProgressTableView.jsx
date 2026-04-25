@@ -666,10 +666,17 @@ export default function StudentProgressTableView({ studentId, logs }) {
           </td>
         )}
         {isCol('last_notes') && (
-          <td className="px-2 py-2 text-left text-gray-600 text-xs italic max-w-[200px]">
+          <td className="px-2 py-2 text-left max-w-[200px]">
             {r.recentLogs[0]?.notes
-              ? <span className="line-clamp-2" title={r.recentLogs[0].notes}>💬 {r.recentLogs[0].notes}</span>
-              : <span className="text-gray-300 not-italic">—</span>}
+              ? (
+                <button
+                  className="text-left text-xs italic text-gray-600 hover:text-primary-600 transition-colors cursor-pointer w-full"
+                  onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0].notes)}
+                >
+                  <span className="line-clamp-2">💬 {r.recentLogs[0].notes}</span>
+                </button>
+              )
+              : <span className="text-gray-300 text-xs not-italic">—</span>}
           </td>
         )}
 
