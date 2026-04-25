@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { EVAL_TYPES, METHODS, evalTypeColor, evalTypeLabel, evalTypeIcon } from '../../utils/evalHelpers'
-import { ArrowLeft, Users, Calendar, ChevronDown, ChevronUp, Edit2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Users, Calendar, ChevronDown, ChevronUp, Edit2, ExternalLink, Trash2 } from 'lucide-react'
+import DeletePlanModal from '../../components/DeletePlanModal'
 
 // ============================================================
 // Shared mini components
@@ -360,6 +361,7 @@ export default function EvaluationDetailPage() {
   const [assignments, setAssignments] = useState([])
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   useEffect(() => { fetchData() }, [id])
 
@@ -384,6 +386,12 @@ export default function EvaluationDetailPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleDeletePlan(planId) {
+    const { error } = await supabase.from('plans').delete().eq('id', planId)
+    if (error) throw error
+    navigate('/coach/evaluations')
   }
 
   if (loading) return (
@@ -414,11 +422,30 @@ export default function EvaluationDetailPage() {
           </div>
           {plan.description && <p className="text-sm text-gray-500 mt-0.5">{plan.description}</p>}
         </div>
-        <Link to={`/coach/plans/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-sm">
-          <Edit2 size={14} />
-          Editar
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+            title="Eliminar evaluación"
+          >
+            <Trash2 size={16} />
+          </button>
+          <Link to={`/coach/plans/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-sm">
+            <Edit2 size={14} />
+            Editar
+          </Link>
+        </div>
       </div>
+
+      {showDeleteModal && (
+        <DeletePlanModal
+          plan={plan}
+          activeStudents={assignments.length}
+          resultCount={results.length}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeletePlan}
+        />
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">

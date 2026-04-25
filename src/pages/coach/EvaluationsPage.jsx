@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { EVAL_TYPES, evalTypeColor, evalTypeIcon } from '../../utils/evalHelpers'
-import { BarChart2, Plus, Users, ChevronRight, Search } from 'lucide-react'
+import { BarChart2, Plus, Users, ChevronRight, Search, Trash2 } from 'lucide-react'
+import DeletePlanModal from '../../components/DeletePlanModal'
 
 export default function EvaluationsPage() {
   const [evalPlans, setEvalPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
 
   useEffect(() => { fetchEvalPlans() }, [])
 
@@ -30,6 +32,19 @@ export default function EvaluationsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleOpenDelete(plan) {
+    const activeStudents = plan.plan_assignments?.filter(a => a.active).length || 0
+    const resultCount = plan.evaluation_results?.length || 0
+    setDeletingPlan({ plan, activeStudents, resultCount })
+  }
+
+  async function handleDeletePlan(planId) {
+    const { error } = await supabase.from('plans').delete().eq('id', planId)
+    if (error) throw error
+    setDeletingPlan(null)
+    setEvalPlans(prev => prev.filter(p => p.id !== planId))
   }
 
   const filtered = evalPlans.filter(p => {
@@ -128,18 +143,17 @@ export default function EvaluationsPage() {
             )[0]
 
             return (
-              <Link
-                key={plan.id}
-                to={`/coach/evaluations/${plan.id}`}
-                className="card flex items-start gap-3 hover:shadow-md transition-shadow"
-              >
+              <div key={plan.id} className="card flex items-start gap-3 hover:shadow-md transition-shadow">
                 {/* Icon */}
                 <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">
                   {evalTypeIcon(plan.eval_type)}
                 </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
+                {/* Info – clickeable para navegar */}
+                <Link
+                  to={`/coach/evaluations/${plan.id}`}
+                  className="flex-1 min-w-0"
+                >
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 truncate">{plan.title}</p>
                     {plan.eval_type && (
@@ -164,13 +178,35 @@ export default function EvaluationsPage() {
                       <span className="truncate hidden sm:inline">{plan.description}</span>
                     )}
                   </div>
-                </div>
+                </Link>
 
-                <ChevronRight size={16} className="text-gray-400 flex-shrink-0 mt-1" />
-              </Link>
+                {/* Actions */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => handleOpenDelete(plan)}
+                    className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+                    title="Eliminar evaluación"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <Link to={`/coach/evaluations/${plan.id}`} className="btn-ghost p-2">
+                    <ChevronRight size={16} className="text-gray-400" />
+                  </Link>
+                </div>
+              </div>
             )
           })}
         </div>
+      )}
+      {/* Delete modal */}
+      {deletingPlan && (
+        <DeletePlanModal
+          plan={deletingPlan.plan}
+          activeStudents={deletingPlan.activeStudents}
+          resultCount={deletingPlan.resultCount}
+          onClose={() => setDeletingPlan(null)}
+          onConfirm={handleDeletePlan}
+        />
       )}
     </div>
   )

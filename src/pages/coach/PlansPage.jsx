@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ClipboardList, Plus, Search, ChevronRight, Copy, BarChart2 } from 'lucide-react'
+import { ClipboardList, Plus, Search, ChevronRight, Copy, BarChart2, Trash2 } from 'lucide-react'
 import DuplicatePlanModal from '../../components/plan/DuplicatePlanModal'
+import DeletePlanModal from '../../components/DeletePlanModal'
 import { evalTypeColor, evalTypeIcon } from '../../utils/evalHelpers'
 
 export default function PlansPage() {
@@ -12,6 +13,7 @@ export default function PlansPage() {
   const [search, setSearch] = useState('')
   const [duplicatingPlan, setDuplicatingPlan] = useState(null)
   const [filterType, setFilterType] = useState('all') // 'all' | 'training' | 'evaluation'
+  const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
 
   useEffect(() => { fetchPlans() }, [])
 
@@ -32,6 +34,26 @@ export default function PlansPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleOpenDelete(plan) {
+    const activeStudents = plan.plan_assignments?.filter(a => a.active).length || 0
+    let resultCount = 0
+    if (plan.plan_type === 'evaluation') {
+      const { count } = await supabase
+        .from('evaluation_results')
+        .select('id', { count: 'exact', head: true })
+        .eq('plan_id', plan.id)
+      resultCount = count || 0
+    }
+    setDeletingPlan({ plan, activeStudents, resultCount })
+  }
+
+  async function handleDeletePlan(planId) {
+    const { error } = await supabase.from('plans').delete().eq('id', planId)
+    if (error) throw error
+    setDeletingPlan(null)
+    setPlans(prev => prev.filter(p => p.id !== planId))
   }
 
   function handleDuplicateDone(newPlan) {
@@ -168,6 +190,13 @@ export default function PlansPage() {
                     >
                       <Copy size={16} />
                     </button>
+                    <button
+                      onClick={() => handleOpenDelete(plan)}
+                      className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+                      title="Eliminar plan"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     <Link
                       to={isEval ? `/coach/evaluations/${plan.id}` : `/coach/plans/${plan.id}`}
                       className="btn-ghost p-2"
@@ -188,6 +217,17 @@ export default function PlansPage() {
           plan={duplicatingPlan}
           onClose={() => setDuplicatingPlan(null)}
           onDone={handleDuplicateDone}
+        />
+      )}
+
+      {/* Delete modal */}
+      {deletingPlan && (
+        <DeletePlanModal
+          plan={deletingPlan.plan}
+          activeStudents={deletingPlan.activeStudents}
+          resultCount={deletingPlan.resultCount}
+          onClose={() => setDeletingPlan(null)}
+          onConfirm={handleDeletePlan}
         />
       )}
     </div>

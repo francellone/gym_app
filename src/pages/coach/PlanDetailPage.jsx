@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
   ArrowLeft, Edit2, Users, ExternalLink,
-  Plus, X, UserPlus, MoreHorizontal, Info
+  Plus, X, UserPlus, MoreHorizontal, Info, Trash2
 } from 'lucide-react'
 import { displayReps, parseReps, getDynamicSections } from '../../utils/planHelpers'
 import { format } from 'date-fns'
+import DeletePlanModal from '../../components/DeletePlanModal'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
 function AssignStudentModal({ planId, onClose, onDone }) {
@@ -338,6 +339,7 @@ export default function PlanDetailPage() {
   const [assignments, setAssignments] = useState([])
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   useEffect(() => { fetchPlan() }, [id])
 
@@ -371,6 +373,12 @@ export default function PlanDetailPage() {
   async function removeAssignment(assignmentId) {
     await supabase.from('plan_assignments').update({ active: false }).eq('id', assignmentId)
     fetchPlan()
+  }
+
+  async function handleDeletePlan(planId) {
+    const { error } = await supabase.from('plans').delete().eq('id', planId)
+    if (error) throw error
+    navigate('/coach/plans')
   }
 
   // Secciones activas
@@ -428,6 +436,16 @@ export default function PlanDetailPage() {
         />
       )}
 
+      {showDeleteModal && (
+        <DeletePlanModal
+          plan={plan}
+          activeStudents={assignments.length}
+          resultCount={0}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeletePlan}
+        />
+      )}
+
       {/* ── Plan hero ────────────────────────────────────── */}
       <div className="plan-hero">
         {/* Fila superior */}
@@ -463,6 +481,13 @@ export default function PlanDetailPage() {
             </div>
           </div>
           <div className="plan-hero-actions">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+              title="Eliminar plan"
+            >
+              <Trash2 size={16} />
+            </button>
             <Link
               to={`/coach/plans/${id}/edit`}
               className="btn-secondary flex items-center gap-1.5 text-sm"
