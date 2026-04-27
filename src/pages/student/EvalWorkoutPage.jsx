@@ -8,6 +8,7 @@ import {
   calc1RM, calcPower, calcVO2max, calcBodyComp, calcFMSScore,
 } from '../../utils/evalHelpers'
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle } from 'lucide-react'
+import { parseReps } from '../../utils/planHelpers'
 
 // ============================================================
 // Shared: Method badge (locked by coach, not selectable)
@@ -88,12 +89,51 @@ function SexSelector({ value, onChange }) {
 }
 
 // ============================================================
+// Helpers de pesos/reps sugeridos por el coach (igual lógica que TodayWorkoutPage)
+// ============================================================
+function parseSuggestedWeightVal(val) {
+  if (!val || val === 'None' || val === 'none') return ''
+  const n = parseFloat(String(val).replace(/[^\d.]/g, ''))
+  return isNaN(n) ? '' : String(n)
+}
+
+function buildSuggestedWeightsArr(pe, setsCount) {
+  const legacy = parseSuggestedWeightVal(pe.suggested_weight)
+  if (pe.suggested_weights) {
+    try {
+      const parsed = JSON.parse(pe.suggested_weights)
+      if (Array.isArray(parsed)) {
+        return Array.from({ length: setsCount || parsed.length }, (_, i) =>
+          parsed[i] != null ? String(parsed[i]) : ''
+        )
+      }
+    } catch {}
+    const val = parseSuggestedWeightVal(pe.suggested_weights)
+    return Array.from({ length: setsCount || 1 }, () => val)
+  }
+  return Array.from({ length: setsCount || 1 }, () => legacy)
+}
+
+// Construir sets_arr vacío para un plan_exercise dado
+function buildInitialSetsArr(pe, evalType) {
+  const setsCount = parseInt(pe.suggested_sets) || 1
+  const sugWeightsArr = buildSuggestedWeightsArr(pe, setsCount)
+  const sugRepsArr = parseReps(pe.suggested_reps)
+  return Array.from({ length: setsCount }, (_, i) => ({
+    weight_kg: sugWeightsArr[i] || '',
+    reps: String(sugRepsArr[i] || ''),
+    ...(evalType === 'one_rm' ? { one_rm: null } : {}),
+  }))
+}
+
+// ============================================================
 // FORM: 1RM
 // ============================================================
 function OneRMForm({ results, onChange, planMethod, planExercises }) {
   const method = planMethod || results.method || 'brzycki'
   const usePlanExercises = planExercises && planExercises.length > 0
 
+  // ── Modo libre (sin ejercicios del plan) ───────────────────
   function updateExercise(i, field, value) {
     const exercises = [...(results.exercises || [])]
     exercises[i] = { ...exercises[i], [field]: value }
@@ -114,95 +154,213 @@ function OneRMForm({ results, onChange, planMethod, planExercises }) {
     onChange({ ...results, exercises: results.exercises.filter((_, idx) => idx !== i) })
   }
 
+  // ── Modo con plan: grilla por serie ───────────────────────
+  function updateSet(exIdx, setIdx, field, value) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    const sets_arr = [...(ex.sets_arr || [{ weight_kg: '', reps: '', one_rm: null }])]
+    sets_arr[setIdx] = { ...sets_arr[setIdx], [field]: value }
+
+    const w = field === 'weight_kg' ? value : sets_arr[setIdx].weight_kg
+    const r = field === 'reps' ? value : sets_arr[setIdx].reps
+    sets_arr[setIdx].one_rm =
+      w && r && parseFloat(w) > 0 && parseInt(r) > 0
+        ? calc1RM(method, w, r)
+        : null
+
+    const best = sets_arr.reduce(
+      (max, s) => (s.one_rm != null && (max === null || s.one_rm > max) ? s.one_rm : max),
+      null
+    )
+    exercises[exIdx] = { ...ex, sets_arr, best_one_rm: best, one_rm: best }
+    onChange({ ...results, method, exercises })
+  }
+
+  function addSet(exIdx) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    exercises[exIdx] = { ...ex, sets_arr: [...(ex.sets_arr || []), { weight_kg: '', reps: '', one_rm: null }] }
+    onChange({ ...results, exercises })
+  }
+
+  function removeSet(exIdx, setIdx) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    if ((ex.sets_arr || []).length <= 1) return
+    const sets_arr = ex.sets_arr.filter((_, i) => i !== setIdx)
+    const best = sets_arr.reduce(
+      (max, s) => (s.one_rm != null && (max === null || s.one_rm > max) ? s.one_rm : max),
+      null
+    )
+    exercises[exIdx] = { ...ex, sets_arr, best_one_rm: best, one_rm: best }
+    onChange({ ...results, exercises })
+  }
+
   return (
     <div className="space-y-5">
       <MethodBadge evalType="one_rm" methodKey={method} />
 
-      {(results.exercises || []).map((ex, i) => (
-        <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500">
-              {ex.name || `Ejercicio ${i + 1}`}
-            </span>
-            {ex.video_url && ex.video_url.startsWith('http') && (
-              <a
-                href={ex.video_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg"
-                title="Ver video del ejercicio"
-              >
-                <PlayCircle size={16} />
-              </a>
-            )}
-            {!usePlanExercises && (results.exercises || []).length > 1 && (
-              <button onClick={() => removeExercise(i)} className="ml-auto text-red-400 hover:text-red-600 p-1">
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
+      {(results.exercises || []).map((ex, i) => {
+        const pe = planExercises[i]
+        const setsCount = parseInt(pe?.suggested_sets) || 1
+        const sugWeightsArr = pe ? buildSuggestedWeightsArr(pe, setsCount) : []
+        const sugRepsArr = pe ? parseReps(pe.suggested_reps) : []
+        // Migrar datos viejos (sin sets_arr) a un array de 1 set
+        const sets_arr = ex.sets_arr || [{ weight_kg: ex.weight_kg || '', reps: ex.reps || '', one_rm: ex.one_rm || null }]
 
-          {!usePlanExercises && (
-            <input
-              className="input text-sm"
-              placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
-              value={ex.name || ''}
-              onChange={e => updateExercise(i, 'name', e.target.value)}
-            />
-          )}
-
-          {usePlanExercises && planExercises[i] && (
-            planExercises[i].suggested_sets || planExercises[i].suggested_reps ||
-            planExercises[i].suggested_weight || planExercises[i].notes
-          ) && (
-            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-              <p className="font-semibold mb-1">Referencia del coach</p>
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                {planExercises[i].suggested_sets && (
-                  <span>🔁 {planExercises[i].suggested_sets} series</span>
-                )}
-                {planExercises[i].suggested_reps && (
-                  <span>💪 {planExercises[i].suggested_reps} reps</span>
-                )}
-                {planExercises[i].suggested_weight && (
-                  <span>⚖️ {planExercises[i].suggested_weight}</span>
-                )}
-              </div>
-              {planExercises[i].notes && (
-                <p className="mt-1 text-blue-600 italic">"{planExercises[i].notes}"</p>
+        return (
+          <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
+            {/* Header: nombre + video */}
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold truncate ${usePlanExercises ? 'text-sm text-gray-900' : 'text-xs text-gray-500'}`}>
+                {ex.name || `Ejercicio ${i + 1}`}
+              </span>
+              {ex.video_url && ex.video_url.startsWith('http') && (
+                <a
+                  href={ex.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                  title="Ver video del ejercicio"
+                >
+                  <PlayCircle size={16} />
+                </a>
+              )}
+              {!usePlanExercises && (results.exercises || []).length > 1 && (
+                <button onClick={() => removeExercise(i)} className="ml-auto text-red-400 hover:text-red-600 p-1 flex-shrink-0">
+                  <Trash2 size={14} />
+                </button>
               )}
             </div>
-          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <NumInput
-              label="Peso levantado"
-              unit="kg"
-              step="0.5"
-              placeholder="80"
-              value={ex.weight_kg || ''}
-              onChange={v => updateExercise(i, 'weight_kg', v)}
-            />
-            <NumInput
-              label="Repeticiones"
-              placeholder="6"
-              value={ex.reps || ''}
-              onChange={v => updateExercise(i, 'reps', v)}
-              hint="Máx 30 reps"
-            />
+            {/* Modo libre: input de nombre */}
+            {!usePlanExercises && (
+              <input
+                className="input text-sm"
+                placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
+                value={ex.name || ''}
+                onChange={e => updateExercise(i, 'name', e.target.value)}
+              />
+            )}
+
+            {/* Nota del coach */}
+            {usePlanExercises && pe?.notes && (
+              <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>
+            )}
+
+            {/* Modo con plan: grilla por serie */}
+            {usePlanExercises ? (
+              <div>
+                {/* Encabezados de columna con sugeridos */}
+                <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] gap-1.5 mb-1 px-0.5">
+                  <div />
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Reps
+                    {sugRepsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugRepsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Peso (kg)
+                    {sugWeightsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">1RM</div>
+                </div>
+
+                {/* Fila por serie */}
+                {sets_arr.map((set, si) => (
+                  <div key={si} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] gap-1.5 mb-1.5 items-center">
+                    <div className="text-xs text-center text-gray-400 font-medium">{si + 1}</div>
+                    <input
+                      className="input text-sm text-center py-1.5"
+                      placeholder={String(sugRepsArr[si] || '—')}
+                      value={set.reps || ''}
+                      onChange={e => updateSet(i, si, 'reps', e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center py-1.5"
+                      placeholder={sugWeightsArr[si] || '0'}
+                      value={set.weight_kg || ''}
+                      onChange={e => updateSet(i, si, 'weight_kg', e.target.value)}
+                    />
+                    <div className="flex items-center justify-between gap-0.5 pl-1">
+                      <span className="text-xs font-semibold text-primary-600 flex-1 text-center">
+                        {set.one_rm != null ? `${set.one_rm}` : '—'}
+                      </span>
+                      {sets_arr.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSet(i, si)}
+                          className="text-gray-300 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => addSet(i)}
+                  className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
+                >
+                  <Plus size={11} /> Agregar serie
+                </button>
+
+                {/* Mejor 1RM destacado */}
+                {(ex.best_one_rm != null || sets_arr.some(s => s.one_rm != null)) && (
+                  <ResultBox
+                    label={`Mejor 1RM estimado (${method})`}
+                    value={ex.best_one_rm ?? sets_arr.reduce((m, s) => s.one_rm != null && s.one_rm > (m ?? 0) ? s.one_rm : m, null)}
+                    unit="kg"
+                    sub={`${sets_arr.filter(s => s.one_rm != null).length} intento(s) calculado(s)`}
+                  />
+                )}
+              </div>
+            ) : (
+              /* Modo libre: un solo peso/reps */
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumInput
+                    label="Peso levantado"
+                    unit="kg"
+                    step="0.5"
+                    placeholder="80"
+                    value={ex.weight_kg || ''}
+                    onChange={v => updateExercise(i, 'weight_kg', v)}
+                  />
+                  <NumInput
+                    label="Repeticiones"
+                    placeholder="6"
+                    value={ex.reps || ''}
+                    onChange={v => updateExercise(i, 'reps', v)}
+                    hint="Máx 30 reps"
+                  />
+                </div>
+                {ex.one_rm !== null && ex.one_rm !== undefined && (
+                  <ResultBox
+                    label={`1RM estimado (${method})`}
+                    value={ex.one_rm}
+                    unit="kg"
+                    sub="Repetición máxima calculada"
+                  />
+                )}
+              </>
+            )}
           </div>
-
-          {ex.one_rm !== null && ex.one_rm !== undefined && (
-            <ResultBox
-              label={`1RM estimado (${method})`}
-              value={ex.one_rm}
-              unit="kg"
-              sub="Repetición máxima calculada"
-            />
-          )}
-        </div>
-      ))}
+        )
+      })}
 
       {!usePlanExercises && (
         <button
@@ -238,78 +396,135 @@ function MaxRepsForm({ results, onChange, planMethod, planExercises }) {
   const needsTime = method === 'situp'
 
   if (usePlanExercises) {
-    // Multi-exercise mode: each exercise gets its own reps entry
-    function updateExercise(i, field, value) {
+    // ── Grilla por serie para cada ejercicio ──────────────
+    function updateSet(exIdx, setIdx, field, value) {
       const exercises = [...(results.exercises || [])]
-      exercises[i] = { ...exercises[i], [field]: value }
+      const ex = { ...exercises[exIdx] }
+      const sets_arr = [...(ex.sets_arr || [{ reps: '', weight_kg: '' }])]
+      sets_arr[setIdx] = { ...sets_arr[setIdx], [field]: value }
+      exercises[exIdx] = { ...ex, sets_arr }
       onChange({ ...results, method, exercises })
     }
+
+    function addSet(exIdx) {
+      const exercises = [...(results.exercises || [])]
+      const ex = { ...exercises[exIdx] }
+      exercises[exIdx] = { ...ex, sets_arr: [...(ex.sets_arr || []), { reps: '', weight_kg: '' }] }
+      onChange({ ...results, exercises })
+    }
+
+    function removeSet(exIdx, setIdx) {
+      const exercises = [...(results.exercises || [])]
+      const ex = { ...exercises[exIdx] }
+      if ((ex.sets_arr || []).length <= 1) return
+      exercises[exIdx] = { ...ex, sets_arr: ex.sets_arr.filter((_, i) => i !== setIdx) }
+      onChange({ ...results, exercises })
+    }
+
+    const colCount = needsWeight
+      ? '[1.5rem_1fr_1fr]'
+      : '[1.5rem_1fr]'
 
     return (
       <div className="space-y-5">
         <MethodBadge evalType="max_reps" methodKey={method} />
 
-        {(results.exercises || []).map((ex, i) => (
-          <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
-              {ex.video_url && ex.video_url.startsWith('http') && (
-                <a
-                  href={ex.video_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg"
-                  title="Ver video del ejercicio"
-                >
-                  <PlayCircle size={16} />
-                </a>
-              )}
-            </div>
+        {(results.exercises || []).map((ex, i) => {
+          const pe = planExercises[i]
+          const setsCount = parseInt(pe?.suggested_sets) || 1
+          const sugWeightsArr = pe ? buildSuggestedWeightsArr(pe, setsCount) : []
+          const sugRepsArr = pe ? parseReps(pe.suggested_reps) : []
+          const sets_arr = ex.sets_arr || [{ reps: ex.reps || '', weight_kg: ex.weight_kg || '' }]
 
-            {planExercises[i] && (
-              planExercises[i].suggested_sets || planExercises[i].suggested_reps ||
-              planExercises[i].suggested_weight || planExercises[i].notes
-            ) && (
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-                <p className="font-semibold mb-1">Referencia del coach</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                  {planExercises[i].suggested_sets && (
-                    <span>🔁 {planExercises[i].suggested_sets} series</span>
-                  )}
-                  {planExercises[i].suggested_reps && (
-                    <span>💪 {planExercises[i].suggested_reps} reps</span>
-                  )}
-                  {planExercises[i].suggested_weight && (
-                    <span>⚖️ {planExercises[i].suggested_weight}</span>
-                  )}
-                </div>
-                {planExercises[i].notes && (
-                  <p className="mt-1 text-blue-600 italic">"{planExercises[i].notes}"</p>
+          return (
+            <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-800 truncate">{ex.name || `Ejercicio ${i + 1}`}</p>
+                {ex.video_url && ex.video_url.startsWith('http') && (
+                  <a
+                    href={ex.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                    title="Ver video del ejercicio"
+                  >
+                    <PlayCircle size={16} />
+                  </a>
                 )}
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <NumInput
-                label={needsTime ? 'Reps en 60 seg' : 'Repeticiones máximas'}
-                placeholder="Ej: 25"
-                value={ex.reps || ''}
-                onChange={v => updateExercise(i, 'reps', v)}
-              />
-              {needsWeight && (
-                <NumInput
-                  label="Peso utilizado"
-                  unit="kg"
-                  step="0.5"
-                  placeholder="Ej: 60"
-                  value={ex.weight_kg || ''}
-                  onChange={v => updateExercise(i, 'weight_kg', v)}
-                />
+              {pe?.notes && (
+                <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>
               )}
+
+              {/* Encabezados de columna */}
+              <div className={`grid grid-cols-${colCount} gap-1.5 mb-1 px-0.5`}>
+                <div />
+                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                  {needsTime ? 'Reps (60 seg)' : 'Reps máx'}
+                  {sugRepsArr.some(Boolean) && (
+                    <span className="block font-normal normal-case text-primary-400">
+                      sug: {sugRepsArr.filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                </div>
+                {needsWeight && (
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Peso (kg)
+                    {sugWeightsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Fila por serie */}
+              {sets_arr.map((set, si) => (
+                <div key={si} className={`grid grid-cols-${colCount} gap-1.5 mb-1.5 items-center`}>
+                  <div className="text-xs text-center text-gray-400 font-medium">{si + 1}</div>
+                  <input
+                    className="input text-sm text-center py-1.5"
+                    placeholder={String(sugRepsArr[si] || '—')}
+                    value={set.reps || ''}
+                    onChange={e => updateSet(i, si, 'reps', e.target.value)}
+                  />
+                  {needsWeight && (
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center py-1.5"
+                      placeholder={sugWeightsArr[si] || '0'}
+                      value={set.weight_kg || ''}
+                      onChange={e => updateSet(i, si, 'weight_kg', e.target.value)}
+                    />
+                  )}
+                  {sets_arr.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSet(i, si)}
+                      className="text-gray-300 hover:text-red-400 transition-colors flex justify-center"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => addSet(i)}
+                className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
+              >
+                <Plus size={11} /> Agregar serie
+              </button>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         <div>
           <label className="label">Notas</label>
@@ -970,6 +1185,8 @@ export default function EvalWorkoutPage() {
           exercise_id: pe.exercise_id,
           name: pe.exercises?.name || 'Ejercicio',
           video_url: pe.exercises?.video_url || null,
+          sets_arr: buildInitialSetsArr(pe, data.eval_type),
+          best_one_rm: null,
           weight_kg: '',
           reps: '',
           one_rm: null,
@@ -987,16 +1204,27 @@ export default function EvalWorkoutPage() {
         .single()
 
       if (existing) {
-        // Merge exercise names and video_url from plan (in case they're missing from stored data)
         let loadedResults = existing.results
         if (planEx.length > 0 && loadedResults.exercises) {
           loadedResults = {
             ...loadedResults,
-            exercises: loadedResults.exercises.map((ex, i) => ({
-              ...ex,
-              name: ex.name || planEx[i]?.exercises?.name || `Ejercicio ${i + 1}`,
-              video_url: planEx[i]?.exercises?.video_url || ex.video_url || null,
-            })),
+            exercises: loadedResults.exercises.map((ex, i) => {
+              const pe = planEx[i]
+              const enriched = {
+                ...ex,
+                name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
+                video_url: pe?.exercises?.video_url || ex.video_url || null,
+              }
+              // Migrar formato viejo (sin sets_arr) → un set con los datos guardados
+              if (!enriched.sets_arr) {
+                enriched.sets_arr = [{
+                  weight_kg: ex.weight_kg || '',
+                  reps: ex.reps || '',
+                  ...(data.eval_type === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
+                }]
+              }
+              return enriched
+            }),
           }
         }
         setResults(loadedResults)
@@ -1074,6 +1302,9 @@ export default function EvalWorkoutPage() {
               initResults.exercises = planExercises.map(pe => ({
                 exercise_id: pe.exercise_id,
                 name: pe.exercises?.name || 'Ejercicio',
+                video_url: pe.exercises?.video_url || null,
+                sets_arr: buildInitialSetsArr(pe, plan.eval_type),
+                best_one_rm: null,
                 weight_kg: '',
                 reps: '',
                 one_rm: null,
