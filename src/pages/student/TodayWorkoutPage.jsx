@@ -842,14 +842,17 @@ export default function TodayWorkoutPage() {
   async function fetchWorkout() {
     setLoading(true)
     try {
-      const { data: assignData } = await supabase
+      const { data: allActiveAssignments } = await supabase
         .from('plan_assignments')
         .select('*, plan:plans!plan_id(*)')
         .eq('student_id', profile.id)
         .eq('active', true)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+
+      // Solo tomar planes de entrenamiento, ignorar evaluaciones
+      const assignData = (allActiveAssignments || []).find(
+        a => !a.plan?.plan_type || a.plan?.plan_type === 'training'
+      )
 
       if (!assignData) { setLoading(false); return }
       setAssignment(assignData)
