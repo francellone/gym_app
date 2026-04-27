@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
-import { ClipboardList, Plus, AlertTriangle } from 'lucide-react'
+import { ClipboardList, Plus, AlertTriangle, ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
 // ─────────────────────────────────────────────────────────────
@@ -156,30 +157,43 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
         </div>
       ) : (
         <div className="space-y-2">
-          {assignments.map(a => (
-            <div key={a.id} className="card flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${a.active ? 'bg-green-400' : 'bg-gray-300'}`} />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-gray-900 truncate">
-                  {a.plan?.plan_type === 'evaluation' ? '📊 ' : ''}{a.plan?.title}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {a.active ? 'Activo' : 'Inactivo'}
-                  {a.start_date ? ` · Desde ${format(parseISO(a.start_date), 'dd/MM/yy')}` : ''}
-                </p>
+          {assignments.map(a => {
+            const isEval = a.plan?.plan_type === 'evaluation'
+            const planRoute = isEval
+              ? `/coach/evaluations/${a.plan_id}`
+              : `/coach/plans/${a.plan_id}`
+
+            return (
+              <div key={a.id} className="card flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${a.active ? 'bg-green-400' : 'bg-gray-300'}`} />
+                <Link
+                  to={planRoute}
+                  className="flex-1 min-w-0 group flex items-center gap-1 hover:opacity-70 transition-opacity"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm text-gray-900 truncate">
+                      {isEval ? '📊 ' : ''}{a.plan?.title}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {a.active ? 'Activo' : 'Inactivo'}
+                      {a.start_date ? ` · Desde ${format(parseISO(a.start_date), 'dd/MM/yy')}` : ''}
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+                <button
+                  onClick={() => toggleAssignment(a.id, a.active)}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                    a.active
+                      ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                      : 'bg-green-50 text-green-600 hover:bg-green-100'
+                  }`}
+                >
+                  {a.active ? 'Desactivar' : 'Activar'}
+                </button>
               </div>
-              <button
-                onClick={() => toggleAssignment(a.id, a.active)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                  a.active
-                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                    : 'bg-green-50 text-green-600 hover:bg-green-100'
-                }`}
-              >
-                {a.active ? 'Desactivar' : 'Activar'}
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
