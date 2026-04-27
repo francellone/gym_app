@@ -1149,6 +1149,12 @@ export default function EvalWorkoutPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
 
+  // Editar / Desmarcar
+  const [existingResultId, setExistingResultId] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const [evalDate, setEvalDate] = useState(new Date().toISOString().slice(0, 10))
   const [results, setResults] = useState(null)
   const [notes, setNotes] = useState('')
@@ -1229,6 +1235,7 @@ export default function EvalWorkoutPage() {
         }
         setResults(loadedResults)
         setNotes(existing.notes || '')
+        setExistingResultId(existing.id)
       }
     } catch (err) {
       console.error(err)
@@ -1237,11 +1244,118 @@ export default function EvalWorkoutPage() {
     }
   }
 
+  // ── Helpers internos ─────────────────────────────────────
+  function makeFreshResults(evalType, evalMethod, planEx) {
+    const init = emptyResults(evalType, evalMethod || '')
+    if (planEx.length > 0) {
+      init.exercises = planEx.map(pe => ({
+        exercise_id: pe.exercise_id,
+        name: pe.exercises?.name || 'Ejercicio',
+        video_url: pe.exercises?.video_url || null,
+        sets_arr: buildInitialSetsArr(pe, evalType),
+        best_one_rm: null,
+        weight_kg: '',
+        reps: '',
+        one_rm: null,
+      }))
+    }
+    return init
+  }
+
+  function enrichExercises(exercises, planEx, evalType) {
+    return exercises.map((ex, i) => {
+      const pe = planEx[i]
+      const enriched = {
+        ...ex,
+        name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
+        video_url: pe?.exercises?.video_url || ex.video_url || null,
+      }
+      if (!enriched.sets_arr) {
+        enriched.sets_arr = [{
+          weight_kg: ex.weight_kg || '',
+          reps: ex.reps || '',
+          ...(evalType === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
+        }]
+      }
+      return enriched
+    })
+  }
+
+  // Cambio de fecha: resetea y carga resultado existente si lo hay
+  async function handleDateChange(dateStr) {
+    setEvalDate(dateStr)
+    setEditing(false)
+    setExistingResultId(null)
+    setError(null)
+    setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
+    setNotes('')
+
+    const { data: existing } = await supabase
+      .from('evaluation_results')
+      .select('*')
+      .eq('plan_id', planId)
+      .eq('student_id', user.id)
+      .eq('eval_date', dateStr)
+      .maybeSingle()
+
+    if (existing) {
+      let loaded = existing.results
+      if (planExercises.length > 0 && loaded.exercises) {
+        loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
+      }
+      setResults(loaded)
+      setNotes(existing.notes || '')
+      setExistingResultId(existing.id)
+    }
+  }
+
+  // Cancelar edición: recarga los datos guardados
+  async function handleCancelEdit() {
+    setEditing(false)
+    setError(null)
+    if (!existingResultId) return
+    const { data: existing } = await supabase
+      .from('evaluation_results')
+      .select('*')
+      .eq('id', existingResultId)
+      .single()
+    if (existing) {
+      let loaded = existing.results
+      if (planExercises.length > 0 && loaded.exercises) {
+        loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
+      }
+      setResults(loaded)
+      setNotes(existing.notes || '')
+    }
+  }
+
+  // Borrar resultado
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      const { error } = await supabase
+        .from('evaluation_results')
+        .delete()
+        .eq('id', existingResultId)
+      if (error) throw error
+      setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
+      setNotes('')
+      setExistingResultId(null)
+      setConfirmDelete(false)
+      setEditing(false)
+    } catch (err) {
+      setError(err.message || 'Error al desmarcar')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     setError(null)
     try {
-      const { error } = await supabase
+      const { data: upserted, error } = await supabase
         .from('evaluation_results')
         .upsert({
           student_id: user.id,
@@ -1252,7 +1366,11 @@ export default function EvalWorkoutPage() {
           notes,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'student_id,plan_id,eval_date' })
+        .select('id')
+        .single()
       if (error) throw error
+      setExistingResultId(upserted.id)
+      setEditing(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -1273,6 +1391,43 @@ export default function EvalWorkoutPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
+      {/* Modal: confirmar borrado */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Trash2 size={20} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">¿Desmarcar evaluación?</p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Se borrarán los datos del <strong>{new Date(evalDate + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}</strong>. Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {deleting
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><Trash2 size={14} /> Sí, desmarcar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
@@ -1295,23 +1450,7 @@ export default function EvalWorkoutPage() {
           className="input"
           value={evalDate}
           max={new Date().toISOString().slice(0, 10)}
-          onChange={e => {
-            setEvalDate(e.target.value)
-            const initResults = emptyResults(plan.eval_type, plan.eval_method || '')
-            if (planExercises.length > 0) {
-              initResults.exercises = planExercises.map(pe => ({
-                exercise_id: pe.exercise_id,
-                name: pe.exercises?.name || 'Ejercicio',
-                video_url: pe.exercises?.video_url || null,
-                sets_arr: buildInitialSetsArr(pe, plan.eval_type),
-                best_one_rm: null,
-                weight_kg: '',
-                reps: '',
-                one_rm: null,
-              }))
-            }
-            setResults(initResults)
-          }}
+          onChange={e => handleDateChange(e.target.value)}
         />
       </div>
 
@@ -1339,31 +1478,79 @@ export default function EvalWorkoutPage() {
         />
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
-          <AlertCircle size={16} />
-          <span>{error}</span>
-        </div>
-      )}
+      {/* Zona de acción: varía según estado */}
+      <div className="pb-8 space-y-3">
 
-      {saved && (
-        <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl p-3 text-sm">
-          <CheckCircle size={16} />
-          <span>¡Evaluación guardada!</span>
-        </div>
-      )}
+        {/* Error visible en cualquier modo */}
+        {error && (
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
-      <div className="pb-8">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-primary w-full flex items-center justify-center gap-2"
-        >
-          {saving
-            ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : <><Save size={16} /> Guardar evaluación</>
-          }
-        </button>
+        {/* Flash de guardado exitoso */}
+        {saved && (
+          <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl p-3 text-sm">
+            <CheckCircle size={16} />
+            <span>{editing ? '¡Cambios guardados!' : '¡Evaluación guardada!'}</span>
+          </div>
+        )}
+
+        {existingResultId && !editing ? (
+          /* ── Resultado guardado: banner con Editar / Desmarcar ── */
+          <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
+              <p className="text-sm font-semibold text-green-800 flex-1">Evaluación registrada</p>
+              <button
+                onClick={() => setEditing(true)}
+                className="text-sm text-primary-600 font-medium hover:text-primary-700 transition-colors"
+              >
+                Editar
+              </button>
+              <span className="text-gray-300 select-none">·</span>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-sm text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+              >
+                <Trash2 size={13} /> Desmarcar
+              </button>
+            </div>
+          </div>
+        ) : existingResultId && editing ? (
+          /* ── Editando resultado existente ── */
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancelEdit}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
+            >
+              {saving
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <><Save size={16} /> Guardar cambios</>
+              }
+            </button>
+          </div>
+        ) : (
+          /* ── Sin resultado guardado: primer registro ── */
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            {saving
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <><Save size={16} /> Guardar evaluación</>
+            }
+          </button>
+        )}
       </div>
     </div>
   )
