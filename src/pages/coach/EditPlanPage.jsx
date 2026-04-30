@@ -187,7 +187,7 @@ export default function EditPlanPage() {
         `)
         .eq('id', id)
         .single(),
-    ]).then(([exRes, tagsRes, assignRes, planRes]) => {
+    ]).then(async ([exRes, tagsRes, assignRes, planRes]) => {
       setExercises(exRes.data || [])
       setExerciseTags(tagsRes.data || [])
       setTagAssignments(assignRes.data || [])
