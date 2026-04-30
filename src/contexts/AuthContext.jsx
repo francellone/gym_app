@@ -22,8 +22,8 @@ export function AuthProvider({ children }) {
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id)
-        // Registrar push al iniciar sesión (o al recuperar sesión existente)
-        if (event === 'SIGNED_IN') {
+        // Registrar push al iniciar sesión o al recuperar sesión existente
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           registerPush(session.user.id).catch(err =>
             console.warn('Push registration failed:', err)
           )
