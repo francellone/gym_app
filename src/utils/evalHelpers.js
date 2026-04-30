@@ -328,6 +328,30 @@ export function calcFMSScore(patterns) {
 }
 
 // ============================================================
+// TIPOS DE PRUEBA (para evaluaciones custom/personalizadas)
+// ============================================================
+export const PRUEBA_TYPES = [
+  { key: 'reps',      label: 'Repeticiones',  unit: 'reps', inputType: 'number', placeholder: 'ej: 15'        },
+  { key: 'tiempo',    label: 'Tiempo',         unit: 'seg',  inputType: 'time',   placeholder: 'ej: 45'        },
+  { key: 'distancia', label: 'Distancia',      unit: 'm',    inputType: 'number', placeholder: 'ej: 12.5'      },
+  { key: 'peso',      label: 'Peso',           unit: 'kg',   inputType: 'number', placeholder: 'ej: 80'        },
+  { key: 'movilidad', label: 'Movilidad',      unit: 'cm',   inputType: 'number', placeholder: 'ej: 32'        },
+  { key: 'tecnica',   label: 'Técnica',        unit: '/10',  inputType: 'scale',  placeholder: 'Puntaje 1–10'  },
+  { key: 'video',     label: 'Video (link)',   unit: null,   inputType: 'url',    placeholder: 'https://...'   },
+  { key: 'libre',     label: 'Libre',          unit: null,   inputType: 'text',   placeholder: 'Respuesta...'  },
+]
+
+export function pruebaTypeInfo(key) {
+  return PRUEBA_TYPES.find(t => t.key === key) || { key, label: key, unit: null, inputType: 'text', placeholder: '' }
+}
+
+// Tags predefinidos para evaluaciones (sugerencias)
+export const EVAL_TAG_SUGGESTIONS = [
+  'Fuerza', 'Movilidad', 'Resistencia', 'Potencia', 'Técnica',
+  'Composición corporal', 'Funcional', 'Inicial', 'Seguimiento', 'Final',
+]
+
+// ============================================================
 // TEMPLATES DE RESULTADOS VACÍOS
 // ============================================================
 export function emptyResults(evalType, method) {

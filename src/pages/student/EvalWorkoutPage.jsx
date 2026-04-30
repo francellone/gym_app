@@ -6,8 +6,9 @@ import {
   METHODS, FMS_PATTERNS,
   emptyResults, evalTypeLabel, evalTypeIcon,
   calc1RM, calcPower, calcVO2max, calcBodyComp, calcFMSScore,
+  pruebaTypeInfo,
 } from '../../utils/evalHelpers'
-import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle, MessageSquare, Eye } from 'lucide-react'
 import { parseReps } from '../../utils/planHelpers'
 
 // ============================================================
@@ -1065,62 +1066,201 @@ function ScoredForm({ results, onChange, planMethod }) {
 }
 
 // ============================================================
-// FORM: Custom
+// FORM: Custom (tabla de pruebas)
+// Recibe: pruebas (evaluation_tests[]), responses (map test_id → {value, unit, comment})
+//         onChange(testId, field, value)
 // ============================================================
-function CustomForm({ results, onChange }) {
-  function updateField(i, key, value) {
-    const fields = [...(results.fields || [])]
-    fields[i] = { ...fields[i], [key]: value }
-    onChange({ ...results, fields })
+function CustomForm({ pruebas, responses, onChange }) {
+  if (pruebas.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 text-center py-4">
+        Esta evaluación no tiene pruebas configuradas. Pedile al coach que las agregue.
+      </p>
+    )
   }
 
   return (
-    <div className="space-y-3">
-      {(results.fields || []).map((f, i) => (
-        <div key={i} className="bg-gray-50 rounded-xl p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">#{i + 1}</span>
-            {i > 0 && (
-              <button
-                onClick={() => onChange({ ...results, fields: results.fields.filter((_, idx) => idx !== i) })}
-                className="ml-auto text-red-400 hover:text-red-600"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+    <div className="space-y-4">
+      {pruebas.map((prueba, i) => {
+        const typeInfo = pruebaTypeInfo(prueba.test_type)
+        const resp = responses[prueba.id] || { value: '', unit: typeInfo.unit || '', comment: '' }
+
+        return (
+          <div key={prueba.id} className="border-2 border-gray-100 rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gray-50 px-4 py-2.5 flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-sm font-semibold text-gray-800">
+                    {prueba.exercise_name || `Prueba ${i + 1}`}
+                  </p>
+                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                    {typeInfo.label}
+                  </span>
+                  {prueba.mandatory && (
+                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Obligatoria</span>
+                  )}
+                </div>
+                {prueba.instructions && (
+                  <p className="text-xs text-gray-500 mt-0.5">{prueba.instructions}</p>
+                )}
+                {prueba.expected_value && (
+                  <p className="text-xs text-blue-500 mt-0.5">
+                    Esperado: <strong>{prueba.expected_value} {prueba.expected_unit}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Input de respuesta */}
+            <div className="px-4 py-3 space-y-3">
+              <PruebaInput
+                testType={prueba.test_type}
+                typeInfo={typeInfo}
+                value={resp.value}
+                unit={resp.unit}
+                onChangeValue={v => onChange(prueba.id, 'value', v)}
+                onChangeUnit={u => onChange(prueba.id, 'unit', u)}
+              />
+
+              {/* Comentario del alumno */}
+              <div>
+                <label className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                  <MessageSquare size={12} /> Tu comentario (opcional)
+                </label>
+                <textarea
+                  className="input resize-none text-sm"
+                  rows={2}
+                  placeholder="¿Cómo te sentiste en esta prueba?"
+                  value={resp.comment || ''}
+                  onChange={e => onChange(prueba.id, 'comment', e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-          <input className="input text-sm" placeholder="Nombre del campo (ej: Sentadilla)"
-            value={f.label || ''} onChange={e => updateField(i, 'label', e.target.value)} />
-          <div className="grid grid-cols-2 gap-2">
-            <input className="input text-sm" placeholder="Valor (ej: 100)"
-              value={f.value || ''} onChange={e => updateField(i, 'value', e.target.value)} />
-            <input className="input text-sm" placeholder="Unidad (ej: kg, cm, min)"
-              value={f.unit || ''} onChange={e => updateField(i, 'unit', e.target.value)} />
-          </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onChange({ ...results, fields: [...(results.fields || []), { label: '', value: '', unit: '' }] })}
-        className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-      >
-        <Plus size={14} /> Agregar campo
-      </button>
-      <div>
-        <label className="label">Notas</label>
-        <textarea className="input resize-none text-sm" rows={2}
-          value={results.notes || ''}
-          onChange={e => onChange({ ...results, notes: e.target.value })}
-        />
-      </div>
+        )
+      })}
     </div>
   )
+}
+
+// Input adaptado al tipo de prueba
+function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeUnit }) {
+  switch (testType) {
+    case 'reps':
+      return (
+        <div>
+          <label className="label text-xs">Repeticiones</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" className="input flex-1 text-lg font-bold" placeholder="0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">reps</span>
+          </div>
+        </div>
+      )
+
+    case 'tiempo':
+      return (
+        <div>
+          <label className="label text-xs">Tiempo (segundos)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.1" className="input flex-1 text-lg font-bold" placeholder="0.0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">seg</span>
+          </div>
+        </div>
+      )
+
+    case 'distancia':
+      return (
+        <div>
+          <label className="label text-xs">Distancia</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.01" className="input flex-1 text-lg font-bold" placeholder="0.00"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <input className="input w-20 text-sm" placeholder="m"
+              value={unit} onChange={e => onChangeUnit(e.target.value)} />
+          </div>
+        </div>
+      )
+
+    case 'peso':
+      return (
+        <div>
+          <label className="label text-xs">Peso (kg)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.5" className="input flex-1 text-lg font-bold" placeholder="0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">kg</span>
+          </div>
+        </div>
+      )
+
+    case 'movilidad':
+      return (
+        <div>
+          <label className="label text-xs">Medición (cm)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.1" className="input flex-1 text-lg font-bold" placeholder="0.0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">cm</span>
+          </div>
+        </div>
+      )
+
+    case 'tecnica': {
+      const numVal = parseInt(value) || 0
+      return (
+        <div>
+          <label className="label text-xs">Puntaje técnica (1–10)</label>
+          <div className="flex gap-2">
+            {[1,2,3,4,5,6,7,8,9,10].map(n => (
+              <button key={n} type="button"
+                onClick={() => onChangeValue(String(n))}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                  numVal === n
+                    ? 'border-purple-500 bg-purple-600 text-white'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    case 'video':
+      return (
+        <div>
+          <label className="label text-xs">Link del video</label>
+          <input type="url" className="input" placeholder="https://..."
+            value={value} onChange={e => onChangeValue(e.target.value)} />
+          <p className="text-xs text-gray-400 mt-1">
+            Podés usar YouTube, Google Drive, Instagram u otro servicio. No se sube el archivo.
+          </p>
+        </div>
+      )
+
+    default: // libre
+      return (
+        <div>
+          <label className="label text-xs">Respuesta</label>
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder={typeInfo.placeholder || 'Escribí tu respuesta...'}
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <input className="input w-20 text-sm" placeholder="unidad"
+              value={unit} onChange={e => onChangeUnit(e.target.value)} />
+          </div>
+        </div>
+      )
+  }
 }
 
 // ============================================================
 // Dispatcher
 // ============================================================
-function EvalForm({ evalType, results, onChange, planMethod, planExercises }) {
+function EvalForm({ evalType, results, onChange, planMethod, planExercises, pruebas, pruebaResponses, onChangePrueba }) {
   const props = { results, onChange, planMethod, planExercises }
   switch (evalType) {
     case 'one_rm':    return <OneRMForm {...props} />
@@ -1129,7 +1269,9 @@ function EvalForm({ evalType, results, onChange, planMethod, planExercises }) {
     case 'cardio':    return <CardioForm {...props} />
     case 'body_comp': return <BodyCompForm {...props} />
     case 'scored':    return <ScoredForm {...props} />
-    case 'custom':    return <CustomForm {...props} />
+    case 'custom':    return (
+      <CustomForm pruebas={pruebas || []} responses={pruebaResponses || {}} onChange={onChangePrueba} />
+    )
     default:          return <p className="text-sm text-gray-400">Tipo de evaluación no reconocido.</p>
   }
 }
@@ -1159,6 +1301,10 @@ export default function EvalWorkoutPage() {
   const [results, setResults] = useState(null)
   const [notes, setNotes] = useState('')
 
+  // Estado exclusivo para evaluaciones custom (pruebas)
+  const [pruebas, setPruebas] = useState([])        // evaluation_tests del plan
+  const [pruebaResponses, setPruebaResponses] = useState({}) // { test_id: { value, unit, comment } }
+
   useEffect(() => { fetchPlan() }, [planId])
 
   async function fetchPlan() {
@@ -1170,6 +1316,46 @@ export default function EvalWorkoutPage() {
         .single()
       if (error) throw error
       setPlan(data)
+
+      // Para tipo custom: cargar pruebas (evaluation_tests)
+      if (data.eval_type === 'custom') {
+        const { data: pruebasData } = await supabase
+          .from('evaluation_tests')
+          .select('*')
+          .eq('plan_id', planId)
+          .order('order_index')
+        setPruebas(pruebasData || [])
+        setResults({ notes: '' })
+
+        // Load existing result for today (custom)
+        const { data: existing } = await supabase
+          .from('evaluation_results')
+          .select('*')
+          .eq('plan_id', planId)
+          .eq('student_id', user.id)
+          .eq('eval_date', new Date().toISOString().slice(0, 10))
+          .maybeSingle()
+
+        if (existing) {
+          setExistingResultId(existing.id)
+          setNotes(existing.notes || '')
+          // Cargar las responses existentes
+          const { data: respData } = await supabase
+            .from('evaluation_test_responses')
+            .select('*')
+            .eq('evaluation_result_id', existing.id)
+          const map = {}
+          for (const r of (respData || [])) {
+            map[r.test_id] = {
+              value: r.student_response?.value || '',
+              unit: r.student_response?.unit || '',
+              comment: r.student_comment || '',
+            }
+          }
+          setPruebaResponses(map)
+        }
+        return // early return — no sigue con lógica científica
+      }
 
       // For exercise-based eval types, pre-load the plan's exercises
       let planEx = []
@@ -1207,7 +1393,7 @@ export default function EvalWorkoutPage() {
         .eq('plan_id', planId)
         .eq('student_id', user.id)
         .eq('eval_date', new Date().toISOString().slice(0, 10))
-        .single()
+        .maybeSingle()
 
       if (existing) {
         let loadedResults = existing.results
@@ -1287,8 +1473,38 @@ export default function EvalWorkoutPage() {
     setEditing(false)
     setExistingResultId(null)
     setError(null)
-    setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
     setNotes('')
+
+    if (plan.eval_type === 'custom') {
+      setPruebaResponses({})
+      const { data: existing } = await supabase
+        .from('evaluation_results')
+        .select('*')
+        .eq('plan_id', planId)
+        .eq('student_id', user.id)
+        .eq('eval_date', dateStr)
+        .maybeSingle()
+      if (existing) {
+        setExistingResultId(existing.id)
+        setNotes(existing.notes || '')
+        const { data: respData } = await supabase
+          .from('evaluation_test_responses')
+          .select('*')
+          .eq('evaluation_result_id', existing.id)
+        const map = {}
+        for (const r of (respData || [])) {
+          map[r.test_id] = {
+            value: r.student_response?.value || '',
+            unit: r.student_response?.unit || '',
+            comment: r.student_comment || '',
+          }
+        }
+        setPruebaResponses(map)
+      }
+      return
+    }
+
+    setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
 
     const { data: existing } = await supabase
       .from('evaluation_results')
@@ -1355,6 +1571,7 @@ export default function EvalWorkoutPage() {
     setSaving(true)
     setError(null)
     try {
+      // 1. Upsert evaluation_result
       const { data: upserted, error } = await supabase
         .from('evaluation_results')
         .upsert({
@@ -1362,14 +1579,36 @@ export default function EvalWorkoutPage() {
           plan_id: planId,
           eval_date: evalDate,
           eval_type: plan.eval_type,
-          results,
+          results: plan.eval_type === 'custom' ? { notes } : results,
           notes,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'student_id,plan_id,eval_date' })
         .select('id')
         .single()
       if (error) throw error
-      setExistingResultId(upserted.id)
+      const resultId = upserted.id
+
+      // 2. Para custom: upsert evaluation_test_responses
+      if (plan.eval_type === 'custom') {
+        for (const prueba of pruebas) {
+          const resp = pruebaResponses[prueba.id]
+          if (!resp && !resp?.value) continue
+          await supabase
+            .from('evaluation_test_responses')
+            .upsert({
+              evaluation_result_id: resultId,
+              test_id: prueba.id,
+              student_response: {
+                value: resp?.value || '',
+                unit: resp?.unit || pruebaTypeInfo(prueba.test_type)?.unit || '',
+              },
+              student_comment: resp?.comment || null,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'evaluation_result_id,test_id' })
+        }
+      }
+
+      setExistingResultId(resultId)
       setEditing(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -1387,7 +1626,7 @@ export default function EvalWorkoutPage() {
   )
 
   if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
-  if (!results) return null
+  if (!results && plan.eval_type !== 'custom') return null
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -1463,6 +1702,14 @@ export default function EvalWorkoutPage() {
           onChange={setResults}
           planMethod={plan.eval_method || ''}
           planExercises={planExercises}
+          pruebas={pruebas}
+          pruebaResponses={pruebaResponses}
+          onChangePrueba={(testId, field, value) =>
+            setPruebaResponses(prev => ({
+              ...prev,
+              [testId]: { ...(prev[testId] || { value: '', unit: '', comment: '' }), [field]: value },
+            }))
+          }
         />
       </div>
 

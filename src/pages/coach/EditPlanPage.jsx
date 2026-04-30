@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Plus } from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Plus, Trash2, ChevronUp, ChevronDown, GripVertical, Tag, X } from 'lucide-react'
 import PlanExerciseRow from '../../components/plan/PlanExerciseRow'
 import BlockCard from '../../components/plan/blocks/BlockCard'
 import AddBlockMenu from '../../components/plan/blocks/AddBlockMenu'
@@ -14,8 +14,127 @@ import {
   uiExToDBEx,
   uiBlockToDB,
 } from '../../utils/planHelpers'
-import { EVAL_TYPES, METHODS } from '../../utils/evalHelpers'
+import { EVAL_TYPES, METHODS, PRUEBA_TYPES, EVAL_TAG_SUGGESTIONS } from '../../utils/evalHelpers'
 
+// ============================================================
+// EditPruebaRow — fila editable de una prueba (reutiliza lógica de Create)
+// ============================================================
+function EditPruebaRow({ prueba, index, total, exercises, onUpdate, onRemove, onMove }) {
+  const [expanded, setExpanded] = useState(true)
+  const [creatingExercise, setCreatingExercise] = useState(false)
+  const [newExName, setNewExName] = useState('')
+
+  const selectedExercise = exercises.find(e => e.id === prueba.exercise_id)
+
+  async function handleCreateExercise() {
+    if (!newExName.trim()) return
+    try {
+      const { data: newEx, error } = await supabase
+        .from('exercises')
+        .insert({ name: newExName.trim() })
+        .select()
+        .single()
+      if (error) throw error
+      onUpdate('exercise_id', newEx.id)
+      onUpdate('exercise_name', newEx.name)
+      setCreatingExercise(false)
+      setNewExName('')
+    } catch (err) { console.error(err) }
+  }
+
+  return (
+    <div className="border-2 border-gray-100 rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50">
+        <div className="flex flex-col gap-0.5">
+          <button type="button" onClick={() => onMove(-1)} disabled={index === 0} className="text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronUp size={14} /></button>
+          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1} className="text-gray-300 hover:text-gray-500 disabled:opacity-30"><ChevronDown size={14} /></button>
+        </div>
+        <GripVertical size={14} className="text-gray-300" />
+        <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
+        <span className="flex-1 text-sm font-medium text-gray-700 truncate">
+          {selectedExercise?.name || prueba.exercise_name || 'Nueva prueba'}
+        </span>
+        {prueba.mandatory && <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Oblig.</span>}
+        <button type="button" onClick={() => setExpanded(e => !e)} className="text-gray-400 hover:text-gray-600 px-1">
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <button type="button" onClick={onRemove} className="text-red-400 hover:text-red-600 px-1"><Trash2 size={15} /></button>
+      </div>
+      {expanded && (
+        <div className="p-3 space-y-3">
+          <div>
+            <label className="label text-xs">Ejercicio</label>
+            {!creatingExercise ? (
+              <div className="flex gap-2">
+                <select className="input flex-1 text-sm" value={prueba.exercise_id || ''}
+                  onChange={e => {
+                    const ex = exercises.find(x => x.id === e.target.value)
+                    onUpdate('exercise_id', e.target.value)
+                    onUpdate('exercise_name', ex?.name || '')
+                  }}>
+                  <option value="">— Seleccionar ejercicio —</option>
+                  {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setCreatingExercise(true)} className="btn-secondary text-xs px-3 whitespace-nowrap">+ Nuevo</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input className="input flex-1 text-sm" placeholder="Nombre del ejercicio"
+                  value={newExName} onChange={e => setNewExName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateExercise() } }} autoFocus />
+                <button type="button" onClick={handleCreateExercise} className="btn-primary text-xs px-3">Crear</button>
+                <button type="button" onClick={() => { setCreatingExercise(false); setNewExName('') }} className="btn-secondary text-xs px-3">×</button>
+              </div>
+            )}
+            {!prueba.exercise_id && !creatingExercise && (
+              <input className="input text-sm mt-2" placeholder="O escribí el nombre libremente..."
+                value={prueba.exercise_name || ''} onChange={e => onUpdate('exercise_name', e.target.value)} />
+            )}
+          </div>
+          <div>
+            <label className="label text-xs">Tipo de prueba</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {PRUEBA_TYPES.map(pt => (
+                <button key={pt.key} type="button"
+                  onClick={() => { onUpdate('test_type', pt.key); onUpdate('expected_unit', pt.unit || '') }}
+                  className={`text-left px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                    prueba.test_type === pt.key ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}>
+                  {pt.label}{pt.unit && <span className="ml-1 text-gray-400 font-normal">({pt.unit})</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="label text-xs">Instrucciones</label>
+            <textarea className="input resize-none text-sm" rows={2} placeholder="Describí cómo ejecutar la prueba..."
+              value={prueba.instructions || ''} onChange={e => onUpdate('instructions', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label text-xs">Valor esperado (opcional)</label>
+              <input className="input text-sm" placeholder="ej: 10" value={prueba.expected_value || ''}
+                onChange={e => onUpdate('expected_value', e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-xs">Unidad</label>
+              <input className="input text-sm" placeholder="ej: reps, kg" value={prueba.expected_unit || ''}
+                onChange={e => onUpdate('expected_unit', e.target.value)} />
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+            prueba.mandatory ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'
+          }`} onClick={() => onUpdate('mandatory', !prueba.mandatory)}>
+            <input type="checkbox" readOnly checked={prueba.mandatory} className="w-4 h-4 pointer-events-none text-red-500" />
+            <span className={`text-xs font-medium ${prueba.mandatory ? 'text-red-700' : 'text-gray-600'}`}>Prueba obligatoria</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 export default function EditPlanPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -48,6 +167,12 @@ export default function EditPlanPage() {
   // IDs para borrar al guardar
   const [toDeleteBlocks, setToDeleteBlocks] = useState([])
   const [toDeleteExercises, setToDeleteExercises] = useState([])
+
+  // Estado para pruebas custom
+  const [evalPruebas, setEvalPruebas] = useState([])
+  const [evalTags, setEvalTags] = useState([])
+  const [tagInput, setTagInput] = useState('')
+  const [toDeletePruebas, setToDeletePruebas] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -83,13 +208,33 @@ export default function EditPlanPage() {
         eval_method: p.eval_method || '',
       }
       setPlan(loadedPlan)
+      setEvalTags(p.eval_tags || [])
 
       if (loadedPlan.plan_type === 'evaluation') {
-        // Lista plana
-        const evals = (p.plan_exercises || [])
-          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-          .map(dbExToUIEx)
-        setEvalExercises(evals)
+        if (loadedPlan.eval_type === 'custom') {
+          // Cargar pruebas custom
+          const { data: pruebasData } = await supabase
+            .from('evaluation_tests')
+            .select('*')
+            .eq('plan_id', id)
+            .order('order_index')
+          setEvalPruebas((pruebasData || []).map(p => ({
+            id: p.id,
+            exercise_id: p.exercise_id || '',
+            exercise_name: p.exercise_name || '',
+            test_type: p.test_type || 'libre',
+            instructions: p.instructions || '',
+            expected_value: p.expected_value || '',
+            expected_unit: p.expected_unit || '',
+            mandatory: p.mandatory || false,
+          })))
+        } else {
+          // Lista plana de ejercicios científicos
+          const evals = (p.plan_exercises || [])
+            .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+            .map(dbExToUIEx)
+          setEvalExercises(evals)
+        }
         setActiveSection('day_a')
       } else {
         // Armar blocks por sección con sus ejercicios anidados
@@ -267,6 +412,7 @@ export default function EditPlanPage() {
           plan_type: plan.plan_type,
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
           eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
+          eval_tags: plan.plan_type === 'evaluation' ? evalTags : [],
         })
         .eq('id', id)
       if (planError) throw planError
@@ -290,19 +436,48 @@ export default function EditPlanPage() {
       }
 
       if (plan.plan_type === 'evaluation') {
-        // Evaluaciones: upsert plano
-        for (let i = 0; i < evalExercises.length; i++) {
-          const ex = evalExercises[i]
-          if (!ex.exercise_id) continue
-          const dbData = uiExToDBEx(ex, id, 'day_a', i, null)
-          if (ex.id) {
-            const { error: uErr } = await supabase
-              .from('plan_exercises').update(dbData).eq('id', ex.id)
-            if (uErr) throw uErr
-          } else {
-            const { error: iErr } = await supabase
-              .from('plan_exercises').insert(dbData)
-            if (iErr) throw iErr
+        if (plan.eval_type === 'custom') {
+          // Pruebas custom: borrar eliminadas, upsert restantes
+          if (toDeletePruebas.length > 0) {
+            await supabase.from('evaluation_tests').delete().in('id', toDeletePruebas)
+          }
+          for (let i = 0; i < evalPruebas.length; i++) {
+            const p = evalPruebas[i]
+            const row = {
+              plan_id: id,
+              exercise_id: p.exercise_id || null,
+              exercise_name: p.exercise_name || null,
+              test_type: p.test_type || 'libre',
+              instructions: p.instructions || null,
+              expected_value: p.expected_value || null,
+              expected_unit: p.expected_unit || null,
+              mandatory: p.mandatory || false,
+              order_index: i,
+            }
+            if (p.id) {
+              const { error: uErr } = await supabase.from('evaluation_tests').update(row).eq('id', p.id)
+              if (uErr) throw uErr
+            } else {
+              const { error: iErr } = await supabase.from('evaluation_tests').insert(row)
+              if (iErr) throw iErr
+            }
+          }
+          setToDeletePruebas([])
+        } else {
+          // Evaluaciones científicas: upsert plano
+          for (let i = 0; i < evalExercises.length; i++) {
+            const ex = evalExercises[i]
+            if (!ex.exercise_id) continue
+            const dbData = uiExToDBEx(ex, id, 'day_a', i, null)
+            if (ex.id) {
+              const { error: uErr } = await supabase
+                .from('plan_exercises').update(dbData).eq('id', ex.id)
+              if (uErr) throw uErr
+            } else {
+              const { error: iErr } = await supabase
+                .from('plan_exercises').insert(dbData)
+              if (iErr) throw iErr
+            }
           }
         }
       } else {
@@ -565,6 +740,51 @@ export default function EditPlanPage() {
             </>
           )}
 
+          {/* Tags de evaluación */}
+          {isEval && (
+            <div className="sm:col-span-2">
+              <label className="label flex items-center gap-1.5">
+                <Tag size={13} className="text-gray-400" />
+                Tags de la evaluación
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {evalTags.map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                    {t}
+                    <button type="button" onClick={() => setEvalTags(prev => prev.filter(x => x !== t))}
+                      className="hover:text-purple-900"><X size={11} /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input className="input flex-1 text-sm" placeholder="Ej: Fuerza, Movilidad..."
+                  value={tagInput} onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const t = tagInput.trim()
+                      if (t && !evalTags.includes(t)) setEvalTags(prev => [...prev, t])
+                      setTagInput('')
+                    }
+                  }} />
+                <button type="button" className="btn-secondary text-sm px-3" onClick={() => {
+                  const t = tagInput.trim()
+                  if (t && !evalTags.includes(t)) setEvalTags(prev => [...prev, t])
+                  setTagInput('')
+                }}>Agregar</button>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {EVAL_TAG_SUGGESTIONS.filter(s => !evalTags.includes(s)).slice(0, 6).map(s => (
+                  <button key={s} type="button"
+                    onClick={() => setEvalTags(prev => [...prev, s])}
+                    className="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors">
+                    + {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-1">
             <input
               type="checkbox" id="is_template"
@@ -618,6 +838,54 @@ export default function EditPlanPage() {
           >
             <Plus size={16} />
             Agregar ejercicio
+          </button>
+        </div>
+      )}
+
+      {/* Evaluación custom: constructor de pruebas */}
+      {isEval && plan.eval_type === 'custom' && (
+        <div className="card space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Pruebas de la evaluación</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Editá, reordenás o eliminás pruebas existentes.</p>
+          </div>
+          {evalPruebas.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-3">Aún no hay pruebas.</p>
+          )}
+          <div className="space-y-3">
+            {evalPruebas.map((prueba, i) => (
+              <EditPruebaRow
+                key={prueba.id || `new-${i}`}
+                prueba={prueba}
+                index={i}
+                total={evalPruebas.length}
+                exercises={exercises}
+                onUpdate={(field, value) =>
+                  setEvalPruebas(prev => prev.map((p, k) => k === i ? { ...p, [field]: value } : p))
+                }
+                onRemove={() => {
+                  if (prueba.id) setToDeletePruebas(d => [...d, prueba.id])
+                  setEvalPruebas(prev => prev.filter((_, k) => k !== i))
+                }}
+                onMove={dir => {
+                  const j = i + dir
+                  setEvalPruebas(prev => {
+                    if (j < 0 || j >= prev.length) return prev
+                    const next = [...prev]
+                    ;[next[i], next[j]] = [next[j], next[i]]
+                    return next
+                  })
+                }}
+              />
+            ))}
+          </div>
+          <button type="button"
+            onClick={() => setEvalPruebas(prev => [...prev, {
+              exercise_id: '', exercise_name: '', test_type: 'libre',
+              instructions: '', expected_value: '', expected_unit: '', mandatory: false,
+            }])}
+            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
+            <Plus size={16} /> Agregar prueba
           </button>
         </div>
       )}
