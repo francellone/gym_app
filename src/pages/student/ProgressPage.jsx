@@ -11,6 +11,7 @@ import {
   ComposedChart, Scatter
 } from 'recharts'
 import { displayReps, borgColor, BORG_LABELS } from '../../utils/planHelpers'
+import { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
 
 const PERIODS = [
   { label: '1m', days: 30 },
@@ -86,10 +87,21 @@ function AttendanceHeatmap({ logs }) {
   )
 }
 
+// Colores fijos por métrica wellbeing
+const WELLBEING_LINE_COLORS = {
+  sleep_quality:     '#6366f1',
+  nutrition_quality: '#22c55e',
+  hydration_quality: '#3b82f6',
+  energy_level:      '#f59e0b',
+  stress_level:      '#ef4444',
+  muscle_fatigue:    '#ec4899',
+}
+
 export default function ProgressPage() {
   const { profile } = useAuth()
   const [logs, setLogs] = useState([])
   const [sessions, setSessions] = useState([])
+  const [wellbeingLogs, setWellbeingLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState(30)
   const [selectedExercise, setSelectedExercise] = useState('')
@@ -104,7 +116,7 @@ export default function ProgressPage() {
     setLoading(true)
     const since = format(subDays(new Date(), period), 'yyyy-MM-dd')
 
-    const [logsRes, sessionsRes] = await Promise.all([
+    const [logsRes, sessionsRes, wellbeingRes] = await Promise.all([
       supabase
         .from('workout_logs')
         .select(`
@@ -123,11 +135,18 @@ export default function ProgressPage() {
         .eq('student_id', profile.id)
         .gte('logged_date', since)
         .order('logged_date'),
+      supabase
+        .from('wellbeing_logs')
+        .select('*')
+        .eq('user_id', profile.id)
+        .gte('date', since)
+        .order('date'),
     ])
 
     const logData = logsRes.data || []
     setLogs(logData)
     setSessions(sessionsRes.data || [])
+    setWellbeingLogs(wellbeingRes.data || [])
 
     const exMap = {}
     logData.forEach(l => {
@@ -539,6 +558,89 @@ export default function ProgressPage() {
             </Card>
           </>
         )}
+
+        {/* ─── Sección Wellbeing ─── */}
+        {wellbeingLogs.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xl">🌟</span>
+              <h2 className="text-base font-bold text-gray-900">Wellbeing</h2>
+              <span className="text-xs text-gray-400 ml-1">{wellbeingLogs.length} registros</span>
+            </div>
+
+            {/* Promedios en grilla 2×3 */}
+            <div className="grid grid-cols-2 gap-2">
+              {WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
+                const vals = wellbeingLogs.map(l => l[key]).filter(v => v != null)
+                const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
+                const colorClass = avg ? wellbeingColor(Math.round(avg), positive) : 'bg-gray-100 text-gray-400'
+                return (
+                  <div key={key} className="card p-3 flex items-center gap-3">
+                    <span className="text-xl">{emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 truncate">{label}</p>
+                    </div>
+                    <div className={`text-sm font-bold px-2.5 py-1 rounded-xl ${colorClass}`}>
+                      {avg ? avg.toFixed(1) : '—'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Gráfico de evolución wellbeing */}
+            <Card>
+              <div>
+                <h3 className="font-semibold text-gray-900">Evolución wellbeing</h3>
+                <p className="text-xs text-gray-500">Escala 1–10</p>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart
+                  data={wellbeingLogs.map(l => ({
+                    date: format(parseISO(l.date), 'd MMM', { locale: es }),
+                    ...WELLBEING_METRICS.reduce((acc, { key }) => ({ ...acc, [key]: l[key] }), {}),
+                  }))}
+                  margin={{ top: 4, right: 8, left: -24, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 10]} ticks={[2, 4, 6, 8, 10]} tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    content={({ active, payload, label: lbl }) => {
+                      if (!active || !payload?.length) return null
+                      return (
+                        <div className="bg-white shadow-lg rounded-xl p-2.5 border border-gray-100 text-xs space-y-1">
+                          <p className="font-semibold text-gray-700">{lbl}</p>
+                          {payload.map((e, i) => (
+                            <div key={i} className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full" style={{ background: e.color }} />
+                              <span className="text-gray-600">{e.name}:</span>
+                              <span className="font-bold">{e.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }}
+                  />
+                  {WELLBEING_METRICS.map(({ key, label }) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      name={label}
+                      stroke={WELLBEING_LINE_COLORS[key]}
+                      strokeWidth={2}
+                      dot={{ r: 2.5, fill: WELLBEING_LINE_COLORS[key] }}
+                      activeDot={{ r: 4 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+          </>
+        )}
+
       </div>
     </div>
   )

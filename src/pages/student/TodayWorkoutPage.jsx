@@ -15,6 +15,7 @@ import {
 } from '../../utils/planHelpers'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
+import WellbeingModal from '../../components/wellbeing/WellbeingModal'
 
 // ============================================================
 // Constantes
@@ -819,6 +820,9 @@ export default function TodayWorkoutPage() {
   const sessionStartRef = useRef(null)
   // Evitar disparar el modal varias veces en el mismo render
   const pseTriggeredRef = useRef({})
+  // Wellbeing
+  const [wellbeing, setWellbeing] = useState(null)
+  const [showWellbeing, setShowWellbeing] = useState(false)
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
@@ -857,7 +861,7 @@ export default function TodayWorkoutPage() {
       if (!assignData) { setLoading(false); return }
       setAssignment(assignData)
 
-      const [exercisesRes, blocksRes, logsRes, blockLogsRes, sessionRes] = await Promise.all([
+      const [exercisesRes, blocksRes, logsRes, blockLogsRes, sessionRes, wellbeingRes] = await Promise.all([
         supabase
           .from('plan_exercises')
           .select('*, exercise:exercises!exercise_id(*)')
@@ -887,6 +891,12 @@ export default function TodayWorkoutPage() {
           .eq('plan_id', assignData.plan_id)
           .eq('logged_date', selectedDate)
           .maybeSingle(),
+        supabase
+          .from('wellbeing_logs')
+          .select('*')
+          .eq('user_id', profile.id)
+          .eq('date', selectedDate)
+          .maybeSingle(),
       ])
 
       setPlanExercises(exercisesRes.data || [])
@@ -901,6 +911,13 @@ export default function TodayWorkoutPage() {
       setBlockLogs(blockLogsMap)
 
       setSession(sessionRes.data)
+
+      // Wellbeing: mostrar modal si es hoy y aún no se llenó
+      setWellbeing(wellbeingRes.data || null)
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      if (selectedDate === todayStr && !wellbeingRes.data) {
+        setShowWellbeing(true)
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -1181,6 +1198,19 @@ export default function TodayWorkoutPage() {
 
   return (
     <>
+      {/* Modal Wellbeing — aparece al abrir el entrenamiento si no se llenó hoy */}
+      {showWellbeing && (
+        <WellbeingModal
+          userId={profile.id}
+          date={selectedDate}
+          onSave={(data) => {
+            setWellbeing(data)
+            setShowWellbeing(false)
+          }}
+          onSkip={() => setShowWellbeing(false)}
+        />
+      )}
+
       {/* Modal PSE del día activo */}
       {showPSEForDay && (
         <DailyPSEModal
@@ -1215,6 +1245,20 @@ export default function TodayWorkoutPage() {
                   Fin: {format(new Date(session.finished_at), 'HH:mm')}
                 </span>
               )}
+            </div>
+          )}
+
+          {/* Badge wellbeing completado */}
+          {wellbeing && (
+            <div className="mt-2">
+              <button
+                onClick={() => setShowWellbeing(true)}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-colors"
+              >
+                <span className="text-xs">🌟</span>
+                <span className="text-primary-100 text-xs">Wellbeing registrado</span>
+                <span className="text-primary-300 text-xs underline">Editar</span>
+              </button>
             </div>
           )}
 

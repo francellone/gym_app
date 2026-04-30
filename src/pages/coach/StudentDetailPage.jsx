@@ -13,11 +13,13 @@ import StudentProgressTab from './student/StudentProgressTab'
 import StudentLogsTab from './student/StudentLogsTab'
 import StudentHistoryTab from './student/StudentHistoryTab'
 import StudentEvaluationsTab from './student/StudentEvaluationsTab'
+import StudentWellbeingTab from './student/StudentWellbeingTab'
 
 const TABS = [
   { id: 'info',          label: 'Info'         },
   { id: 'plans',         label: 'Planes'       },
   { id: 'evaluaciones',  label: 'Evaluaciones' },
+  { id: 'wellbeing',     label: 'Wellbeing'    },
   { id: 'progress',      label: 'Progreso'     },
   { id: 'logs',          label: 'Logs'         },
   { id: 'history',       label: 'Historial'    },
@@ -238,6 +240,10 @@ export default function StudentDetailPage() {
           allPlans={allPlans}
           onRefresh={fetchStudentData}
         />
+      )}
+
+      {activeTab === 'wellbeing' && (
+        <StudentWellbeingTab studentId={id} />
       )}
 
       {activeTab === 'progress' && (
