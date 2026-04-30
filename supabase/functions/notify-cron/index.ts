@@ -74,8 +74,18 @@ async function sendWebPush(sub: PushSubscription, notification: Notification) {
       { endpoint: sub.endpoint, keys: sub.keys },
       payload
     )
-  } catch (err) {
-    console.error(`Push failed for ${sub.endpoint}:`, err)
+  } catch (err: any) {
+    // 404/410 = endpoint expirado → limpiar de la DB para no acumular basura
+    if (err?.statusCode === 404 || err?.statusCode === 410) {
+      console.warn(`Suscripción expirada, eliminando: ${sub.endpoint}`)
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', sub.user_id)
+        .eq('endpoint', sub.endpoint)
+    } else {
+      console.error(`Push failed for ${sub.endpoint}:`, err)
+    }
   }
 }
 
