@@ -835,13 +835,8 @@ export default function TodayWorkoutPage() {
     pseTriggeredRef.current = {}
   }, [selectedDate])
 
-  // Registrar inicio de sesión al montar (solo si es hoy)
-  useEffect(() => {
-    if (isToday && assignment && !session?.started_at) {
-      sessionStartRef.current = new Date().toISOString()
-      upsertSession({ started_at: sessionStartRef.current })
-    }
-  }, [assignment, isToday])
+  // started_at ya NO se registra al abrir la página.
+  // Se registra cuando el alumno guarda su primer ejercicio o bloque (saveLog / saveBlockLog).
 
   async function fetchWorkout() {
     setLoading(true)
@@ -978,6 +973,11 @@ export default function TodayWorkoutPage() {
     const existingLog = logs[planExerciseId]
     let result
 
+    // Registrar inicio de sesión en el primer log guardado del día
+    if (isToday && assignment && !session?.started_at) {
+      await upsertSession({ started_at: new Date().toISOString() })
+    }
+
     if (existingLog) {
       result = await supabase
         .from('workout_logs')
@@ -1025,6 +1025,12 @@ export default function TodayWorkoutPage() {
       console.warn('Intento de guardar log de bloque virtual, ignorado:', planBlockId)
       return
     }
+
+    // Registrar inicio de sesión en el primer bloque guardado del día
+    if (isToday && assignment && !session?.started_at) {
+      await upsertSession({ started_at: new Date().toISOString() })
+    }
+
     const existing = blockLogs[planBlockId]
     let result
     if (existing) {
