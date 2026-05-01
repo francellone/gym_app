@@ -930,16 +930,27 @@ export default function TodayWorkoutPage() {
     try {
       const { data: existing } = await supabase
         .from('workout_sessions')
-        .select('id')
+        .select('id, started_at')
         .eq('student_id', profile.id)
         .eq('plan_id', assignment.plan_id)
         .eq('logged_date', selectedDate)
         .maybeSingle()
 
       if (existing) {
+        // started_at nunca se sobreescribe: si el registro ya existe, ese valor se preserva
+        const { started_at: _ignore, ...safeData } = data
+
+        // finished_at solo se guarda si es estrictamente posterior al started_at original
+        // Esto evita duraciones negativas por sesiones cruzadas entre días
+        if (safeData.finished_at && existing.started_at) {
+          if (new Date(safeData.finished_at) <= new Date(existing.started_at)) {
+            delete safeData.finished_at
+          }
+        }
+
         const { data: updated } = await supabase
           .from('workout_sessions')
-          .update(data)
+          .update(safeData)
           .eq('id', existing.id)
           .select()
           .single()
