@@ -245,8 +245,10 @@ export default function ProgressPage() {
     }))
 
   // 5. Duración de sesiones (en minutos)
+  // Se excluyen sesiones cargadas en otro día (logged_late) para evitar duraciones irreales
   const durationData = sessions
     .filter(s => s.started_at && s.finished_at)
+    .filter(s => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
     .map(s => {
       const mins = Math.round(
         (new Date(s.finished_at) - new Date(s.started_at)) / 60000
@@ -256,6 +258,16 @@ export default function ProgressPage() {
         Minutos: mins,
       }
     })
+    .filter(d => d.Minutos > 0)
+
+  const medianDuration = (() => {
+    if (durationData.length === 0) return null
+    const sorted = [...durationData].map(d => d.Minutos).sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    return sorted.length % 2 !== 0
+      ? sorted[mid]
+      : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+  })()
 
   // 6. Comparación sugerido vs real por ejercicio
   const compareData = logs
@@ -526,9 +538,17 @@ export default function ProgressPage() {
 
             {activeChart === 'duration' && (
               <Card>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Duración de sesiones</h3>
-                  <p className="text-xs text-gray-500">Minutos por entrenamiento</p>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Duración de sesiones</h3>
+                    <p className="text-xs text-gray-500">Minutos por entrenamiento · solo sesiones del día</p>
+                  </div>
+                  {medianDuration !== null && (
+                    <div className="flex flex-col items-end">
+                      <span className="text-2xl font-bold text-primary-600">{medianDuration}</span>
+                      <span className="text-xs text-gray-400">min · mediana</span>
+                    </div>
+                  )}
                 </div>
                 {durationData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>

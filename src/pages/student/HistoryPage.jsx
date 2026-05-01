@@ -5,9 +5,15 @@ import { format, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 
-function SessionGroup({ date, logs }) {
+function SessionGroup({ date, logs, session }) {
   const [expanded, setExpanded] = useState(false)
   const completedCount = logs.filter(l => l.completed).length
+
+  const sessionDuration = (() => {
+    if (!session?.started_at || !session?.finished_at) return null
+    const mins = Math.round((new Date(session.finished_at) - new Date(session.started_at)) / 60000)
+    return mins > 0 ? mins : null
+  })()
 
   return (
     <div className="card overflow-hidden">
@@ -19,8 +25,17 @@ function SessionGroup({ date, logs }) {
           <p className="font-semibold text-sm text-gray-900 capitalize">
             {format(parseISO(date), "EEEE d 'de' MMMM", { locale: es })}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {completedCount}/{logs.length} ejercicios completados
+          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
+            <span>{completedCount}/{logs.length} ejercicios completados</span>
+            {sessionDuration !== null && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="inline-flex items-center gap-0.5 text-primary-500 font-medium">
+                  <Clock size={10} />
+                  {sessionDuration} min
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -45,6 +60,15 @@ function SessionGroup({ date, logs }) {
 
       {expanded && (
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+          {session?.started_at && session?.finished_at && sessionDuration !== null && (
+            <div className="flex items-center gap-3 text-xs text-gray-400 pb-2 border-b border-gray-50">
+              <span className="flex items-center gap-1">
+                <Clock size={11} />
+                {format(new Date(session.started_at), 'HH:mm')} → {format(new Date(session.finished_at), 'HH:mm')}
+              </span>
+              <span className="font-medium text-primary-500">{sessionDuration} min</span>
+            </div>
+          )}
           {logs.map(log => (
             <div key={log.id} className="flex items-start gap-2.5">
               {log.completed
@@ -83,6 +107,7 @@ function SessionGroup({ date, logs }) {
 export default function HistoryPage() {
   const { profile } = useAuth()
   const [logs, setLogs] = useState([])
+  const [sessions, setSessions] = useState({}) // keyed by logged_date
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 20
@@ -107,7 +132,29 @@ export default function HistoryPage() {
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
     if (!error && data) {
-      setLogs(prev => page === 0 ? data : [...prev, ...data])
+      const newLogs = page === 0 ? data : [...logs, ...data]
+      setLogs(newLogs)
+
+      // Fetch workout_sessions for the dates visible in this page
+      const dates = [...new Set(data.map(l => l.logged_date))]
+      if (dates.length > 0) {
+        const { data: sessData } = await supabase
+          .from('workout_sessions')
+          .select('logged_date, started_at, finished_at, plan_id')
+          .eq('student_id', profile.id)
+          .in('logged_date', dates)
+
+        if (sessData) {
+          // Index by date; if multiple sessions per date, prefer the one with finished_at
+          const sessMap = { ...sessions }
+          sessData.forEach(s => {
+            if (!sessMap[s.logged_date] || s.finished_at) {
+              sessMap[s.logged_date] = s
+            }
+          })
+          setSessions(sessMap)
+        }
+      }
     }
     setLoading(false)
   }
@@ -142,7 +189,12 @@ export default function HistoryPage() {
         ) : (
           <>
             {Object.entries(groupedLogs).map(([date, dateLogs]) => (
-              <SessionGroup key={date} date={date} logs={dateLogs} />
+              <SessionGroup
+                key={date}
+                date={date}
+                logs={dateLogs}
+                session={sessions[date] || null}
+              />
             ))}
 
             {logs.length >= (page + 1) * PAGE_SIZE && (

@@ -1240,10 +1240,15 @@ export default function TodayWorkoutPage() {
                 Inicio: {format(new Date(session.started_at), 'HH:mm')}
               </span>
               {session.finished_at && (
-                <span className="flex items-center gap-1">
-                  <Clock size={12} />
-                  Fin: {format(new Date(session.finished_at), 'HH:mm')}
-                </span>
+                <>
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} />
+                    Fin: {format(new Date(session.finished_at), 'HH:mm')}
+                  </span>
+                  <span className="flex items-center gap-1 bg-white/15 rounded-full px-2 py-0.5 font-semibold text-white">
+                    {Math.round((new Date(session.finished_at) - new Date(session.started_at)) / 60000)} min
+                  </span>
+                </>
               )}
             </div>
           )}
