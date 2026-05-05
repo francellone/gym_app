@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  CheckCircle2, Circle, ChevronDown, ChevronUp,
+  CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronRight,
   Dumbbell, PlayCircle, Info,
   Calendar, AlertTriangle, Clock, Lock, Trash2
 } from 'lucide-react'
@@ -16,7 +16,7 @@ import {
 } from '../../utils/planHelpers'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
-import WellbeingModal from '../../components/wellbeing/WellbeingModal'
+import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
 
 // ============================================================
 // Constantes
@@ -816,6 +816,95 @@ function StrengthBlockRunCard({
 }
 
 // ============================================================
+// Card de Wellbeing diario (siempre visible, opcional)
+// ============================================================
+function WellbeingCard({ wellbeing, onOpen, isToday }) {
+  const completed = !!wellbeing
+
+  // Promedio "ponderado": los positivos cuentan tal cual; los negativos invertidos
+  // (10 - val) para que un único score 1–10 represente "mejor estado" cuando es alto.
+  let avgScore = null
+  if (completed) {
+    const scores = []
+    for (const m of WELLBEING_METRICS) {
+      const v = wellbeing[m.key]
+      if (typeof v === 'number') {
+        scores.push(m.positive ? v : 11 - v)
+      }
+    }
+    if (scores.length > 0) {
+      avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-[0.99] ${
+        completed
+          ? 'border-amber-200 bg-amber-50/60 hover:bg-amber-50'
+          : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+          completed ? 'bg-amber-100' : 'bg-amber-200'
+        }`}>
+          <span className="text-xl">🌟</span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm text-gray-900">Wellbeing diario</p>
+            {completed ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">
+                ✓ Completado
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 font-bold">
+                Pendiente
+              </span>
+            )}
+          </div>
+
+          {completed ? (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {WELLBEING_METRICS.map(m => {
+                const val = wellbeing[m.key]
+                if (val == null) return null
+                return (
+                  <span
+                    key={m.key}
+                    title={`${m.label}: ${val}/10`}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${wellbeingColor(val, m.positive)}`}
+                  >
+                    {m.emoji} {val}
+                  </span>
+                )
+              })}
+              {avgScore !== null && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 ml-1">
+                  promedio {avgScore}/10
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700/90 mt-0.5">
+              {isToday
+                ? 'Tomate 30 segundos para contar cómo llegás hoy'
+                : 'Registrá cómo te sentías ese día (opcional)'}
+            </p>
+          )}
+        </div>
+
+        <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
+      </div>
+    </button>
+  )
+}
+
+// ============================================================
 // Render de un bloque (delegador al tipo)
 // ============================================================
 function BlockRenderer({
@@ -1381,20 +1470,6 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Badge wellbeing completado */}
-          {wellbeing && (
-            <div className="mt-2">
-              <button
-                onClick={() => setShowWellbeing(true)}
-                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-colors"
-              >
-                <span className="text-xs">🌟</span>
-                <span className="text-primary-100 text-xs">Wellbeing registrado</span>
-                <span className="text-primary-300 text-xs underline">Editar</span>
-              </button>
-            </div>
-          )}
-
           {/* PSE por día registrado */}
           {activeDays.some(id => borgPerDay[id] !== undefined) && (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -1469,6 +1544,13 @@ export default function TodayWorkoutPage() {
               })}
             </div>
           )}
+
+          {/* Wellbeing diario — siempre visible como módulo */}
+          <WellbeingCard
+            wellbeing={wellbeing}
+            isToday={isToday}
+            onOpen={() => setShowWellbeing(true)}
+          />
 
           {/* Activación */}
           {activationBlocks.length > 0 && (
