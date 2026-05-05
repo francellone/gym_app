@@ -4,6 +4,14 @@ import {
   BLOCK_LETTERS, BLOCK_NUMBERS, PSE_OPTIONS,
 } from '../../utils/planHelpers'
 
+// Devuelve true si el array tiene más de un valor único no vacío
+// → indica que el ejercicio fue cargado en modo "diferencial por serie".
+function hasVariation(arr) {
+  if (!arr || arr.length <= 1) return false
+  const unique = new Set(arr.filter(v => v !== '' && v !== null && v !== undefined))
+  return unique.size > 1
+}
+
 /**
  * Fila de ejercicio dentro del editor de plan.
  * Props:
@@ -23,6 +31,13 @@ export default function PlanExerciseRow({
 }) {
   const [tagFilter, setTagFilter] = useState('')
   const setsCount = parseInt(ex.suggested_sets) || 0
+
+  // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
+  // Por defecto OFF (simple: 1 valor para todas las series).
+  // Si al cargar el ejercicio hay variación entre series, lo activamos.
+  const [differential, setDifferential] = useState(() =>
+    hasVariation(ex.suggested_reps_array) || hasVariation(ex.suggested_weights_array)
+  )
 
   // Filtrar ejercicios según tag seleccionado
   const filteredExercises = tagFilter
@@ -75,16 +90,68 @@ export default function PlanExerciseRow({
     }
   }
 
+  // Modo diferencial: el coach edita una serie específica.
+  // Caso especial: al editar la serie 1, autocompletamos las series posteriores
+  // que estén vacías. Si una serie ya tiene un valor, no se pisa.
   function handleRepChange(serieIdx, val) {
-    const newReps = [...(ex.suggested_reps_array || [])]
+    const current = ex.suggested_reps_array || []
+    const newReps = [...current]
     newReps[serieIdx] = val
+    if (serieIdx === 0) {
+      for (let i = 1; i < newReps.length; i++) {
+        if (newReps[i] === '' || newReps[i] == null) newReps[i] = val
+      }
+    }
     onUpdate(index, 'suggested_reps_array', newReps)
   }
 
   function handleWeightChange(serieIdx, val) {
-    const newWeights = [...(ex.suggested_weights_array || [])]
+    const current = ex.suggested_weights_array || []
+    const newWeights = [...current]
     newWeights[serieIdx] = val
+    if (serieIdx === 0) {
+      for (let i = 1; i < newWeights.length; i++) {
+        if (newWeights[i] === '' || newWeights[i] == null) newWeights[i] = val
+      }
+    }
     onUpdate(index, 'suggested_weights_array', newWeights)
+  }
+
+  // Modo simple: un solo valor de reps que se replica a todas las series.
+  function handleSimpleRepChange(val) {
+    const len = Math.max(1, setsCount)
+    const newReps = Array(len).fill(val)
+    onUpdate(index, 'suggested_reps_array', newReps)
+  }
+
+  function handleSimpleWeightChange(val) {
+    const len = Math.max(1, setsCount)
+    const newWeights = Array(len).fill(val)
+    onUpdate(index, 'suggested_weights_array', newWeights)
+  }
+
+  // Toggle del modo diferencial.
+  // - Activar: dejamos los arrays como están (si venían iguales, las series
+  //   muestran ese mismo valor; si estaban vacías, quedan vacías y se autocompletan
+  //   cuando el coach edite la serie 1).
+  // - Desactivar: pisamos todas las series con el valor de la serie 1.
+  function handleToggleDifferential(checked) {
+    setDifferential(checked)
+    if (!checked) {
+      const len = Math.max(1, setsCount)
+      const firstRep = (ex.suggested_reps_array || [])[0] || ''
+      const firstWeight = (ex.suggested_weights_array || [])[0] || ''
+      const patches = {
+        suggested_reps_array: Array(len).fill(firstRep),
+        suggested_weights_array: Array(len).fill(firstWeight),
+      }
+      if (onUpdateMulti) {
+        onUpdateMulti(index, patches)
+      } else {
+        onUpdate(index, 'suggested_reps_array', patches.suggested_reps_array)
+        onUpdate(index, 'suggested_weights_array', patches.suggested_weights_array)
+      }
+    }
   }
 
   // Tag del ejercicio seleccionado (para mostrarlo)
@@ -220,43 +287,91 @@ export default function PlanExerciseRow({
             </div>
           </div>
 
-          {/* Reps + Peso por serie */}
+          {/* Reps + Peso (modo simple o diferencial) */}
           {setsCount > 0 && (
             <div>
-              <label className="text-xs text-gray-500 mb-2 block font-medium">
-                Repeticiones y peso por serie
-              </label>
-              {/* Encabezados de columna */}
-              <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
-                <div />
-                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                  Reps
-                </div>
-                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                  Peso (kg)
-                </div>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <label className="text-xs text-gray-500 font-medium">
+                  {differential ? 'Repeticiones y peso por serie' : 'Repeticiones y peso'}
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-blue-600"
+                    checked={differential}
+                    onChange={e => handleToggleDifferential(e.target.checked)}
+                  />
+                  Diferencial por serie
+                </label>
               </div>
-              {/* Fila por serie */}
-              {Array.from({ length: setsCount }, (_, i) => (
-                <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
-                  <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
-                  <input
-                    className="input text-sm text-center"
-                    placeholder="10"
-                    value={(ex.suggested_reps_array || [])[i] || ''}
-                    onChange={e => handleRepChange(i, e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    className="input text-sm text-center"
-                    placeholder="kg"
-                    value={(ex.suggested_weights_array || [])[i] || ''}
-                    onChange={e => handleWeightChange(i, e.target.value)}
-                  />
+
+              {!differential ? (
+                /* Modo simple: un solo input de reps + peso para todas las series */
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
+                      Reps
+                    </div>
+                    <input
+                      className="input text-sm text-center"
+                      placeholder="10"
+                      value={(ex.suggested_reps_array || [])[0] || ''}
+                      onChange={e => handleSimpleRepChange(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
+                      Peso (kg)
+                    </div>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center"
+                      placeholder="kg"
+                      value={(ex.suggested_weights_array || [])[0] || ''}
+                      onChange={e => handleSimpleWeightChange(e.target.value)}
+                    />
+                  </div>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {/* Encabezados de columna */}
+                  <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
+                    <div />
+                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                      Reps
+                    </div>
+                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                      Peso (kg)
+                    </div>
+                  </div>
+                  {/* Fila por serie */}
+                  {Array.from({ length: setsCount }, (_, i) => (
+                    <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
+                      <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
+                      <input
+                        className="input text-sm text-center"
+                        placeholder="10"
+                        value={(ex.suggested_reps_array || [])[i] || ''}
+                        onChange={e => handleRepChange(i, e.target.value)}
+                      />
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        className="input text-sm text-center"
+                        placeholder="kg"
+                        value={(ex.suggested_weights_array || [])[i] || ''}
+                        onChange={e => handleWeightChange(i, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-gray-400 mt-1 px-0.5">
+                    El valor de la serie 1 autocompleta las series vacías.
+                  </p>
+                </>
+              )}
             </div>
           )}
 
