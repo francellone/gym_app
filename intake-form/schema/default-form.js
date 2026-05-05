@@ -569,12 +569,60 @@ export const DEFAULT_TEMPLATES = [
 /**
  * Helper: construye la config completa de un formulario.
  * Siempre incluye intro + módulos habilitados + consentimiento al final.
+ *
+ * Para formularios de seguimiento usar buildFollowUpFormConfig() —
+ * NO incluye CONSENT_MODULE (es solo para alta).
  */
 export function buildFormConfig({ intro = DEFAULT_INTRO, modules = DEFAULT_MODULES } = {}) {
   return {
     intro,
     modules: [...modules].sort((a, b) => a.order - b.order),
     consent: CONSENT_MODULE,
+    version: 1,
+    created_at: new Date().toISOString(),
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// FOLLOW-UP: esquema base para formularios libres
+// (check-ins de mitad de plan, feedback final, etc.)
+// ─────────────────────────────────────────────────────────
+export const FOLLOW_UP_INTRO = {
+  type: 'intro',
+  editable: true,
+  rich_text: true,
+  content: `Hola 👋
+
+Tomate un momento para responder estas preguntas. Tu feedback me ayuda a ajustar el plan a vos.
+
+¡Gracias!`,
+}
+
+export const FOLLOW_UP_BLANK_MODULE = {
+  id: 'modulo_seguimiento_1',
+  title: 'Preguntas',
+  emoji: '📝',
+  enabled: true,
+  editable: true,
+  removable: false, // el primero siempre queda
+  order: 1,
+  questions: [],
+  isCustom: true,
+}
+
+/**
+ * Helper para construir un formulario de seguimiento (sin consentimiento).
+ * Si no se pasa nada, devuelve un formulario vacío con un módulo en blanco
+ * listo para que el coach agregue preguntas.
+ */
+export function buildFollowUpFormConfig({ intro, modules } = {}) {
+  return {
+    intro: intro || FOLLOW_UP_INTRO,
+    modules: (modules && modules.length > 0
+      ? [...modules].sort((a, b) => a.order - b.order)
+      : [FOLLOW_UP_BLANK_MODULE]),
+    // sin consent — los formularios de seguimiento no requieren consentimiento
+    kind: 'follow_up',
     version: 1,
     created_at: new Date().toISOString(),
   }

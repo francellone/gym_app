@@ -27,7 +27,11 @@ import HistoryPage from './pages/student/HistoryPage'
 import ProfilePage from './pages/student/ProfilePage'
 import EvalWorkoutPage from './pages/student/EvalWorkoutPage'
 import FormBuilderPage from './pages/coach/FormBuilderPage'
+import FollowUpFormsPage from './pages/coach/FollowUpFormsPage'
+import FollowUpFormBuilderPage from './pages/coach/FollowUpFormBuilderPage'
 import IntakeFormPage from './pages/student/IntakeFormPage'
+import FormsListPage from './pages/student/FormsListPage'
+import FollowUpFormPage from './pages/student/FollowUpFormPage'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, profile, loading } = useAuth()
@@ -90,6 +94,8 @@ function AppRoutes() {
         <Route path="evaluations" element={<EvaluationsPage />} />
         <Route path="evaluations/:id" element={<EvaluationDetailPage />} />
         <Route path="form-builder" element={<FormBuilderPage />} />
+        <Route path="follow-up-forms" element={<FollowUpFormsPage />} />
+        <Route path="follow-up-forms/:id" element={<FollowUpFormBuilderPage />} />
       </Route>
 
       {/* Student routes */}
@@ -104,12 +110,20 @@ function AppRoutes() {
         <Route path="progress" element={<ProgressPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="forms" element={<FormsListPage />} />
       </Route>
 
       {/* Intake form — fuera del StudentLayout para evitar conflicto de navbars */}
       <Route path="/student/intake" element={
         <PrivateRoute requiredRole="student">
           <IntakeFormPage />
+        </PrivateRoute>
+      } />
+
+      {/* Follow-up form individual */}
+      <Route path="/student/form/:assignmentId" element={
+        <PrivateRoute requiredRole="student">
+          <FollowUpFormPage />
         </PrivateRoute>
       } />
 

@@ -23,7 +23,15 @@ import ModuleCard from './ModuleCard'
 import TemplateManager from './TemplateManager'
 import IntroEditor from './IntroEditor'
 import FormRenderer from '../student/FormRenderer'
-import { buildFormConfig, DEFAULT_MODULES, DEFAULT_INTRO, CONSENT_MODULE } from '../../schema/default-form.js'
+import {
+  buildFormConfig,
+  buildFollowUpFormConfig,
+  DEFAULT_MODULES,
+  DEFAULT_INTRO,
+  CONSENT_MODULE,
+  FOLLOW_UP_INTRO,
+  FOLLOW_UP_BLANK_MODULE,
+} from '../../schema/default-form.js'
 
 export default function FormBuilder({
   coachId,
@@ -31,9 +39,16 @@ export default function FormBuilder({
   templates = [],
   onSave,
   onSendToStudent,
+  formKind = 'intake', // 'intake' | 'follow_up'
 }) {
-  const [intro, setIntro] = useState(initialConfig?.intro || DEFAULT_INTRO)
-  const [modules, setModules] = useState(initialConfig?.modules || DEFAULT_MODULES)
+  const isFollowUp = formKind === 'follow_up'
+
+  // Para follow_up usamos defaults distintos (intro genérico + módulo en blanco, sin consent)
+  const fallbackIntro = isFollowUp ? FOLLOW_UP_INTRO : DEFAULT_INTRO
+  const fallbackModules = isFollowUp ? [FOLLOW_UP_BLANK_MODULE] : DEFAULT_MODULES
+
+  const [intro, setIntro] = useState(initialConfig?.intro || fallbackIntro)
+  const [modules, setModules] = useState(initialConfig?.modules || fallbackModules)
   const [saving, setSaving] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [activeTab, setActiveTab] = useState('form') // 'form' | 'preview'
@@ -98,7 +113,9 @@ export default function FormBuilder({
   const handleSave = async () => {
     setSaving(true)
     try {
-      const config = buildFormConfig({ intro, modules })
+      const config = isFollowUp
+        ? buildFollowUpFormConfig({ intro, modules })
+        : buildFormConfig({ intro, modules })
       await onSave?.(config)
     } finally {
       setSaving(false)
@@ -124,9 +141,13 @@ export default function FormBuilder({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Constructor de Formulario</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isFollowUp ? 'Formulario de seguimiento' : 'Constructor de Formulario'}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Personalizá el formulario que recibirán tus estudiantes al ingresar
+            {isFollowUp
+              ? 'Armá un formulario libre para mandarles a tus alumnos durante o al cierre de un plan'
+              : 'Personalizá el formulario que recibirán tus estudiantes al ingresar'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -218,21 +239,23 @@ export default function FormBuilder({
             ))}
           </div>
 
-          {/* Consentimiento (fijo, solo informativo) */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">{CONSENT_MODULE.emoji}</span>
-              <div>
-                <p className="font-semibold text-amber-800 text-sm">
-                  {CONSENT_MODULE.title} (obligatorio – no editable)
-                </p>
-                <p className="text-xs text-amber-600 mt-1">
-                  Este módulo siempre aparecerá al final y no puede eliminarse. Incluye el consentimiento informado del estudiante.
-                </p>
+          {/* Consentimiento (fijo, solo informativo) — solo en formularios de alta */}
+          {!isFollowUp && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">{CONSENT_MODULE.emoji}</span>
+                <div>
+                  <p className="font-semibold text-amber-800 text-sm">
+                    {CONSENT_MODULE.title} (obligatorio – no editable)
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Este módulo siempre aparecerá al final y no puede eliminarse. Incluye el consentimiento informado del estudiante.
+                  </p>
+                </div>
+                <span className="ml-auto text-amber-400">🔒</span>
               </div>
-              <span className="ml-auto text-amber-400">🔒</span>
             </div>
-          </div>
+          )}
 
           {/* Botón de guardar inferior */}
           <div className="flex justify-end pt-2">
@@ -274,7 +297,12 @@ export default function FormBuilder({
           </button>
 
           <FormRenderer
-            assignment={{ form_snapshot: buildFormConfig({ intro, modules }) }}
+            assignment={{
+              form_snapshot: isFollowUp
+                ? buildFollowUpFormConfig({ intro, modules })
+                : buildFormConfig({ intro, modules }),
+              form_kind: formKind,
+            }}
             studentId={null}
             onSubmit={async () => {}}
             onSaveDraft={null}
@@ -286,10 +314,17 @@ export default function FormBuilder({
       {showTemplates && (
         <TemplateManager
           templates={templates}
-          currentConfig={buildFormConfig({ intro, modules })}
+          currentConfig={isFollowUp
+            ? buildFollowUpFormConfig({ intro, modules })
+            : buildFormConfig({ intro, modules })}
           onLoad={handleLoadTemplate}
           onClose={() => setShowTemplates(false)}
-          onSaveNew={(name) => onSave?.({ name, config: buildFormConfig({ intro, modules }) })}
+          onSaveNew={(name) => onSave?.({
+            name,
+            config: isFollowUp
+              ? buildFollowUpFormConfig({ intro, modules })
+              : buildFormConfig({ intro, modules }),
+          })}
         />
       )}
     </div>

@@ -14,6 +14,7 @@ export default function StudentDashboard() {
   const [streak, setStreak] = useState(0)
   const [loading, setLoading] = useState(true)
   const [pendingIntake, setPendingIntake] = useState(false)
+  const [pendingFollowUps, setPendingFollowUps] = useState([])
 
   useEffect(() => {
     if (profile?.id) fetchData()
@@ -24,7 +25,10 @@ export default function StudentDashboard() {
       const weekAgo = format(subDays(new Date(), 6), 'yyyy-MM-dd')
       const today = format(new Date(), 'yyyy-MM-dd')
 
-      const [assignmentsRes, logsRes, intakeRes] = await Promise.all([
+      // Liberar formularios programados que ya vencieron (idempotente, no bloquea)
+      try { await supabase.rpc('release_due_forms') } catch {}
+
+      const [assignmentsRes, logsRes, formsRes] = await Promise.all([
         supabase
           .from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
@@ -39,13 +43,14 @@ export default function StudentDashboard() {
           .lte('logged_date', today),
         supabase
           .from('intake_form_assignments')
-          .select('id')
+          .select('id, form_kind, form_snapshot')
           .eq('student_id', profile.id)
           .in('status', ['pending', 'in_progress'])
-          .limit(1)
       ])
 
-      setPendingIntake((intakeRes.data?.length ?? 0) > 0)
+      const allForms = formsRes.data || []
+      setPendingIntake(allForms.some(f => f.form_kind === 'intake'))
+      setPendingFollowUps(allForms.filter(f => f.form_kind === 'follow_up'))
 
       setAssignments(assignmentsRes.data || [])
 
@@ -83,7 +88,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Banner formulario pendiente */}
+      {/* Banner formulario de alta pendiente (prioritario) */}
       {pendingIntake && (
         <Link
           to="/student/intake"
@@ -96,6 +101,33 @@ export default function StudentDashboard() {
               <p className="text-xs text-amber-600">Tu coach te envió el formulario de ingreso. Completalo para empezar.</p>
             </div>
             <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
+          </div>
+        </Link>
+      )}
+
+      {/* Banner formularios de seguimiento pendientes */}
+      {!pendingIntake && pendingFollowUps.length > 0 && (
+        <Link
+          to={pendingFollowUps.length === 1
+            ? `/student/form/${pendingFollowUps[0].id}`
+            : '/student/forms'}
+          className="block mx-4 mt-4 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-3 hover:bg-purple-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📝</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-purple-800">
+                {pendingFollowUps.length === 1
+                  ? 'Tu coach te envió un formulario'
+                  : `Tenés ${pendingFollowUps.length} formularios pendientes`}
+              </p>
+              <p className="text-xs text-purple-600">
+                {pendingFollowUps.length === 1
+                  ? 'Tomate un minuto para responderlo.'
+                  : 'Respondelos cuando tengas un momento.'}
+              </p>
+            </div>
+            <ChevronRight size={18} className="text-purple-400 flex-shrink-0" />
           </div>
         </Link>
       )}

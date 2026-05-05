@@ -33,6 +33,7 @@ export default function FormRenderer({
   onFinish,   // fn() opcional → botón "Ir al inicio" en pantalla de éxito
 }) {
   const config = assignment?.form_snapshot
+  const isFollowUp = assignment?.form_kind === 'follow_up' || config?.kind === 'follow_up'
 
   const allModules = useMemo(() => {
     if (!config) return []
@@ -220,8 +221,10 @@ export default function FormRenderer({
         {isIntro && (
           <div className="py-8 space-y-6">
             <div className="text-center space-y-2">
-              <div className="text-5xl">📋</div>
-              <h1 className="text-2xl font-bold text-gray-900">Formulario de ingreso</h1>
+              <div className="text-5xl">{isFollowUp ? '📝' : '📋'}</div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isFollowUp ? (assignment?.template_name || 'Formulario de seguimiento') : 'Formulario de ingreso'}
+              </h1>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="prose prose-sm text-gray-700 whitespace-pre-wrap leading-relaxed">

@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, Dumbbell,
-  LogOut, Menu, X, ChevronRight, BarChart2, FileText
+  LogOut, Menu, X, ChevronRight, BarChart2, FileText, MessageSquare
 } from 'lucide-react'
 import { useState } from 'react'
 import NotificationBell from '../notifications/NotificationBell'
@@ -13,7 +13,8 @@ const navItems = [
   { to: '/coach/plans', label: 'Planes', icon: ClipboardList },
   { to: '/coach/exercises', label: 'Ejercicios', icon: Dumbbell },
   { to: '/coach/evaluations', label: 'Evaluaciones', icon: BarChart2 },
-  { to: '/coach/form-builder', label: 'Formulario', icon: FileText },
+  { to: '/coach/form-builder', label: 'Formulario alta', icon: FileText },
+  { to: '/coach/follow-up-forms', label: 'Seguimiento', icon: MessageSquare },
 ]
 
 export default function CoachLayout() {
