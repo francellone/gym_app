@@ -92,15 +92,22 @@ export default function PlanExerciseRow({
 
   // Modo diferencial: el coach edita una serie específica.
   // Caso especial: al editar la serie 1, autocompletamos las series posteriores
-  // que estén vacías. Si una serie ya tiene un valor, no se pisa.
+  // que estén "sincronizadas" con ella — es decir, vacías o con el valor previo
+  // de la serie 1. Series ya modificadas a mano no se pisan.
+  // (Esto soporta el tipeo carácter por carácter: '1' → '10' → '100'.)
   function handleRepChange(serieIdx, val) {
     const current = ex.suggested_reps_array || []
     const newReps = [...current]
-    newReps[serieIdx] = val
     if (serieIdx === 0) {
+      const prevFirst = current[0]
+      newReps[0] = val
       for (let i = 1; i < newReps.length; i++) {
-        if (newReps[i] === '' || newReps[i] == null) newReps[i] = val
+        const isEmpty = newReps[i] === '' || newReps[i] == null
+        const matchesPrev = newReps[i] === prevFirst
+        if (isEmpty || matchesPrev) newReps[i] = val
       }
+    } else {
+      newReps[serieIdx] = val
     }
     onUpdate(index, 'suggested_reps_array', newReps)
   }
@@ -108,11 +115,16 @@ export default function PlanExerciseRow({
   function handleWeightChange(serieIdx, val) {
     const current = ex.suggested_weights_array || []
     const newWeights = [...current]
-    newWeights[serieIdx] = val
     if (serieIdx === 0) {
+      const prevFirst = current[0]
+      newWeights[0] = val
       for (let i = 1; i < newWeights.length; i++) {
-        if (newWeights[i] === '' || newWeights[i] == null) newWeights[i] = val
+        const isEmpty = newWeights[i] === '' || newWeights[i] == null
+        const matchesPrev = newWeights[i] === prevFirst
+        if (isEmpty || matchesPrev) newWeights[i] = val
       }
+    } else {
+      newWeights[serieIdx] = val
     }
     onUpdate(index, 'suggested_weights_array', newWeights)
   }
