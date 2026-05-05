@@ -526,6 +526,70 @@ export function uiBlockToDB(block, planId, index) {
 }
 
 // ============================================================
+// Día sugerido para el alumno
+// ============================================================
+
+/**
+ * Devuelve el día sugerido para entrenar hoy.
+ *
+ * Reglas:
+ *   1. Si la fecha más reciente con logs es HOY → ese mismo día (sigue cargando).
+ *   2. Si la fecha más reciente es anterior a hoy → el día siguiente al último entrenado (cíclico).
+ *   3. Si nunca entrenó → primer día disponible (típicamente day_a).
+ *
+ * @param {string[]} activeDays      Array de section ids con contenido (['day_a', 'day_b', ...]).
+ * @param {Array<{logged_date: string, plan_exercise_id: string}>} logs  Logs del plan (recientes).
+ * @param {Object<string,string>} exSection  Map plan_exercise_id → section ('day_a', 'activation', etc.).
+ * @param {string} today             Fecha de hoy en formato 'yyyy-MM-dd'.
+ * @returns {string|null}            ID del día sugerido (ej: 'day_b') o null si no hay días activos.
+ */
+export function suggestNextDay(activeDays, logs, exSection, today) {
+  if (!activeDays || activeDays.length === 0) return null
+  if (!logs || logs.length === 0) return activeDays[0]
+
+  // Fechas con logs, ordenadas de más reciente a más vieja.
+  const datesDesc = [...new Set(logs.map(l => l.logged_date))]
+    .sort((a, b) => b.localeCompare(a))
+
+  // Para una fecha dada, devuelve el day_* con más logs (excluye 'activation').
+  function dayOfDate(date) {
+    const counts = {}
+    for (const l of logs) {
+      if (l.logged_date !== date) continue
+      const sec = exSection[l.plan_exercise_id]
+      if (sec && sec.startsWith('day_') && activeDays.includes(sec)) {
+        counts[sec] = (counts[sec] || 0) + 1
+      }
+    }
+    let best = null, bestCount = 0
+    for (const [sec, c] of Object.entries(counts)) {
+      if (c > bestCount) { best = sec; bestCount = c }
+    }
+    return best
+  }
+
+  // 1. Si hay logs de hoy → quedarse en ese día.
+  if (datesDesc[0] === today) {
+    const todayDay = dayOfDate(today)
+    if (todayDay) return todayDay
+  }
+
+  // 2. Buscar la última fecha < hoy con un day_* identificable.
+  for (const d of datesDesc) {
+    if (d >= today) continue
+    const day = dayOfDate(d)
+    if (day) {
+      const idx = activeDays.indexOf(day)
+      if (idx === -1) return activeDays[0]
+      return activeDays[(idx + 1) % activeDays.length]
+    }
+  }
+
+  // 3. Fallback.
+  return activeDays[0]
+}
+
+// ============================================================
 // Retrocompat: agrupar plan_exercises "sueltos" (sin block_id)
 // en un bloque strength virtual por sección.
 // ============================================================

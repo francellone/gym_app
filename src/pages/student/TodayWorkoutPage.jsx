@@ -12,6 +12,7 @@ import {
   borgColor, parseReps, serializeReps, displayReps,
   DAY_SECTION_IDS, SECTION_LABELS,
   groupExercisesIntoBlocks, blockDisplayTitle,
+  suggestNextDay,
 } from '../../utils/planHelpers'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
@@ -716,6 +717,105 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
 }
 
 // ============================================================
+// Bloque STRENGTH colapsable (wrapper con header rico)
+// ============================================================
+function StrengthBlockRunCard({
+  block, strengthIndexInSection, logs, saveLog, deleteLog,
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const exercises = (block.plan_exercises || [])
+    .slice()
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+
+  const total = exercises.length
+  const done = exercises.filter(ex => logs[ex.id]?.completed).length
+  const completed = total > 0 && done === total
+
+  // Título del bloque:
+  //   - Si el coach le puso título, ese.
+  //   - Si hay varios strength en la sección, "Fuerza A/B/C…" (letras).
+  //   - Si es el único strength de la sección, simplemente "Fuerza".
+  // (El nombre de la sección "Activación" / "Principal Día A" lo da el h2 de arriba.)
+  function titleFor() {
+    if (block.title) return block.title
+    if (strengthIndexInSection > 0) {
+      const letter = ['A','B','C','D','E','F','G','H'][strengthIndexInSection] || (strengthIndexInSection + 1)
+      return `Fuerza ${letter}`
+    }
+    return 'Fuerza'
+  }
+
+  const title = titleFor()
+
+  return (
+    <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
+      completed ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-white'
+    }`}>
+      {/* Header colapsable */}
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center gap-3 p-4 text-left"
+      >
+        <div className="flex-shrink-0">
+          {completed
+            ? <CheckCircle2 size={24} className="text-green-500" />
+            : <Circle size={24} className="text-gray-300" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base">💪</span>
+            <p className={`font-semibold text-sm truncate ${completed ? 'text-green-800' : 'text-gray-900'}`}>
+              {title}
+            </p>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {done} / {total} hechos
+            {total > 0 && (
+              <span className="ml-2 text-gray-400">· {Math.round((done / total) * 100)}%</span>
+            )}
+          </p>
+        </div>
+        {/* Mini progress bar */}
+        {total > 0 && !expanded && (
+          <div className="hidden sm:block w-14 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+            <div
+              className={`h-full ${completed ? 'bg-green-500' : 'bg-primary-500'} transition-all`}
+              style={{ width: `${(done / total) * 100}%` }}
+            />
+          </div>
+        )}
+        {expanded
+          ? <ChevronUp size={18} className="text-gray-400 flex-shrink-0" />
+          : <ChevronDown size={18} className="text-gray-400 flex-shrink-0" />}
+      </button>
+
+      {/* Body: lista de ejercicios */}
+      {expanded && (
+        <div className="border-t border-gray-100 p-3 space-y-2 bg-gray-50/50">
+          {exercises.length === 0 && (
+            <p className="text-xs text-gray-400 italic text-center py-3">
+              Este bloque todavía no tiene ejercicios.
+            </p>
+          )}
+          {exercises.map(ex => (
+            <ExerciseCard
+              key={ex.id}
+              planEx={ex}
+              log={logs[ex.id]}
+              onSaveLog={saveLog}
+              onDeleteLog={deleteLog}
+              suggestedSets={ex.suggested_sets}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // Render de un bloque (delegador al tipo)
 // ============================================================
 function BlockRenderer({
@@ -751,34 +851,15 @@ function BlockRenderer({
     )
   }
 
-  // Strength: lista plana de ExerciseCard.
-  // Si hay más de un strength block en la misma sección, mostrar subtítulo.
-  const exercises = (block.plan_exercises || [])
-    .slice()
-    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-
-  // Mostrar subtítulo sólo si el coach puso título o hay varios strength en la sección
-  const hasExplicitTitle = !!block.title
-  const showSubtitle = hasExplicitTitle || strengthIndexInSection > 0
-
+  // Strength: card colapsable con lista de ExerciseCard adentro.
   return (
-    <div className="space-y-2">
-      {showSubtitle && (
-        <p className="text-xs font-semibold text-gray-500 px-1">
-          {block.title || `Fuerza ${strengthIndexInSection + 1}`}
-        </p>
-      )}
-      {exercises.map(ex => (
-        <ExerciseCard
-          key={ex.id}
-          planEx={ex}
-          log={logs[ex.id]}
-          onSaveLog={saveLog}
-          onDeleteLog={deleteLog}
-          suggestedSets={ex.suggested_sets}
-        />
-      ))}
-    </div>
+    <StrengthBlockRunCard
+      block={block}
+      strengthIndexInSection={strengthIndexInSection}
+      logs={logs}
+      saveLog={saveLog}
+      deleteLog={deleteLog}
+    />
   )
 }
 
@@ -813,13 +894,16 @@ export default function TodayWorkoutPage() {
   const [logs, setLogs] = useState({})
   const [blockLogs, setBlockLogs] = useState({})
   const [session, setSession] = useState(null)
-  const [activeDay, setActiveDay] = useState('day_a')
+  // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
+  const [activeDay, setActiveDay] = useState(null)
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
   const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const sessionStartRef = useRef(null)
   // Evitar disparar el modal varias veces en el mismo render
   const pseTriggeredRef = useRef({})
+  // Evita re-aplicar el "día sugerido" cada vez que cambia la fecha o se refetchea.
+  const dayInitializedRef = useRef(false)
   // Wellbeing
   const [wellbeing, setWellbeing] = useState(null)
   const [showWellbeing, setShowWellbeing] = useState(false)
@@ -856,7 +940,7 @@ export default function TodayWorkoutPage() {
       if (!assignData) { setLoading(false); return }
       setAssignment(assignData)
 
-      const [exercisesRes, blocksRes, logsRes, blockLogsRes, sessionRes, wellbeingRes] = await Promise.all([
+      const [exercisesRes, blocksRes, logsRes, blockLogsRes, sessionRes, wellbeingRes, recentLogsRes] = await Promise.all([
         supabase
           .from('plan_exercises')
           .select('*, exercise:exercises!exercise_id(*)')
@@ -892,10 +976,36 @@ export default function TodayWorkoutPage() {
           .eq('user_id', profile.id)
           .eq('date', selectedDate)
           .maybeSingle(),
+        // Logs recientes (cualquier fecha) para sugerir el día siguiente al último entrenado.
+        // Solo se usa en la primera carga; queries siguientes se descartan vía dayInitializedRef.
+        supabase
+          .from('workout_logs')
+          .select('logged_date, plan_exercise_id')
+          .eq('student_id', profile.id)
+          .eq('plan_id', assignData.plan_id)
+          .order('logged_date', { ascending: false })
+          .limit(80),
       ])
 
       setPlanExercises(exercisesRes.data || [])
       setPlanBlocks(blocksRes.data || [])
+
+      // Sugerir el día siguiente al último entrenado (solo en la primera carga).
+      if (!dayInitializedRef.current) {
+        const allBlocks = groupExercisesIntoBlocks(exercisesRes.data || [], blocksRes.data || [])
+        const sectionsWithContent = new Set(allBlocks.map(b => b.section).filter(Boolean))
+        const activeDaysLocal = DAY_SECTION_IDS.filter(id => sectionsWithContent.has(id))
+        const exSection = {}
+        for (const ex of (exercisesRes.data || [])) {
+          exSection[ex.id] = ex.section
+        }
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        const suggested = suggestNextDay(activeDaysLocal, recentLogsRes.data || [], exSection, todayStr)
+        if (suggested) {
+          setActiveDay(suggested)
+          dayInitializedRef.current = true
+        }
+      }
 
       const logsMap = {}
       ;(logsRes.data || []).forEach(log => { logsMap[log.plan_exercise_id] = log })
@@ -1096,9 +1206,10 @@ export default function TodayWorkoutPage() {
     [blocksBySection]
   )
 
-  // Si el día activo ya no existe (cambió el plan), ir al primero disponible
+  // Si el día activo ya no existe (cambió el plan), ir al primero disponible.
+  // Importante: si activeDay todavía es null, NO setearlo acá — lo hace fetchWorkout con suggestNextDay.
   useEffect(() => {
-    if (activeDays.length > 0 && !activeDays.includes(activeDay)) {
+    if (activeDay !== null && activeDays.length > 0 && !activeDays.includes(activeDay)) {
       setActiveDay(activeDays[0])
     }
   }, [activeDays, activeDay])
