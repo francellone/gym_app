@@ -5,6 +5,7 @@ import {
 import {
   CIRCUIT_TYPES, INTENSITY_LEVELS, blockDisplayTitle,
 } from '../../utils/planHelpers'
+import RPEScale from './RPEScale'
 
 /**
  * Card del bloque CIRCUITO para la vista del alumno.
@@ -298,24 +299,12 @@ export default function CircuitBlockRunCard({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">PSE del bloque</label>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => setForm(p => ({ ...p, perceived_difficulty: p.perceived_difficulty === n ? null : n }))}
-                        className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
-                          form.perceived_difficulty === n
-                            ? (n >= 8 ? 'bg-red-500 text-white' : n >= 5 ? 'bg-orange-400 text-white' : 'bg-green-500 text-white')
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <RPEScale
+                  variant="circuit"
+                  label="PSE del bloque"
+                  value={form.perceived_difficulty}
+                  onChange={n => setForm(p => ({ ...p, perceived_difficulty: n }))}
+                />
 
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Observaciones</label>

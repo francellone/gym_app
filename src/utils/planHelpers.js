@@ -264,15 +264,18 @@ export const BLOCK_TYPES = {
 export const BLOCK_TYPE_LIST = Object.values(BLOCK_TYPES)
 
 // Formatos aeróbicos
+// NOTA: HIIT se modela ahora siempre como un BLOQUE CIRCUITO (ver CIRCUIT_TYPES),
+// no como formato aeróbico. Para mantener compatibilidad con bloques antiguos
+// que pudieran venir como aerobic_format='hiit' desde la base, lo tratamos
+// como 'intervals' a nivel UI (el migration v19 ya los actualiza).
 export const AEROBIC_FORMATS = [
   { key: 'continuous',  label: 'Continuo',      description: 'Ritmo sostenido' },
   { key: 'intervals',   label: 'Intervalos',    description: 'Trabajo / descanso' },
-  { key: 'hiit',        label: 'HIIT',          description: 'Alta intensidad, picos' },
   { key: 'progressive', label: 'Progresivo',    description: 'Sube de intensidad' },
 ]
 
 // Formatos aeróbicos que requieren work/rest/rounds
-export const AEROBIC_INTERVAL_FORMATS = ['intervals', 'hiit']
+export const AEROBIC_INTERVAL_FORMATS = ['intervals']
 
 // Tipos de circuito
 export const CIRCUIT_TYPES = [
@@ -287,6 +290,36 @@ export const INTENSITY_LEVELS = [
   { key: 'soft',     label: 'Suave',    color: 'bg-green-100 text-green-700' },
   { key: 'moderate', label: 'Moderado', color: 'bg-yellow-100 text-yellow-700' },
   { key: 'intense',  label: 'Intenso',  color: 'bg-red-100 text-red-700' },
+]
+
+// Zonas aeróbicas (RPE Cardio con talk test)
+// Z1 = recuperación / muy suave  · Z5 = máximo / segundos
+export const AEROBIC_ZONES = [
+  {
+    key: 'Z1', label: 'Z1', range: 'RPE 1–2', pct: '50–60%',
+    short: 'muy suave', desc: 'podés cantar · respiración nasal',
+    color: 'bg-green-100 text-green-700 border-green-200',
+  },
+  {
+    key: 'Z2', label: 'Z2', range: 'RPE 3–4', pct: '60–70%',
+    short: 'leve / moderado bajo', desc: 'frases completas · cómodo',
+    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  {
+    key: 'Z3', label: 'Z3', range: 'RPE 5–6', pct: '70–80%',
+    short: 'moderado', desc: 'frases con pausas · sostenido',
+    color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  },
+  {
+    key: 'Z4', label: 'Z4', range: 'RPE 7', pct: '80–85%',
+    short: 'alto', desc: '2–3 palabras · foco mental',
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+  },
+  {
+    key: 'Z5', label: 'Z5', range: 'RPE 8–10', pct: '85–100%',
+    short: 'muy alto / máximo', desc: 'no podés hablar · al límite',
+    color: 'bg-red-100 text-red-700 border-red-200',
+  },
 ]
 
 // Modos de ejercicio dentro de circuito
@@ -345,6 +378,7 @@ export function emptyAerobicBlock(section, order = 0) {
     aerobic_format: 'continuous',
     aerobic_total_minutes: '',
     aerobic_intensity: 'moderate',
+    aerobic_zone: 'Z2',            // obligatorio: zona objetivo (talk test)
     aerobic_work_seconds: '',
     aerobic_rest_seconds: '',
     aerobic_rounds: '',
@@ -416,9 +450,12 @@ export function dbBlockToUI(block, exercisesDb = []) {
     order_index: block.order_index ?? 0,
     title: block.title || '',
     notes: block.notes || '',
-    aerobic_format: block.aerobic_format || 'continuous',
+    // HIIT como formato aeróbico fue eliminado (v19). Si aparece en la base
+    // por algún motivo, lo mostramos como 'intervals' (que es funcionalmente equivalente).
+    aerobic_format: (block.aerobic_format === 'hiit' ? 'intervals' : block.aerobic_format) || 'continuous',
     aerobic_total_minutes: block.aerobic_total_minutes != null ? String(block.aerobic_total_minutes) : '',
     aerobic_intensity: block.aerobic_intensity || 'moderate',
+    aerobic_zone: block.aerobic_zone || 'Z2',
     aerobic_work_seconds: block.aerobic_work_seconds != null ? String(block.aerobic_work_seconds) : '',
     aerobic_rest_seconds: block.aerobic_rest_seconds != null ? String(block.aerobic_rest_seconds) : '',
     aerobic_rounds: block.aerobic_rounds != null ? String(block.aerobic_rounds) : '',
@@ -446,6 +483,7 @@ export function uiBlockToDB(block, planId, index) {
     aerobic_format: null,
     aerobic_total_minutes: null,
     aerobic_intensity: null,
+    aerobic_zone: null,
     aerobic_work_seconds: null,
     aerobic_rest_seconds: null,
     aerobic_rounds: null,
@@ -462,6 +500,7 @@ export function uiBlockToDB(block, planId, index) {
   if (block.block_type === 'aerobic') {
     base.aerobic_format = block.aerobic_format || 'continuous'
     base.aerobic_intensity = block.aerobic_intensity || null
+    base.aerobic_zone = block.aerobic_zone || 'Z2'
     base.aerobic_total_minutes = block.aerobic_total_minutes ? parseInt(block.aerobic_total_minutes) : null
     base.aerobic_expected_sensation = block.aerobic_expected_sensation || null
     if (AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)) {

@@ -3,8 +3,9 @@ import {
   CheckCircle2, Circle, ChevronDown, ChevronUp, Info, Clock, Activity, Trash2,
 } from 'lucide-react'
 import {
-  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS, blockDisplayTitle,
+  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS, AEROBIC_ZONES, blockDisplayTitle,
 } from '../../utils/planHelpers'
+import RPEScale from './RPEScale'
 
 /**
  * Card del bloque AERÓBICO para la vista del alumno.
@@ -27,6 +28,7 @@ export default function AerobicBlockRunCard({
 
   const format = AEROBIC_FORMATS.find(f => f.key === block.aerobic_format)
   const intensity = INTENSITY_LEVELS.find(i => i.key === block.aerobic_intensity)
+  const zone = AEROBIC_ZONES.find(z => z.key === block.aerobic_zone)
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
 
   const title = blockDisplayTitle(block)
@@ -144,12 +146,23 @@ export default function AerobicBlockRunCard({
                     {block.aerobic_total_minutes} min
                   </div>
                 )}
-                {intensity && (
+                {zone && (
+                  <div className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${zone.color} w-fit font-semibold`}>
+                    {zone.label} · {zone.short}
+                  </div>
+                )}
+                {intensity && !zone && (
                   <div className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${intensity.color} w-fit`}>
                     {intensity.label}
                   </div>
                 )}
               </div>
+              {zone && (
+                <div className="text-[11px] text-sky-700/90 pt-1 border-t border-sky-200 mt-1 leading-snug">
+                  <span className="font-semibold">Zona {zone.label}: </span>
+                  {zone.desc} · FC {zone.pct}
+                </div>
+              )}
               {showIntervals && (block.aerobic_work_seconds || block.aerobic_rest_seconds || block.aerobic_rounds) && (
                 <div className="text-xs text-sky-700 pt-1 border-t border-sky-200 mt-1">
                   {block.aerobic_rounds || '—'}× ({block.aerobic_work_seconds || '—'}s trabajo / {block.aerobic_rest_seconds || '—'}s descanso)
@@ -184,24 +197,12 @@ export default function AerobicBlockRunCard({
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Esfuerzo percibido (PSE)</label>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => setForm(p => ({ ...p, perceived_difficulty: p.perceived_difficulty === n ? null : n }))}
-                        className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
-                          form.perceived_difficulty === n
-                            ? (n >= 8 ? 'bg-red-500 text-white' : n >= 5 ? 'bg-orange-400 text-white' : 'bg-green-500 text-white')
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <RPEScale
+                  variant="cardio"
+                  label="Esfuerzo percibido (talk test)"
+                  value={form.perceived_difficulty}
+                  onChange={n => setForm(p => ({ ...p, perceived_difficulty: n }))}
+                />
 
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Observaciones</label>

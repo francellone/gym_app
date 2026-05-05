@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Tag } from 'lucide-react'
 import {
-  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS,
+  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS, AEROBIC_ZONES,
 } from '../../../utils/planHelpers'
 
 /**
@@ -129,6 +129,52 @@ export default function AerobicBlockEditor({
         </div>
       </div>
 
+      {/* Zona objetivo (Z1-Z5) — OBLIGATORIA */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">
+          Zona objetivo <span className="text-red-500">*</span>
+        </label>
+        <div className="grid grid-cols-5 gap-1.5">
+          {AEROBIC_ZONES.map(z => {
+            const selected = (block.aerobic_zone || 'Z2') === z.key
+            return (
+              <button
+                key={z.key}
+                type="button"
+                onClick={() => onUpdate({ aerobic_zone: z.key })}
+                className={`rounded-xl border-2 p-2 text-center transition-all ${
+                  selected
+                    ? 'border-sky-500 bg-sky-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                title={`${z.range} · ${z.short}`}
+              >
+                <p className={`text-sm font-bold ${selected ? 'text-sky-700' : 'text-gray-700'}`}>
+                  {z.label}
+                </p>
+                <p className="text-[9px] text-gray-400 leading-tight mt-0.5">
+                  {z.range}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+        {(() => {
+          const z = AEROBIC_ZONES.find(zz => zz.key === (block.aerobic_zone || 'Z2'))
+          if (!z) return null
+          return (
+            <div className={`mt-1.5 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center gap-2 border ${z.color}`}>
+              <span className="font-bold flex-shrink-0">{z.label}</span>
+              <span className="leading-tight">
+                <strong>{z.short}</strong>
+                <span className="opacity-80"> · {z.desc}</span>
+                <span className="opacity-60"> · FC {z.pct}</span>
+              </span>
+            </div>
+          )
+        })()}
+      </div>
+
       {/* Intervalos: work/rest/rounds */}
       {showIntervals && (
         <div className="bg-sky-50 rounded-xl p-3 space-y-2">
@@ -171,15 +217,20 @@ export default function AerobicBlockEditor({
         </div>
       )}
 
-      {/* Sensación esperada */}
+      {/* Sensación esperada (opcional, complementa la zona) */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Sensación esperada</label>
+        <label className="text-xs text-gray-500 mb-1 block">
+          Aclaración extra <span className="text-gray-400 font-normal">(opcional)</span>
+        </label>
         <input
           className="input text-sm"
-          placeholder="Ej: podrías mantenerlo, respiración controlada..."
+          placeholder="Ej: por lesión, ir más suave de lo habitual..."
           value={block.aerobic_expected_sensation || ''}
           onChange={e => onUpdate({ aerobic_expected_sensation: e.target.value })}
         />
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          Sólo para casos puntuales (lesiones, indicaciones específicas). La zona ya describe la sensación general.
+        </p>
       </div>
     </div>
   )

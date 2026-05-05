@@ -3,9 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import {
   ArrowLeft, Edit2, Users, ExternalLink,
-  Plus, X, UserPlus, MoreHorizontal, Info, Trash2
+  Plus, X, UserPlus, MoreHorizontal, Info, Trash2,
+  Activity, Flame, Clock, Repeat
 } from 'lucide-react'
-import { displayReps, parseReps, getDynamicSections } from '../../utils/planHelpers'
+import {
+  displayReps, parseReps, getDynamicSections,
+  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, AEROBIC_ZONES, CIRCUIT_TYPES, INTENSITY_LEVELS,
+  groupExercisesIntoBlocks,
+} from '../../utils/planHelpers'
 import { format } from 'date-fns'
 import DeletePlanModal from '../../components/DeletePlanModal'
 
@@ -285,6 +290,187 @@ function ExerciseRow({ ex, onDelete }) {
   )
 }
 
+// ── Tarjeta resumen de bloque AERÓBICO ──────────────────────
+function AerobicBlockSummary({ block }) {
+  const fmt = AEROBIC_FORMATS.find(f => f.key === block.aerobic_format)
+  const intensity = INTENSITY_LEVELS.find(i => i.key === block.aerobic_intensity)
+  const zone = AEROBIC_ZONES.find(z => z.key === block.aerobic_zone)
+  const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
+  const exerciseName = block.plan_exercises?.[0]?.exercise?.name
+
+  return (
+    <div className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-3.5 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-base">🏃</span>
+        <span className="font-semibold text-sm text-sky-800">
+          {block.title || 'Aeróbico'}
+        </span>
+        {fmt && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide bg-sky-200/60 text-sky-800 rounded-full px-2 py-0.5">
+            {fmt.label}
+          </span>
+        )}
+        {zone && (
+          <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 border ${zone.color}`}>
+            {zone.label} · {zone.short}
+          </span>
+        )}
+        {intensity && !zone && (
+          <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${intensity.color}`}>
+            {intensity.label}
+          </span>
+        )}
+        {exerciseName && (
+          <span className="text-xs text-sky-700/80">· {exerciseName}</span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-sky-800">
+        {block.aerobic_total_minutes && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Clock size={12} className="text-sky-600" />
+            <span><strong>{block.aerobic_total_minutes}</strong> min</span>
+          </div>
+        )}
+        {showIntervals && block.aerobic_work_seconds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Activity size={12} className="text-sky-600" />
+            <span>Trabajo <strong>{block.aerobic_work_seconds}s</strong></span>
+          </div>
+        )}
+        {showIntervals && block.aerobic_rest_seconds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <span className="text-sky-600 text-xs">⏸</span>
+            <span>Descanso <strong>{block.aerobic_rest_seconds}s</strong></span>
+          </div>
+        )}
+        {showIntervals && block.aerobic_rounds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Repeat size={12} className="text-sky-600" />
+            <span><strong>{block.aerobic_rounds}</strong> rondas</span>
+          </div>
+        )}
+      </div>
+
+      {block.aerobic_expected_sensation && (
+        <div className="text-xs text-sky-700 italic bg-white/40 rounded-lg px-2.5 py-1.5">
+          <span className="font-semibold not-italic">Sensación esperada: </span>
+          "{block.aerobic_expected_sensation}"
+        </div>
+      )}
+
+      {block.notes && (
+        <div className="text-xs text-blue-700 bg-blue-100/60 rounded-lg px-2.5 py-1.5 flex gap-1.5">
+          <Info size={12} className="flex-shrink-0 mt-0.5" />
+          {block.notes}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Tarjeta resumen de bloque CIRCUITO ──────────────────────
+function CircuitBlockSummary({ block }) {
+  const cType = CIRCUIT_TYPES.find(t => t.key === block.circuit_type)
+  const intensity = INTENSITY_LEVELS.find(i => i.key === block.circuit_intensity)
+  const exercises = (block.plan_exercises || [])
+    .slice()
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+
+  return (
+    <div className="rounded-2xl border-2 border-orange-200 bg-orange-50 p-3.5 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-base">🔥</span>
+        <span className="font-semibold text-sm text-orange-800">
+          {block.title || 'Circuito'}
+        </span>
+        {cType && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide bg-orange-200/60 text-orange-800 rounded-full px-2 py-0.5">
+            {cType.label}
+          </span>
+        )}
+        {intensity && (
+          <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${intensity.color}`}>
+            {intensity.label}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-orange-800">
+        {block.circuit_type === 'hiit' && block.circuit_work_seconds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Flame size={12} className="text-orange-600" />
+            <span>Trabajo <strong>{block.circuit_work_seconds}s</strong></span>
+          </div>
+        )}
+        {block.circuit_type === 'hiit' && block.circuit_rest_seconds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <span className="text-orange-600 text-xs">⏸</span>
+            <span>Descanso <strong>{block.circuit_rest_seconds}s</strong></span>
+          </div>
+        )}
+        {block.circuit_rounds && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Repeat size={12} className="text-orange-600" />
+            <span><strong>{block.circuit_rounds}</strong> rondas</span>
+          </div>
+        )}
+        {block.circuit_total_minutes && (
+          <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
+            <Clock size={12} className="text-orange-600" />
+            <span><strong>{block.circuit_total_minutes}</strong> min</span>
+          </div>
+        )}
+      </div>
+
+      {exercises.length > 0 && (
+        <div className="space-y-1 pt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-700/70">
+            Ejercicios
+          </p>
+          <div className="space-y-1">
+            {exercises.map((ex, i) => {
+              const isTime = ex.exercise_mode === 'time'
+              return (
+                <div
+                  key={ex.id}
+                  className="flex items-center gap-2 bg-white/70 rounded-lg px-2.5 py-1.5"
+                >
+                  <span className="text-[11px] font-bold text-orange-600 w-4">
+                    {i + 1}.
+                  </span>
+                  <span className="text-xs text-gray-800 flex-1 truncate">
+                    {ex.exercise?.name || 'Sin ejercicio'}
+                  </span>
+                  <span className="text-[11px] text-gray-500 font-mono whitespace-nowrap">
+                    {isTime
+                      ? `${ex.duration_seconds || '—'}s`
+                      : ex.suggested_reps
+                        ? `${displayReps(ex.suggested_reps)} reps`
+                        : '—'}
+                  </span>
+                  {ex.suggested_weight && ex.suggested_weight !== 'None' && (
+                    <span className="text-[11px] text-gray-500 font-mono whitespace-nowrap">
+                      · {ex.suggested_weight}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {block.notes && (
+        <div className="text-xs text-blue-700 bg-blue-100/60 rounded-lg px-2.5 py-1.5 flex gap-1.5">
+          <Info size={12} className="flex-shrink-0 mt-0.5" />
+          {block.notes}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Sección con tabla ────────────────────────────────────────
 function ExerciseSection({ section, exercises, onDelete }) {
   const sectionColors = {
@@ -335,6 +521,7 @@ export default function PlanDetailPage() {
   const navigate = useNavigate()
   const [plan, setPlan] = useState(null)
   const [exercises, setExercises] = useState([])
+  const [planBlocks, setPlanBlocks] = useState([])
   const [loading, setLoading] = useState(true)
   const [assignments, setAssignments] = useState([])
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -345,11 +532,15 @@ export default function PlanDetailPage() {
 
   async function fetchPlan() {
     try {
-      const [planRes, assignmentsRes] = await Promise.all([
+      const [planRes, blocksRes, assignmentsRes] = await Promise.all([
         supabase.from('plans')
           .select(`*, plan_exercises(*, exercise:exercises!exercise_id(*))`)
           .eq('id', id)
           .single(),
+        supabase.from('plan_blocks')
+          .select('*')
+          .eq('plan_id', id)
+          .order('order_index'),
         supabase.from('plan_assignments')
           .select('*, student:profiles!student_id(id, name)')
           .eq('plan_id', id)
@@ -357,6 +548,7 @@ export default function PlanDetailPage() {
       ])
       setPlan(planRes.data)
       setExercises(planRes.data?.plan_exercises || [])
+      setPlanBlocks(blocksRes.data || [])
       setAssignments(assignmentsRes.data || [])
     } catch (err) {
       console.error(err)
@@ -400,6 +592,22 @@ export default function PlanDetailPage() {
     groupedBySection[s.id] = exercises
       .filter(e => e.section === s.id)
       .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+  }
+
+  // Agrupar plan_blocks (con sus ejercicios) por sección, separando por tipo
+  const blocksBySectionTyped = {}
+  {
+    const allGrouped = groupExercisesIntoBlocks(exercises, planBlocks)
+    for (const s of activeSections) {
+      const sectionBlocks = allGrouped
+        .filter(b => b.section === s.id)
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      blocksBySectionTyped[s.id] = {
+        strength: sectionBlocks.filter(b => b.block_type === 'strength'),
+        aerobic: sectionBlocks.filter(b => b.block_type === 'aerobic'),
+        circuit: sectionBlocks.filter(b => b.block_type === 'circuit'),
+      }
+    }
   }
 
   const totalExercises = exercises.length
@@ -579,7 +787,12 @@ export default function PlanDetailPage() {
         {activeSections.map(s => {
           const color = sectionColors[s.id] || '#6b7280'
           const isActive = activeSection === s.id
-          const count = (groupedBySection[s.id] || []).length
+          // Contar: strength = nº de ejercicios, aerobic/circuit = nº de bloques
+          const typed = blocksBySectionTyped[s.id] || { strength: [], aerobic: [], circuit: [] }
+          const strengthExCount = typed.strength.reduce(
+            (acc, b) => acc + (b.plan_exercises?.length || 0), 0
+          )
+          const count = strengthExCount + typed.aerobic.length + typed.circuit.length
           return (
             <button
               key={s.id}
@@ -603,15 +816,77 @@ export default function PlanDetailPage() {
         })}
       </div>
 
-      {/* ── Tabla de ejercicios ───────────────────────────── */}
-      {currentSection && (
-        <ExerciseSection
-          key={currentSection.id}
-          section={currentSection}
-          exercises={groupedBySection[currentSection.id] || []}
-          onDelete={deleteExercise}
-        />
-      )}
+      {/* ── Contenido de la sección (fuerza + aeróbico + circuito) ── */}
+      {currentSection && (() => {
+        const typed = blocksBySectionTyped[currentSection.id] || { strength: [], aerobic: [], circuit: [] }
+        const hasAerobic = typed.aerobic.length > 0
+        const hasCircuit = typed.circuit.length > 0
+        const strengthExercises = groupedBySection[currentSection.id] || []
+        const hasStrength = strengthExercises.length > 0
+        const hasAnything = hasStrength || hasAerobic || hasCircuit
+
+        return (
+          <div className="space-y-3">
+            {/* Fuerza: tabla actual */}
+            {hasStrength && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-xs">💪</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Fuerza
+                  </span>
+                </div>
+                <ExerciseSection
+                  section={currentSection}
+                  exercises={strengthExercises}
+                  onDelete={deleteExercise}
+                />
+              </div>
+            )}
+
+            {/* Aeróbico: tarjetas */}
+            {hasAerobic && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-xs">🏃</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                    Aeróbico
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {typed.aerobic.map(b => (
+                    <AerobicBlockSummary key={b.id} block={b} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Circuito: tarjetas */}
+            {hasCircuit && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-xs">🔥</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                    Circuito
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {typed.circuit.map(b => (
+                    <CircuitBlockSummary key={b.id} block={b} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Vacío */}
+            {!hasAnything && (
+              <div className="plan-ex-panel py-10 text-center text-sm text-gray-400">
+                Sin contenido en esta sección
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </>
   )
 }
