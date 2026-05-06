@@ -996,6 +996,10 @@ export default function TodayWorkoutPage() {
   // Wellbeing
   const [wellbeing, setWellbeing] = useState(null)
   const [showWellbeing, setShowWellbeing] = useState(false)
+  // Aviso pasivo (no bloqueante) cuando el alumno empieza a registrar datos
+  // sin haber cargado el wellbeing del día. Se muestra una sola vez por día.
+  const [showWellbeingStartAviso, setShowWellbeingStartAviso] = useState(false)
+  const wellbeingStartAvisoFiredRef = useRef(false)
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
@@ -1003,9 +1007,11 @@ export default function TodayWorkoutPage() {
     if (profile?.id) fetchWorkout()
   }, [profile, selectedDate])
 
-  // Al cambiar de fecha, resetear los triggers de PSE
+  // Al cambiar de fecha, resetear los triggers de PSE y de aviso de wellbeing
   useEffect(() => {
     pseTriggeredRef.current = {}
+    wellbeingStartAvisoFiredRef.current = false
+    setShowWellbeingStartAviso(false)
   }, [selectedDate])
 
   // started_at ya NO se registra al abrir la página.
@@ -1106,12 +1112,11 @@ export default function TodayWorkoutPage() {
 
       setSession(sessionRes.data)
 
-      // Wellbeing: mostrar modal si es hoy y aún no se llenó
+      // Wellbeing: cargar el estado del día.
+      // Importante: NO abrir el modal automáticamente — el alumno lo abre desde
+      // la WellbeingCard. Los avisos pasivos al primer save y al terminar
+      // el entrenamiento se encargan de recordárselo.
       setWellbeing(wellbeingRes.data || null)
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
-      if (selectedDate === todayStr && !wellbeingRes.data) {
-        setShowWellbeing(true)
-      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -1168,6 +1173,20 @@ export default function TodayWorkoutPage() {
     }
   }
 
+  // Dispara el aviso pasivo de wellbeing una sola vez cuando el alumno
+  // está cargando datos del día y aún no completó el wellbeing.
+  function maybeFireWellbeingStartAviso() {
+    if (
+      isToday &&
+      !wellbeing &&
+      !wellbeingStartAvisoFiredRef.current
+    ) {
+      wellbeingStartAvisoFiredRef.current = true
+      setShowWellbeingStartAviso(true)
+      setTimeout(() => setShowWellbeingStartAviso(false), 6000)
+    }
+  }
+
   async function saveLog(planExerciseId, data) {
     const existingLog = logs[planExerciseId]
     let result
@@ -1176,6 +1195,9 @@ export default function TodayWorkoutPage() {
     if (isToday && assignment && !session?.started_at) {
       await upsertSession({ started_at: new Date().toISOString() })
     }
+
+    // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
+    maybeFireWellbeingStartAviso()
 
     if (existingLog) {
       result = await supabase
@@ -1229,6 +1251,9 @@ export default function TodayWorkoutPage() {
     if (isToday && assignment && !session?.started_at) {
       await upsertSession({ started_at: new Date().toISOString() })
     }
+
+    // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
+    maybeFireWellbeingStartAviso()
 
     const existing = blockLogs[planBlockId]
     let result
@@ -1552,6 +1577,18 @@ export default function TodayWorkoutPage() {
             onOpen={() => setShowWellbeing(true)}
           />
 
+          {/* Aviso pasivo: aparece la primera vez que el alumno guarda datos
+              sin haber cargado el wellbeing. Se auto-cierra a los ~6s y
+              nunca bloquea la pantalla. */}
+          {showWellbeingStartAviso && !wellbeing && (
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 flex-1 leading-relaxed">
+                <strong>Recordá:</strong> aún no cargaste tu wellbeing de hoy. Podés hacerlo desde la tarjeta de arriba cuando quieras.
+              </p>
+            </div>
+          )}
+
           {/* Activación */}
           {activationBlocks.length > 0 && (
             <div>
@@ -1620,6 +1657,12 @@ export default function TodayWorkoutPage() {
                     ? '🎉 ¡Entrenamiento completo!'
                     : `✅ ${DAY_SHORT_LABELS[id]} completado`}
                 </p>
+                {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
+                {isFinalBanner && isToday && !wellbeing && (
+                  <p className="text-white/90 text-xs mt-1.5">
+                    ⚠️ No cargaste tu wellbeing de hoy
+                  </p>
+                )}
                 {borgPerDay[id] !== undefined ? (
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}>
