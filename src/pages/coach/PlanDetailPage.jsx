@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import {
   ArrowLeft, Edit2, Users, ExternalLink,
   Plus, X, UserPlus, MoreHorizontal, Info, Trash2,
-  Activity, Flame, Clock, Repeat
+  Activity, Flame, Clock, Repeat, LayoutGrid, TrendingUp
 } from 'lucide-react'
 import {
   displayReps, parseReps, getDynamicSections,
@@ -13,6 +13,7 @@ import {
 } from '../../utils/planHelpers'
 import { format } from 'date-fns'
 import DeletePlanModal from '../../components/DeletePlanModal'
+import PlanProgressTab from './PlanProgressTab'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
 //
@@ -567,6 +568,7 @@ export default function PlanDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [mainTab, setMainTab] = useState('structure') // 'structure' | 'progress'
 
   useEffect(() => { fetchPlan() }, [id])
 
@@ -770,6 +772,44 @@ export default function PlanDetailPage() {
         </div>
       </div>
 
+      {/* ── Tabs principales: Estructura | Progreso ──────── */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        <button
+          onClick={() => setMainTab('structure')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'structure' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <LayoutGrid size={13} />
+          Estructura
+        </button>
+        <button
+          onClick={() => setMainTab('progress')}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'progress' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <TrendingUp size={13} />
+          Progreso
+          {assignments.length > 0 && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              mainTab === 'progress' ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-500'
+            }`}>
+              {assignments.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Tab: Progreso ─────────────────────────────────── */}
+      {mainTab === 'progress' && (
+        <PlanProgressTab planId={id} assignments={assignments} />
+      )}
+
+      {/* ── Tab: Estructura ───────────────────────────────── */}
+      {mainTab === 'structure' && (
+      <>
+
       {/* ── Alumnos asignados ─────────────────────────────── */}
       <div className="card mb-0 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
@@ -928,6 +968,9 @@ export default function PlanDetailPage() {
           </div>
         )
       })()}
+
+      </> /* fin mainTab === 'structure' */
+      )}
     </>
   )
 }
