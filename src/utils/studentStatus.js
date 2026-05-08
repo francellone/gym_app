@@ -19,12 +19,22 @@ export function getPaymentStatus(student) {
 }
 
 /**
- * Calcula el estado del plan de un alumno a partir de sus asignaciones.
+ * Calcula el estado del plan de entrenamiento de un alumno.
+ * Considera solo asignaciones con plan_type='training' (las evaluaciones
+ * NO cuentan como "tener plan"). Una asignación cuenta como vigente si
+ * status='active' o si todavía no tiene status (compat con datos viejos
+ * donde solo existía el booleano active).
  * @returns {'active' | 'no_plan'}
  */
 export function getPlanStatus(planAssignments) {
   if (!planAssignments || planAssignments.length === 0) return 'no_plan'
-  return planAssignments.some(a => a.active) ? 'active' : 'no_plan'
+  const hasActiveTraining = planAssignments.some(a => {
+    const planType = a.plan_type || a.plan?.plan_type || 'training'
+    if (planType !== 'training') return false
+    if (a.status) return a.status === 'active'
+    return !!a.active
+  })
+  return hasActiveTraining ? 'active' : 'no_plan'
 }
 
 export const PAYMENT_STATUS = {

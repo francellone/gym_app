@@ -57,18 +57,25 @@ export default function CoachDashboard() {
           .gte('next_payment_due', today)
           .lte('next_payment_due', sevenDaysAhead),
 
-        // Para detectar alumnos sin plan activo
+        // Para detectar alumnos sin plan de TRAINING activo. Las
+        // evaluaciones no cuentan como "plan vigente" — un alumno con
+        // solo una evaluación asignada debe aparecer como "sin plan".
         supabase.from('profiles')
           .select(`
             id, name,
-            plan_assignments:plan_assignments!student_id(id, active)
+            plan_assignments:plan_assignments!student_id(id, active, status, plan_type, plan:plans!plan_id(plan_type))
           `)
           .eq('role', 'student'),
       ])
 
-      const noActivePlan = (studentsForPlanRes.data || []).filter(s =>
-        !s.plan_assignments?.some(a => a.active)
-      )
+      const noActivePlan = (studentsForPlanRes.data || []).filter(s => {
+        return !(s.plan_assignments || []).some(a => {
+          const planType = a.plan_type || a.plan?.plan_type || 'training'
+          if (planType !== 'training') return false
+          if (a.status) return a.status === 'active'
+          return !!a.active
+        })
+      })
 
       setStats({
         students: studentsRes.count || 0,

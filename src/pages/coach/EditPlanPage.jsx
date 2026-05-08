@@ -15,6 +15,7 @@ import {
   uiBlockToDB,
 } from '../../utils/planHelpers'
 import { EVAL_TYPES, METHODS, PRUEBA_TYPES, EVAL_TAG_SUGGESTIONS } from '../../utils/evalHelpers'
+import EvaluationParentPlanField, { EvaluationsLinkedPanel } from '../../components/plan/EvaluationParentPlanField'
 
 // ============================================================
 // EditPruebaRow — fila editable de una prueba (reutiliza lógica de Create)
@@ -156,6 +157,7 @@ export default function EditPlanPage() {
     plan_type: 'training',
     eval_type: '',
     eval_method: '',
+    parent_plan_id: null,
   })
 
   // { day_a: [block, block], day_b: [block], ... }
@@ -206,6 +208,7 @@ export default function EditPlanPage() {
         plan_type: p.plan_type || 'training',
         eval_type: p.eval_type || '',
         eval_method: p.eval_method || '',
+        parent_plan_id: p.parent_plan_id || null,
       }
       setPlan(loadedPlan)
       setEvalTags(p.eval_tags || [])
@@ -413,6 +416,9 @@ export default function EditPlanPage() {
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
           eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
           eval_tags: plan.plan_type === 'evaluation' ? evalTags : [],
+          // parent_plan_id solo aplica a evaluaciones; en training siempre NULL
+          // (el trigger en DB también lo valida).
+          parent_plan_id: plan.plan_type === 'evaluation' ? plan.parent_plan_id || null : null,
         })
         .eq('id', id)
       if (planError) throw planError
@@ -785,6 +791,17 @@ export default function EditPlanPage() {
             </div>
           )}
 
+          {/* Plan padre (solo evaluaciones) */}
+          {isEval && (
+            <div className="sm:col-span-2">
+              <EvaluationParentPlanField
+                value={plan.parent_plan_id}
+                onChange={(v) => setPlan(p => ({ ...p, parent_plan_id: v }))}
+                excludeId={id}
+              />
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-1">
             <input
               type="checkbox" id="is_template"
@@ -947,6 +964,11 @@ export default function EditPlanPage() {
             <AddBlockMenu onAdd={type => addBlock(activeSection, type)} />
           </div>
         </div>
+      )}
+
+      {/* Panel: evaluaciones asociadas a este plan (solo training) */}
+      {!isEval && (
+        <EvaluationsLinkedPanel planId={id} />
       )}
 
       {error && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import {
   evalTypeIcon, evalTypeLabel, evalTypeColor,
@@ -7,10 +7,13 @@ import {
 import {
   ClipboardList, ChevronDown, ChevronUp, Plus, MessageSquare,
   Lock, Eye, TrendingUp, TrendingDown, Minus, Clock, Check,
-  AlertCircle, Save, BarChart2,
+  AlertCircle, Save, BarChart2, Link2,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { es } from 'date-fns/locale'
+import {
+  groupEvaluationAssignments, statusConfig, getAssignmentStatus,
+} from '../../../utils/assignmentHelpers'
 
 // ─────────────────────────────────────────────────────────────
 // StudentEvaluationsTab
@@ -21,35 +24,77 @@ import { es } from 'date-fns/locale'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
-  // Solo evaluaciones asignadas
-  const evalAssignments = assignments.filter(a => a.plan?.plan_type === 'evaluation')
+  // Solo evaluaciones asignadas (incluye históricas — el agrupador las separa).
+  const evalAssignments = (assignments || []).filter(a => {
+    const t = a.plan_type || a.plan?.plan_type
+    return t === 'evaluation'
+  })
+
+  // Asignaciones de training del alumno (para dropdown de asociación).
+  const trainingAssignments = (assignments || []).filter(a => {
+    const t = a.plan_type || a.plan?.plan_type || 'training'
+    return t === 'training'
+  })
+
+  // Agrupado: del plan vigente, independientes, históricas.
+  const grouped = useMemo(
+    () => groupEvaluationAssignments(assignments || []),
+    [assignments]
+  )
 
   // Estado para asignar nueva evaluación
   const [assigning, setAssigning] = useState(false)
   const [selectedPlanId, setSelectedPlanId] = useState('')
+  const [linkedAssignmentId, setLinkedAssignmentId] = useState('') // '' = independiente
   const [assignLoading, setAssignLoading] = useState(false)
 
-  // Evaluaciones disponibles (de allPlans que no están asignadas aún o son plantillas)
-  const evalPlans = allPlans.filter(p => {
-    // necesitamos saber el plan_type — allPlans incluye { id, title, plan_type }
-    return true // filtraremos por plan_type si tenemos el dato
-  })
+  // Cuando la coach selecciona una evaluación con parent_plan_id, sugerimos
+  // auto-vincularla a la asignación del alumno que matchea. Solo se autosugiere
+  // si la asignación matching está vigente (active o paused) — no tiene
+  // sentido linkear a un plan ya reemplazado/completado/archivado.
+  useEffect(() => {
+    if (!selectedPlanId) { setLinkedAssignmentId(''); return }
+    const evalPlan = allPlans.find(p => p.id === selectedPlanId)
+    if (!evalPlan?.parent_plan_id) {
+      setLinkedAssignmentId('')
+      return
+    }
+    const matching = trainingAssignments
+      .filter(a => a.plan_id === evalPlan.parent_plan_id)
+      .filter(a => {
+        const s = getAssignmentStatus(a)
+        return s === 'active' || s === 'paused'
+      })
+      .sort((a, b) => {
+        const aActive = getAssignmentStatus(a) === 'active'
+        const bActive = getAssignmentStatus(b) === 'active'
+        if (aActive !== bActive) return aActive ? -1 : 1
+        const ta = new Date(a.created_at || 0).getTime()
+        const tb = new Date(b.created_at || 0).getTime()
+        return tb - ta
+      })
+    setLinkedAssignmentId(matching[0]?.id || '')
+  }, [selectedPlanId, allPlans, trainingAssignments])
 
   async function handleAssign() {
     if (!selectedPlanId) return
     setAssignLoading(true)
     try {
-      await supabase.from('plan_assignments').insert({
+      const { error } = await supabase.from('plan_assignments').insert({
         plan_id: selectedPlanId,
         student_id: studentId,
         start_date: new Date().toISOString().slice(0, 10),
-        active: true,
+        linked_assignment_id: linkedAssignmentId || null,
+        // status default 'active' lo pone la DB.
       })
+      if (error) throw error
       setAssigning(false)
       setSelectedPlanId('')
+      setLinkedAssignmentId('')
       onRefresh()
     } catch (err) {
       console.error(err)
+      alert(err.message || 'Error al asignar la evaluación')
     } finally {
       setAssignLoading(false)
     }
@@ -73,36 +118,20 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
 
       {/* Panel asignación */}
       {assigning && (
-        <div className="card border-2 border-purple-200 bg-purple-50 space-y-3">
-          <p className="text-sm font-semibold text-purple-800">Asignar evaluación al alumno</p>
-          <select
-            className="input text-sm"
-            value={selectedPlanId}
-            onChange={e => setSelectedPlanId(e.target.value)}
-          >
-            <option value="">— Seleccionar evaluación —</option>
-            {allPlans
-              .filter(p => p.plan_type === 'evaluation')
-              .map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))
-            }
-          </select>
-          <div className="flex gap-2">
-            <button onClick={() => { setAssigning(false); setSelectedPlanId('') }}
-              className="btn-secondary flex-1 text-sm">Cancelar</button>
-            <button onClick={handleAssign} disabled={!selectedPlanId || assignLoading}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-              {assignLoading
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : <><Check size={14} /> Asignar</>
-              }
-            </button>
-          </div>
-        </div>
+        <AssignEvaluationForm
+          allPlans={allPlans}
+          trainingAssignments={trainingAssignments}
+          selectedPlanId={selectedPlanId}
+          onSelectedPlanChange={setSelectedPlanId}
+          linkedAssignmentId={linkedAssignmentId}
+          onLinkedAssignmentChange={setLinkedAssignmentId}
+          loading={assignLoading}
+          onCancel={() => { setAssigning(false); setSelectedPlanId(''); setLinkedAssignmentId('') }}
+          onConfirm={handleAssign}
+        />
       )}
 
-      {/* Lista de evaluaciones asignadas */}
+      {/* Lista vacía global */}
       {evalAssignments.length === 0 && !assigning && (
         <div className="card text-center py-8">
           <ClipboardList size={32} className="text-gray-300 mx-auto mb-2" />
@@ -114,13 +143,151 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
         </div>
       )}
 
-      {evalAssignments.map(assignment => (
-        <EvaluationCard
-          key={assignment.id}
-          assignment={assignment}
-          studentId={studentId}
-        />
-      ))}
+      {/* Sección 1: del plan vigente */}
+      {grouped.ofCurrentPlan.length > 0 && (
+        <EvalGroup
+          title={`Del plan actual: ${grouped.activeTraining?.plan?.title || ''}`}
+          accent="purple"
+        >
+          {grouped.ofCurrentPlan.map(a => (
+            <EvaluationCard key={a.id} assignment={a} studentId={studentId} linkedTo={grouped.activeTraining} />
+          ))}
+        </EvalGroup>
+      )}
+
+      {/* Sección 2: independientes */}
+      {grouped.independent.length > 0 && (
+        <EvalGroup title="Evaluaciones independientes" accent="gray">
+          {grouped.independent.map(a => (
+            <EvaluationCard key={a.id} assignment={a} studentId={studentId} />
+          ))}
+        </EvalGroup>
+      )}
+
+      {/* Sección 3: históricas (planes anteriores) */}
+      {grouped.historical.length > 0 && (
+        <EvalGroup
+          title="De planes anteriores"
+          accent="gray"
+          subtle
+          subtitle="El plan al que estaban vinculadas ya no es el vigente."
+        >
+          {grouped.historical.map(a => (
+            <EvaluationCard
+              key={a.id}
+              assignment={a}
+              studentId={studentId}
+              linkedTo={trainingAssignments.find(t => t.id === a.linked_assignment_id) || null}
+              historical
+            />
+          ))}
+        </EvalGroup>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// EvalGroup — header con título + lista de cards
+// ─────────────────────────────────────────────────────────────
+function EvalGroup({ title, subtitle, accent = 'gray', subtle = false, children }) {
+  const accentMap = {
+    purple: { dot: 'bg-purple-500', text: 'text-purple-700' },
+    gray:   { dot: 'bg-gray-400',   text: subtle ? 'text-gray-400' : 'text-gray-600' },
+  }
+  const a = accentMap[accent] || accentMap.gray
+  return (
+    <div className={`space-y-2 ${subtle ? 'opacity-90' : ''}`}>
+      <div className="flex items-center gap-2 px-1">
+        <span className={`w-1.5 h-1.5 rounded-full ${a.dot}`} />
+        <h3 className={`text-xs font-semibold uppercase tracking-wide ${a.text}`}>{title}</h3>
+      </div>
+      {subtitle && <p className="text-xs text-gray-400 px-1">{subtitle}</p>}
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// AssignEvaluationForm — form inline reutilizado
+// ─────────────────────────────────────────────────────────────
+function AssignEvaluationForm({
+  allPlans, trainingAssignments,
+  selectedPlanId, onSelectedPlanChange,
+  linkedAssignmentId, onLinkedAssignmentChange,
+  loading, onCancel, onConfirm,
+}) {
+  const evalPlanOptions = (allPlans || []).filter(p => p.plan_type === 'evaluation')
+  const selectedEvalPlan = evalPlanOptions.find(p => p.id === selectedPlanId) || null
+  const suggestedFromTemplate = !!selectedEvalPlan?.parent_plan_id
+
+  return (
+    <div className="card border-2 border-purple-200 bg-purple-50 space-y-3">
+      <p className="text-sm font-semibold text-purple-800">Asignar evaluación al alumno</p>
+
+      <div>
+        <label className="label text-xs">Evaluación</label>
+        <select
+          className="input text-sm"
+          value={selectedPlanId}
+          onChange={e => onSelectedPlanChange(e.target.value)}
+        >
+          <option value="">— Seleccionar evaluación —</option>
+          {evalPlanOptions.map(p => (
+            <option key={p.id} value={p.id}>{p.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Asociar a plan del alumno (opcional) */}
+      {selectedPlanId && (
+        <div>
+          <label className="label text-xs flex items-center gap-1">
+            <Link2 size={12} className="text-purple-500" />
+            Asociar a plan del alumno (opcional)
+          </label>
+          <select
+            className="input text-sm"
+            value={linkedAssignmentId || ''}
+            onChange={e => onLinkedAssignmentChange(e.target.value || '')}
+          >
+            <option value="">Independiente</option>
+            {trainingAssignments.map(a => {
+              const status = getAssignmentStatus(a)
+              const cfg = statusConfig(status)
+              return (
+                <option key={a.id} value={a.id}>
+                  {a.plan?.title} · {cfg.shortLabel}
+                </option>
+              )
+            })}
+          </select>
+          {suggestedFromTemplate && linkedAssignmentId && (
+            <p className="text-xs text-purple-700 mt-1">
+              Sugerido automáticamente: esta evaluación es parte del plan asociado.
+            </p>
+          )}
+          {suggestedFromTemplate && !linkedAssignmentId && (
+            <p className="text-xs text-amber-600 mt-1">
+              Esta evaluación es parte de un plan, pero el alumno no lo tiene asignado.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="btn-secondary flex-1 text-sm">Cancelar</button>
+        <button
+          onClick={onConfirm}
+          disabled={!selectedPlanId || loading}
+          className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
+        >
+          {loading
+            ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            : <><Check size={14} /> Asignar</>
+          }
+        </button>
+      </div>
     </div>
   )
 }
@@ -128,7 +295,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
 // ─────────────────────────────────────────────────────────────
 // EvaluationCard — tarjeta por evaluación asignada
 // ─────────────────────────────────────────────────────────────
-function EvaluationCard({ assignment, studentId }) {
+function EvaluationCard({ assignment, studentId, linkedTo = null, historical = false }) {
   const plan = assignment.plan
   const [expanded, setExpanded] = useState(false)
   const [view, setView] = useState('ultimo') // 'ultimo' | 'historial'
@@ -201,7 +368,7 @@ function EvaluationCard({ assignment, studentId }) {
   const latestResult = resultados[0] || null
 
   return (
-    <div className="card space-y-0 p-0 overflow-hidden">
+    <div className={`card space-y-0 p-0 overflow-hidden ${historical ? 'opacity-80' : ''}`}>
       {/* Header de la tarjeta */}
       <button
         onClick={handleToggle}
@@ -215,6 +382,11 @@ function EvaluationCard({ assignment, studentId }) {
             {tags.map(t => (
               <span key={t} className="badge text-xs bg-purple-100 text-purple-700">{t}</span>
             ))}
+            {linkedTo && (
+              <span className="badge text-xs bg-blue-50 text-blue-700 border border-blue-100 inline-flex items-center gap-1">
+                📎 {linkedTo.plan?.title}
+              </span>
+            )}
             {latestResult && (
               <span className="text-xs text-gray-400">
                 Última: {format(parseISO(latestResult.eval_date + 'T12:00:00'), 'd MMM yyyy', { locale: es })}

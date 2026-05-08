@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Users, Plus, Search, ChevronRight, AlertCircle } from 'lucide-react'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../../utils/studentStatus'
+import { pickPrimaryTrainingAssignment, getAssignmentStatus, statusConfig } from '../../utils/assignmentHelpers'
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([])
@@ -31,10 +32,14 @@ export default function StudentsPage() {
       }
 
       const studentIds = profilesData.map(s => s.id)
+      // Traemos status, plan_type y created_at para poder elegir
+      // determinísticamente la asignación más reciente y filtrar
+      // evaluaciones del badge "plan vigente". Ver pickPrimaryTrainingAssignment.
       const { data: assignmentsData } = await supabase
         .from('plan_assignments')
-        .select('student_id, id, active, plan:plans(title)')
+        .select('student_id, id, active, status, plan_type, created_at, plan:plans(title, plan_type)')
         .in('student_id', studentIds)
+        .order('created_at', { ascending: false })
 
       const assignmentsByStudent = {}
       for (const a of assignmentsData || []) {
@@ -212,7 +217,13 @@ export default function StudentsPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(student => {
-            const activePlan = student.plan_assignments?.find(a => a.active)
+            // Plan "primario" para mostrar en el badge: el training activo
+            // más reciente; si no hay activo, el pausado; si no hay nada, null.
+            // pickPrimaryTrainingAssignment ignora evaluaciones a propósito
+            // — la pestaña Evaluaciones es donde se ven esas.
+            const primaryAssignment = pickPrimaryTrainingAssignment(student.plan_assignments)
+            const primaryStatus = getAssignmentStatus(primaryAssignment)
+            const primaryStatusCfg = primaryStatus ? statusConfig(primaryStatus) : null
             const initials = student.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
             const payStatus = getPaymentStatus(student)
             const payConfig = PAYMENT_STATUS[payStatus]
@@ -246,10 +257,20 @@ export default function StudentsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
-                      {activePlan ? activePlan.plan?.title : planConfig.label}
-                    </span>
+                    {primaryAssignment ? (
+                      <span className={`badge text-xs flex items-center gap-1 ${primaryStatusCfg.badgeClass}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${primaryStatusCfg.dotClass}`} />
+                        {primaryAssignment.plan?.title}
+                        {primaryStatus !== 'active' && (
+                          <span className="ml-1 text-[10px] opacity-75">· {primaryStatusCfg.shortLabel}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
+                        {planConfig.label}
+                      </span>
+                    )}
                     {payStatus !== 'no_data' && payStatus !== 'up_to_date' && (
                       <span className={`badge text-xs ${payConfig.badgeClass}`}>
                         {payConfig.label}

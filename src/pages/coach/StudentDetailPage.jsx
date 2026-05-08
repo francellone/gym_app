@@ -59,6 +59,9 @@ export default function StudentDetailPage() {
         historyRes, formAssignmentRes, formSubmissionRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
+        // Traemos status, plan_type denormalizado, linked_assignment_id
+        // y replaced_by_assignment_id para que las pestañas Planes y
+        // Evaluaciones puedan mostrar estados, vínculos y reemplazos.
         supabase.from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
           .eq('student_id', id)
@@ -74,7 +77,7 @@ export default function StudentDetailPage() {
           .eq('student_id', id)
           .order('logged_date', { ascending: false })
           .limit(50),
-        supabase.from('plans').select('id, title, plan_type').order('title'),
+        supabase.from('plans').select('id, title, plan_type, parent_plan_id').order('title'),
         supabase.from('student_edit_history')
           .select('*')
           .eq('student_id', id)

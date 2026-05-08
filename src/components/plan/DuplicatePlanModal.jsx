@@ -23,14 +23,23 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
     setError(null)
     setLoading(true)
     try {
-      // 1. Clone plan row
+      // 1. Clonar plan row con TODOS los campos relevantes.
+      //    Nota: parent_plan_id no se copia a propósito — el duplicado
+      //    arranca como evaluación independiente, la coach decide después
+      //    si la asocia. Así evitamos duplicar y “heredar” linkeo viejo.
+      const isEval = planType === 'evaluation'
       const newPlanData = {
         title: title.trim() || `${plan.title} (copia)`,
-        description: plan.description,
+        description: plan.description ?? null,
+        goal: plan.goal ?? null,
         sessions_per_week: plan.sessions_per_week,
+        duration_weeks: plan.duration_weeks ?? null,
+        has_activation: plan.has_activation ?? false,
         is_template: false,
         plan_type: planType,
-        eval_type: planType === 'evaluation' ? evalType : null,
+        eval_type: isEval ? evalType : null,
+        eval_method: isEval ? (plan.eval_method ?? null) : null,
+        eval_tags: isEval ? (plan.eval_tags ?? []) : [],
       }
 
       const { data: newPlan, error: planError } = await supabase
@@ -40,22 +49,80 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         .single()
       if (planError) throw planError
 
-      // 2. Clone exercises (keep structure, works for both training + eval reference protocol)
-      const { data: exercises } = await supabase
+      // 2. Clonar plan_blocks. Construimos un mapa oldBlockId → newBlockId
+      //    para poder remapear los ejercicios al insertarlos.
+      const { data: oldBlocks, error: blocksErr } = await supabase
+        .from('plan_blocks')
+        .select('*')
+        .eq('plan_id', plan.id)
+      if (blocksErr) throw blocksErr
+
+      const blockIdMap = {}
+      if (oldBlocks?.length) {
+        const blocksPayload = oldBlocks.map(b => {
+          const { id, plan_id, created_at, updated_at, ...rest } = b
+          return { ...rest, plan_id: newPlan.id }
+        })
+        const { data: insertedBlocks, error: insBlocksErr } = await supabase
+          .from('plan_blocks')
+          .insert(blocksPayload)
+          .select('id, section, order_index, block_type')
+        if (insBlocksErr) throw insBlocksErr
+
+        // Map por (section, order_index, block_type) — el id no lo tenemos.
+        // Es estable porque dentro de un plan no debería haber dos bloques
+        // con la misma sección+orden+tipo.
+        const keyed = {}
+        for (const b of (insertedBlocks || [])) {
+          keyed[`${b.section}|${b.order_index}|${b.block_type}`] = b.id
+        }
+        for (const b of oldBlocks) {
+          const k = `${b.section}|${b.order_index}|${b.block_type}`
+          if (keyed[k]) blockIdMap[b.id] = keyed[k]
+        }
+      }
+
+      // 3. Clonar plan_exercises remapeando block_id.
+      const { data: exercises, error: exErr } = await supabase
         .from('plan_exercises')
         .select('*')
         .eq('plan_id', plan.id)
+      if (exErr) throw exErr
 
       if (exercises?.length) {
-        await supabase.from('plan_exercises').insert(
-          exercises.map(e => ({
-            ...e,
-            id: undefined,
+        const payload = exercises.map(e => {
+          const { id, plan_id, created_at, updated_at, ...rest } = e
+          return {
+            ...rest,
             plan_id: newPlan.id,
-            created_at: undefined,
-            updated_at: undefined,
-          }))
-        )
+            block_id: e.block_id ? (blockIdMap[e.block_id] || null) : null,
+          }
+        })
+        const { error: insExErr } = await supabase
+          .from('plan_exercises')
+          .insert(payload)
+        if (insExErr) throw insExErr
+      }
+
+      // 4. Para evaluaciones custom: clonar evaluation_tests.
+      if (isEval && evalType === 'custom') {
+        const { data: tests, error: testsErr } = await supabase
+          .from('evaluation_tests')
+          .select('*')
+          .eq('plan_id', plan.id)
+          .order('order_index')
+        if (testsErr) throw testsErr
+
+        if (tests?.length) {
+          const payload = tests.map(t => {
+            const { id, plan_id, created_at, updated_at, ...rest } = t
+            return { ...rest, plan_id: newPlan.id }
+          })
+          const { error: insTestsErr } = await supabase
+            .from('evaluation_tests')
+            .insert(payload)
+          if (insTestsErr) throw insTestsErr
+        }
       }
 
       onDone(newPlan)

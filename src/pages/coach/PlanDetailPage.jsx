@@ -15,26 +15,66 @@ import { format } from 'date-fns'
 import DeletePlanModal from '../../components/DeletePlanModal'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
-function AssignStudentModal({ planId, onClose, onDone }) {
+//
+// Asignar desde la pantalla del PLAN. Si el plan es de training y el
+// alumno ya tiene otro training activo, NO hacemos el insert acá (haría
+// que se viole el índice único `one_active_training_per_student`).
+// Le decimos a la coach que vaya al perfil del alumno y use el flujo
+// completo de reemplazo (ReplacePlanModal). Esto evita exponer la misma
+// UX duplicada en dos lugares y mantiene consistente la cierre de plan
+// saliente con motivo, atajo a duplicar, etc.
+function AssignStudentModal({ planId, planType, onClose, onDone }) {
+  const navigate = useNavigate()
   const [students, setStudents] = useState([])
   const [alreadyAssigned, setAlreadyAssigned] = useState(new Set())
+  const [studentsWithActiveTraining, setStudentsWithActiveTraining] = useState(new Set())
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  const isTraining = !planType || planType === 'training'
+
   useEffect(() => {
-    Promise.all([
+    const promises = [
       supabase.from('profiles').select('id, name').eq('role', 'student').order('name'),
-      supabase.from('plan_assignments').select('student_id').eq('plan_id', planId).eq('active', true),
-    ]).then(([studentsRes, assignRes]) => {
+      supabase.from('plan_assignments')
+        .select('student_id')
+        .eq('plan_id', planId)
+        .eq('active', true),
+    ]
+    if (isTraining) {
+      promises.push(
+        supabase.from('plan_assignments')
+          .select('student_id')
+          .eq('plan_type', 'training')
+          .eq('status', 'active')
+      )
+    }
+    Promise.all(promises).then(([studentsRes, assignRes, activeTrainingsRes]) => {
       setStudents(studentsRes.data || [])
       setAlreadyAssigned(new Set((assignRes.data || []).map(a => a.student_id)))
+      if (activeTrainingsRes) {
+        setStudentsWithActiveTraining(
+          new Set((activeTrainingsRes.data || []).map(a => a.student_id))
+        )
+      }
     })
-  }, [planId])
+  }, [planId, isTraining])
 
   async function handleAssign() {
     if (!selected) return
+
+    // Si es training y el alumno ya tiene activo, llevarlo al perfil
+    // a usar el flujo completo (con ReplacePlanModal).
+    if (isTraining && studentsWithActiveTraining.has(selected)) {
+      const goProfile = window.confirm(
+        'Este alumno ya tiene un plan de entrenamiento activo. Para reemplazarlo necesitamos que lo gestiones desde el perfil del alumno (con motivo, opción de pausar, etc.). ¿Ir al perfil?'
+      )
+      if (goProfile) navigate(`/coach/students/${selected}`)
+      return
+    }
+
     setSaving(true)
     setError(null)
     try {
@@ -42,7 +82,7 @@ function AssignStudentModal({ planId, onClose, onDone }) {
         plan_id: planId,
         student_id: selected,
         start_date: format(new Date(), 'yyyy-MM-dd'),
-        active: true,
+        // status default 'active' lo pone la DB; trigger sincroniza active.
       })
       if (error) throw error
       onDone()
@@ -639,6 +679,7 @@ export default function PlanDetailPage() {
       {showAssignModal && (
         <AssignStudentModal
           planId={id}
+          planType={plan?.plan_type}
           onClose={() => setShowAssignModal(false)}
           onDone={() => { setShowAssignModal(false); fetchPlan() }}
         />

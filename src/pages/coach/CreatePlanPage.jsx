@@ -14,6 +14,7 @@ import {
   uiBlockToDB,
 } from '../../utils/planHelpers'
 import { EVAL_TYPES, METHODS, PRUEBA_TYPES, EVAL_TAG_SUGGESTIONS } from '../../utils/evalHelpers'
+import EvaluationParentPlanField from '../../components/plan/EvaluationParentPlanField'
 
 // ============================================================
 // PruebaBuilderRow — fila editable de una prueba custom
@@ -205,6 +206,7 @@ export default function CreatePlanPage() {
     plan_type: 'training',
     eval_type: '',
     eval_method: '',
+    parent_plan_id: null,
   })
 
   // Estructura del plan: por sección, una lista de bloques.
@@ -322,6 +324,8 @@ export default function CreatePlanPage() {
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
           eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
           eval_tags: plan.plan_type === 'evaluation' ? evalTags : [],
+          // Asociación template-level a un plan padre (solo para evaluaciones).
+          parent_plan_id: plan.plan_type === 'evaluation' ? plan.parent_plan_id || null : null,
           created_by: profile.id,
         })
         .select()
@@ -677,6 +681,17 @@ export default function CreatePlanPage() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Plan padre (solo evaluaciones) */}
+          {plan.plan_type === 'evaluation' && (
+            <div className="sm:col-span-2">
+              <EvaluationParentPlanField
+                value={plan.parent_plan_id}
+                onChange={(v) => setPlan(p => ({ ...p, parent_plan_id: v }))}
+                excludeId={null}
+              />
             </div>
           )}
 

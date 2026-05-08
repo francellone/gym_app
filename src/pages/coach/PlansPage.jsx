@@ -24,11 +24,25 @@ export default function PlansPage() {
         .select(`
           *,
           plan_exercises(id),
-          plan_assignments(id, active, student:profiles!student_id(name))
+          plan_assignments(id, active, status, student:profiles!student_id(name))
         `)
         .order('created_at', { ascending: false })
       if (error) throw error
-      setPlans(data || [])
+      const allPlans = data || []
+
+      // Contar cuántas evaluaciones template tienen cada plan como padre.
+      // Una sola query agregada en cliente: agrupar por parent_plan_id.
+      const evalsByParent = {}
+      for (const p of allPlans) {
+        if (p.plan_type === 'evaluation' && p.parent_plan_id) {
+          evalsByParent[p.parent_plan_id] = (evalsByParent[p.parent_plan_id] || 0) + 1
+        }
+      }
+      const enriched = allPlans.map(p => ({
+        ...p,
+        _linked_evals_count: evalsByParent[p.id] || 0,
+      }))
+      setPlans(enriched)
     } catch (err) {
       console.error(err)
     } finally {
@@ -175,6 +189,16 @@ export default function PlansPage() {
                       {activeAssignments.length > 0
                         ? ` · ${activeAssignments.length} alumno${activeAssignments.length > 1 ? 's' : ''}`
                         : ''}
+                      {!isEval && plan._linked_evals_count > 0 && (
+                        <span className="ml-1 text-purple-600">
+                          · 📊 {plan._linked_evals_count} {plan._linked_evals_count === 1 ? 'eval.' : 'evals.'}
+                        </span>
+                      )}
+                      {isEval && plan.parent_plan_id && (
+                        <span className="ml-1 text-blue-600">
+                          · 📎 ligada a un plan
+                        </span>
+                      )}
                     </p>
                     {plan.description && (
                       <p className="text-xs text-gray-400 mt-1 truncate">{plan.description}</p>
