@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar, AlertTriangle } from 'lucide-react'
 import { format, subDays, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+import MonthlyCalendar from '../../components/dashboard/MonthlyCalendar'
 
 export default function CoachDashboard() {
   const { profile } = useAuth()
@@ -237,6 +238,17 @@ export default function CoachDashboard() {
           </div>
         </div>
       )}
+
+      {/* Calendario mensual (Fase 3) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="section-title flex items-center gap-2">
+            <Calendar size={15} className="text-primary-500" />
+            Calendario
+          </h2>
+        </div>
+        <MonthlyCalendar />
+      </div>
 
       {/* Actividad reciente */}
       <div>
