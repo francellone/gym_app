@@ -10,9 +10,14 @@ import { es } from 'date-fns/locale'
 import {
   ASSIGNMENT_STATUS, statusConfig, getAssignmentStatus,
   actionsForStatus, pickPrimaryTrainingAssignment,
+  getScheduleMode, getPreferredDays, formatPreferredDays,
 } from '../../../utils/assignmentHelpers'
 import ReplacePlanModal from '../../../components/plan/ReplacePlanModal'
 import DuplicatePlanModal from '../../../components/plan/DuplicatePlanModal'
+import {
+  ScheduleEditorInline,
+  ScheduleEditorModal,
+} from '../../../components/plan/ScheduleEditor'
 
 // ─────────────────────────────────────────────────────────────
 // StudentPlansTab
@@ -47,8 +52,16 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
   // Estado del flujo de asignación
   const [assigningPlan, setAssigningPlan] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('')
+  // Horario para la asignación NUEVA (default flexible, ver Fase 1).
+  const [newSchedule, setNewSchedule] = useState({
+    schedule_mode: 'flexible',
+    preferred_days: [],
+  })
   const [replaceModal, setReplaceModal] = useState(null) // { incomingPlanId }
   const [duplicatingPlan, setDuplicatingPlan] = useState(null)
+
+  // Modal de edición de horario para asignación existente.
+  const [editingSchedule, setEditingSchedule] = useState(null) // assignment
 
   // Estado por fila (saving por id de asignación)
   const [savingAssignment, setSavingAssignment] = useState(null)
@@ -84,6 +97,25 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     insertNewAssignment(selectedPlan)
   }
 
+  // Construye el payload de horario a partir del estado newSchedule,
+  // alineado con la invariante del backend (validador rechaza days en
+  // flexible). Centralizado para usar también en handleReplaceConfirm.
+  function schedulePayload(schedule) {
+    const isFixed = schedule?.schedule_mode === 'fixed'
+    return {
+      schedule_mode: isFixed ? 'fixed' : 'flexible',
+      preferred_days: isFixed
+        ? (schedule.preferred_days || [])
+        : null,
+    }
+  }
+
+  function resetAssignForm() {
+    setAssigningPlan(false)
+    setSelectedPlan('')
+    setNewSchedule({ schedule_mode: 'flexible', preferred_days: [] })
+  }
+
   async function insertNewAssignment(planId, { closeReplaceModal = false } = {}) {
     try {
       const { data: inserted, error } = await supabase
@@ -92,14 +124,14 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           plan_id: planId,
           student_id: studentId,
           start_date: format(new Date(), 'yyyy-MM-dd'),
+          ...schedulePayload(newSchedule),
           // status default 'active' lo pone la DB; trigger se encarga del active boolean.
         })
         .select()
         .single()
       if (error) throw error
 
-      setAssigningPlan(false)
-      setSelectedPlan('')
+      resetAssignForm()
       if (closeReplaceModal) setReplaceModal(null)
 
       // Después de asignar, ver si hay evaluaciones asociadas template-level.
@@ -212,6 +244,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           plan_id: replaceModal.incomingPlanId,
           student_id: studentId,
           start_date: format(new Date(), 'yyyy-MM-dd'),
+          ...schedulePayload(newSchedule),
         })
         .select()
         .single()
@@ -228,8 +261,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       }
 
       setReplaceModal(null)
-      setAssigningPlan(false)
-      setSelectedPlan('')
+      resetAssignForm()
 
       // Si el plan entrante tiene evaluaciones template asociadas, ofrecerlas.
       await maybePromptLinkedEvals(replaceModal.incomingPlanId, inserted.id)
@@ -411,42 +443,62 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       </div>
 
       {/* Form de asignación inline */}
-      {assigningPlan && (
-        <div className="card border-2 border-primary-200 space-y-3">
-          <h4 className="font-medium text-gray-900">Asignar nuevo plan</h4>
-          <select
-            value={selectedPlan}
-            onChange={e => setSelectedPlan(e.target.value)}
-            className="input"
-          >
-            <option value="">Seleccioná un plan...</option>
-            {trainingPlans.map(p => (
-              <option key={p.id} value={p.id}>{p.title}</option>
-            ))}
-          </select>
-          {currentActive && selectedPlan && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
-              <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
-              Este alumno ya tiene un plan activo. Te vamos a preguntar qué hacer con él al confirmar.
-            </p>
-          )}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setAssigningPlan(false); setSelectedPlan('') }}
-              className="btn-secondary flex-1 text-sm"
+      {assigningPlan && (() => {
+        const planRow = trainingPlans.find(p => p.id === selectedPlan)
+        const sessionsPerWeek = planRow?.sessions_per_week ?? null
+        const isFixed = newSchedule.schedule_mode === 'fixed'
+        const fixedHasNoDays = isFixed && (newSchedule.preferred_days?.length || 0) === 0
+        return (
+          <div className="card border-2 border-primary-200 space-y-3">
+            <h4 className="font-medium text-gray-900">Asignar nuevo plan</h4>
+            <select
+              value={selectedPlan}
+              onChange={e => setSelectedPlan(e.target.value)}
+              className="input"
             >
-              Cancelar
-            </button>
-            <button
-              onClick={tryAssignPlan}
-              disabled={!selectedPlan}
-              className="btn-primary flex-1 text-sm"
-            >
-              {currentActive ? 'Continuar…' : 'Asignar'}
-            </button>
+              <option value="">Seleccioná un plan...</option>
+              {trainingPlans.map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+
+            {/* Editor de horario (Fase 2). Visible siempre que haya
+                plan elegido para que el coach decida desde el inicio. */}
+            {selectedPlan && (
+              <div className="pt-1">
+                <p className="label">Horario</p>
+                <ScheduleEditorInline
+                  value={newSchedule}
+                  onChange={setNewSchedule}
+                  sessionsPerWeek={sessionsPerWeek || undefined}
+                />
+              </div>
+            )}
+
+            {currentActive && selectedPlan && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                Este alumno ya tiene un plan activo. Te vamos a preguntar qué hacer con él al confirmar.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={resetAssignForm}
+                className="btn-secondary flex-1 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={tryAssignPlan}
+                disabled={!selectedPlan || fixedHasNoDays}
+                className="btn-primary flex-1 text-sm"
+              >
+                {currentActive ? 'Continuar…' : 'Asignar'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Lista vacía */}
       {trainingAssignments.length === 0 && !assigningPlan && (
@@ -491,6 +543,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                   onTransition={(toStatus) => changeStatus(a, toStatus)}
                   onReactivate={() => tryReactivate(a)}
                   onDelete={() => handleDelete(a)}
+                  onEditSchedule={() => { setEditingSchedule(a); setOpenMenu(null) }}
                 />
               )
             })}
@@ -554,6 +607,15 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           plan={duplicatingPlan}
           onClose={() => setDuplicatingPlan(null)}
           onDone={handleDuplicateDone}
+        />
+      )}
+
+      {/* Modal: editar horario de una asignación existente */}
+      {editingSchedule && (
+        <ScheduleEditorModal
+          assignment={editingSchedule}
+          onClose={() => setEditingSchedule(null)}
+          onSaved={() => onRefresh()}
         />
       )}
 
@@ -634,7 +696,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
 function AssignmentRow({
   assignment, trainingAssignments, linkedEvalCount = 0,
   saving, menuOpen, onToggleMenu, onCloseMenu,
-  onTransition, onReactivate, onDelete,
+  onTransition, onReactivate, onDelete, onEditSchedule,
 }) {
   const status = getAssignmentStatus(assignment)
   const cfg = statusConfig(status)
@@ -652,6 +714,13 @@ function AssignmentRow({
 
   const isLive = status === 'active' || status === 'paused'
   const planRoute = `/coach/plans/${assignment.plan_id}`
+
+  // Horario (Fase 2)
+  const scheduleMode = getScheduleMode(assignment)
+  const preferredDays = getPreferredDays(assignment)
+  const scheduleLabel = scheduleMode === 'fixed' && preferredDays.length > 0
+    ? formatPreferredDays(preferredDays)
+    : 'Horario flexible'
 
   return (
     <div className={`card flex items-start gap-3 ${!isLive ? 'opacity-80' : ''}`}>
@@ -681,6 +750,19 @@ function AssignmentRow({
               </span>
             )}
           </p>
+          {/* Badge de horario (Fase 2) — solo en filas vivas para no
+              ensuciar las filas archivadas/reemplazadas. */}
+          {isLive && (
+            <span
+              className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                scheduleMode === 'fixed'
+                  ? 'bg-primary-50 text-primary-700 border border-primary-100'
+                  : 'bg-gray-50 text-gray-500 border border-gray-200'
+              }`}
+            >
+              📅 {scheduleLabel}
+            </span>
+          )}
           {assignment.status_reason && (
             <p className="text-xs text-gray-400 italic mt-0.5 truncate">
               "{assignment.status_reason}"
@@ -715,6 +797,20 @@ function AssignmentRow({
               onClick={onCloseMenu}
             />
             <div className="absolute right-0 top-9 z-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[180px]">
+              {/* Editar horario solo en asignaciones vivas */}
+              {isLive && onEditSchedule && (
+                <>
+                  <button
+                    onClick={onEditSchedule}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Editar horario
+                  </button>
+                  {actions.length > 0 && (
+                    <div className="my-1 border-t border-gray-100" />
+                  )}
+                </>
+              )}
               {actions.map(action => {
                 const isReactivate = action.toStatus === 'active'
                 return (
