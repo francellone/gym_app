@@ -207,7 +207,9 @@ export default function ProgressPage() {
       const ex = l.plan_exercise?.exercise
       if (ex) exMap[ex.id] = ex.name
     })
-    const exList = Object.entries(exMap).map(([id, name]) => ({ id, name }))
+    const exList = Object.entries(exMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
     setExercises(exList)
     if (!selectedExercise && exList.length > 0) setSelectedExercise(exList[0].id)
     setLoading(false)
