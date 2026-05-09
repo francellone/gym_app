@@ -113,7 +113,9 @@ export default function StudentProgressTab({ studentId }) {
       const ex = l.plan_exercise?.exercise
       if (ex) exMap[ex.id] = ex.name
     })
-    const exList = Object.entries(exMap).map(([id, name]) => ({ id, name }))
+    const exList = Object.entries(exMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
     setProgressExercises(exList)
     // Solo resetea el ejercicio seleccionado si no hay uno válido
     if (exList.length > 0) {
