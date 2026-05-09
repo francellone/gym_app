@@ -3,31 +3,31 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar, AlertTriangle } from 'lucide-react'
-import { format, subDays, addDays } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import MonthlyCalendar from '../../components/dashboard/MonthlyCalendar'
+import useCoachAlerts from '../../hooks/useCoachAlerts'
+import { ALERT_KIND, ALERT_RENDER_ORDER, ALERT_THRESHOLDS } from '../../utils/coachAlerts'
 
 export default function CoachDashboard() {
   const { profile } = useAuth()
   const [stats, setStats] = useState({ students: 0, plans: 0, logsToday: 0, logsWeek: 0 })
   const [recentLogs, setRecentLogs] = useState([])
-  const [alerts, setAlerts] = useState({ overdue: [], dueSoon: [], noActivePlan: [] })
   const [loading, setLoading] = useState(true)
+  const { loading: alertsLoading, alerts } = useCoachAlerts()
 
   useEffect(() => {
-    fetchDashboardData()
+    fetchStatsAndRecent()
   }, [])
 
-  async function fetchDashboardData() {
+  // Fetch ligero solo para los KPIs y la actividad reciente.
+  // Las alertas viven en useCoachAlerts ahora.
+  async function fetchStatsAndRecent() {
     try {
       const today = format(new Date(), 'yyyy-MM-dd')
       const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd')
-      const sevenDaysAhead = format(addDays(new Date(), 7), 'yyyy-MM-dd')
 
-      const [
-        studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes,
-        overdueRes, dueSoonRes, studentsForPlanRes,
-      ] = await Promise.all([
+      const [studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student').eq('active', true),
         supabase.from('plans').select('id', { count: 'exact' }),
         supabase.from('workout_logs').select('id', { count: 'exact' }).eq('logged_date', today),
@@ -42,41 +42,7 @@ export default function CoachDashboard() {
           `)
           .order('created_at', { ascending: false })
           .limit(10),
-
-        // Alumnos con pago vencido
-        supabase.from('profiles')
-          .select('id, name, next_payment_due')
-          .eq('role', 'student')
-          .not('next_payment_due', 'is', null)
-          .lt('next_payment_due', today),
-
-        // Alumnos que vencen en los próximos 7 días
-        supabase.from('profiles')
-          .select('id, name, next_payment_due')
-          .eq('role', 'student')
-          .not('next_payment_due', 'is', null)
-          .gte('next_payment_due', today)
-          .lte('next_payment_due', sevenDaysAhead),
-
-        // Para detectar alumnos sin plan de TRAINING activo. Las
-        // evaluaciones no cuentan como "plan vigente" — un alumno con
-        // solo una evaluación asignada debe aparecer como "sin plan".
-        supabase.from('profiles')
-          .select(`
-            id, name,
-            plan_assignments:plan_assignments!student_id(id, active, status, plan_type, plan:plans!plan_id(plan_type))
-          `)
-          .eq('role', 'student'),
       ])
-
-      const noActivePlan = (studentsForPlanRes.data || []).filter(s => {
-        return !(s.plan_assignments || []).some(a => {
-          const planType = a.plan_type || a.plan?.plan_type || 'training'
-          if (planType !== 'training') return false
-          if (a.status) return a.status === 'active'
-          return !!a.active
-        })
-      })
 
       setStats({
         students: studentsRes.count || 0,
@@ -85,11 +51,6 @@ export default function CoachDashboard() {
         logsWeek: logsWeekRes.count || 0,
       })
       setRecentLogs(recentRes.data || [])
-      setAlerts({
-        overdue: overdueRes.data || [],
-        dueSoon: dueSoonRes.data || [],
-        noActivePlan,
-      })
     } catch (err) {
       console.error(err)
     } finally {
@@ -100,8 +61,11 @@ export default function CoachDashboard() {
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
 
-  const totalAlerts = alerts.overdue.length + alerts.dueSoon.length + alerts.noActivePlan.length
-  const hasAlerts = totalAlerts > 0
+  // Lista de alertas a renderizar, ya filtradas por las que tienen items.
+  const alertsToShow = ALERT_RENDER_ORDER
+    .map(kind => ({ kind, items: alerts?.[kind] || [] }))
+    .filter(g => g.items.length > 0)
+  const hasAlerts = alertsToShow.length > 0
 
   return (
     <div className="space-y-6">
@@ -156,8 +120,8 @@ export default function CoachDashboard() {
         </div>
       </div>
 
-      {/* Alertas de gestión */}
-      {!loading && hasAlerts && (
+      {/* Alertas de gestión (Fase 4 — extendidas, render driven by data) */}
+      {!alertsLoading && hasAlerts && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="section-title flex items-center gap-2">
@@ -170,71 +134,9 @@ export default function CoachDashboard() {
           </div>
 
           <div className="space-y-2">
-            {alerts.overdue.length > 0 && (
-              <div className="card border-l-4 border-l-red-400 py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      🔴 {alerts.overdue.length} pago{alerts.overdue.length !== 1 ? 's' : ''} vencido{alerts.overdue.length !== 1 ? 's' : ''}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {alerts.overdue.slice(0, 3).map(s => s.name).join(', ')}
-                      {alerts.overdue.length > 3 ? ` y ${alerts.overdue.length - 3} más` : ''}
-                    </p>
-                  </div>
-                  <Link
-                    to="/coach/students"
-                    className="text-xs text-red-600 font-medium hover:underline"
-                  >
-                    Ver
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {alerts.dueSoon.length > 0 && (
-              <div className="card border-l-4 border-l-yellow-400 py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      🟡 {alerts.dueSoon.length} vence{alerts.dueSoon.length !== 1 ? 'n' : ''} en los próximos 7 días
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {alerts.dueSoon.slice(0, 3).map(s => s.name).join(', ')}
-                      {alerts.dueSoon.length > 3 ? ` y ${alerts.dueSoon.length - 3} más` : ''}
-                    </p>
-                  </div>
-                  <Link
-                    to="/coach/students"
-                    className="text-xs text-yellow-600 font-medium hover:underline"
-                  >
-                    Ver
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {alerts.noActivePlan.length > 0 && (
-              <div className="card border-l-4 border-l-gray-300 py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      ⚪ {alerts.noActivePlan.length} alumno{alerts.noActivePlan.length !== 1 ? 's' : ''} sin plan activo
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {alerts.noActivePlan.slice(0, 3).map(s => s.name).join(', ')}
-                      {alerts.noActivePlan.length > 3 ? ` y ${alerts.noActivePlan.length - 3} más` : ''}
-                    </p>
-                  </div>
-                  <Link
-                    to="/coach/students"
-                    className="text-xs text-gray-500 font-medium hover:underline"
-                  >
-                    Ver
-                  </Link>
-                </div>
-              </div>
-            )}
+            {alertsToShow.map(({ kind, items }) => (
+              <AlertCard key={kind} kind={kind} items={items} />
+            ))}
           </div>
         </div>
       )}
@@ -306,4 +208,91 @@ export default function CoachDashboard() {
       </div>
     </div>
   )
+}
+
+// ─────────────────────────────────────────────────────────────
+// AlertCard
+// ─────────────────────────────────────────────────────────────
+// Card genérica para cada tipo de alerta. La copia/grammar se decide
+// vía buildAlertTitle / buildAlertSubtitle, así no acoplamos la
+// lógica pura (en coachAlerts.js) con el español de la UI.
+function AlertCard({ kind, items }) {
+  const cfg = ALERT_KIND[kind]
+  if (!cfg) return null
+  const count = items.length
+  return (
+    <div className={`card border-l-4 ${cfg.borderClass} py-3`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">
+            {cfg.icon} {buildAlertTitle(kind, count)}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">
+            {buildAlertSubtitle(kind, items)}
+          </p>
+        </div>
+        <Link
+          to="/coach/students"
+          className={`text-xs font-medium hover:underline flex-shrink-0 ${cfg.accentClass}`}
+        >
+          Ver
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function buildAlertTitle(kind, count) {
+  const plural = count !== 1
+  switch (kind) {
+    case 'overdue':
+      return `${count} pago${plural ? 's' : ''} vencido${plural ? 's' : ''}`
+    case 'planExpiringSoon':
+      return `${count} plan${plural ? 'es' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PLAN_EXPIRING_SOON_DAYS} días`
+    case 'dueSoon':
+      return `${count} pago${plural ? 's' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PAYMENT_DUE_SOON_DAYS} días`
+    case 'inactiveStudents':
+      return `${count} alumno${plural ? 's' : ''} sin entrenar hace ${ALERT_THRESHOLDS.INACTIVE_DAYS}+ días`
+    case 'highRpeStudents':
+      return `${count} alumno${plural ? 's' : ''} con esfuerzo alto sostenido`
+    case 'noActivePlan':
+      return `${count} alumno${plural ? 's' : ''} sin plan activo`
+    default:
+      return `${count} alertas`
+  }
+}
+
+function buildAlertSubtitle(kind, items) {
+  // Para alertas con metadata interesante por item (días vencidos,
+  // RPE pico, etc.) mostramos un detalle del primero. Para el resto,
+  // nombres separados por coma + "y N más" si hay muchos.
+  const top = items.slice(0, 3)
+  const rest = items.length - top.length
+
+  if (kind === 'inactiveStudents') {
+    const detail = top.map(s => {
+      const d = s.daysSinceLastLog
+      const days = d === Infinity ? '∞' : d
+      return `${s.name} (${days}d)`
+    }).join(', ')
+    return rest > 0 ? `${detail} y ${rest} más` : detail
+  }
+
+  if (kind === 'highRpeStudents') {
+    const detail = top.map(s =>
+      `${s.name} (${s.highRpeCount}× · pico ${s.peakRpe})`
+    ).join(', ')
+    return rest > 0 ? `${detail} y ${rest} más` : detail
+  }
+
+  if (kind === 'planExpiringSoon') {
+    const detail = top.map(s =>
+      `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`})`
+    ).join(', ')
+    return rest > 0 ? `${detail} y ${rest} más` : detail
+  }
+
+  // Por defecto: solo nombres
+  const names = top.map(s => s.name).join(', ')
+  return rest > 0 ? `${names} y ${rest} más` : names
 }
