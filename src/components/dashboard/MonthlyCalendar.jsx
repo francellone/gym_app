@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Search, X, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, X, CalendarDays, UserPlus } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import useCoachCalendarData, {
@@ -127,6 +127,27 @@ export default function MonthlyCalendar() {
     return out
   }, [window])
 
+  // Statuses efectivamente presentes en el mes, en modo individual.
+  // Sirve para que la leyenda no muestre "No asistió" / "Día extra"
+  // cuando ninguno aparece (común en alumnos en modo flexible).
+  const presentIndividualStatuses = useMemo(() => {
+    if (mode !== 'individual') return new Set()
+    const sid = selectedIds[0]
+    const data = perStudentDays.get(sid)
+    if (!data) return new Set()
+    const set = new Set()
+    for (const day of weeks.flat()) {
+      if (day.getMonth() !== monthAnchor.getMonth()) continue
+      const ymd = toYMD(day)
+      const s = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
+        scheduleMode: data.scheduleMode,
+        flexibleOverflowSet: data.flexibleOverflow,
+      })
+      if (s !== 'rest') set.add(s)
+    }
+    return set
+  }, [mode, selectedIds, perStudentDays, weeks, monthAnchor, today])
+
   return (
     <div className="card p-3 space-y-3">
       {/* ── Header: nav del mes + botón Hoy ───────────────────── */}
@@ -157,13 +178,24 @@ export default function MonthlyCalendar() {
           >
             Hoy
           </button>
-          <button
-            onClick={() => setSearchOpen(v => !v)}
-            className={`p-1.5 rounded-lg ${searchOpen ? 'bg-primary-50 text-primary-600' : 'text-gray-500 hover:bg-gray-100'}`}
-            aria-label="Buscar alumno"
-          >
-            <Search size={16} />
-          </button>
+          {selectedIds.length < MAX_COMPARISON && (
+            <button
+              onClick={() => setSearchOpen(v => !v)}
+              className={[
+                'inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg transition-colors',
+                searchOpen
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ].join(' ')}
+              aria-label={selectedIds.length === 0 ? 'Filtrar por alumno' : 'Agregar otro alumno'}
+              aria-expanded={searchOpen}
+            >
+              <UserPlus size={14} />
+              <span className="hidden sm:inline">
+                {selectedIds.length === 0 ? 'Filtrar alumno' : 'Agregar alumno'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -201,11 +233,24 @@ export default function MonthlyCalendar() {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar alumno…"
-                className="input pl-8 text-sm"
+                placeholder="Buscar alumno por nombre…"
+                className="input pl-8 pr-8 text-sm"
                 autoFocus
               />
-              {filteredStudents.length > 0 && searchTerm && (
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X size={14} />
+                </button>
+              )}
+
+              {/* Lista de alumnos: visible apenas se abre el buscador
+                  (no exige tipear). Si el coach escribe, se filtra. */}
+              {filteredStudents.length > 0 && (
                 <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-auto">
                   {filteredStudents.slice(0, 12).map(s => {
                     const isSel = selectedIds.includes(s.id)
@@ -217,6 +262,12 @@ export default function MonthlyCalendar() {
                           if (isMax) return
                           toggleStudent(s.id)
                           setSearchTerm('')
+                          // Si después de seleccionar llegamos al máximo,
+                          // cerramos el panel automáticamente para devolver
+                          // foco al calendario.
+                          if (selectedIds.length + 1 >= MAX_COMPARISON) {
+                            setSearchOpen(false)
+                          }
                         }}
                         disabled={isMax}
                         className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 ${
@@ -228,6 +279,16 @@ export default function MonthlyCalendar() {
                       </button>
                     )
                   })}
+                  {filteredStudents.length > 12 && (
+                    <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100">
+                      Mostrando 12 de {filteredStudents.length}. Tipeá para afinar.
+                    </div>
+                  )}
+                </div>
+              )}
+              {filteredStudents.length === 0 && searchTerm && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-xs text-gray-500 text-center">
+                  No hay alumnos que coincidan con "{searchTerm}".
                 </div>
               )}
             </div>
@@ -271,6 +332,13 @@ export default function MonthlyCalendar() {
         })}
       </div>
 
+      {/* ── Hint para modo agregado (educar al coach sobre el filtro) ── */}
+      {mode === 'aggregate' && students.length > 0 && !loading && (
+        <p className="text-[11px] text-gray-500 leading-snug">
+          Seleccioná un alumno para ver sus días de entrenamiento.
+        </p>
+      )}
+
       {/* ── Panel de detalle del día abierto ──────────────────── */}
       {openDay && (
         <DayDetail
@@ -296,7 +364,11 @@ export default function MonthlyCalendar() {
       )}
 
       {/* ── Leyenda según el modo ─────────────────────────────── */}
-      <Legend mode={mode} eventsByDate={eventsByDate} />
+      <Legend
+        mode={mode}
+        eventsByDate={eventsByDate}
+        presentIndividualStatuses={presentIndividualStatuses}
+      />
     </div>
   )
 }
@@ -318,7 +390,10 @@ function DayCell({
     const sid = selectedIds[0]
     const data = perStudentDays.get(sid)
     if (data) {
-      const status = computeStudentDayStatus(ymd, data.expected, data.completed, today)
+      const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
+        scheduleMode: data.scheduleMode,
+        flexibleOverflowSet: data.flexibleOverflow,
+      })
       const style = STUDENT_DAY_STYLE[status]
       if (status === 'planned_done')   bgClass = 'bg-emerald-50 hover:bg-emerald-100'
       else if (status === 'planned_missed') bgClass = 'bg-rose-50 hover:bg-rose-100'
@@ -361,7 +436,10 @@ function DayCell({
           const sid = selectedIds[0]
           const data = perStudentDays.get(sid)
           if (!data) return null
-          const status = computeStudentDayStatus(ymd, data.expected, data.completed, today)
+          const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
+            scheduleMode: data.scheduleMode,
+            flexibleOverflowSet: data.flexibleOverflow,
+          })
           if (status === 'rest') return null
           const style = STUDENT_DAY_STYLE[status]
           return (
@@ -477,7 +555,10 @@ function DayDetail({
           {selectedStudents.map(s => {
             const data = perStudentDays.get(s.id)
             const status = data
-              ? computeStudentDayStatus(ymd, data.expected, data.completed, today)
+              ? computeStudentDayStatus(ymd, data.expected, data.completed, today, {
+                  scheduleMode: data.scheduleMode,
+                  flexibleOverflowSet: data.flexibleOverflow,
+                })
               : 'rest'
             const style = STUDENT_DAY_STYLE[status]
             const color = studentColors.get(s.id)
@@ -510,7 +591,7 @@ function DayDetail({
 // ─────────────────────────────────────────────────────────────
 // Legend
 // ─────────────────────────────────────────────────────────────
-function Legend({ mode, eventsByDate }) {
+function Legend({ mode, eventsByDate, presentIndividualStatuses }) {
   // Solo mostramos los tipos de evento PRESENTES en el mes para no
   // ensuciar de más en meses tranquilos.
   const presentTypes = useMemo(() => {
@@ -521,7 +602,18 @@ function Legend({ mode, eventsByDate }) {
     return [...set]
   }, [eventsByDate])
 
-  if (presentTypes.length === 0 && mode === 'aggregate') return null
+  // En modo individual mostramos sólo los chips de status que
+  // efectivamente aparecen este mes. Esto evita mostrar "No asistió"
+  // a alumnos en modo flexible (donde el status no aplica) y "Día
+  // extra" cuando no hay ninguno.
+  const showCumplido    = mode === 'individual' && presentIndividualStatuses?.has('planned_done')
+  const showNoAsistio   = mode === 'individual' && presentIndividualStatuses?.has('planned_missed')
+  const showDiaExtra    = mode === 'individual' && presentIndividualStatuses?.has('unplanned_done')
+  const showProximo     = mode === 'individual' && presentIndividualStatuses?.has('planned_future')
+
+  const hasIndividualChips = showCumplido || showNoAsistio || showDiaExtra || showProximo
+
+  if (presentTypes.length === 0 && !hasIndividualChips) return null
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-gray-500 pt-1 border-t border-gray-100">
@@ -535,18 +627,25 @@ function Legend({ mode, eventsByDate }) {
           </span>
         )
       })}
-      {mode === 'individual' && (
-        <>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Cumplido
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> No asistió
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> Día extra
-          </span>
-        </>
+      {showCumplido && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Cumplido
+        </span>
+      )}
+      {showNoAsistio && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> No asistió
+        </span>
+      )}
+      {showProximo && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Próximo
+        </span>
+      )}
+      {showDiaExtra && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> Día extra
+        </span>
       )}
     </div>
   )

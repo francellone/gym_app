@@ -7,6 +7,12 @@ import {
   getScheduleMode,
 } from '../utils/assignmentHelpers'
 
+// ── Constantes locales ───────────────────────────────────────
+// schedule_mode posibles. Se replican acá para no acoplar este
+// hook con el shape exacto de SCHEDULE_MODES en assignmentHelpers.
+const SCHED_FIXED = 'fixed'
+const SCHED_FLEXIBLE = 'flexible'
+
 // ============================================================
 // useCoachCalendarData
 // ------------------------------------------------------------
@@ -218,15 +224,50 @@ export function computeCalendarEvents(students, assignments, window) {
 // Inputs:
 //   ymd               'YYYY-MM-DD'
 //   expectedSet       Set<YMD>   días esperados en la ventana
+//                                (preferred_days en modo fixed; vacío en flexible).
 //   completedSet      Set<YMD>   días con sesión registrada
 //   today             Date       referencia de "hoy"
+//   opts              { scheduleMode, flexibleOverflowSet }
+//                                scheduleMode: 'fixed' (default) | 'flexible'.
+//                                flexibleOverflowSet: días en flexible que
+//                                  EXCEDIERON sessions_per_week en su semana
+//                                  (los primeros N días entrenados de la semana
+//                                  son "cumplidos"; los que sobran, "extra").
+//
+// Reglas:
+//   FIXED:
+//     expected & done → planned_done
+//     expected & !done → planned_future (futuro) | planned_missed
+//     !expected & done → unplanned_done   ("entrenó un día que no era")
+//     resto → rest
+//   FLEXIBLE:
+//     no done → rest                (no hay concepto de "esperado por día")
+//     done & en overflowSet → unplanned_done  ("se pasó del cupo semanal")
+//     done & no en overflowSet → planned_done ("cumplió con el plan")
 //
 // Output: 'planned_done' | 'planned_missed' | 'planned_future'
 //       | 'unplanned_done' | 'rest'
 // ============================================================
-export function computeStudentDayStatus(ymd, expectedSet, completedSet, today) {
-  const isExpected = expectedSet.has(ymd)
+export function computeStudentDayStatus(
+  ymd,
+  expectedSet,
+  completedSet,
+  today,
+  opts = {}
+) {
+  const scheduleMode = opts.scheduleMode === SCHED_FLEXIBLE ? SCHED_FLEXIBLE : SCHED_FIXED
   const isDone = completedSet.has(ymd)
+
+  // ── Modo flexible ─────────────────────────────────────────
+  if (scheduleMode === SCHED_FLEXIBLE) {
+    if (!isDone) return 'rest'
+    const overflow = opts.flexibleOverflowSet
+    if (overflow && overflow.has(ymd)) return 'unplanned_done'
+    return 'planned_done'
+  }
+
+  // ── Modo fixed ────────────────────────────────────────────
+  const isExpected = expectedSet.has(ymd)
   if (isExpected && isDone) return 'planned_done'
   if (isExpected && !isDone) {
     const d = parseYMD(ymd)
@@ -235,6 +276,50 @@ export function computeStudentDayStatus(ymd, expectedSet, completedSet, today) {
   }
   if (!isExpected && isDone) return 'unplanned_done'
   return 'rest'
+}
+
+// ============================================================
+// computeFlexibleOverflowSet (PURA)
+// ------------------------------------------------------------
+// Para una asignación flexible, calcula qué días de los entrenados
+// quedan "fuera del cupo" semanal. Lógica:
+//
+//   - Agrupar fechas por semana ISO (lunes-domingo).
+//   - Ordenar cronológicamente cada semana.
+//   - Las primeras `sessions_per_week` cuentan como cumplidas.
+//   - Las que sobran, van al overflow set ("día extra").
+//
+// Inputs:
+//   completedSet     Set<YMD>   días con sesión
+//   sessionsPerWeek  number     cupo del plan (>0)
+//
+// Output: Set<YMD> con los YMD que excedieron el cupo en su semana.
+//   Si sessionsPerWeek <= 0, devuelve un set vacío.
+// ============================================================
+export function computeFlexibleOverflowSet(completedSet, sessionsPerWeek) {
+  const out = new Set()
+  const cap = Number(sessionsPerWeek)
+  if (!Number.isFinite(cap) || cap <= 0) return out
+  if (!completedSet || completedSet.size === 0) return out
+
+  // Agrupamos por clave de semana (YMD del lunes) ordenando los
+  // YMD lexicográficamente — alcanza, los YMD ya son ordenables.
+  const byWeek = new Map()
+  for (const ymd of completedSet) {
+    const d = parseYMD(ymd)
+    if (!d) continue
+    const wk = toYMD(startOfWeekMonday(d))
+    if (!byWeek.has(wk)) byWeek.set(wk, [])
+    byWeek.get(wk).push(ymd)
+  }
+
+  for (const ymds of byWeek.values()) {
+    ymds.sort()
+    for (let i = cap; i < ymds.length; i++) {
+      out.add(ymds[i])
+    }
+  }
+  return out
 }
 
 export const STUDENT_DAY_STYLE = {
@@ -352,6 +437,11 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
   // Por alumno: días esperados (de su asignación 'fixed' vigente)
   // y días completados (de workout_sessions). Solo se computa para
   // alumnos seleccionados.
+  //
+  // Adicionalmente, para asignaciones FLEXIBLES guardamos el set de
+  // días que excedieron `sessions_per_week` en su semana — esos sí
+  // son "día extra" en serio. Los demás días entrenados se cuentan
+  // como cumplidos (porque flexible no exige día específico).
   const perStudentDays = useMemo(() => {
     const out = new Map()
     const sel = new Set((selectedStudentIds || []))
@@ -364,17 +454,30 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
         x => x.student_id === sid && x.status === 'active'
       ) || null
 
+      const scheduleMode = getScheduleMode(a)
+      const completed = completedByStudent[sid] || new Set()
+
       const expected = new Set()
-      if (a && getScheduleMode(a) === 'fixed') {
+      if (a && scheduleMode === SCHED_FIXED) {
         for (const ymd of getExpectedSessionDates(a, window.start, window.end)) {
           expected.add(ymd)
         }
       }
 
+      let flexibleOverflow = null
+      if (a && scheduleMode === SCHED_FLEXIBLE) {
+        const spw = Number(
+          a?.plan?.sessions_per_week ?? a?.sessions_per_week ?? 0
+        )
+        flexibleOverflow = computeFlexibleOverflowSet(completed, spw)
+      }
+
       out.set(sid, {
         assignment: a,
+        scheduleMode,
         expected,
-        completed: completedByStudent[sid] || new Set(),
+        completed,
+        flexibleOverflow,
       })
     }
     return out
