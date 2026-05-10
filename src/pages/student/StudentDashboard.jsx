@@ -6,6 +6,11 @@ import { format, subDays, eachDayOfInterval, isToday } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Dumbbell, TrendingUp, Calendar, ChevronRight, Flame, BarChart2 } from 'lucide-react'
 import { evalTypeIcon, evalTypeLabel } from '../../utils/evalHelpers'
+import {
+  filterTrainingLogs,
+  computeStreak,
+  computeWeekTrainingDays,
+} from '../../utils/studentDashboardLogic'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
@@ -35,9 +40,13 @@ export default function StudentDashboard() {
           .eq('student_id', profile.id)
           .eq('active', true)
           .order('created_at', { ascending: false }),
+        // Joineamos plan_type para poder excluir logs de evaluaciones.
+        // Sin este filtro, el streak y la heatmap "Esta semana" cuentan
+        // sesiones de evaluaciones (legacy o futuras) como entrenos
+        // reales — bug detectado el 2026-05-10.
         supabase
           .from('workout_logs')
-          .select('logged_date, completed')
+          .select('logged_date, completed, plan:plans!plan_id(plan_type)')
           .eq('student_id', profile.id)
           .gte('logged_date', weekAgo)
           .lte('logged_date', today),
@@ -54,21 +63,12 @@ export default function StudentDashboard() {
 
       setAssignments(assignmentsRes.data || [])
 
-      const logs = logsRes.data || []
-      setWeekLogs(logs)
-
-      // Streak
-      let streakCount = 0
-      let checkDate = new Date()
-      while (true) {
-        const dateStr = format(checkDate, 'yyyy-MM-dd')
-        const hasLog = logs.some(l => l.logged_date === dateStr && l.completed)
-        if (!hasLog && !isToday(checkDate)) break
-        if (hasLog) streakCount++
-        checkDate = subDays(checkDate, 1)
-        if (streakCount > 60) break
-      }
-      setStreak(streakCount)
+      // Filtramos a logs de planes training (cualquier status: active,
+      // replaced, paused...). Las evaluaciones quedan afuera. Detalle
+      // de la regla en src/utils/studentDashboardLogic.js.
+      const trainingLogs = filterTrainingLogs(logsRes.data || [])
+      setWeekLogs(trainingLogs)
+      setStreak(computeStreak(trainingLogs, new Date()))
     } catch (err) {
       console.error(err)
     } finally {
@@ -77,7 +77,8 @@ export default function StudentDashboard() {
   }
 
   const last7Days = eachDayOfInterval({ start: subDays(new Date(), 6), end: new Date() })
-  const trainingDays = new Set(weekLogs.filter(l => l.completed).map(l => l.logged_date))
+  // weekLogs ya viene filtrado a training (evaluaciones fuera).
+  const trainingDays = computeWeekTrainingDays(weekLogs)
 
   const trainingPlans = assignments.filter(a => !a.plan?.plan_type || a.plan?.plan_type === 'training')
   const evalPlans = assignments.filter(a => a.plan?.plan_type === 'evaluation')
