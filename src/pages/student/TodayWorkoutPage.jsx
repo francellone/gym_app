@@ -1350,11 +1350,15 @@ export default function TodayWorkoutPage() {
       [day]: effortScale,
       ...(effortNotes ? { [`${day}_notes`]: effortNotes } : {}),
     }
-    // Si es el último día del plan, marcar finished_at
-    const isLastDay = activeDays.length > 0 && day === activeDays[activeDays.length - 1]
+    // finished_at se marca siempre que el alumno cierre el PSE del día que entrenó.
+    // En la práctica una sesión = un día calendario = un día del plan, así que tratar
+    // de esperar al "último día del plan" dejaba sin hora de fin a los planes con
+    // varios días (day_a, day_b, ...). upsertSession ya valida que finished_at sea
+    // estrictamente posterior al started_at original, así que es seguro escribirlo
+    // siempre (incluso al editar el PSE más tarde).
     await upsertSession({
       borg_per_day: newPerDay,
-      ...(isLastDay ? { finished_at: new Date().toISOString() } : {}),
+      finished_at: new Date().toISOString(),
     })
     pseTriggeredRef.current[day] = true
     setShowPSEForDay(null)
