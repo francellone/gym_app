@@ -9,10 +9,13 @@ import {
   Calendar, AlertTriangle, Clock, Lock, Trash2
 } from 'lucide-react'
 import {
-  borgColor, parseReps, serializeReps, displayReps,
+  borgColor, parseReps, displayReps,
   DAY_SECTION_IDS, SECTION_LABELS,
   groupExercisesIntoBlocks, blockDisplayTitle,
   suggestNextDay,
+  WEIGHT_MODES, REPS_UNITS,
+  getEffectiveWeightMode, getEffectiveUnilateral,
+  readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
@@ -211,6 +214,15 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
   // maxSets: tope duro (99 = sin tope cuando el coach no lo definió)
   const maxSets = setsCount || 99
 
+  // Modo de peso y unilateral efectivos (herencia: log > plan_exercise > exercise)
+  const exerciseDef = planEx.exercise || {}
+  const initialWeightMode = getEffectiveWeightMode({
+    log, planExercise: planEx, exercise: exerciseDef,
+  })
+  const initialUnilateral = getEffectiveUnilateral({
+    log, planExercise: planEx, exercise: exerciseDef,
+  })
+
   // Pesos sugeridos por serie: prioridad suggested_weights (array), fallback a suggested_weight (legacy)
   const suggestedWeightsArr = (() => {
     const count = setsCount
@@ -231,10 +243,12 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
     return Array.from({ length: count || 1 }, () => legacy)
   })()
 
-  // Inicializar reps con valores sugeridos si no hay log previo
+  // Inicializar reps con valores sugeridos si no hay log previo.
+  // Prioridad: actual_reps_jsonb (nuevo) > actual_reps (legacy) > sugeridas.
   const initRepsArr = () => {
-    if (log?.actual_reps) {
-      const parsed = parseReps(log.actual_reps)
+    const fromLog = log ? readLogReps(log) : []
+    if (fromLog.length > 0) {
+      const parsed = fromLog.map(r => r != null ? String(r) : '')
       if (setsCount > 0 && parsed.length !== setsCount) {
         return Array.from({ length: setsCount }, (_, i) => parsed[i] || suggestedRepsArr[i] || '')
       }
@@ -245,23 +259,17 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
       : [suggestedRepsArr[0] || '']
   }
 
-  // Inicializar pesos por serie desde log existente o sugerencias
+  // Inicializar pesos por serie. Prioridad: actual_weights_jsonb > legacy > sugeridos.
   const initWeightsArr = () => {
-    // Prioridad 1: actual_weights del log (array serializado)
-    if (log?.actual_weights) {
-      const parsed = parseReps(log.actual_weights)
-      const asStrings = parsed.map(w => w != null ? String(w) : '')
+    const fromLog = log ? readLogWeights(log) : []
+    if (fromLog.length > 0) {
+      const asStrings = fromLog.map(w => w != null && w !== '' ? String(w) : '')
       if (setsCount > 0 && asStrings.length !== setsCount) {
         return Array.from({ length: setsCount }, (_, i) =>
           asStrings[i] || suggestedWeightsArr[i] || ''
         )
       }
       return asStrings.length > 0 ? asStrings : [suggestedWeightsArr[0] || '']
-    }
-    // Prioridad 2: actual_weight legacy (mismo valor para todas las series)
-    if (log?.actual_weight) {
-      const val = log.actual_weight.toString()
-      return Array.from({ length: setsCount || 1 }, () => val)
     }
     // Default: pesos sugeridos por el coach
     return setsCount > 0
@@ -278,9 +286,15 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
     perceived_difficulty: log?.perceived_difficulty || null,
     notes: log?.notes || '',
     completed: log?.completed || false,
+    // Modo de peso del log (override sobre el efectivo si el alumno lo cambia)
+    weight_mode: log?.weight_mode || initialWeightMode,
+    unilateral: log?.unilateral != null ? !!log.unilateral : initialUnilateral,
+    reps_unit: log?.reps_unit || null,
   })
 
   const completed = logData.completed
+  const isBodyweight = logData.weight_mode === 'bodyweight'
+  const showWeightInputs = !isBodyweight
 
   function handleRepsChange(idx, val) {
     const newArr = [...logData.actual_reps_arr]
@@ -332,50 +346,78 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
     setLogData(p => ({ ...p, actual_sets: n.toString(), actual_reps_arr: newReps, actual_weights_arr: newWeights }))
   }
 
+  // Construye el payload limpio para la RPC save_workout_log.
+  //
+  // La RPC espera:
+  //   - p_reps: jsonb array de números (POR LADO si unilateral=true)
+  //   - p_weights: jsonb array de números (null si bodyweight)
+  //   - p_weight_mode, p_unilateral, p_reps_unit
+  //   - El back hace doble escritura interna a actual_reps / actual_weights / actual_weight
   function buildSaveData() {
-    const weightsArr = logData.actual_weights_arr
-    const serializedWeights = serializeReps(weightsArr) || null
-    // actual_weight legacy: primer valor válido del array (retrocompat con datos existentes)
-    const firstWeight = weightsArr.find(w => w !== '' && w !== null && w !== undefined)
+    const repsArrRaw = logData.actual_reps_arr || []
+    const repsNumeric = repsArrRaw
+      .map(r => parseFloat(r))
+      .map(n => isNaN(n) ? null : n)
+
+    const weightsArrRaw = logData.actual_weights_arr || []
+    const weightsNumeric = weightsArrRaw
+      .map(w => parseFloat(w))
+      .map(n => isNaN(n) ? null : n)
+
+    // Length de reps determina cuántas series tiene el log.
+    // Si bodyweight, anulamos weights enteramente para satisfacer el CHECK
+    // (constraint: bodyweight ⇒ actual_weights_jsonb IS NULL).
+    const weightsForRpc = isBodyweight
+      ? null
+      // Igualar largo de weights con reps (rellena con null si faltan)
+      : Array.from({ length: repsNumeric.length }, (_, i) =>
+          weightsNumeric[i] != null ? weightsNumeric[i] : null
+        )
+
     return {
-      actual_sets: logData.actual_sets ? parseInt(logData.actual_sets) : null,
-      actual_reps: serializeReps(logData.actual_reps_arr) || null,
-      actual_weight: firstWeight ? parseFloat(firstWeight) : null,  // legacy
-      actual_weights: serializedWeights,                             // nuevo: por serie
-      perceived_difficulty: logData.perceived_difficulty || null,
-      perceived_difficulty_label: logData.perceived_difficulty
+      // valores que necesita la RPC
+      p_reps: repsNumeric,
+      p_weights: weightsForRpc,
+      p_weight_mode: logData.weight_mode || 'with_weight',
+      p_unilateral: !!logData.unilateral,
+      p_reps_unit: logData.reps_unit || null,
+      p_actual_sets: logData.actual_sets ? parseInt(logData.actual_sets) : (repsNumeric.length || null),
+      p_perceived_difficulty: logData.perceived_difficulty || null,
+      p_perceived_difficulty_label: logData.perceived_difficulty
         ? PSE_OPTIONS.find(p => p.value === logData.perceived_difficulty)?.label
         : null,
-      notes: logData.notes || null,
-      completed: true,
+      p_notes: logData.notes || null,
+      p_completed: true,
     }
   }
 
+  // Validación cliente — devuelve un objeto { type, message } o null.
+  //   type='warning' → modal de "Verificá este dato" (deja guardar igual)
   function validate(data) {
-    // Avisar si no se registró el PSE
-    if (!data.perceived_difficulty) {
-      return `No registraste el esfuerzo percibido (PSE). Tu coach lo usa para ajustar el plan.`
+    // Falta PSE
+    if (!data.p_perceived_difficulty) {
+      return { type: 'warning', message: 'No registraste el esfuerzo percibido (PSE). Tu coach lo usa para ajustar el plan.' }
     }
-    // Validar pesos por serie (cualquier valor inusual)
-    let weightsToCheck = []
-    if (data.actual_weights) {
-      const parsed = parseReps(data.actual_weights)
-      weightsToCheck = parsed.map(Number).filter(w => !isNaN(w) && w > 0)
-    } else if (data.actual_weight) {
-      weightsToCheck = [data.actual_weight]
-    }
-    if (weightsToCheck.some(w => w > 500)) {
-      return `Algún peso registrado parece muy alto. ¿Son correctos?`
+    // Pesos demasiado altos (solo si no es BW)
+    if (!isBodyweight && Array.isArray(data.p_weights)) {
+      const nums = data.p_weights.filter(w => w != null && !isNaN(w))
+      if (nums.some(w => w > 500)) {
+        return { type: 'warning', message: 'Algún peso registrado parece muy alto. ¿Son correctos?' }
+      }
+      // Soft-warning "Solo con barra" + peso > 20kg
+      if (data.p_weight_mode === 'barbell_only' && nums.some(w => w > 20)) {
+        return { type: 'warning', message: 'Cargaste "Solo con barra" pero el peso supera los 20kg (peso de la barra). ¿Es correcto?' }
+      }
     }
     return null
   }
 
   async function attemptSave() {
     const data = buildSaveData()
-    const msg = validate(data)
-    if (msg) {
+    const warn = validate(data)
+    if (warn) {
       setPendingData(data)
-      setWarning(msg)
+      setWarning(warn.message)
       return
     }
     await doSave(data)
@@ -412,6 +454,10 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
         perceived_difficulty: null,
         notes: '',
         completed: false,
+        // Reset también la configuración a los defaults heredados
+        weight_mode: initialWeightMode,
+        unilateral: initialUnilateral,
+        reps_unit: null,
       })
       setConfirmDelete(false)
       setEditing(false)
@@ -509,16 +555,19 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
                 planEx.suggested_weight && planEx.suggested_weight !== 'None' && `· ${planEx.suggested_weight}`,
               ].filter(Boolean).join(' ')}
             </p>
-            {log && !expanded && (
-              <p className="text-xs text-green-600 mt-0.5 font-medium">
-                ✓ {[
-                  log.actual_sets && `${log.actual_sets}s`,
-                  (log.actual_weights || log.actual_weight) &&
-                    `${displayReps(log.actual_weights || String(log.actual_weight))}kg`,
-                  log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            )}
+            {log && !expanded && (() => {
+              const wArr = readLogWeights(log).filter(w => w != null && w !== '')
+              const wDisplay = wArr.length > 0 ? `${wArr.join(', ')}kg` : null
+              return (
+                <p className="text-xs text-green-600 mt-0.5 font-medium">
+                  ✓ {[
+                    log.actual_sets && `${log.actual_sets}s`,
+                    wDisplay,
+                    log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                  ].filter(Boolean).join(' · ')}
+                </p>
+              )
+            })()}
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -591,34 +640,85 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
                   )}
                 </div>
 
+                {/* Configuración del ejercicio (modo, unilateral, unidad reps) */}
+                <div className="rounded-xl bg-white border border-gray-200 p-2.5 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] text-gray-500 mb-1 block">Tipo de peso</label>
+                      <select
+                        className="input text-xs py-1.5"
+                        value={logData.weight_mode}
+                        onChange={e => setLogData(p => ({ ...p, weight_mode: e.target.value }))}
+                      >
+                        {WEIGHT_MODES.map(m => (
+                          <option key={m.key} value={m.key}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-500 mb-1 block">Unidad reps</label>
+                      <select
+                        className="input text-xs py-1.5"
+                        value={logData.reps_unit || ''}
+                        onChange={e => setLogData(p => ({ ...p, reps_unit: e.target.value || null }))}
+                      >
+                        <option value="">reps (default)</option>
+                        {REPS_UNITS.filter(u => u.key !== 'reps').map(u => (
+                          <option key={u.key} value={u.key}>{u.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-violet-600"
+                      checked={!!logData.unilateral}
+                      onChange={e => setLogData(p => ({ ...p, unilateral: e.target.checked }))}
+                    />
+                    <span className="text-xs text-gray-700">
+                      Unilateral (cada lado)
+                      {logData.unilateral && (
+                        <span className="block text-[10px] text-violet-600 font-bold">
+                          Las reps van POR LADO, no como total.
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                </div>
+
                 {/* Reps + Peso por serie (grilla combinada) */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block font-medium">
-                    Repeticiones y peso por serie
+                    {showWeightInputs
+                      ? (logData.unilateral ? 'Reps por lado y peso por serie' : 'Repeticiones y peso por serie')
+                      : (logData.unilateral ? 'Reps por lado por serie' : 'Repeticiones por serie')}
                   </label>
                   {/* Encabezados */}
-                  <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
+                  <div className={`grid gap-1.5 mb-1 px-0.5 ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
                     <div />
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Reps
+                      {logData.unilateral ? 'Reps × lado' : (logData.reps_unit && logData.reps_unit !== 'reps' ? REPS_UNITS.find(u => u.key === logData.reps_unit)?.short || 'Reps' : 'Reps')}
                       {suggestedRepsRaw && (
                         <span className="block font-normal normal-case text-primary-400">
                           sug: {displayReps(suggestedRepsRaw)}
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Peso (kg)
-                      {suggestedWeightsArr.some(Boolean) && (
-                        <span className="block font-normal normal-case text-primary-400">
-                          sug: {suggestedWeightsArr.filter(Boolean).join(', ')}
-                        </span>
-                      )}
-                    </div>
+                    {showWeightInputs && (
+                      <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                        Peso (kg)
+                        {suggestedWeightsArr.some(Boolean) && (
+                          <span className="block font-normal normal-case text-primary-400">
+                            sug: {suggestedWeightsArr.filter(Boolean).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* Fila por serie */}
                   {Array.from({ length: actualSetsCount }, (_, i) => (
-                    <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
+                    <div key={i} className={`grid gap-1.5 mb-1.5 items-center ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
                       <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
                       <input
                         className="input text-sm text-center"
@@ -626,17 +726,34 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
                         value={logData.actual_reps_arr[i] || ''}
                         onChange={e => handleRepsChange(i, e.target.value)}
                       />
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="input text-sm text-center"
-                        placeholder={suggestedWeightsArr[i] || '0'}
-                        value={logData.actual_weights_arr[i] || ''}
-                        onChange={e => handleWeightChange(i, e.target.value)}
-                      />
+                      {showWeightInputs && (
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          className="input text-sm text-center"
+                          placeholder={suggestedWeightsArr[i] || '0'}
+                          value={logData.actual_weights_arr[i] || ''}
+                          onChange={e => handleWeightChange(i, e.target.value)}
+                        />
+                      )}
                     </div>
                   ))}
+                  {!showWeightInputs && (
+                    <p className="text-[11px] text-emerald-600 mt-1.5 px-0.5">
+                      Sin peso · solo se cargan reps.
+                    </p>
+                  )}
+                  {/* Soft-warning inline si barbell_only + algún peso > 20 */}
+                  {showWeightInputs && logData.weight_mode === 'barbell_only' &&
+                    logData.actual_weights_arr.some(w => parseFloat(w) > 20) && (
+                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
+                      <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-amber-700 leading-relaxed">
+                        Marcaste <strong>"Solo con barra"</strong> pero hay pesos &gt; 20kg. La barra olímpica suele pesar 20kg. ¿Querés cambiar a "Con peso"?
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* PSE por ejercicio */}
@@ -684,15 +801,25 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
             ) : (
               <div className="bg-green-50 rounded-xl p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-green-700">✓ Completado</p>
-                <p className="text-xs text-green-600">
-                  {[
-                    log?.actual_sets && `${log.actual_sets} series`,
-                    log?.actual_reps && `× ${displayReps(log.actual_reps)}`,
-                    (log?.actual_weights || log?.actual_weight) &&
-                      `${displayReps(log.actual_weights || String(log.actual_weight))}kg`,
-                    log?.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
-                  ].filter(Boolean).join(' · ')}
-                </p>
+                {(() => {
+                  const repsArr = readLogReps(log).filter(r => r != null && r !== '')
+                  const wArr = readLogWeights(log).filter(w => w != null && w !== '')
+                  const repsLabel = log?.unilateral ? ' por lado' : ''
+                  const unitLabel = log?.reps_unit && log.reps_unit !== 'reps'
+                    ? ` ${log.reps_unit}` : ''
+                  return (
+                    <p className="text-xs text-green-600">
+                      {[
+                        log?.actual_sets && `${log.actual_sets} series`,
+                        repsArr.length > 0 && `× ${repsArr.join(', ')}${unitLabel}${repsLabel}`,
+                        wArr.length > 0 && `${wArr.join(', ')}kg`,
+                        log?.weight_mode === 'bodyweight' && wArr.length === 0 && 'sin peso',
+                        log?.weight_mode === 'barbell_only' && 'solo barra',
+                        log?.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  )
+                })()}
                 {log?.notes && <p className="text-xs text-green-600 italic">"{log.notes}"</p>}
                 <div className="flex items-center gap-3 pt-0.5">
                   <button onClick={() => setEditing(true)} className="text-xs text-green-700 underline">
@@ -1211,19 +1338,18 @@ export default function TodayWorkoutPage() {
     }
   }
 
+  // Guarda un workout_log vía RPC save_workout_log.
+  // Nota importante: la RPC ya hace doble escritura interna a las columnas
+  // viejas (actual_reps, actual_weights, actual_weight) en formato JSON limpio,
+  // así que el front no necesita doblar nada.
+  //
+  // El `data` viene de buildSaveData() con todos los p_* listos.
   async function saveLog(planExerciseId, data) {
     const existingLog = logs[planExerciseId]
-    let result
 
-    // Garantizar que exista la workout_session ANTES de insertar el log.
-    // Antes el guard era `isToday && ...`, pero eso dejaba workout_logs
-    // retroactivos sin session padre (genera huérfanos + rompe el cierre
-    // de PSE con check_violation en el back, porque finished_at sin
-    // started_at viola la constraint). Quitamos el guard: started_at
-    // representa "el alumno está cargando estos datos en este momento",
-    // que es lo mismo que asume el backfill del back para huérfanos
-    // (started_at = min(log.created_at)). El logged_late=true del log
-    // sigue marcando si fue retroactivo o no.
+    // Garantizar workout_session antes de la escritura (idem que antes,
+    // ver comentario original). started_at representa "el alumno está
+    // cargando ahora", coherente con el backfill del back.
     if (assignment && !session?.started_at) {
       try {
         await upsertSession({ started_at: new Date().toISOString() })
@@ -1237,34 +1363,41 @@ export default function TodayWorkoutPage() {
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
     maybeFireWellbeingStartAviso()
 
-    if (existingLog) {
-      result = await supabase
-        .from('workout_logs')
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq('id', existingLog.id)
-        .select()
-        .single()
-    } else {
-      result = await supabase
-        .from('workout_logs')
-        .insert({
-          ...data,
-          student_id: profile.id,
-          plan_id: assignment.plan_id,
-          plan_exercise_id: planExerciseId,
-          logged_date: selectedDate,
-          logged_late: !isToday,
-        })
-        .select()
-        .single()
+    // Llamada a la RPC. Si existingLog → UPDATE (p_log_id), sino INSERT.
+    const rpcArgs = {
+      p_log_id: existingLog?.id ?? null,
+      p_student_id: profile.id,
+      p_plan_id: assignment.plan_id,
+      p_plan_exercise_id: planExerciseId,
+      p_logged_date: selectedDate,
+      p_logged_late: !isToday,
+      ...data, // ya tiene los p_* desde buildSaveData
     }
 
-    if (result.error) {
-      console.error('saveLog: workout_logs error:', result.error)
-      showSaveErrorAviso('No pudimos guardar el ejercicio. Probá de nuevo en un momento.')
-      throw result.error
+    const { data: returnedId, error } = await supabase.rpc('save_workout_log', rpcArgs)
+    if (error) {
+      console.error('saveLog: rpc save_workout_log error:', error)
+      // Mensaje específico según el código del back
+      const isCheckViolation = error.code === '23514'
+      const msg = isCheckViolation
+        ? 'Datos inválidos: revisá modo de peso, reps y pesos.'
+        : 'No pudimos guardar el ejercicio. Probá de nuevo en un momento.'
+      showSaveErrorAviso(msg)
+      throw error
     }
-    setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
+
+    // Refetch del log completo (la RPC devuelve solo el uuid)
+    const logId = existingLog?.id ?? returnedId
+    if (logId) {
+      const { data: fullLog } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('id', logId)
+        .single()
+      if (fullLog) {
+        setLogs(prev => ({ ...prev, [planExerciseId]: fullLog }))
+      }
+    }
   }
 
   async function deleteLog(planExerciseId) {

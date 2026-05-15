@@ -44,14 +44,184 @@ export function makeBlockLabel(letter, number) {
   return `${letter}${number}`
 }
 
-// Parsear reps: puede ser string simple o JSON array
+// Parsear reps: puede ser string simple, JSON array, o ya un array (jsonb)
 export function parseReps(repsValue) {
-  if (!repsValue) return []
+  if (repsValue == null || repsValue === '') return []
+  // Si ya viene como array (caso jsonb de Postgres), lo devolvemos tal cual
+  if (Array.isArray(repsValue)) return repsValue
   try {
     const parsed = JSON.parse(repsValue)
     if (Array.isArray(parsed)) return parsed
   } catch {}
   return [repsValue] // wrap single value in array for display
+}
+
+// ============================================================
+// MODOS DE PESO (handoff 2.4)
+// ============================================================
+//
+// 3 modos por log:
+//   - 'with_weight'  → Con peso (default histórico)
+//   - 'barbell_only' → Solo con barra olímpica (peso = ~20kg implícito)
+//   - 'bodyweight'   → Sin peso (ejercicios de peso corporal puro)
+//
+// Herencia: log.weight_mode ?? plan_exercise.weight_mode ?? exercise.default_weight_mode ?? 'with_weight'
+// ============================================================
+
+export const WEIGHT_MODES = [
+  {
+    key: 'with_weight',
+    label: 'Con peso',
+    short: 'Con peso',
+    description: 'Hay peso explícito (discos, mancuernas, kettlebell).',
+    showsWeightInputs: true,
+  },
+  {
+    key: 'barbell_only',
+    label: 'Solo con barra',
+    short: 'Solo barra',
+    description: 'Ejercicio con barra olímpica sin discos extra (~20kg).',
+    showsWeightInputs: true,
+  },
+  {
+    key: 'bodyweight',
+    label: 'Sin peso',
+    short: 'BW',
+    description: 'Peso corporal puro (push up, plancha, chin up, etc.).',
+    showsWeightInputs: false,
+  },
+]
+
+export const WEIGHT_MODE_BY_KEY = WEIGHT_MODES.reduce((acc, m) => {
+  acc[m.key] = m
+  return acc
+}, {})
+
+// reps_unit válidos según CHECK constraint del back
+export const REPS_UNITS = [
+  { key: 'reps',          label: 'reps',          short: 'reps' },
+  { key: 'pasos',         label: 'pasos',         short: 'pasos' },
+  { key: 'respiraciones', label: 'respiraciones', short: 'resp.' },
+  { key: 'segundos',      label: 'segundos',      short: 'seg' },
+]
+
+/**
+ * Resuelve el modo efectivo del peso para un log/plan_exercise/exercise,
+ * siguiendo la herencia: log > plan_exercise > exercise > default.
+ *
+ * @param {Object} sources - { log, planExercise, exercise }
+ * @returns {string} 'with_weight' | 'barbell_only' | 'bodyweight'
+ */
+export function getEffectiveWeightMode({ log, planExercise, exercise } = {}) {
+  if (log?.weight_mode) return log.weight_mode
+  if (planExercise?.weight_mode) return planExercise.weight_mode
+  if (exercise?.default_weight_mode) return exercise.default_weight_mode
+  return 'with_weight'
+}
+
+/**
+ * Resuelve si es unilateral (cada lado), siguiendo herencia.
+ *
+ * @param {Object} sources - { log, planExercise, exercise }
+ * @returns {boolean}
+ */
+export function getEffectiveUnilateral({ log, planExercise, exercise } = {}) {
+  if (log?.unilateral != null) return !!log.unilateral
+  if (planExercise?.unilateral != null) return !!planExercise.unilateral
+  if (exercise?.default_unilateral != null) return !!exercise.default_unilateral
+  return false
+}
+
+/**
+ * Lee el array de reps desde un log priorizando el formato nuevo (jsonb)
+ * y cayendo al viejo (text con JSON) por retrocompat.
+ *
+ * @param {Object} log - workout_log fila
+ * @returns {Array<number|string>} array de reps (puede tener strings de logs sucios)
+ */
+export function readLogReps(log) {
+  if (!log) return []
+  if (Array.isArray(log.actual_reps_jsonb)) return log.actual_reps_jsonb
+  return parseReps(log.actual_reps)
+}
+
+/**
+ * Lee el array de pesos desde un log priorizando jsonb sobre formato viejo.
+ *
+ * @param {Object} log
+ * @returns {Array<number|null>}
+ */
+export function readLogWeights(log) {
+  if (!log) return []
+  if (Array.isArray(log.actual_weights_jsonb)) return log.actual_weights_jsonb
+  const fromText = parseReps(log.actual_weights)
+  if (fromText.length > 0) return fromText
+  // Último fallback: actual_weight legacy (numeric, replicado a todas las series)
+  if (log.actual_weight != null) {
+    const sets = parseInt(log.actual_sets) || 1
+    return Array(sets).fill(log.actual_weight)
+  }
+  return []
+}
+
+/**
+ * Peso máximo de un log (con todos los fallbacks).
+ * Usar para gráficos de "Peso máximo registrado".
+ */
+export function maxWeightOfLog(log) {
+  const arr = readLogWeights(log)
+  const nums = arr.map(w => parseFloat(w)).filter(n => !isNaN(n) && n > 0)
+  return nums.length > 0 ? Math.max(...nums) : 0
+}
+
+/**
+ * Peso promedio de un log (para gráficos de volumen aproximado).
+ */
+export function avgWeightOfLog(log) {
+  const arr = readLogWeights(log)
+  const nums = arr.map(w => parseFloat(w)).filter(n => !isNaN(n) && n > 0)
+  return nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0
+}
+
+/**
+ * Calcula el volumen de un log en el cliente, respetando weight_mode + unilateral.
+ *
+ *   with_weight / barbell_only: sum(reps[i] × weights[i]) [× 2 si unilateral]
+ *   bodyweight:                 sum(reps[i]) × bodyWeightKg [× 2 si unilateral]
+ *                               → devuelve null si no hay bodyWeightKg
+ *
+ * El back ofrece la RPC calculate_log_volume(p_log_id) con la lógica oficial.
+ * Esta función es el equivalente cliente para evitar 1 RTT por log en gráficos.
+ *
+ * @param {Object} log - workout_log (con weight_mode, unilateral resueltos efectivos)
+ * @param {number} bodyWeightKg - profile.weight_kg del alumno (puede ser null)
+ * @param {Object} [opts] - { weightMode, unilateral } overrides (resueltos efectivos)
+ * @returns {number|null}  numeric o null si no se puede calcular
+ */
+export function calculateLogVolume(log, bodyWeightKg, opts = {}) {
+  if (!log) return 0
+  const reps = readLogReps(log).map(r => parseFloat(r)).filter(n => !isNaN(n) && n > 0)
+  if (reps.length === 0) return 0
+
+  const weightMode = opts.weightMode || log.weight_mode || 'with_weight'
+  const unilateral = opts.unilateral != null ? !!opts.unilateral : !!log.unilateral
+  const multiplier = unilateral ? 2 : 1
+
+  if (weightMode === 'bodyweight') {
+    if (!bodyWeightKg || bodyWeightKg <= 0) return null
+    const totalReps = reps.reduce((a, b) => a + b, 0)
+    return totalReps * bodyWeightKg * multiplier
+  }
+
+  const weights = readLogWeights(log).map(w => parseFloat(w))
+  // Pareamos cada serie con su peso (o el primer peso si falta)
+  const fallback = weights.find(n => !isNaN(n) && n > 0) || 0
+  let vol = 0
+  for (let i = 0; i < reps.length; i++) {
+    const w = !isNaN(weights[i]) && weights[i] > 0 ? weights[i] : fallback
+    vol += reps[i] * w
+  }
+  return vol * multiplier
 }
 
 // Serializar reps: si todas son iguales o solo hay una → string simple
@@ -148,6 +318,9 @@ export function emptyPlanExercise(section) {
     extra_notes: '',
     video_url: '',
     order_index: 0,
+    // Overrides del plan_exercise sobre el catálogo. null = hereda del exercise.
+    weight_mode: null,
+    unilateral: null,
   }
 }
 
@@ -201,6 +374,9 @@ export function dbExToUIEx(ex) {
     extra_notes: ex.extra_notes || '',
     video_url: ex.exercise?.video_url || '',
     order_index: ex.order_index || 0,
+    // Overrides del plan_exercise. null = hereda del exercise.
+    weight_mode: ex.weight_mode ?? null,
+    unilateral: ex.unilateral ?? null,
   }
 }
 
@@ -229,6 +405,9 @@ export function uiExToDBEx(ex, planId, section, index, blockId = null) {
     extra_notes: ex.extra_notes || null,
     exercise_mode: ex.exercise_mode || 'reps',
     duration_seconds: ex.duration_seconds ? parseInt(ex.duration_seconds) : null,
+    // Overrides del plan_exercise (NULL = hereda del exercise)
+    weight_mode: ex.weight_mode ?? null,
+    unilateral: ex.unilateral == null ? null : !!ex.unilateral,
   }
 }
 
@@ -426,6 +605,9 @@ export function emptyCircuitExercise() {
     block_number: '',
     extra_notes: '',
     order_index: 0,
+    // null = hereda del exercise (handoff 2.4)
+    weight_mode: null,
+    unilateral: null,
   }
 }
 

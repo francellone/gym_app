@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { format, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
+import { readLogReps, readLogWeights } from '../../utils/planHelpers'
 
 function SessionGroup({ date, logs, session }) {
   const [expanded, setExpanded] = useState(false)
@@ -79,14 +80,29 @@ function SessionGroup({ date, logs, session }) {
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {log.plan_exercise?.exercise?.name || 'Ejercicio'}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {[
-                    log.actual_sets && `${log.actual_sets} series`,
-                    log.actual_reps && `× ${log.actual_reps}`,
-                    log.actual_weight && `${log.actual_weight}kg`,
-                    log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
-                  ].filter(Boolean).join(' · ')}
-                </p>
+                {(() => {
+                  const reps = readLogReps(log).filter(r => r != null && r !== '')
+                  const weights = readLogWeights(log).filter(w => w != null && w !== '')
+                  const repsDisplay = reps.length > 0
+                    ? `× ${reps.join(',')}${log.unilateral ? '/lado' : ''}`
+                    : null
+                  const wDisplay = weights.length > 0 ? `${weights.join(',')}kg` : null
+                  const modeDisplay =
+                    log.weight_mode === 'bodyweight' ? 'BW'
+                    : log.weight_mode === 'barbell_only' ? 'solo barra'
+                    : null
+                  return (
+                    <p className="text-xs text-gray-500">
+                      {[
+                        log.actual_sets && `${log.actual_sets} series`,
+                        repsDisplay,
+                        wDisplay,
+                        !wDisplay && modeDisplay,
+                        log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  )
+                })()}
                 {log.notes && (
                   <p className="text-xs text-gray-400 mt-0.5 italic truncate">"{log.notes}"</p>
                 )}

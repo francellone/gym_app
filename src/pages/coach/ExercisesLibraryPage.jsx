@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Dumbbell, Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Tag, Settings } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { WEIGHT_MODES, WEIGHT_MODE_BY_KEY } from '../../utils/planHelpers'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
@@ -135,7 +136,9 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
   const { profile } = useAuth()
   const [form, setForm] = useState(exercise || {
-    name: '', description: '', video_url: '', technique_notes: ''
+    name: '', description: '', video_url: '', technique_notes: '',
+    default_weight_mode: 'with_weight',
+    default_unilateral: false,
   })
   const [selectedTags, setSelectedTags] = useState([])
   const [loading, setLoading] = useState(false)
@@ -171,6 +174,8 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
         video_url: form.video_url || null,
         technique_notes: form.technique_notes || null,
         created_by: profile.id,
+        default_weight_mode: form.default_weight_mode || 'with_weight',
+        default_unilateral: !!form.default_unilateral,
       }
       let exerciseId = form.id
       let result
@@ -219,6 +224,42 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
               placeholder="Sentadilla con barra"
             />
+          </div>
+
+          {/* Configuración del ejercicio: modo de peso + unilateral */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+              Configuración del ejercicio
+            </p>
+            <div>
+              <label className="label">Modo de peso (default)</label>
+              <select
+                className="input text-sm"
+                value={form.default_weight_mode || 'with_weight'}
+                onChange={e => setForm(p => ({ ...p, default_weight_mode: e.target.value }))}
+              >
+                {WEIGHT_MODES.map(m => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1">
+                {WEIGHT_MODE_BY_KEY[form.default_weight_mode || 'with_weight']?.description}
+              </p>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary-600"
+                checked={!!form.default_unilateral}
+                onChange={e => setForm(p => ({ ...p, default_unilateral: e.target.checked }))}
+              />
+              <span className="text-sm text-gray-700">
+                Unilateral (cada lado)
+                <span className="block text-[11px] text-gray-500 font-normal">
+                  Si está activo, las reps se cuentan POR LADO, no como total.
+                </span>
+              </span>
+            </label>
           </div>
 
           {/* Etiquetas personalizadas */}
@@ -317,6 +358,7 @@ export default function ExercisesLibraryPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
+  const [filterMode, setFilterMode] = useState('')   // '' | 'with_weight' | 'barbell_only' | 'bodyweight'
   const [modalExercise, setModalExercise] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
@@ -360,13 +402,15 @@ export default function ExercisesLibraryPage() {
     fetchAll()
   }
 
-  // Filtrar ejercicios por texto o etiqueta
+  // Filtrar ejercicios por texto, etiqueta o modo de peso
   const filtered = exercises.filter(e => {
     const matchSearch = !search ||
       e.name?.toLowerCase().includes(search.toLowerCase()) ||
       (exerciseTagMap[e.id] || []).some(t => t.name?.toLowerCase().includes(search.toLowerCase()))
     const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some(t => t.id === filterTag)
-    return matchSearch && matchTag
+    const exMode = e.default_weight_mode || 'with_weight'
+    const matchMode = !filterMode || exMode === filterMode
+    return matchSearch && matchTag && matchMode
   })
 
   return (
@@ -415,6 +459,16 @@ export default function ExercisesLibraryPage() {
             {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         )}
+        <select
+          className="input w-auto min-w-32"
+          value={filterMode}
+          onChange={e => setFilterMode(e.target.value)}
+        >
+          <option value="">Todos los modos</option>
+          {WEIGHT_MODES.map(m => (
+            <option key={m.key} value={m.key}>{m.label}</option>
+          ))}
+        </select>
       </div>
 
       {loading ? (
@@ -439,7 +493,24 @@ export default function ExercisesLibraryPage() {
                   <Dumbbell size={18} className="text-gray-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-900 truncate">{ex.name}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{ex.name}</p>
+                    {(() => {
+                      const mode = ex.default_weight_mode || 'with_weight'
+                      if (mode === 'bodyweight') {
+                        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">BW</span>
+                      }
+                      if (mode === 'barbell_only') {
+                        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Barra</span>
+                      }
+                      return null
+                    })()}
+                    {ex.default_unilateral && (
+                      <span title="Unilateral (cada lado)" className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                        Unilat.
+                      </span>
+                    )}
+                  </div>
                   {exTags.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {exTags.map(tag => (

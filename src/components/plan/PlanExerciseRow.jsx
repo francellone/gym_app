@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Trash2, Tag } from 'lucide-react'
 import {
   BLOCK_LETTERS, BLOCK_NUMBERS, PSE_OPTIONS,
+  WEIGHT_MODES, WEIGHT_MODE_BY_KEY,
+  getEffectiveWeightMode, getEffectiveUnilateral,
 } from '../../utils/planHelpers'
 
 // Devuelve true si el array tiene más de un valor único no vacío
@@ -31,6 +33,21 @@ export default function PlanExerciseRow({
 }) {
   const [tagFilter, setTagFilter] = useState('')
   const setsCount = parseInt(ex.suggested_sets) || 0
+
+  // Ejercicio del catálogo seleccionado (para conocer sus defaults)
+  const selectedExercise = ex.exercise_id
+    ? exercises.find(e => e.id === ex.exercise_id)
+    : null
+  const effectiveWeightMode = getEffectiveWeightMode({
+    planExercise: ex,
+    exercise: selectedExercise,
+  })
+  const effectiveUnilateral = getEffectiveUnilateral({
+    planExercise: ex,
+    exercise: selectedExercise,
+  })
+  const showWeightInputs = effectiveWeightMode !== 'bodyweight'
+  const repsLabel = effectiveUnilateral ? 'Reps (por lado)' : 'Reps'
 
   // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
   // Por defecto OFF (simple: 1 valor para todas las series).
@@ -263,6 +280,62 @@ export default function PlanExerciseRow({
             </div>
           </div>
 
+          {/* Modo de peso + Unilateral (overrides del plan_exercise sobre catálogo) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Modo de peso</label>
+              <select
+                className="input text-sm"
+                value={ex.weight_mode ?? ''}
+                onChange={e => onUpdate(index, 'weight_mode', e.target.value || null)}
+              >
+                <option value="">
+                  Heredar
+                  {selectedExercise
+                    ? ` (${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode || 'with_weight']?.short || 'Con peso'})`
+                    : ''}
+                </option>
+                {WEIGHT_MODES.map(m => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary-600"
+                  checked={
+                    ex.unilateral != null
+                      ? !!ex.unilateral
+                      : !!(selectedExercise?.default_unilateral)
+                  }
+                  onChange={e => onUpdate(index, 'unilateral', e.target.checked)}
+                />
+                <span>
+                  Unilateral
+                  <span className="block text-[11px] text-gray-500 font-normal">
+                    {effectiveUnilateral
+                      ? 'Las reps van por lado'
+                      : selectedExercise?.default_unilateral
+                        ? 'Override: forzar bilateral'
+                        : ''}
+                  </span>
+                </span>
+              </label>
+              {ex.unilateral != null && (
+                <button
+                  type="button"
+                  onClick={() => onUpdate(index, 'unilateral', null)}
+                  className="ml-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
+                  title="Quitar override y heredar del ejercicio"
+                >
+                  heredar
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Series, descanso, PSE */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div>
@@ -304,7 +377,12 @@ export default function PlanExerciseRow({
             <div>
               <div className="flex items-center justify-between mb-2 gap-2">
                 <label className="text-xs text-gray-500 font-medium">
-                  {differential ? 'Repeticiones y peso por serie' : 'Repeticiones y peso'}
+                  {differential
+                    ? (showWeightInputs ? 'Repeticiones y peso por serie' : 'Repeticiones por serie')
+                    : (showWeightInputs ? 'Repeticiones y peso' : 'Repeticiones')}
+                  {effectiveUnilateral && (
+                    <span className="ml-1 text-[10px] text-violet-600 font-bold">· POR LADO</span>
+                  )}
                 </label>
                 <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer select-none">
                   <input
@@ -318,11 +396,11 @@ export default function PlanExerciseRow({
               </div>
 
               {!differential ? (
-                /* Modo simple: un solo input de reps + peso para todas las series */
-                <div className="grid grid-cols-2 gap-1.5">
+                /* Modo simple: un solo input de reps + peso (oculto si BW) */
+                <div className={`grid gap-1.5 ${showWeightInputs ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div>
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
-                      Reps
+                      {repsLabel}
                     </div>
                     <input
                       className="input text-sm text-center"
@@ -331,36 +409,40 @@ export default function PlanExerciseRow({
                       onChange={e => handleSimpleRepChange(e.target.value)}
                     />
                   </div>
-                  <div>
-                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
-                      Peso (kg)
+                  {showWeightInputs && (
+                    <div>
+                      <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
+                        Peso (kg)
+                      </div>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        className="input text-sm text-center"
+                        placeholder="kg"
+                        value={(ex.suggested_weights_array || [])[0] || ''}
+                        onChange={e => handleSimpleWeightChange(e.target.value)}
+                      />
                     </div>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      className="input text-sm text-center"
-                      placeholder="kg"
-                      value={(ex.suggested_weights_array || [])[0] || ''}
-                      onChange={e => handleSimpleWeightChange(e.target.value)}
-                    />
-                  </div>
+                  )}
                 </div>
               ) : (
                 <>
                   {/* Encabezados de columna */}
-                  <div className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1 px-0.5">
+                  <div className={`grid gap-1.5 mb-1 px-0.5 ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
                     <div />
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Reps
+                      {repsLabel}
                     </div>
-                    <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                      Peso (kg)
-                    </div>
+                    {showWeightInputs && (
+                      <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                        Peso (kg)
+                      </div>
+                    )}
                   </div>
                   {/* Fila por serie */}
                   {Array.from({ length: setsCount }, (_, i) => (
-                    <div key={i} className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 mb-1.5 items-center">
+                    <div key={i} className={`grid gap-1.5 mb-1.5 items-center ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
                       <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
                       <input
                         className="input text-sm text-center"
@@ -368,21 +450,29 @@ export default function PlanExerciseRow({
                         value={(ex.suggested_reps_array || [])[i] || ''}
                         onChange={e => handleRepChange(i, e.target.value)}
                       />
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="input text-sm text-center"
-                        placeholder="kg"
-                        value={(ex.suggested_weights_array || [])[i] || ''}
-                        onChange={e => handleWeightChange(i, e.target.value)}
-                      />
+                      {showWeightInputs && (
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          className="input text-sm text-center"
+                          placeholder="kg"
+                          value={(ex.suggested_weights_array || [])[i] || ''}
+                          onChange={e => handleWeightChange(i, e.target.value)}
+                        />
+                      )}
                     </div>
                   ))}
                   <p className="text-[10px] text-gray-400 mt-1 px-0.5">
                     El valor de la serie 1 autocompleta las series vacías.
                   </p>
                 </>
+              )}
+
+              {!showWeightInputs && (
+                <p className="text-[11px] text-emerald-600 mt-2 px-0.5">
+                  Ejercicio sin peso · solo se cargan reps.
+                </p>
               )}
             </div>
           )}

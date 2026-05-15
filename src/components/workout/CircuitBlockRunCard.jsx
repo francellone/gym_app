@@ -4,6 +4,8 @@ import {
 } from 'lucide-react'
 import {
   CIRCUIT_TYPES, INTENSITY_LEVELS, blockDisplayTitle,
+  getEffectiveWeightMode, getEffectiveUnilateral,
+  readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import RPEScale from './RPEScale'
 
@@ -42,13 +44,18 @@ export default function CircuitBlockRunCard({
   })
 
   // Estado por ejercicio del circuito: { [planExerciseId]: { actual_reps, actual_weight, actual_time } }
+  // Los inputs son simples (1 valor por ejercicio en circuito, no por serie),
+  // pero al guardar lo convertimos a jsonb array [n] para la RPC.
   const [exForm, setExForm] = useState(() => {
     const init = {}
     for (const ex of (block.plan_exercises || [])) {
       const log = exerciseLogs[ex.id]
+      // Leer del jsonb si está, sino del legacy
+      const repsArr = log ? readLogReps(log) : []
+      const wArr = log ? readLogWeights(log) : []
       init[ex.id] = {
-        actual_reps: log?.actual_reps ?? '',
-        actual_weight: log?.actual_weight != null ? String(log.actual_weight) : '',
+        actual_reps: repsArr.length > 0 ? String(repsArr[0]) : '',
+        actual_weight: wArr.length > 0 && wArr[0] != null ? String(wArr[0]) : '',
         actual_time: log?.notes_runtime ?? '',  // placeholder
       }
     }
@@ -67,21 +74,41 @@ export default function CircuitBlockRunCard({
         notes: form.notes || null,
         completed: true,
       })
-      // Guardar logs de ejercicios del circuito (si hay detalle cargado)
+      // Guardar logs de ejercicios del circuito (si hay detalle cargado).
+      // Construimos el payload con el formato de la RPC save_workout_log:
+      // p_reps / p_weights como jsonb array, p_weight_mode resuelto efectivo.
       for (const ex of (block.plan_exercises || [])) {
         const data = exForm[ex.id]
         if (!data) continue
         const isTime = ex.exercise_mode === 'time'
         const hasData = isTime ? !!data.actual_time : (!!data.actual_reps || !!data.actual_weight)
-        if (hasData) {
-          await onSaveExerciseLog(ex.id, {
-            actual_sets: 1,
-            actual_reps: data.actual_reps ? String(data.actual_reps) : null,
-            actual_weight: data.actual_weight ? parseFloat(data.actual_weight) : null,
-            notes: data.actual_time ? `Tiempo: ${data.actual_time}s` : null,
-            completed: true,
-          })
-        }
+        if (!hasData) continue
+
+        const weightMode = getEffectiveWeightMode({
+          planExercise: ex, exercise: ex.exercise,
+        })
+        const unilateral = getEffectiveUnilateral({
+          planExercise: ex, exercise: ex.exercise,
+        })
+        const repsNum = data.actual_reps !== '' && data.actual_reps != null
+          ? parseFloat(data.actual_reps) : null
+        const weightNum = !isNaN(parseFloat(data.actual_weight))
+          ? parseFloat(data.actual_weight) : null
+
+        await onSaveExerciseLog(ex.id, {
+          p_reps: repsNum != null ? [repsNum] : [],
+          p_weights: weightMode === 'bodyweight'
+            ? null
+            : (weightNum != null ? [weightNum] : [null]),
+          p_weight_mode: weightMode,
+          p_unilateral: unilateral,
+          p_reps_unit: null,
+          p_actual_sets: 1,
+          p_perceived_difficulty: null,
+          p_perceived_difficulty_label: null,
+          p_notes: data.actual_time ? `Tiempo: ${data.actual_time}s` : null,
+          p_completed: true,
+        })
       }
       setEditing(false)
     } catch (err) {
@@ -207,7 +234,16 @@ export default function CircuitBlockRunCard({
             {(block.plan_exercises || []).length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-gray-700">Ejercicios</p>
-                {(block.plan_exercises || []).map((ex, i) => (
+                {(block.plan_exercises || []).map((ex, i) => {
+                  const exWeightMode = getEffectiveWeightMode({
+                    planExercise: ex, exercise: ex.exercise,
+                  })
+                  const exUnilateral = getEffectiveUnilateral({
+                    planExercise: ex, exercise: ex.exercise,
+                  })
+                  const showWeight = exWeightMode !== 'bodyweight'
+                  const repsLabel = exUnilateral ? 'Reps × lado' : 'Reps reales'
+                  return (
                   <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -217,16 +253,18 @@ export default function CircuitBlockRunCard({
                         <p className="text-[11px] text-gray-400">
                           {ex.exercise_mode === 'time'
                             ? `${ex.duration_seconds || '—'} seg`
-                            : `${(ex.suggested_reps || '—')} reps`}
+                            : `${(ex.suggested_reps || '—')} ${exUnilateral ? 'reps × lado' : 'reps'}`}
+                          {exWeightMode === 'bodyweight' && ' · sin peso'}
+                          {exWeightMode === 'barbell_only' && ' · solo barra'}
                         </p>
                       </div>
                     </div>
 
                     {/* Detalle editable */}
                     {(!completed || editing) && (
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className={`grid gap-2 mt-2 ${showWeight && ex.exercise_mode !== 'time' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {ex.exercise_mode === 'time' ? (
-                          <div className="col-span-2">
+                          <div>
                             <label className="text-[10px] text-gray-500 mb-0.5 block">Tiempo real (s)</label>
                             <input
                               type="number" min="0" className="input text-sm"
@@ -241,7 +279,7 @@ export default function CircuitBlockRunCard({
                         ) : (
                           <>
                             <div>
-                              <label className="text-[10px] text-gray-500 mb-0.5 block">Reps reales</label>
+                              <label className="text-[10px] text-gray-500 mb-0.5 block">{repsLabel}</label>
                               <input
                                 className="input text-sm"
                                 placeholder={ex.suggested_reps || ''}
@@ -252,24 +290,27 @@ export default function CircuitBlockRunCard({
                                 }))}
                               />
                             </div>
-                            <div>
-                              <label className="text-[10px] text-gray-500 mb-0.5 block">Peso (kg)</label>
-                              <input
-                                type="number" step="0.5" min="0" className="input text-sm"
-                                placeholder={ex.suggested_weight || ''}
-                                value={exForm[ex.id]?.actual_weight || ''}
-                                onChange={e => setExForm(p => ({
-                                  ...p,
-                                  [ex.id]: { ...(p[ex.id] || {}), actual_weight: e.target.value },
-                                }))}
-                              />
-                            </div>
+                            {showWeight && (
+                              <div>
+                                <label className="text-[10px] text-gray-500 mb-0.5 block">Peso (kg)</label>
+                                <input
+                                  type="number" step="0.5" min="0" className="input text-sm"
+                                  placeholder={ex.suggested_weight || ''}
+                                  value={exForm[ex.id]?.actual_weight || ''}
+                                  onChange={e => setExForm(p => ({
+                                    ...p,
+                                    [ex.id]: { ...(p[ex.id] || {}), actual_weight: e.target.value },
+                                  }))}
+                                />
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 

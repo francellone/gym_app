@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar, AlertTriangle } from 'lucide-react'
+import { readLogWeights } from '../../utils/planHelpers'
 import { format, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import MonthlyCalendar from '../../components/dashboard/MonthlyCalendar'
@@ -27,19 +28,34 @@ export default function CoachDashboard() {
       const today = format(new Date(), 'yyyy-MM-dd')
       const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd')
 
+      // Los KPIs de "Logs hoy" / "Logs semana" y la lista de "logs
+      // recientes" deben contar SOLO entrenos, no evaluaciones.
+      // Usamos `plans!inner` para inner-joinear y filtrar por
+      // plan_type='training' del lado de la DB. Sin esto, las
+      // evaluaciones inflaban los counts (~7 filas legacy ya borradas
+      // por migration_v23, pero blindamos a futuro).
       const [studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student').eq('active', true),
         supabase.from('plans').select('id', { count: 'exact' }),
-        supabase.from('workout_logs').select('id', { count: 'exact' }).eq('logged_date', today),
-        supabase.from('workout_logs').select('id', { count: 'exact' }).gte('logged_date', weekAgo),
+        supabase.from('workout_logs')
+          .select('id, plans!inner(plan_type)', { count: 'exact' })
+          .eq('plans.plan_type', 'training')
+          .eq('logged_date', today),
+        supabase.from('workout_logs')
+          .select('id, plans!inner(plan_type)', { count: 'exact' })
+          .eq('plans.plan_type', 'training')
+          .gte('logged_date', weekAgo),
         supabase.from('workout_logs')
           .select(`
-            id, logged_date, actual_weight, perceived_difficulty, completed,
+            id, logged_date, actual_weight, actual_weights, actual_weights_jsonb,
+            weight_mode, perceived_difficulty, completed,
             student:profiles!student_id(name),
+            plans!inner(plan_type),
             plan_exercise:plan_exercises!plan_exercise_id(
               exercise:exercises!exercise_id(name)
             )
           `)
+          .eq('plans.plan_type', 'training')
           .order('created_at', { ascending: false })
           .limit(10),
       ])
@@ -191,11 +207,20 @@ export default function CoachDashboard() {
                     <p className="text-sm font-semibold text-gray-900 truncate">
                       {log.student?.name}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {log.plan_exercise?.exercise?.name}
-                      {log.actual_weight ? ` · ${log.actual_weight}kg` : ''}
-                      {log.perceived_difficulty ? ` · PSE ${log.perceived_difficulty}` : ''}
-                    </p>
+                    {(() => {
+                      const ws = readLogWeights(log).filter(w => w != null && w !== '')
+                      const wDisplay = ws.length > 0 ? `${ws[0]}kg` : null
+                      const modeDisplay = log.weight_mode === 'bodyweight'
+                        ? 'BW'
+                        : log.weight_mode === 'barbell_only' ? 'solo barra' : null
+                      return (
+                        <p className="text-xs text-gray-500 truncate">
+                          {log.plan_exercise?.exercise?.name}
+                          {wDisplay ? ` · ${wDisplay}` : (modeDisplay ? ` · ${modeDisplay}` : '')}
+                          {log.perceived_difficulty ? ` · PSE ${log.perceived_difficulty}` : ''}
+                        </p>
+                      )
+                    })()}
                   </div>
                   <span className="text-xs text-gray-400 flex-shrink-0">
                     {format(new Date(log.logged_date), 'dd/MM')}

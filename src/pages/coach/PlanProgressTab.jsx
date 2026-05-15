@@ -8,7 +8,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { borgColor, BORG_LABELS } from '../../utils/planHelpers'
+import {
+  borgColor, BORG_LABELS,
+  maxWeightOfLog, calculateLogVolume,
+  getEffectiveWeightMode, getEffectiveUnilateral,
+} from '../../utils/planHelpers'
 import StudentProgressTableView from './student/StudentProgressTableView'
 
 // ─────────────────────────────────────────────────────────────
@@ -75,6 +79,8 @@ export default function PlanProgressTab({ planId, assignments }) {
   const [loading, setLoading]               = useState(false)
   const [progressExercises, setProgressExercises] = useState([])
   const [selectedExercise, setSelectedExercise]   = useState('')
+  // Peso corporal del alumno seleccionado (para BW volume)
+  const [studentWeightKg, setStudentWeightKg]     = useState(null)
 
   // ── Período / rango ──────────────────────────────────────
   const [progressPeriod, setProgressPeriod] = useState(90)
@@ -109,7 +115,8 @@ export default function PlanProgressTab({ planId, assignments }) {
       .select(`
         *, plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section, suggested_sets, suggested_weight,
-          exercise:exercises!exercise_id(id, name)
+          weight_mode, unilateral,
+          exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
         )
       `)
       .eq('student_id', selectedStudentId)
@@ -127,11 +134,16 @@ export default function PlanProgressTab({ planId, assignments }) {
     if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
     sessionsQuery = sessionsQuery.order('logged_date')
 
-    const [logsRes, sessionsRes] = await Promise.all([logsQuery, sessionsQuery])
+    const [logsRes, sessionsRes, studentRes] = await Promise.all([
+      logsQuery,
+      sessionsQuery,
+      supabase.from('profiles').select('weight_kg').eq('id', selectedStudentId).maybeSingle(),
+    ])
 
     const logData = logsRes.data || []
     setProgressLogs(logData)
     setSessions(sessionsRes.data || [])
+    setStudentWeightKg(studentRes.data?.weight_kg ?? null)
 
     // Lista de ejercicios presentes en los logs
     const exMap = {}
@@ -153,44 +165,39 @@ export default function PlanProgressTab({ planId, assignments }) {
   // ── Datos de gráficos ─────────────────────────────────────
   const weightData = useMemo(() =>
     progressLogs
-      .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && (l.actual_weights || l.actual_weight))
-      .map(l => {
-        let pesoMax = l.actual_weight || 0
-        if (l.actual_weights) {
-          try {
-            const arr = JSON.parse(l.actual_weights)
-            pesoMax = Array.isArray(arr) && arr.length > 0
-              ? Math.max(...arr.map(w => parseFloat(w || 0)))
-              : parseFloat(l.actual_weights) || pesoMax
-          } catch { pesoMax = parseFloat(l.actual_weights) || pesoMax }
-        }
-        return { date: format(parseISO(l.logged_date), 'dd/MM'), Peso: pesoMax, PSE: l.perceived_difficulty }
-      }).filter(d => d.Peso > 0),
+      .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
+      .map(l => ({
+        date: format(parseISO(l.logged_date), 'dd/MM'),
+        Peso: maxWeightOfLog(l),
+        PSE: l.perceived_difficulty,
+      }))
+      .filter(d => d.Peso > 0),
     [progressLogs, selectedExercise]
   )
 
-  const volumeData = useMemo(() => {
+  // Volumen respetando weight_mode + unilateral + BW
+  const { volumeData, bwUncomputable } = useMemo(() => {
     const byDate = {}
+    let uncomp = false
     progressLogs.forEach(l => {
-      if (l.actual_sets && (l.actual_weights || l.actual_weight)) {
-        const reps = parseFloat(l.actual_reps) || 10
-        let weight = 0
-        if (l.actual_weights) {
-          try {
-            const arr = JSON.parse(l.actual_weights)
-            weight = Array.isArray(arr) && arr.length > 0
-              ? arr.reduce((a, b) => a + parseFloat(b || 0), 0) / arr.length
-              : parseFloat(l.actual_weights) || 0
-          } catch { weight = parseFloat(l.actual_weights) || 0 }
-        } else { weight = l.actual_weight || 0 }
-        if (weight > 0) {
-          const date = format(parseISO(l.logged_date), 'dd/MM')
-          byDate[date] = (byDate[date] || 0) + Math.round(l.actual_sets * reps * weight)
-        }
+      const weightMode = getEffectiveWeightMode({
+        log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+      })
+      const unilateral = getEffectiveUnilateral({
+        log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+      })
+      const vol = calculateLogVolume(l, studentWeightKg, { weightMode, unilateral })
+      if (vol === null) { uncomp = true; return }
+      if (vol > 0) {
+        const date = format(parseISO(l.logged_date), 'dd/MM')
+        byDate[date] = (byDate[date] || 0) + Math.round(vol)
       }
     })
-    return Object.entries(byDate).map(([date, Volumen]) => ({ date, Volumen }))
-  }, [progressLogs])
+    return {
+      volumeData: Object.entries(byDate).map(([date, Volumen]) => ({ date, Volumen })),
+      bwUncomputable: uncomp,
+    }
+  }, [progressLogs, studentWeightKg])
 
   const pseData = useMemo(() => {
     const byDate = {}
@@ -246,7 +253,7 @@ export default function PlanProgressTab({ planId, assignments }) {
         date: format(parseISO(l.logged_date), 'dd/MM'),
         'Series reales': l.actual_sets || 0,
         'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
-        'Peso real': l.actual_weight || 0,
+        'Peso real': maxWeightOfLog(l),
       })),
     [progressLogs, selectedExercise]
   )
@@ -263,8 +270,8 @@ export default function PlanProgressTab({ planId, assignments }) {
       ? Math.round(borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length * 10) / 10
       : null
     const maxWeight = progressLogs
-      .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && l.actual_weight)
-      .reduce((mx, l) => Math.max(mx, l.actual_weight), 0)
+      .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
+      .reduce((mx, l) => Math.max(mx, maxWeightOfLog(l)), 0)
     return { totalSessions, totalCompleted, avgPSE, avgBorg, maxWeight }
   }, [progressLogs, borgData, selectedExercise])
 
@@ -547,9 +554,16 @@ export default function PlanProgressTab({ planId, assignments }) {
           {/* ── Gráfico: Volumen ── */}
           {activeChart === 'volume' && (
             <div className="card space-y-3">
+              {bwUncomputable && !studentWeightKg && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
+                  <strong>Peso corporal del alumno sin registrar.</strong> Los ejercicios
+                  de peso corporal (BW) no se incluyen hasta cargar el peso del alumno
+                  desde su perfil.
+                </div>
+              )}
               <div>
                 <p className="font-semibold text-sm text-gray-900">Volumen total por sesión</p>
-                <p className="text-xs text-gray-500">Series × Reps × Peso</p>
+                <p className="text-xs text-gray-500">Reps × peso (peso corporal en BW). Unilateral × 2.</p>
               </div>
               {volumeData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>

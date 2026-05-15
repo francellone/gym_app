@@ -1,5 +1,6 @@
 import { Activity } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { readLogReps, readLogWeights } from '../../../utils/planHelpers'
 
 // ─────────────────────────────────────────────────────────────
 // StudentLogsTab — visualización de logs recientes del alumno
@@ -29,13 +30,28 @@ export default function StudentLogsTab({ logs }) {
                   <span className="badge bg-orange-100 text-orange-600 text-xs">Registrado tarde</span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {[
-                  log.actual_sets && `${log.actual_sets} series`,
-                  log.actual_reps && `${log.actual_reps} reps`,
-                  log.actual_weight && `${log.actual_weight}kg`,
-                ].filter(Boolean).join(' · ')}
-              </p>
+              {(() => {
+                const reps = readLogReps(log).filter(r => r != null && r !== '')
+                const weights = readLogWeights(log).filter(w => w != null && w !== '')
+                const repsDisplay = reps.length > 0
+                  ? `${reps.join(',')} ${log.reps_unit && log.reps_unit !== 'reps' ? log.reps_unit : 'reps'}${log.unilateral ? '/lado' : ''}`
+                  : null
+                const wDisplay = weights.length > 0 ? `${weights.join(',')}kg` : null
+                const modeDisplay =
+                  log.weight_mode === 'bodyweight' ? 'sin peso'
+                  : log.weight_mode === 'barbell_only' ? 'solo barra'
+                  : null
+                return (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {[
+                      log.actual_sets && `${log.actual_sets} series`,
+                      repsDisplay,
+                      wDisplay,
+                      !wDisplay && modeDisplay,
+                    ].filter(Boolean).join(' · ')}
+                  </p>
+                )
+              })()}
               {log.notes && (
                 <p className="text-xs text-gray-400 mt-1 italic truncate">"{log.notes}"</p>
               )}

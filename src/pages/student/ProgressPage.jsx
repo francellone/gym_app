@@ -9,8 +9,13 @@ import {
   ResponsiveContainer, BarChart, Bar, Legend, AreaChart, Area,
   ComposedChart,
 } from 'recharts'
-import { borgColor, BORG_LABELS } from '../../utils/planHelpers'
+import {
+  borgColor, BORG_LABELS,
+  maxWeightOfLog, calculateLogVolume,
+  getEffectiveWeightMode, getEffectiveUnilateral,
+} from '../../utils/planHelpers'
 import { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
+import { filterTrainingLogs } from '../../utils/planTypeFilters'
 
 const PERIODS = [
   { label: '1m', days: 30 },
@@ -96,31 +101,9 @@ const WELLBEING_LINE_COLORS = {
   muscle_fatigue:    '#ec4899',
 }
 
-// Helper para calcular peso promedio de un log
-function getAvgWeight(l) {
-  if (l.actual_weights) {
-    try {
-      const arr = JSON.parse(l.actual_weights)
-      if (Array.isArray(arr) && arr.length > 0)
-        return arr.reduce((a, b) => a + parseFloat(b || 0), 0) / arr.length
-      return parseFloat(l.actual_weights) || 0
-    } catch { return parseFloat(l.actual_weights) || 0 }
-  }
-  return l.actual_weight || 0
-}
-
-// Helper para calcular peso máximo de un log
-function getMaxWeight(l) {
-  if (l.actual_weights) {
-    try {
-      const arr = JSON.parse(l.actual_weights)
-      if (Array.isArray(arr) && arr.length > 0)
-        return Math.max(...arr.map(w => parseFloat(w || 0)))
-      return parseFloat(l.actual_weights) || 0
-    } catch { return parseFloat(l.actual_weights) || 0 }
-  }
-  return l.actual_weight || 0
-}
+// Helpers ahora viven en planHelpers (readLogWeights / readLogReps /
+// maxWeightOfLog / avgWeightOfLog / calculateLogVolume) y priorizan jsonb
+// sobre las columnas legacy.
 
 export default function ProgressPage() {
   const { profile } = useAuth()
@@ -162,13 +145,18 @@ export default function ProgressPage() {
     const since = format(subDays(new Date(), period), 'yyyy-MM-dd')
 
     const [logsRes, sessionsRes, wellbeingRes, tagsRes, tagAssignRes] = await Promise.all([
+      // Joineamos plan_type para excluir logs de evaluaciones de los
+      // gráficos. Las evaluaciones no son sesiones de entrenamiento
+      // y mezclar sus pesos/RPE/volumen distorsiona la progresión.
       supabase
         .from('workout_logs')
         .select(`
           *,
+          plan:plans!plan_id(plan_type),
           plan_exercise:plan_exercises!plan_exercise_id(
             block_label, section, suggested_sets, suggested_weight,
-            exercise:exercises!exercise_id(id, name)
+            weight_mode, unilateral,
+            exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
           )
         `)
         .eq('student_id', profile.id)
@@ -195,7 +183,9 @@ export default function ProgressPage() {
         .select('*'),
     ])
 
-    const logData = logsRes.data || []
+    // Excluir logs de evaluaciones — solo entrenos cuentan para la
+    // evolución de pesos/volumen/RPE/etc.
+    const logData = filterTrainingLogs(logsRes.data || [])
     setLogs(logData)
     setSessions(sessionsRes.data || [])
     setWellbeingLogs(wellbeingRes.data || [])
@@ -234,31 +224,49 @@ export default function ProgressPage() {
 
   // ── DATOS PARA GRÁFICOS ──────────────────────────────────
 
+  const bodyWeightKg = profile?.weight_kg || null
+
+  // Helper: ¿este log tiene info para mostrar peso/volumen?
+  // (acepta jsonb nuevo o legacy con datos)
+  const hasWeightOrReps = l =>
+    Array.isArray(l.actual_weights_jsonb) ||
+    l.actual_weights || l.actual_weight ||
+    Array.isArray(l.actual_reps_jsonb) || l.actual_reps
+
+  // Volumen real respetando weight_mode + unilateral + bodyweight.
+  // Devuelve null si bodyweight sin weight_kg (no calculable).
+  function volumeOfLog(l) {
+    const weightMode = getEffectiveWeightMode({
+      log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+    })
+    const unilateral = getEffectiveUnilateral({
+      log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+    })
+    return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
+  }
+
   // 1. Progresión de peso por ejercicio (usa exercisesForTag)
   const weightData = logs
     .filter(l =>
       l.plan_exercise?.exercise?.id === selectedExercise &&
-      (l.actual_weights || l.actual_weight)
+      hasWeightOrReps(l)
     )
     .map(l => ({
       date: format(parseISO(l.logged_date), 'dd/MM'),
-      Peso: getMaxWeight(l),
+      Peso: maxWeightOfLog(l),
       PSE: l.perceived_difficulty,
     }))
     .filter(d => d.Peso > 0)
 
   // 2. Volumen por sesión (filtrado por etiqueta)
+  // Bodyweight sin weight_kg → bandera para mostrar CTA.
+  let bwUncomputable = false
   const volumeByDate = {}
   logsForTag.forEach(l => {
     const date = format(parseISO(l.logged_date), 'dd/MM')
-    if (l.actual_sets && (l.actual_weights || l.actual_weight)) {
-      const reps = parseFloat(l.actual_reps) || 10
-      const weight = getAvgWeight(l)
-      if (weight > 0) {
-        const vol = l.actual_sets * reps * weight
-        volumeByDate[date] = (volumeByDate[date] || 0) + vol
-      }
-    }
+    const vol = volumeOfLog(l)
+    if (vol === null) { bwUncomputable = true; return }
+    if (vol > 0) volumeByDate[date] = (volumeByDate[date] || 0) + vol
   })
   const volumeData = Object.entries(volumeByDate).map(([date, vol]) => ({
     date,
@@ -270,20 +278,17 @@ export default function ProgressPage() {
   exerciseTags.forEach(tag => { volumeByTagAndDate[tag.id] = {} })
   logs.forEach(l => {
     const exId = l.plan_exercise?.exercise?.id
-    if (!exId || !l.actual_sets) return
+    if (!exId) return
     const myTags = tagAssignments.filter(ta => ta.exercise_id === exId).map(ta => ta.tag_id)
     if (!myTags.length) return
+    const vol = volumeOfLog(l)
+    if (vol === null || vol <= 0) return
     const date = format(parseISO(l.logged_date), 'dd/MM')
-    const weight = getAvgWeight(l)
-    if (weight > 0) {
-      const reps = parseFloat(l.actual_reps) || 10
-      const vol = l.actual_sets * reps * weight
-      myTags.forEach(tagId => {
-        if (volumeByTagAndDate[tagId] !== undefined) {
-          volumeByTagAndDate[tagId][date] = (volumeByTagAndDate[tagId][date] || 0) + vol
-        }
-      })
-    }
+    myTags.forEach(tagId => {
+      if (volumeByTagAndDate[tagId] !== undefined) {
+        volumeByTagAndDate[tagId][date] = (volumeByTagAndDate[tagId][date] || 0) + vol
+      }
+    })
   })
   const tagsWithVolume = exerciseTags.filter(tag =>
     Object.values(volumeByTagAndDate[tag.id] || {}).some(v => v > 0)
@@ -349,7 +354,7 @@ export default function ProgressPage() {
       date: format(parseISO(l.logged_date), 'dd/MM'),
       'Series reales': l.actual_sets || 0,
       'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
-      'Peso real': l.actual_weight || 0,
+      'Peso real': maxWeightOfLog(l),
     }))
 
   // 7. Stats resumen
@@ -369,8 +374,8 @@ export default function ProgressPage() {
     : null
 
   const maxWeight = logs
-    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise && l.actual_weight)
-    .reduce((max, l) => Math.max(max, l.actual_weight), 0)
+    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
+    .reduce((max, l) => Math.max(max, maxWeightOfLog(l)), 0)
 
   const CHARTS = [
     { id: 'weight', label: 'Peso' },
@@ -604,13 +609,20 @@ export default function ProgressPage() {
             {/* ── Gráfico: Volumen ──────────────────────────────── */}
             {activeChart === 'volume' && (
               <Card>
+                {bwUncomputable && !bodyWeightKg && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
+                    <strong>Peso corporal sin registrar.</strong> Para calcular el volumen
+                    de ejercicios sin peso necesitamos tu peso corporal. Pedile a tu coach
+                    que lo cargue desde tu perfil.
+                  </div>
+                )}
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900">Volumen total por sesión</h3>
                     <p className="text-xs text-gray-500">
                       {selectedTag
                         ? `Etiqueta: ${tagsInLogs.find(t => t.id === selectedTag)?.name}`
-                        : 'Series × repeticiones × peso'}
+                        : 'Reps × peso (peso corporal en BW). Unilateral × 2.'}
                     </p>
                   </div>
                   {tagsWithVolume.length > 1 && !selectedTag && (

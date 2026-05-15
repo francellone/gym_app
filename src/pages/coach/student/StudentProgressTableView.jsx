@@ -6,47 +6,21 @@ import {
   parseReps,
   displayReps,
   getDynamicSections,
+  readLogReps,
+  readLogWeights,
+  maxWeightOfLog,
+  avgWeightOfLog,
+  calculateLogVolume,
+  getEffectiveWeightMode,
+  getEffectiveUnilateral,
 } from '../../../utils/planHelpers'
 
 // ─────────────────────────────────────────────────────────────
-// Helpers locales
+// Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
 // ─────────────────────────────────────────────────────────────
 
-function maxWeightOf(log) {
-  if (log.actual_weights) {
-    try {
-      const arr = JSON.parse(log.actual_weights)
-      if (Array.isArray(arr) && arr.length > 0) {
-        const nums = arr.map(w => parseFloat(w || 0)).filter(n => !isNaN(n))
-        if (nums.length > 0) return Math.max(...nums)
-      }
-      const n = parseFloat(log.actual_weights)
-      if (!isNaN(n)) return n
-    } catch {
-      const n = parseFloat(log.actual_weights)
-      if (!isNaN(n)) return n
-    }
-  }
-  return parseFloat(log.actual_weight) || 0
-}
-
-function avgWeightOf(log) {
-  if (log.actual_weights) {
-    try {
-      const arr = JSON.parse(log.actual_weights)
-      if (Array.isArray(arr) && arr.length > 0) {
-        const nums = arr.map(w => parseFloat(w || 0)).filter(n => !isNaN(n))
-        if (nums.length > 0) return nums.reduce((a, b) => a + b, 0) / nums.length
-      }
-      const n = parseFloat(log.actual_weights)
-      if (!isNaN(n)) return n
-    } catch {
-      const n = parseFloat(log.actual_weights)
-      if (!isNaN(n)) return n
-    }
-  }
-  return parseFloat(log.actual_weight) || 0
-}
+function maxWeightOf(log) { return maxWeightOfLog(log) }
+function avgWeightOf(log) { return avgWeightOfLog(log) }
 
 function displayWeight(ex) {
   if (ex.suggested_weights) {
@@ -65,22 +39,23 @@ function displayWeight(ex) {
 
 function displayActualWeight(log) {
   if (!log) return '—'
-  if (log.actual_weights) {
-    try {
-      const arr = JSON.parse(log.actual_weights)
-      if (Array.isArray(arr) && arr.length > 0) {
-        const filtered = arr.filter(w => w !== '' && w != null)
-        if (filtered.length === 0) return '—'
-        const unique = [...new Set(filtered)]
-        return unique.length === 1 ? `${unique[0]}kg` : `${filtered.join('/')}kg`
-      }
-      if (arr != null && arr !== '') return `${arr}kg`
-    } catch {
-      if (log.actual_weights) return `${log.actual_weights}kg`
-    }
-  }
-  if (log.actual_weight) return `${log.actual_weight}kg`
-  return '—'
+  const weightMode = getEffectiveWeightMode({
+    log, planExercise: log.plan_exercise, exercise: log.plan_exercise?.exercise,
+  })
+  if (weightMode === 'bodyweight') return 'BW'
+  const arr = readLogWeights(log).filter(w => w !== '' && w != null)
+  if (arr.length === 0) return '—'
+  const unique = [...new Set(arr.map(String))]
+  return unique.length === 1 ? `${unique[0]}kg` : `${arr.join('/')}kg`
+}
+
+function displayActualReps(log) {
+  if (!log) return '—'
+  const arr = readLogReps(log).filter(r => r !== '' && r != null)
+  if (arr.length === 0) return '—'
+  const unique = [...new Set(arr.map(String))]
+  const base = unique.length === 1 ? unique[0] : arr.join('/')
+  return log.unilateral ? `${base}×lado` : base
 }
 
 // Mini sparkline SVG para la columna Progreso
@@ -167,8 +142,15 @@ const defaultSessionFields = () => new Set(['date', 'weight', 'pse'])
 // ─────────────────────────────────────────────────────────────
 // Componente principal
 // Props: studentId, logs (ya filtrados por período en el padre)
+//        exerciseTags, tagAssignments, selectedTag (filtro etiqueta)
 // ─────────────────────────────────────────────────────────────
-export default function StudentProgressTableView({ studentId, logs }) {
+export default function StudentProgressTableView({
+  studentId,
+  logs,
+  exerciseTags = [],
+  tagAssignments = [],
+  selectedTag = '',
+}) {
   const [planExercises, setPlanExercises] = useState([])
   const [activePlans, setActivePlans] = useState([])
   const [loadingPlan, setLoadingPlan] = useState(false)
@@ -212,7 +194,8 @@ export default function StudentProgressTableView({ studentId, logs }) {
             id, plan_id, section, block_label, order_index,
             suggested_sets, suggested_reps, suggested_weight, suggested_weights,
             suggested_pse, rest_time, extra_notes,
-            exercise:exercises!exercise_id(id, name, muscle_group)
+            weight_mode, unilateral,
+            exercise:exercises!exercise_id(id, name, muscle_group, default_weight_mode, default_unilateral)
           `)
           .in('plan_id', planIds)
           .order('order_index', { ascending: true })
@@ -333,13 +316,25 @@ export default function StudentProgressTableView({ studentId, logs }) {
         trend = '·'
       }
 
-      // Volumen total
+      // Volumen total — usa calculateLogVolume si tenemos el modo efectivo;
+      // si no, cae al cálculo legacy series×reps×peso.
       let volume = 0
       for (const l of exLogs) {
-        const sets = parseFloat(l.actual_sets) || 0
-        const reps = parseFloat(l.actual_reps) || 0
-        const w = avgWeightOf(l)
-        if (sets > 0 && reps > 0 && w > 0) volume += sets * reps * w
+        // El log puede no tener plan_exercise embebido (los logs del padre
+        // suelen venir con menos joins). Heredamos del pex actual de la fila.
+        const planEx = l.plan_exercise || pex
+        const weightMode = getEffectiveWeightMode({
+          log: l, planExercise: planEx, exercise: planEx?.exercise || pex.exercise,
+        })
+        const unilateral = getEffectiveUnilateral({
+          log: l, planExercise: planEx, exercise: planEx?.exercise || pex.exercise,
+        })
+        // Bodyweight con peso corporal lo dejamos fuera de esta tabla
+        // (la tabla no recibe weight_kg del alumno; el detalle BW va al
+        // gráfico de volumen). Usamos null como body para que devuelva
+        // null en BW y lo omitamos.
+        const v = calculateLogVolume(l, null, { weightMode, unilateral })
+        if (v !== null && v > 0) volume += v
       }
 
       // PSE promedio
@@ -354,6 +349,14 @@ export default function StudentProgressTableView({ studentId, logs }) {
       let progressColor = 'text-gray-400'
       let progressMetric = 'Peso'
 
+      // Helper local: máximo de reps del log (acepta jsonb o legacy).
+      // En unilateral, el valor sigue siendo "por lado" — para la sparkline
+      // representa cantidad de reps, no volumen, así que está OK.
+      const repsMaxOf = l => {
+        const arr = readLogReps(l).map(r => parseFloat(r)).filter(n => !isNaN(n))
+        return arr.length > 0 ? Math.max(...arr) : 0
+      }
+
       if (weightValues.length >= 2) {
         const pct = Math.round(((weightValues[weightValues.length - 1] - weightValues[0]) / weightValues[0]) * 100)
         progressPct = pct
@@ -361,7 +364,7 @@ export default function StudentProgressTableView({ studentId, logs }) {
         progressMetric = 'Peso'
       } else {
         // Fallback: reps
-        const repValues = exLogs.map(l => parseFloat(l.actual_reps) || 0).filter(r => r > 0)
+        const repValues = exLogs.map(repsMaxOf).filter(r => r > 0)
         if (repValues.length >= 2) {
           const pct = Math.round(((repValues[repValues.length - 1] - repValues[0]) / repValues[0]) * 100)
           progressPct = pct
@@ -372,7 +375,7 @@ export default function StudentProgressTableView({ studentId, logs }) {
 
       const sparklineValues = weightValues.length >= 2
         ? weightValues
-        : exLogs.map(l => parseFloat(l.actual_reps) || 0).filter(r => r > 0)
+        : exLogs.map(repsMaxOf).filter(r => r > 0)
 
       const recentLogs = [...exLogs].reverse() // más reciente primero
 
@@ -403,11 +406,18 @@ export default function StudentProgressTableView({ studentId, logs }) {
     })
   }, [planExercises, logsByPlanExercise, logsByExerciseId])
 
-  // ── Filtro "solo con logs" ─────────────────────────────────
+  // ── Filtro "solo con logs" + filtro por etiqueta ──────────
   const filteredRows = useMemo(() => {
-    if (!showOnlyWithLogs) return rows
-    return rows.filter(r => r.hasLogs)
-  }, [rows, showOnlyWithLogs])
+    let result = rows
+    if (showOnlyWithLogs) result = result.filter(r => r.hasLogs)
+    if (selectedTag) {
+      result = result.filter(r =>
+        r.exerciseId &&
+        tagAssignments.some(ta => ta.exercise_id === r.exerciseId && ta.tag_id === selectedTag)
+      )
+    }
+    return result
+  }, [rows, showOnlyWithLogs, selectedTag, tagAssignments])
 
   // ── Agrupación por sección ─────────────────────────────────
   const groupedRows = useMemo(() => {
@@ -472,8 +482,12 @@ export default function StudentProgressTableView({ studentId, logs }) {
       if (curr < prev) return { emoji: '⬇️', color: 'text-red-500' }
       return { emoji: '😊', color: 'text-gray-400' }
     }
-    const currR = parseFloat(log.actual_reps) || 0
-    const prevR = parseFloat(prevLog.actual_reps) || 0
+    const repsMaxOfLog = l => {
+      const arr = readLogReps(l).map(r => parseFloat(r)).filter(n => !isNaN(n))
+      return arr.length > 0 ? Math.max(...arr) : 0
+    }
+    const currR = repsMaxOfLog(log)
+    const prevR = repsMaxOfLog(prevLog)
     if (currR > prevR) return { emoji: '⬆️', color: 'text-green-600' }
     if (currR < prevR) return { emoji: '⬇️', color: 'text-red-500' }
     return { emoji: '😊', color: 'text-gray-400' }
@@ -570,7 +584,7 @@ export default function StudentProgressTableView({ studentId, logs }) {
           )}
           {isField('sets_reps') && (
             <span className="text-[11px] text-gray-600">
-              {log.actual_sets ?? '—'}×{log.actual_reps ?? '—'}
+              {log.actual_sets ?? '—'}×{displayActualReps(log)}
             </span>
           )}
           {isField('pse') && (
@@ -650,7 +664,9 @@ export default function StudentProgressTableView({ studentId, logs }) {
         )}
         {isCol('last_reps') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0]?.actual_reps ?? <span className="text-gray-300">—</span>}
+            {r.recentLogs[0]
+              ? displayActualReps(r.recentLogs[0])
+              : <span className="text-gray-300">—</span>}
           </td>
         )}
         {isCol('last_weight') && (
@@ -895,7 +911,12 @@ export default function StudentProgressTableView({ studentId, logs }) {
         </label>
         <div className="flex items-center gap-1 text-xs text-gray-400 ml-auto">
           <Filter size={12} />
-          {filteredRows.length} ejercicios
+          {filteredRows.length} ejercicio{filteredRows.length !== 1 ? 's' : ''}
+          {selectedTag && (
+            <span className="ml-1 text-primary-500 font-medium">
+              · {exerciseTags.find(t => t.id === selectedTag)?.name}
+            </span>
+          )}
         </div>
       </div>
 
