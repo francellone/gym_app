@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale'
 import { buildFormConfig } from '../../../../intake-form/schema/default-form.js'
 import {
   FIELD_LABELS, LEVEL_LABELS, GENDER_LABELS, displayValue,
+  PATOLOGIAS_OPTIONS, validateLesionesConsistency, lesionesCheckErrorMessage,
 } from '../../../utils/studentHelpers'
 import {
   getPaymentStatus, PAYMENT_STATUS,
@@ -65,18 +66,57 @@ export default function StudentInfoTab({
     setSaving(true)
     setSaveError(null)
     try {
-      const changedFields = Object.keys(FIELD_LABELS).filter(
-        key => editData[key] !== student[key]
-      )
+      // Validación cliente del CHECK profiles_lesiones_requires_detail
+      // (handoff 2.6). Evita rebote del back y le da feedback inmediato al coach.
+      // Toma el valor final post-edición para los 3 campos relevantes.
+      const lesionesError = validateLesionesConsistency({
+        tiene_lesiones: editData.tiene_lesiones,
+        descripcion_lesiones: editData.descripcion_lesiones,
+        patologias: editData.patologias,
+      })
+      if (lesionesError) {
+        setSaveError(lesionesError)
+        setSaving(false)
+        return
+      }
+
+      // Comparación de campos: para arrays (patologias) comparamos como JSON
+      // porque !== entre arrays distintos da true siempre. Para booleans/strings
+      // alcanza con ===, pero normalizamos a la misma representación.
+      const isChanged = (key) => {
+        const a = editData[key]
+        const b = student[key]
+        if (Array.isArray(a) || Array.isArray(b)) {
+          return JSON.stringify(a || null) !== JSON.stringify(b || null)
+        }
+        return a !== b
+      }
+      const changedFields = Object.keys(FIELD_LABELS).filter(isChanged)
       const updatePayload = {}
-      changedFields.forEach(f => { updatePayload[f] = editData[f] || null })
+      changedFields.forEach(f => {
+        const v = editData[f]
+        // Preservamos arrays vacíos como [] (no NULL) si el usuario los limpió
+        // a propósito. Para el resto, '' o undefined → null.
+        if (Array.isArray(v)) {
+          updatePayload[f] = v
+        } else if (typeof v === 'boolean') {
+          updatePayload[f] = v
+        } else {
+          updatePayload[f] = v || null
+        }
+      })
 
       if (changedFields.length > 0) {
         const { error: updateError } = await supabase
           .from('profiles')
           .update(updatePayload)
           .eq('id', studentId)
-        if (updateError) throw updateError
+        if (updateError) {
+          // El back podría tirar 23514 si la validación cliente falló por algún
+          // motivo (ej. otro coach editó en paralelo). Lo traducimos a algo legible.
+          const friendly = lesionesCheckErrorMessage(updateError)
+          throw friendly ? new Error(friendly) : updateError
+        }
 
         const historyInserts = changedFields.map(f => ({
           student_id: studentId,
@@ -298,6 +338,118 @@ export default function StudentInfoTab({
                 <p className="text-sm font-medium text-gray-900">{item.value}</p>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Salud (handoff 2.6) ──
+          La BD valida (CHECK profiles_lesiones_requires_detail): si
+          tiene_lesiones=true, exige descripción NO vacía O patologías
+          distintas de solo ['Ninguna']. La UI bloquea el guardado si no
+          se cumple para evitar rebote. */}
+      <div className="card space-y-3">
+        <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+          🩺 Salud
+        </h3>
+        {editMode ? (
+          <div className="space-y-3">
+            <div>
+              <label className="label text-xs">¿Tiene lesiones actuales o recientes?</label>
+              <select
+                className="input text-sm"
+                value={editData.tiene_lesiones === true ? 'true' : editData.tiene_lesiones === false ? 'false' : ''}
+                onChange={e => {
+                  const v = e.target.value
+                  setEditData(p => ({
+                    ...p,
+                    tiene_lesiones: v === '' ? null : v === 'true',
+                  }))
+                }}
+              >
+                <option value="">Sin especificar</option>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+
+            {editData.tiene_lesiones === true && (
+              <div>
+                <label className="label text-xs">Descripción de lesiones</label>
+                <textarea
+                  className="input resize-none text-sm"
+                  rows={3}
+                  value={editData.descripcion_lesiones || ''}
+                  onChange={e => setEditData(p => ({ ...p, descripcion_lesiones: e.target.value }))}
+                  placeholder="Ej: dolor en rodilla derecha, molestia en hombro al levantar..."
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Obligatorio si no marcaste ninguna patología real abajo.
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="label text-xs">Patologías</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PATOLOGIAS_OPTIONS.map(opt => {
+                  const selected = Array.isArray(editData.patologias) && editData.patologias.includes(opt)
+                  return (
+                    <label
+                      key={opt}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border cursor-pointer text-xs ${
+                        selected
+                          ? 'border-primary-400 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-primary-500"
+                        checked={selected}
+                        onChange={e => {
+                          setEditData(p => {
+                            const current = Array.isArray(p.patologias) ? [...p.patologias] : []
+                            if (e.target.checked) {
+                              // Marcar "Ninguna" desmarca el resto y viceversa para
+                              // mantener un set coherente (igual que el intake).
+                              if (opt === 'Ninguna') return { ...p, patologias: ['Ninguna'] }
+                              const next = current.filter(x => x !== 'Ninguna')
+                              if (!next.includes(opt)) next.push(opt)
+                              return { ...p, patologias: next }
+                            }
+                            return { ...p, patologias: current.filter(x => x !== opt) }
+                          })
+                        }}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-gray-500 w-32 flex-shrink-0">¿Tiene lesiones?</span>
+              <span className="font-medium text-gray-900">
+                {displayValue('tiene_lesiones', student.tiene_lesiones)}
+              </span>
+            </div>
+            {student.tiene_lesiones && student.descripcion_lesiones && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs text-gray-500 w-32 flex-shrink-0">Descripción</span>
+                <span className="font-medium text-gray-900 flex-1 whitespace-pre-wrap">
+                  {student.descripcion_lesiones}
+                </span>
+              </div>
+            )}
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-gray-500 w-32 flex-shrink-0">Patologías</span>
+              <span className="font-medium text-gray-900 flex-1">
+                {displayValue('patologias', student.patologias)}
+              </span>
+            </div>
           </div>
         )}
       </div>

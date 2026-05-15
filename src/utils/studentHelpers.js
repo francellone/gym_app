@@ -16,7 +16,24 @@ export const FIELD_LABELS = {
   coach_notes: 'Notas privadas',
   target_weight_kg: 'Peso objetivo',
   dni: 'DNI',
+  // Salud (handoff 2.6 — CHECK profiles_lesiones_requires_detail)
+  tiene_lesiones: 'Tiene lesiones',
+  descripcion_lesiones: 'Descripción de lesiones',
+  patologias: 'Patologías',
 }
+
+// Opciones canónicas de patologías. Coincide con el catálogo del intake
+// (default-form.js) para que coach y alumno vean el mismo set.
+export const PATOLOGIAS_OPTIONS = [
+  'Hipertensión',
+  'Diabetes tipo 1',
+  'Diabetes tipo 2',
+  'Obesidad',
+  'Problemas cardíacos',
+  'Problemas respiratorios',
+  'Problemas articulares',
+  'Ninguna',
+]
 
 export const LEVEL_LABELS = {
   beginner: 'Principiante',
@@ -31,8 +48,41 @@ export const GENDER_LABELS = {
 }
 
 export function displayValue(field, value) {
-  if (!value && value !== 0) return '—'
+  if (value === null || value === undefined || value === '') return '—'
   if (field === 'gender') return GENDER_LABELS[value] || value
   if (field === 'level') return LEVEL_LABELS[value] || value
+  if (field === 'tiene_lesiones') {
+    if (value === true || value === 'true') return 'Sí'
+    if (value === false || value === 'false') return 'No'
+    return '—'
+  }
+  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—'
+  if (value === 0) return '0'
+  if (!value) return '—'
   return String(value)
+}
+
+// Evalúa si los datos de salud del alumno satisfacen el CHECK del back
+// (profiles_lesiones_requires_detail). Si retorna mensaje no-null, el front
+// debe bloquear el guardado y mostrarlo (sin esperar al rebote del back).
+export function validateLesionesConsistency({ tiene_lesiones, descripcion_lesiones, patologias }) {
+  if (tiene_lesiones !== true && tiene_lesiones !== 'true') return null
+  const desc = (descripcion_lesiones || '').trim()
+  if (desc) return null
+  const pats = Array.isArray(patologias) ? patologias : []
+  const hasRealPat = pats.length > 0 && pats.some(p => p !== 'Ninguna')
+  if (hasRealPat) return null
+  return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
+}
+
+// Traduce un error de Supabase a un mensaje amigable cuando es el CHECK
+// de lesiones. Para cualquier otro error, devuelve null y el caller maneja.
+export function lesionesCheckErrorMessage(error) {
+  if (!error) return null
+  const code = error.code || error?.details?.code
+  const msg = error.message || ''
+  if (code === '23514' && /profiles_lesiones_requires_detail/i.test(msg)) {
+    return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
+  }
+  return null
 }

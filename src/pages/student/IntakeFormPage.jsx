@@ -12,12 +12,27 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import FormRenderer from '../../../intake-form/components/student/FormRenderer'
 
+// Traduce errores conocidos del back en mensajes accionables para el alumno.
+// 23514 + profiles_lesiones_requires_detail viene del CHECK agregado en el
+// handoff 2.6: si tiene_lesiones=true, la BD exige descripcion_lesiones no
+// vacío o patologias con algo distinto de 'Ninguna'.
+function intakeFriendlyError(err) {
+  if (!err) return null
+  const code = err.code || err?.details?.code
+  const msg = err.message || ''
+  if (code === '23514' && /profiles_lesiones_requires_detail/i.test(msg)) {
+    return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
+  }
+  return msg || 'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
+}
+
 export default function IntakeFormPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [assignment, setAssignment] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   // ── Cargar asignación pendiente ──────────────────────────
   useEffect(() => {
@@ -71,9 +86,10 @@ export default function IntakeFormPage() {
   // ── Envío final ──────────────────────────────────────────
   const handleSubmit = async (responses) => {
     if (!assignment) return
+    setSubmitError(null)
 
     // Guardar submission final
-    const { data: submission } = await supabase
+    const { data: submission, error: submissionError } = await supabase
       .from('intake_form_submissions')
       .upsert({
         assignment_id: assignment.id,
@@ -86,8 +102,13 @@ export default function IntakeFormPage() {
       .select()
       .single()
 
+    if (submissionError) {
+      setSubmitError(intakeFriendlyError(submissionError))
+      throw submissionError
+    }
+
     // Marcar asignación como completada
-    await supabase
+    const { error: assignmentError } = await supabase
       .from('intake_form_assignments')
       .update({
         status: 'completed',
@@ -95,11 +116,24 @@ export default function IntakeFormPage() {
       })
       .eq('id', assignment.id)
 
-    // Generar perfil del estudiante (llamar a la función de Supabase)
+    if (assignmentError) {
+      setSubmitError(intakeFriendlyError(assignmentError))
+      throw assignmentError
+    }
+
+    // Generar perfil del estudiante (llamar a la función de Supabase).
+    // Si la respuesta violase el CHECK profiles_lesiones_requires_detail
+    // (no debería pasar tras la validación cliente, pero el back igualmente
+    // defiende), traducimos el código a un mensaje accionable y lo
+    // surfaceamos al alumno sin dejarlo pensando que envió OK.
     if (submission?.id) {
-      await supabase.rpc('process_intake_submission', {
+      const { error: rpcError } = await supabase.rpc('process_intake_submission', {
         submission_id: submission.id,
       })
+      if (rpcError) {
+        setSubmitError(intakeFriendlyError(rpcError))
+        throw rpcError
+      }
     }
   }
 
@@ -134,12 +168,29 @@ export default function IntakeFormPage() {
   }
 
   return (
-    <FormRenderer
-      assignment={assignment}
-      studentId={profile.id}
-      onSubmit={handleSubmit}
-      onSaveDraft={handleSaveDraft}
-      onFinish={() => navigate('/student')}
-    />
+    <>
+      {submitError && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-1.5rem)] bg-rose-50 border-2 border-rose-200 rounded-xl p-3 shadow-lg flex items-start gap-2">
+          <span className="text-rose-500 text-lg leading-none">⚠</span>
+          <p className="text-xs text-rose-800 flex-1 leading-relaxed">
+            {submitError}
+          </p>
+          <button
+            onClick={() => setSubmitError(null)}
+            className="text-rose-500 hover:text-rose-700 flex-shrink-0"
+            aria-label="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <FormRenderer
+        assignment={assignment}
+        studentId={profile.id}
+        onSubmit={handleSubmit}
+        onSaveDraft={handleSaveDraft}
+        onFinish={() => navigate('/student')}
+      />
+    </>
   )
 }

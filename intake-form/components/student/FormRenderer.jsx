@@ -23,6 +23,7 @@ import {
   validateModule,
   validateForm,
   cleanHiddenResponses,
+  isQuestionRequired,
 } from '../shared/conditionalLogic.js'
 
 export default function FormRenderer({
@@ -79,7 +80,10 @@ export default function FormRenderer({
 
     if (!valid) {
       const newErrors = {}
-      missing.forEach(id => { newErrors[id] = 'Este campo es obligatorio' })
+      missing.forEach(id => {
+        const q = visible.find(qq => qq.id === id)
+        newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
+      })
       setErrors(newErrors)
       return false
     }
@@ -128,10 +132,12 @@ export default function FormRenderer({
       // Ir al primer módulo con errores
       const firstErrorModuleIdx = allModules.findIndex(m => errorsByModule[m.id])
       if (firstErrorModuleIdx >= 0) {
+        const errorModule = allModules[firstErrorModuleIdx]
         setCurrentStep(firstErrorModuleIdx + 1)
         const newErrors = {}
-        errorsByModule[allModules[firstErrorModuleIdx].id].forEach(id => {
-          newErrors[id] = 'Este campo es obligatorio'
+        errorsByModule[errorModule.id].forEach(id => {
+          const q = (errorModule.questions || []).find(qq => qq.id === id)
+          newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
         })
         setErrors(newErrors)
       }
@@ -144,8 +150,21 @@ export default function FormRenderer({
         allModules.flatMap(m => m.questions),
         responses
       )
+      // Backward-compat: assignments viejos generados antes de 2026-05-15
+      // tienen el snapshot con id='lesiones_detalle'. El back ahora lee
+      // 'descripcion_lesiones' del JSON (process_intake_submission). Si
+      // existe el id viejo y no el nuevo, copiamos el valor para que la
+      // función del back pueda leerlo y satisfacer el CHECK.
+      if (cleaned.lesiones_detalle && !cleaned.descripcion_lesiones) {
+        cleaned.descripcion_lesiones = cleaned.lesiones_detalle
+      }
       await onSubmit?.(cleaned)
       setSubmitted(true)
+    } catch (err) {
+      // El caller (IntakeFormPage / FollowUpFormPage) ya muestra el error en
+      // pantalla via su propio estado. Acá sólo prevenimos que escale como
+      // unhandled rejection y que el form quede en estado "enviado" mentiroso.
+      console.error('Form submit failed:', err)
     } finally {
       setSubmitting(false)
     }
@@ -263,7 +282,7 @@ export default function FormRenderer({
                   <label className="block">
                     <span className="text-sm font-medium text-gray-800 leading-snug">
                       {question.label}
-                      {question.required && (
+                      {isQuestionRequired(question, responses) && (
                         <span className="text-red-500 ml-1" title="Obligatorio">*</span>
                       )}
                     </span>

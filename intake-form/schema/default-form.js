@@ -314,18 +314,33 @@ export const DEFAULT_MODULES = [
         editable: true,
         removable: false,
         // Lógica condicional: si es "sí", mostrar el detalle
-        conditionalTrigger: { showIfTrue: 'lesiones_detalle' },
+        conditionalTrigger: { showIfTrue: 'descripcion_lesiones' },
       },
       {
-        id: 'lesiones_detalle',
+        // El id coincide con la columna `profiles.descripcion_lesiones` que
+        // `process_intake_submission` lee del JSON de respuestas. Renombrado
+        // desde 'lesiones_detalle' el 2026-05-15 al agregar la columna y el
+        // CHECK `profiles_lesiones_requires_detail` (handoff 2.6).
+        id: 'descripcion_lesiones',
         type: QUESTION_TYPES.TEXTAREA,
         label: 'Describí tus lesiones o molestias',
-        placeholder: '',
+        placeholder: 'Ej: dolor en rodilla derecha, molestia en hombro al levantar...',
         required: false,
         editable: true,
         removable: true,
         // Esta pregunta se muestra condicionalmente
         conditional: { dependsOn: 'tiene_lesiones', showWhen: true },
+        // Regla de obligatoriedad condicional: si el alumno marcó tiene_lesiones=true
+        // y NO seleccionó ninguna patología real (queda vacío o solo 'Ninguna'),
+        // este campo se vuelve obligatorio para satisfacer el CHECK del back
+        // (profiles_lesiones_requires_detail). Si seleccionó patologías reales,
+        // queda opcional. Ver utils en conditionalLogic.js → isQuestionRequired.
+        requiredIf: {
+          question: 'patologias',
+          isEmptyOrOnly: ['Ninguna'],
+        },
+        requiredMessage:
+          'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología en la pregunta de abajo.',
       },
       {
         id: 'patologias',

@@ -106,7 +106,54 @@ export function cleanHiddenResponses(questions, responses) {
 }
 
 /**
- * Valida que todas las preguntas requeridas y visibles tengan respuesta.
+ * Determina si una pregunta es obligatoria dado el estado actual de respuestas.
+ * Combina:
+ *   - `required: true` estático (siempre obligatorio cuando es visible).
+ *   - `requiredIf` declarativo (obligatorio sólo cuando una respuesta de
+ *     otra pregunta cumple la condición).
+ *
+ * Formato de `requiredIf`:
+ *   { question: 'otra_pregunta', equals: <valor> }
+ *   { question: 'otra_pregunta', isEmptyOrOnly: ['Ninguna'] }
+ *     → true si la respuesta es null/undefined/[], o si es array que solo
+ *       contiene los valores listados (subconjunto de ese set).
+ *
+ * Se agregó como parte del handoff 2.6: el campo `descripcion_lesiones`
+ * tiene que ser obligatorio cuando `patologias` queda vacío o ['Ninguna']
+ * para satisfacer el CHECK `profiles_lesiones_requires_detail` del back.
+ *
+ * @param {object} question
+ * @param {object} responses
+ * @returns {boolean}
+ */
+export function isQuestionRequired(question, responses) {
+  if (question.required) return true
+  if (!question.requiredIf) return false
+
+  const rule = question.requiredIf
+  const otherValue = responses[rule.question]
+
+  if (Array.isArray(rule.isEmptyOrOnly)) {
+    if (otherValue === undefined || otherValue === null) return true
+    if (Array.isArray(otherValue)) {
+      if (otherValue.length === 0) return true
+      // Todos los valores presentes están dentro del set "vacío/no-marca"
+      return otherValue.every(v => rule.isEmptyOrOnly.includes(v))
+    }
+    if (typeof otherValue === 'string' && otherValue.trim() === '') return true
+    return false
+  }
+
+  if (Object.prototype.hasOwnProperty.call(rule, 'equals')) {
+    return otherValue === rule.equals
+  }
+
+  return false
+}
+
+/**
+ * Valida que todas las preguntas requeridas (estáticas o condicionales)
+ * y visibles tengan respuesta.
  *
  * @param {object[]} questions - Preguntas del módulo
  * @param {object} responses - Respuestas actuales
@@ -115,7 +162,7 @@ export function cleanHiddenResponses(questions, responses) {
 export function validateModule(questions, responses) {
   const visible = getVisibleQuestions(questions, responses)
   const missing = visible
-    .filter(q => q.required)
+    .filter(q => isQuestionRequired(q, responses))
     .filter(q => {
       const val = responses[q.id]
       if (val === undefined || val === null) return true
