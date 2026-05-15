@@ -2,12 +2,12 @@
 // studentDashboardLogic.js
 // ------------------------------------------------------------
 // Funciones puras del dashboard del alumno (StudentDashboard.jsx):
-//   - filterTrainingLogs       → excluye logs de evaluaciones
 //   - computeStreak            → cuenta días consecutivos entrenados
 //   - computeWeekTrainingDays  → Set de fechas entrenadas en la semana
 //
-// Igual que calendarLogic.js: están separadas para poder importarse
-// en scripts standalone sin React ni Supabase.
+// filterTrainingLogs vive en planTypeFilters.js (es genérico para
+// toda la app). Acá la re-exportamos para no romper imports
+// históricos.
 //
 // REGLA DE NEGOCIO (decidida con el coach el 2026-05-10):
 //   El streak y la heatmap deben contar logs de CUALQUIER plan de
@@ -16,6 +16,9 @@
 //   Las evaluaciones NUNCA cuentan: son tests puntuales, no
 //   sesiones de entrenamiento.
 // ============================================================
+
+import { filterTrainingLogs as _filterTrainingLogs } from './planTypeFilters.js'
+export const filterTrainingLogs = _filterTrainingLogs
 
 // ── Date utils internas ──────────────────────────────────────
 function startOfDay(date) {
@@ -36,28 +39,6 @@ function addDays(date, n) {
   const d = startOfDay(date)
   d.setDate(d.getDate() + n)
   return d
-}
-
-// ============================================================
-// filterTrainingLogs
-// ------------------------------------------------------------
-// Inputs:
-//   logs  [{ logged_date, completed, plan: { plan_type } | null }]
-//
-// Output: subset cuyos logs vienen de un plan training.
-//
-// Reglas:
-//   - plan.plan_type === 'training'  → incluir
-//   - plan.plan_type === 'evaluation' → excluir
-//   - plan_type ausente / plan null  → incluir (default training,
-//                                       compatibilidad con datos
-//                                       viejos sin denormalizar)
-// ============================================================
-export function filterTrainingLogs(logs) {
-  return (logs || []).filter(l => {
-    const pt = l?.plan?.plan_type
-    return !pt || pt === 'training'
-  })
 }
 
 // ============================================================
