@@ -1001,6 +1001,19 @@ export default function TodayWorkoutPage() {
   const [showWellbeingStartAviso, setShowWellbeingStartAviso] = useState(false)
   const wellbeingStartAvisoFiredRef = useRef(false)
 
+  // Aviso de error al guardar (PSE, inicio de sesión, etc.). Se setea desde
+  // los catch de saveLog / saveBlockLog / saveDayPSE y se auto-cierra a los ~6s.
+  // Reemplaza el console.error silencioso previo que dejaba al alumno con la
+  // impresión de haber guardado cuando en realidad el back rechazó la operación.
+  const [saveErrorAviso, setSaveErrorAviso] = useState(null) // string | null
+  const saveErrorTimerRef = useRef(null)
+
+  function showSaveErrorAviso(message) {
+    if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
+    setSaveErrorAviso(message)
+    saveErrorTimerRef.current = setTimeout(() => setSaveErrorAviso(null), 6000)
+  }
+
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
   useEffect(() => {
@@ -1124,52 +1137,63 @@ export default function TodayWorkoutPage() {
     }
   }
 
+  // Crea o actualiza la workout_session para (student, plan, logged_date).
+  // IMPORTANTE: si la session no existe, la crea con los datos pasados
+  // (típicamente { started_at }). Cumple el contrato del back:
+  //   - constraint `sessions_finished_requires_started`: nunca insertar
+  //     finished_at sin started_at. Los callers que solo pasan
+  //     finished_at deben asegurar que la session ya existe con
+  //     started_at (lo hacen saveLog/saveBlockLog antes de saveDayPSE).
+  //   - trigger `trg_workout_sessions_block_evaluations`: el plan no
+  //     puede ser eval. Filtrado río arriba en fetchAssignment.
+  //
+  // Tira el error a quien la llame: el catch silencioso previo dejaba
+  // al alumno sin feedback cuando el back rechazaba la operación.
   async function upsertSession(data) {
     if (!assignment) return
-    try {
-      const { data: existing } = await supabase
-        .from('workout_sessions')
-        .select('id, started_at')
-        .eq('student_id', profile.id)
-        .eq('plan_id', assignment.plan_id)
-        .eq('logged_date', selectedDate)
-        .maybeSingle()
+    const { data: existing, error: selErr } = await supabase
+      .from('workout_sessions')
+      .select('id, started_at')
+      .eq('student_id', profile.id)
+      .eq('plan_id', assignment.plan_id)
+      .eq('logged_date', selectedDate)
+      .maybeSingle()
+    if (selErr) throw selErr
 
-      if (existing) {
-        // started_at nunca se sobreescribe: si el registro ya existe, ese valor se preserva
-        const { started_at: _ignore, ...safeData } = data
+    if (existing) {
+      // started_at nunca se sobreescribe: si el registro ya existe, ese valor se preserva
+      const { started_at: _ignore, ...safeData } = data
 
-        // finished_at solo se guarda si es estrictamente posterior al started_at original
-        // Esto evita duraciones negativas por sesiones cruzadas entre días
-        if (safeData.finished_at && existing.started_at) {
-          if (new Date(safeData.finished_at) <= new Date(existing.started_at)) {
-            delete safeData.finished_at
-          }
+      // finished_at solo se guarda si es estrictamente posterior al started_at original
+      // Esto evita duraciones negativas por sesiones cruzadas entre días
+      if (safeData.finished_at && existing.started_at) {
+        if (new Date(safeData.finished_at) <= new Date(existing.started_at)) {
+          delete safeData.finished_at
         }
-
-        const { data: updated } = await supabase
-          .from('workout_sessions')
-          .update(safeData)
-          .eq('id', existing.id)
-          .select()
-          .single()
-        setSession(updated)
-      } else {
-        const { data: created } = await supabase
-          .from('workout_sessions')
-          .insert({
-            student_id: profile.id,
-            plan_id: assignment.plan_id,
-            logged_date: selectedDate,
-            logged_late: !isToday,
-            ...data,
-          })
-          .select()
-          .single()
-        setSession(created)
       }
-    } catch (err) {
-      console.error('Session upsert error:', err)
+
+      const { data: updated, error: updErr } = await supabase
+        .from('workout_sessions')
+        .update(safeData)
+        .eq('id', existing.id)
+        .select()
+        .single()
+      if (updErr) throw updErr
+      setSession(updated)
+    } else {
+      const { data: created, error: insErr } = await supabase
+        .from('workout_sessions')
+        .insert({
+          student_id: profile.id,
+          plan_id: assignment.plan_id,
+          logged_date: selectedDate,
+          logged_late: !isToday,
+          ...data,
+        })
+        .select()
+        .single()
+      if (insErr) throw insErr
+      setSession(created)
     }
   }
 
@@ -1191,9 +1215,23 @@ export default function TodayWorkoutPage() {
     const existingLog = logs[planExerciseId]
     let result
 
-    // Registrar inicio de sesión en el primer log guardado del día
-    if (isToday && assignment && !session?.started_at) {
-      await upsertSession({ started_at: new Date().toISOString() })
+    // Garantizar que exista la workout_session ANTES de insertar el log.
+    // Antes el guard era `isToday && ...`, pero eso dejaba workout_logs
+    // retroactivos sin session padre (genera huérfanos + rompe el cierre
+    // de PSE con check_violation en el back, porque finished_at sin
+    // started_at viola la constraint). Quitamos el guard: started_at
+    // representa "el alumno está cargando estos datos en este momento",
+    // que es lo mismo que asume el backfill del back para huérfanos
+    // (started_at = min(log.created_at)). El logged_late=true del log
+    // sigue marcando si fue retroactivo o no.
+    if (assignment && !session?.started_at) {
+      try {
+        await upsertSession({ started_at: new Date().toISOString() })
+      } catch (err) {
+        console.error('saveLog: upsertSession error:', err)
+        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.')
+        throw err
+      }
     }
 
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
@@ -1221,7 +1259,11 @@ export default function TodayWorkoutPage() {
         .single()
     }
 
-    if (result.error) throw result.error
+    if (result.error) {
+      console.error('saveLog: workout_logs error:', result.error)
+      showSaveErrorAviso('No pudimos guardar el ejercicio. Probá de nuevo en un momento.')
+      throw result.error
+    }
     setLogs(prev => ({ ...prev, [planExerciseId]: result.data }))
   }
 
@@ -1247,9 +1289,18 @@ export default function TodayWorkoutPage() {
       return
     }
 
-    // Registrar inicio de sesión en el primer bloque guardado del día
-    if (isToday && assignment && !session?.started_at) {
-      await upsertSession({ started_at: new Date().toISOString() })
+    // Garantizar workout_session también para bloques retroactivos (idem
+    // saveLog). Ver comentario allí: el back exige started_at antes que
+    // cualquier finished_at, y dejar workout_block_logs huérfanos rompe
+    // las mismas métricas que workout_logs huérfanos.
+    if (assignment && !session?.started_at) {
+      try {
+        await upsertSession({ started_at: new Date().toISOString() })
+      } catch (err) {
+        console.error('saveBlockLog: upsertSession error:', err)
+        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.')
+        throw err
+      }
     }
 
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
@@ -1278,7 +1329,11 @@ export default function TodayWorkoutPage() {
         .select()
         .single()
     }
-    if (result.error) throw result.error
+    if (result.error) {
+      console.error('saveBlockLog: workout_block_logs error:', result.error)
+      showSaveErrorAviso('No pudimos guardar el bloque. Probá de nuevo en un momento.')
+      throw result.error
+    }
     setBlockLogs(prev => ({ ...prev, [planBlockId]: result.data }))
   }
 
@@ -1356,12 +1411,27 @@ export default function TodayWorkoutPage() {
     // varios días (day_a, day_b, ...). upsertSession ya valida que finished_at sea
     // estrictamente posterior al started_at original, así que es seguro escribirlo
     // siempre (incluso al editar el PSE más tarde).
-    await upsertSession({
+    //
+    // Defensa adicional: si por alguna razón no existe session todavía
+    // (caso raro tras los fixes de saveLog/saveBlockLog), insertamos
+    // started_at = now() para cumplir la constraint del back que exige
+    // started_at antes que cualquier finished_at.
+    const payload = {
       borg_per_day: newPerDay,
       finished_at: new Date().toISOString(),
-    })
-    pseTriggeredRef.current[day] = true
-    setShowPSEForDay(null)
+    }
+    if (!session?.started_at) {
+      payload.started_at = new Date().toISOString()
+    }
+    try {
+      await upsertSession(payload)
+      pseTriggeredRef.current[day] = true
+      setShowPSEForDay(null)
+    } catch (err) {
+      console.error('saveDayPSE error:', err)
+      showSaveErrorAviso('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.')
+      // No cerramos el modal: dejamos que el alumno reintente sin perder lo que cargó.
+    }
   }
 
   // Activación completa (si no hay activación, se considera completa)
@@ -1590,6 +1660,28 @@ export default function TodayWorkoutPage() {
               <p className="text-xs text-amber-800 flex-1 leading-relaxed">
                 <strong>Recordá:</strong> aún no cargaste tu wellbeing de hoy. Podés hacerlo desde la tarjeta de arriba cuando quieras.
               </p>
+            </div>
+          )}
+
+          {/* Aviso de error al guardar: se muestra cuando alguna operación de
+              save falla (upsertSession, workout_logs, workout_block_logs).
+              Antes la falla quedaba como console.error silencioso, así que el
+              alumno creía haber guardado cuando el back rechazaba la operación
+              (p. ej. el PSE retroactivo violando la constraint
+              sessions_finished_requires_started). Auto-cierra a los ~6s. */}
+          {saveErrorAviso && (
+            <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-rose-800 flex-1 leading-relaxed">
+                {saveErrorAviso}
+              </p>
+              <button
+                onClick={() => setSaveErrorAviso(null)}
+                className="text-rose-500 hover:text-rose-700 flex-shrink-0"
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
             </div>
           )}
 
