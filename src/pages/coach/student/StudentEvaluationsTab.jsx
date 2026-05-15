@@ -13,6 +13,7 @@ import { format, parseISO, differenceInYears } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   groupEvaluationAssignments, statusConfig, getAssignmentStatus,
+  assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
 
 // ─────────────────────────────────────────────────────────────
@@ -80,14 +81,16 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
     if (!selectedPlanId) return
     setAssignLoading(true)
     try {
-      const { error } = await supabase.from('plan_assignments').insert({
-        plan_id: selectedPlanId,
-        student_id: studentId,
-        start_date: new Date().toISOString().slice(0, 10),
-        linked_assignment_id: linkedAssignmentId || null,
-        // status default 'active' lo pone la DB.
+      // El back rechaza INSERT directo en plan_assignments cuando el
+      // plan_id apunta a una plantilla (trg_pa_forbid_template). La RPC
+      // clona la plantilla a una instancia personal del alumno y crea
+      // el plan_assignment apuntando al clon, de forma atómica.
+      await assignTemplateToStudent(supabase, {
+        templateId: selectedPlanId,
+        studentId,
+        startDate: new Date().toISOString().slice(0, 10),
+        linkedAssignmentId: linkedAssignmentId || null,
       })
-      if (error) throw error
       setAssigning(false)
       setSelectedPlanId('')
       setLinkedAssignmentId('')
@@ -217,7 +220,11 @@ function AssignEvaluationForm({
   linkedAssignmentId, onLinkedAssignmentChange,
   loading, onCancel, onConfirm,
 }) {
-  const evalPlanOptions = (allPlans || []).filter(p => p.plan_type === 'evaluation')
+  // Solo plantillas de evaluación se pueden asignar — las instancias
+  // clonadas son personales y no deben aparecer en la biblioteca.
+  const evalPlanOptions = (allPlans || []).filter(
+    p => p.plan_type === 'evaluation' && p.is_template !== false
+  )
   const selectedEvalPlan = evalPlanOptions.find(p => p.id === selectedPlanId) || null
   const suggestedFromTemplate = !!selectedEvalPlan?.parent_plan_id
 

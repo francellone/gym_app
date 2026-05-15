@@ -14,6 +14,7 @@ import {
 import { format } from 'date-fns'
 import DeletePlanModal from '../../components/DeletePlanModal'
 import PlanProgressTab from './PlanProgressTab'
+import { assignTemplateToStudent } from '../../utils/assignmentHelpers'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
 //
@@ -24,7 +25,14 @@ import PlanProgressTab from './PlanProgressTab'
 // completo de reemplazo (ReplacePlanModal). Esto evita exponer la misma
 // UX duplicada en dos lugares y mantiene consistente la cierre de plan
 // saliente con motivo, atajo a duplicar, etc.
-function AssignStudentModal({ planId, planType, onClose, onDone }) {
+//
+// La asignación se hace siempre vía RPC `assign_template_to_student`,
+// que clona la plantilla a una instancia personal del alumno. Como la
+// RPC solo acepta plantillas (is_template=true), el botón "Asignar" se
+// oculta cuando el plan es una instancia ya personalizada — esa visita
+// no tiene sentido conceptual (no podés asignar el plan de un alumno a
+// otro alumno) y además el back lo rechazaría con check_violation.
+function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
   const navigate = useNavigate()
   const [students, setStudents] = useState([])
   const [alreadyAssigned, setAlreadyAssigned] = useState(new Set())
@@ -66,6 +74,18 @@ function AssignStudentModal({ planId, planType, onClose, onDone }) {
   async function handleAssign() {
     if (!selected) return
 
+    // Defensa de UX: si por algún motivo se abre el modal sobre una
+    // instancia ya personalizada (is_template=false), avisar y abortar
+    // antes de tocar el back. El back igualmente lo rechazaría con
+    // check_violation desde la RPC.
+    if (isTemplate === false) {
+      setError(
+        'Este plan ya es una instancia personalizada de un alumno y no se puede asignar a otro. ' +
+        'Duplicalo como plantilla nueva si querés reutilizarlo.'
+      )
+      return
+    }
+
     // Si es training y el alumno ya tiene activo, llevarlo al perfil
     // a usar el flujo completo (con ReplacePlanModal).
     if (isTraining && studentsWithActiveTraining.has(selected)) {
@@ -79,13 +99,13 @@ function AssignStudentModal({ planId, planType, onClose, onDone }) {
     setSaving(true)
     setError(null)
     try {
-      const { error } = await supabase.from('plan_assignments').insert({
-        plan_id: planId,
-        student_id: selected,
-        start_date: format(new Date(), 'yyyy-MM-dd'),
-        // status default 'active' lo pone la DB; trigger sincroniza active.
+      // RPC: clona la plantilla a una instancia personal + crea el
+      // plan_assignment apuntando al clon, todo atómico.
+      await assignTemplateToStudent(supabase, {
+        templateId: planId,
+        studentId: selected,
+        startDate: format(new Date(), 'yyyy-MM-dd'),
       })
-      if (error) throw error
       onDone()
     } catch (err) {
       setError(err.message || 'Error al asignar alumno')
@@ -682,6 +702,7 @@ export default function PlanDetailPage() {
         <AssignStudentModal
           planId={id}
           planType={plan?.plan_type}
+          isTemplate={plan?.is_template}
           onClose={() => setShowAssignModal(false)}
           onDone={() => { setShowAssignModal(false); fetchPlan() }}
         />
@@ -811,27 +832,41 @@ export default function PlanDetailPage() {
       <>
 
       {/* ── Alumnos asignados ─────────────────────────────── */}
+      {/*
+        Los botones de "Asignar / Agregar" solo se muestran cuando el plan
+        es una plantilla. Las instancias personalizadas (is_template=false)
+        son clones por alumno y conceptualmente no se asignan a otros: la
+        RPC `assign_template_to_student` solo acepta plantillas.
+      */}
       <div className="card mb-0 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
             <Users size={14} className="text-gray-400" />
             Alumnos asignados
           </div>
-          <button
-            onClick={() => setShowAssignModal(true)}
-            className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            <Plus size={12} /> Asignar
-          </button>
+          {plan?.is_template !== false && (
+            <button
+              onClick={() => setShowAssignModal(true)}
+              className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              <Plus size={12} /> Asignar
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {assignments.length === 0 ? (
-            <button
-              onClick={() => setShowAssignModal(true)}
-              className="plan-add-student-chip"
-            >
-              <Plus size={11} /> Asignar alumno
-            </button>
+            plan?.is_template !== false ? (
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="plan-add-student-chip"
+              >
+                <Plus size={11} /> Asignar alumno
+              </button>
+            ) : (
+              <p className="text-xs text-gray-400 italic">
+                Plan personalizado (sin alumnos para asignar).
+              </p>
+            )
           ) : (
             <>
               {assignments.map(a => (
@@ -852,12 +887,14 @@ export default function PlanDetailPage() {
                   </button>
                 </div>
               ))}
-              <button
-                onClick={() => setShowAssignModal(true)}
-                className="plan-add-student-chip"
-              >
-                <Plus size={11} /> Agregar
-              </button>
+              {plan?.is_template !== false && (
+                <button
+                  onClick={() => setShowAssignModal(true)}
+                  className="plan-add-student-chip"
+                >
+                  <Plus size={11} /> Agregar
+                </button>
+              )}
             </>
           )}
         </div>

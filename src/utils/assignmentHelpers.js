@@ -12,6 +12,80 @@
 //   - 'archived' → finalización manual neutra (alta/baja, error, otros).
 // ============================================================
 
+// ============================================================
+// Asignación de plantilla → alumno (RPC `assign_template_to_student`)
+// ------------------------------------------------------------
+// Desde la migración `fix_2_1_y_raices_template_assignments` (2026-05-15),
+// `plan_assignments` no puede apuntar a un plan con `is_template = true`:
+// el trigger `trg_pa_forbid_template` lo rechaza con `check_violation`.
+//
+// Para asignar una plantilla a un alumno, el front DEBE llamar a la RPC
+// `assign_template_to_student`, que clona la plantilla a una instancia
+// personal y crea el plan_assignment de forma atómica.
+//
+// La RPC sirve tanto para training como evaluation (lee `plan_type` de
+// la plantilla y propaga al clon).
+//
+// Errores conocidos:
+//   - '23514' check_violation: el plan_id no es plantilla.
+//   - '23503' foreign_key_violation: plan o alumno no existen / inválidos.
+//
+// Returns: { assignment_id, plan_id (nueva instancia), template_id, student_id }
+// ============================================================
+export async function assignTemplateToStudent(supabase, {
+  templateId,
+  studentId,
+  startDate,            // 'YYYY-MM-DD' o null para hoy
+  endDate = null,       // 'YYYY-MM-DD' o null
+  scheduleMode = 'flexible',
+  preferredDays = null, // array de ints 0-6 o null
+  linkedAssignmentId = null,
+}) {
+  if (!templateId) throw new Error('assignTemplateToStudent: templateId requerido')
+  if (!studentId) throw new Error('assignTemplateToStudent: studentId requerido')
+
+  // El back rechaza days en flexible (validate_preferred_days). Centralizamos.
+  const isFixed = scheduleMode === 'fixed'
+  const payload = {
+    p_template_id: templateId,
+    p_student_id: studentId,
+    p_start_date: startDate || null, // null deja que el back use CURRENT_DATE
+    p_end_date: endDate,
+    p_schedule_mode: isFixed ? 'fixed' : 'flexible',
+    p_preferred_days: isFixed && preferredDays?.length ? preferredDays : null,
+    p_linked_assignment_id: linkedAssignmentId,
+  }
+
+  const { data, error } = await supabase.rpc('assign_template_to_student', payload)
+  if (error) {
+    throw enrichRpcError(error)
+  }
+  return data || {}
+}
+
+// Convierte errores de Postgres/Supabase en mensajes legibles para la coach.
+// Conserva `code` y `details` originales para debugging.
+export function enrichRpcError(error) {
+  const code = error?.code
+  const msg = error?.message || ''
+  const friendly =
+    code === '23514' && /plantilla/i.test(msg)
+      ? 'No se puede asignar una plantilla directamente. Volvé a intentar — si el problema persiste, reportá este caso.'
+      : code === '23514' && /is_template/i.test(msg)
+      ? 'Ese plan no es una plantilla; no se puede clonar desde acá.'
+      : code === '23503'
+      ? 'No se encontró el plan o el alumno (referencia inválida).'
+      : code === '23505'
+      ? 'Ese alumno ya tiene un plan activo con esas condiciones. Reemplazá el actual desde el perfil del alumno.'
+      : null
+
+  const wrapped = new Error(friendly || msg || 'Error al asignar el plan')
+  wrapped.code = code
+  wrapped.original = error
+  return wrapped
+}
+
+
 export const ASSIGNMENT_STATUSES = ['active', 'paused', 'replaced', 'completed', 'archived']
 
 export const ASSIGNMENT_STATUS = {

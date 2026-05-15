@@ -77,7 +77,11 @@ export default function StudentDetailPage() {
           .eq('student_id', id)
           .order('logged_date', { ascending: false })
           .limit(50),
-        supabase.from('plans').select('id, title, plan_type, parent_plan_id').order('title'),
+        // Incluimos is_template para que las pestañas Planes y Evaluaciones
+        // puedan filtrar la biblioteca: el back rechaza asignar plan instancias
+        // como plantillas, y al revés. Solo se asignan plantillas vía RPC
+        // assign_template_to_student (ver assignmentHelpers.assignTemplateToStudent).
+        supabase.from('plans').select('id, title, plan_type, parent_plan_id, is_template').order('title'),
         supabase.from('student_edit_history')
           .select('*')
           .eq('student_id', id)

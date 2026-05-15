@@ -11,6 +11,7 @@ import {
   ASSIGNMENT_STATUS, statusConfig, getAssignmentStatus,
   actionsForStatus, pickPrimaryTrainingAssignment,
   getScheduleMode, getPreferredDays, formatPreferredDays,
+  assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
 import ReplacePlanModal from '../../../components/plan/ReplacePlanModal'
 import DuplicatePlanModal from '../../../components/plan/DuplicatePlanModal'
@@ -43,9 +44,15 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     [assignments]
   )
 
-  // Solo planes de training disponibles para asignar.
+  // Solo plantillas de training disponibles para asignar.
+  // El back (trg_pa_forbid_template) rechaza apuntar plan_assignments a
+  // is_template=false, y la RPC `assign_template_to_student` solo acepta
+  // plantillas. Las instancias clonadas viven asociadas a un único alumno
+  // y no deben aparecer en la biblioteca para asignar a otros.
   const trainingPlans = useMemo(
-    () => (allPlans || []).filter(p => !p.plan_type || p.plan_type === 'training'),
+    () => (allPlans || []).filter(p =>
+      (!p.plan_type || p.plan_type === 'training') && p.is_template !== false
+    ),
     [allPlans]
   )
 
@@ -97,45 +104,33 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     insertNewAssignment(selectedPlan)
   }
 
-  // Construye el payload de horario a partir del estado newSchedule,
-  // alineado con la invariante del backend (validador rechaza days en
-  // flexible). Centralizado para usar también en handleReplaceConfirm.
-  function schedulePayload(schedule) {
-    const isFixed = schedule?.schedule_mode === 'fixed'
-    return {
-      schedule_mode: isFixed ? 'fixed' : 'flexible',
-      preferred_days: isFixed
-        ? (schedule.preferred_days || [])
-        : null,
-    }
-  }
-
   function resetAssignForm() {
     setAssigningPlan(false)
     setSelectedPlan('')
     setNewSchedule({ schedule_mode: 'flexible', preferred_days: [] })
   }
 
-  async function insertNewAssignment(planId, { closeReplaceModal = false } = {}) {
+  // Asignar una plantilla a este alumno vía RPC. La RPC clona la plantilla
+  // a una instancia personal y crea el plan_assignment apuntando al clon
+  // de forma atómica. El parámetro `templateId` debe ser un plan con
+  // is_template=true (la RPC valida y, si no lo es, tira check_violation).
+  async function insertNewAssignment(templateId, { closeReplaceModal = false } = {}) {
     try {
-      const { data: inserted, error } = await supabase
-        .from('plan_assignments')
-        .insert({
-          plan_id: planId,
-          student_id: studentId,
-          start_date: format(new Date(), 'yyyy-MM-dd'),
-          ...schedulePayload(newSchedule),
-          // status default 'active' lo pone la DB; trigger se encarga del active boolean.
-        })
-        .select()
-        .single()
-      if (error) throw error
+      const result = await assignTemplateToStudent(supabase, {
+        templateId,
+        studentId,
+        startDate: format(new Date(), 'yyyy-MM-dd'),
+        scheduleMode: newSchedule?.schedule_mode,
+        preferredDays: newSchedule?.preferred_days,
+      })
 
       resetAssignForm()
       if (closeReplaceModal) setReplaceModal(null)
 
-      // Después de asignar, ver si hay evaluaciones asociadas template-level.
-      await maybePromptLinkedEvals(planId, inserted.id)
+      // Después de asignar, ver si hay evaluaciones template asociadas al
+      // plan original (template_id), no al clon — `parent_plan_id` apunta
+      // al template original.
+      await maybePromptLinkedEvals(templateId, result.assignment_id)
 
       onRefresh()
     } catch (err) {
@@ -181,17 +176,34 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     if (!linkedEvalsPrompt) return
     setLinkedEvalsLoading(true)
     try {
-      const rows = [...linkedEvalsPrompt.selected].map(planId => ({
-        plan_id: planId,
-        student_id: studentId,
-        start_date: format(new Date(), 'yyyy-MM-dd'),
-        linked_assignment_id: linkedEvalsPrompt.trainingAssignmentId,
-      }))
-      if (rows.length > 0) {
-        const { error } = await supabase.from('plan_assignments').insert(rows)
-        if (error) throw error
+      // Cada evaluación es una plantilla distinta: hay que clonarla y
+      // crear un assignment por evaluación. La RPC es atómica por llamada
+      // pero no transaccional entre llamadas — si una falla, las
+      // anteriores ya quedaron creadas. Acumulamos los errores y, al
+      // final, le avisamos a la coach qué pudo crearse y qué no.
+      const startDate = format(new Date(), 'yyyy-MM-dd')
+      const failures = []
+      for (const templateId of linkedEvalsPrompt.selected) {
+        try {
+          await assignTemplateToStudent(supabase, {
+            templateId,
+            studentId,
+            startDate,
+            linkedAssignmentId: linkedEvalsPrompt.trainingAssignmentId,
+          })
+        } catch (err) {
+          console.error('[StudentPlansTab] confirmLinkedEvals item', templateId, err)
+          const ev = linkedEvalsPrompt.evals.find(e => e.id === templateId)
+          failures.push({ title: ev?.title || templateId, message: err?.message || 'error' })
+        }
       }
       setLinkedEvalsPrompt(null)
+      if (failures.length > 0) {
+        alert(
+          `Algunas evaluaciones no se pudieron asignar:\n` +
+          failures.map(f => `• ${f.title}: ${f.message}`).join('\n')
+        )
+      }
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] confirmLinkedEvals', err)
@@ -208,11 +220,13 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
   //
   //   1) Cerrar la saliente PRIMERO (status → 'replaced' o 'paused').
   //      Acá deja de ser 'active' y libera el slot en el índice.
-  //   2) INSERT de la nueva (status default 'active'). Ya no choca.
+  //   2) Llamar RPC `assign_template_to_student` que clona la plantilla
+  //      entrante y crea el plan_assignment de la nueva (status default
+  //      'active'). Atómico: si falla, no queda data sucia.
   //   3) Si fue reemplazo, completar replaced_by_assignment_id apuntando
-  //      a la nueva (esto solo se puede hacer una vez creada).
+  //      al assignment recién creado (solo se puede tras tenerlo).
   //
-  // Si algún paso falla, hacemos best-effort de revertir.
+  // Si el paso 2 falla, hacemos best-effort de revertir el paso 1.
   async function handleReplaceConfirm({ outgoingTransition, reason }) {
     if (!currentActive || !replaceModal?.incomingPlanId) return
 
@@ -237,25 +251,20 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       if (closeErr) throw closeErr
       outgoingClosed = true
 
-      // 2) Insertar la nueva.
-      const insertRes = await supabase
-        .from('plan_assignments')
-        .insert({
-          plan_id: replaceModal.incomingPlanId,
-          student_id: studentId,
-          start_date: format(new Date(), 'yyyy-MM-dd'),
-          ...schedulePayload(newSchedule),
-        })
-        .select()
-        .single()
-      if (insertRes.error) throw insertRes.error
-      inserted = insertRes.data
+      // 2) Asignar la plantilla entrante (clona + crea assignment, atómico).
+      inserted = await assignTemplateToStudent(supabase, {
+        templateId: replaceModal.incomingPlanId,
+        studentId,
+        startDate: format(new Date(), 'yyyy-MM-dd'),
+        scheduleMode: newSchedule?.schedule_mode,
+        preferredDays: newSchedule?.preferred_days,
+      })
 
       // 3) Si fue reemplazo, completar el puntero al sucesor.
       if (outgoingTransition === 'replaced') {
         const { error: linkErr } = await supabase
           .from('plan_assignments')
-          .update({ replaced_by_assignment_id: inserted.id })
+          .update({ replaced_by_assignment_id: inserted.assignment_id })
           .eq('id', outgoingId)
         if (linkErr) throw linkErr
       }
@@ -263,13 +272,14 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       setReplaceModal(null)
       resetAssignForm()
 
-      // Si el plan entrante tiene evaluaciones template asociadas, ofrecerlas.
-      await maybePromptLinkedEvals(replaceModal.incomingPlanId, inserted.id)
+      // Si el plan entrante (template) tiene evaluaciones template asociadas,
+      // ofrecerlas. Usamos `incomingPlanId` (template_id), no el clon.
+      await maybePromptLinkedEvals(replaceModal.incomingPlanId, inserted.assignment_id)
 
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] handleReplaceConfirm', err)
-      // Best-effort rollback: si cerramos la saliente pero falló el insert,
+      // Best-effort rollback: si cerramos la saliente pero falló el clonado,
       // la reactivamos para no dejar al alumno sin plan.
       if (outgoingClosed && !inserted) {
         try {
