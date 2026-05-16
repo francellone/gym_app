@@ -17,6 +17,7 @@ import {
   getEffectiveWeightMode, getEffectiveUnilateral,
   readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
+import { buildErrorBanner } from '../../utils/errorHelpers'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
@@ -1129,16 +1130,44 @@ export default function TodayWorkoutPage() {
   const wellbeingStartAvisoFiredRef = useRef(false)
 
   // Aviso de error al guardar (PSE, inicio de sesión, etc.). Se setea desde
-  // los catch de saveLog / saveBlockLog / saveDayPSE y se auto-cierra a los ~6s.
+  // los catch de saveLog / saveBlockLog / saveDayPSE.
+  //
+  // Diferencia entre errores recuperables y no recuperables (handoff 9.1):
+  //   - Recuperable (network / 503 / JWT expirado): auto-close 6s.
+  //   - No recuperable (CHECK constraint, RLS, FK, validación back):
+  //     banner PERSISTE hasta que el alumno apriete "Entendido".
+  //
   // Reemplaza el console.error silencioso previo que dejaba al alumno con la
   // impresión de haber guardado cuando en realidad el back rechazó la operación.
-  const [saveErrorAviso, setSaveErrorAviso] = useState(null) // string | null
+  // Shape: { message: string, persistent: boolean } | null
+  const [saveErrorAviso, setSaveErrorAviso] = useState(null)
   const saveErrorTimerRef = useRef(null)
 
-  function showSaveErrorAviso(message) {
-    if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
-    setSaveErrorAviso(message)
-    saveErrorTimerRef.current = setTimeout(() => setSaveErrorAviso(null), 6000)
+  /**
+   * Muestra el banner de error. Acepta varias firmas para mantener
+   * compat con los call sites existentes:
+   *   showSaveErrorAviso(error)                  → infiere todo del error
+   *   showSaveErrorAviso('mensaje custom')       → mensaje fijo, recuperable
+   *   showSaveErrorAviso('mensaje custom', err)  → mensaje fijo, persistencia
+   *                                                inferida del error
+   */
+  function showSaveErrorAviso(arg, errOverride) {
+    if (saveErrorTimerRef.current) {
+      clearTimeout(saveErrorTimerRef.current)
+      saveErrorTimerRef.current = null
+    }
+    let banner
+    if (arg && typeof arg === 'object') {
+      // Caso 1: nos pasaron el error directo
+      banner = buildErrorBanner(arg)
+    } else {
+      // Caso 2 y 3: mensaje custom (opcionalmente con error para inferir persistencia)
+      banner = buildErrorBanner(errOverride || null, arg)
+    }
+    setSaveErrorAviso(banner)
+    if (!banner.persistent) {
+      saveErrorTimerRef.current = setTimeout(() => setSaveErrorAviso(null), 6000)
+    }
   }
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
@@ -1355,7 +1384,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveLog: upsertSession error:', err)
-        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.')
+        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
         throw err
       }
     }
@@ -1377,12 +1406,10 @@ export default function TodayWorkoutPage() {
     const { data: returnedId, error } = await supabase.rpc('save_workout_log', rpcArgs)
     if (error) {
       console.error('saveLog: rpc save_workout_log error:', error)
-      // Mensaje específico según el código del back
-      const isCheckViolation = error.code === '23514'
-      const msg = isCheckViolation
-        ? 'Datos inválidos: revisá modo de peso, reps y pesos.'
-        : 'No pudimos guardar el ejercicio. Probá de nuevo en un momento.'
-      showSaveErrorAviso(msg)
+      // El helper clasifica por código (23514 / 23503 / 42501 / etc.) y
+      // arma mensaje + persistencia. CHECK violations quedan visibles
+      // hasta que el alumno las lea (handoff 9.1).
+      showSaveErrorAviso(error)
       throw error
     }
 
@@ -1431,7 +1458,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveBlockLog: upsertSession error:', err)
-        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.')
+        showSaveErrorAviso('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
         throw err
       }
     }
@@ -1464,7 +1491,8 @@ export default function TodayWorkoutPage() {
     }
     if (result.error) {
       console.error('saveBlockLog: workout_block_logs error:', result.error)
-      showSaveErrorAviso('No pudimos guardar el bloque. Probá de nuevo en un momento.')
+      // El helper decide si persiste o auto-cierra según el código.
+      showSaveErrorAviso(result.error)
       throw result.error
     }
     setBlockLogs(prev => ({ ...prev, [planBlockId]: result.data }))
@@ -1562,7 +1590,7 @@ export default function TodayWorkoutPage() {
       setShowPSEForDay(null)
     } catch (err) {
       console.error('saveDayPSE error:', err)
-      showSaveErrorAviso('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.')
+      showSaveErrorAviso('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.', err)
       // No cerramos el modal: dejamos que el alumno reintente sin perder lo que cargó.
     }
   }
@@ -1803,18 +1831,34 @@ export default function TodayWorkoutPage() {
               (p. ej. el PSE retroactivo violando la constraint
               sessions_finished_requires_started). Auto-cierra a los ~6s. */}
           {saveErrorAviso && (
-            <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-3 flex items-start gap-2">
+            <div className={`rounded-xl p-3 flex items-start gap-2 ${
+              saveErrorAviso.persistent
+                ? 'bg-rose-100 border-2 border-rose-300 shadow-sm'
+                : 'bg-rose-50 border-2 border-rose-200'
+            }`}>
               <AlertTriangle size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-rose-800 flex-1 leading-relaxed">
-                {saveErrorAviso}
-              </p>
-              <button
-                onClick={() => setSaveErrorAviso(null)}
-                className="text-rose-500 hover:text-rose-700 flex-shrink-0"
-                aria-label="Cerrar aviso"
-              >
-                ×
-              </button>
+              <div className="flex-1 leading-relaxed">
+                <p className="text-xs text-rose-800">
+                  {saveErrorAviso.message}
+                </p>
+                {saveErrorAviso.persistent && (
+                  <button
+                    onClick={() => setSaveErrorAviso(null)}
+                    className="mt-2 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded-lg transition"
+                  >
+                    Entendido
+                  </button>
+                )}
+              </div>
+              {!saveErrorAviso.persistent && (
+                <button
+                  onClick={() => setSaveErrorAviso(null)}
+                  className="text-rose-500 hover:text-rose-700 flex-shrink-0"
+                  aria-label="Cerrar aviso"
+                >
+                  ×
+                </button>
+              )}
             </div>
           )}
 

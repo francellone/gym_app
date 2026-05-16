@@ -14,6 +14,7 @@ import {
 import {
   getPaymentStatus, PAYMENT_STATUS,
 } from '../../../utils/studentStatus'
+import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '../../../utils/errorHelpers'
 
 // ─────────────────────────────────────────────────────────────
 // StudentInfoTab
@@ -131,7 +132,14 @@ export default function StudentInfoTab({
       setEditMode(false)
       onRefresh()
     } catch (err) {
-      setSaveError(err.message || 'Error al guardar los cambios')
+      // Si el path de lesiones ya transformó el error en Error(friendly),
+      // err.message ya es amigable. Sino, delegamos al helper centralizado
+      // (handoff 9.1) que mapea 23514 / 23503 / 42501 / etc.
+      const friendly =
+        (err instanceof Error && err.message && !err.code)
+          ? err.message
+          : (errorHelpersGetFriendlyMessage(err) || err.message || 'Error al guardar los cambios')
+      setSaveError(friendly)
     } finally {
       setSaving(false)
     }

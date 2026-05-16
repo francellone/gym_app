@@ -11,19 +11,15 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import FormRenderer from '../../../intake-form/components/student/FormRenderer'
+import { getFriendlyErrorMessage } from '../../utils/errorHelpers'
 
-// Traduce errores conocidos del back en mensajes accionables para el alumno.
-// 23514 + profiles_lesiones_requires_detail viene del CHECK agregado en el
-// handoff 2.6: si tiene_lesiones=true, la BD exige descripcion_lesiones no
-// vacío o patologias con algo distinto de 'Ninguna'.
+// El mapeo de códigos (23514 / profiles_lesiones_requires_detail / etc.)
+// vive en src/utils/errorHelpers.js y es compartido con TodayWorkoutPage y
+// StudentInfoTab. Acá solo lo invocamos. Si en algún momento el back agrega
+// un nuevo CHECK, se mapea allá una sola vez y queda traducido en todos lados.
 function intakeFriendlyError(err) {
   if (!err) return null
-  const code = err.code || err?.details?.code
-  const msg = err.message || ''
-  if (code === '23514' && /profiles_lesiones_requires_detail/i.test(msg)) {
-    return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
-  }
-  return msg || 'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
+  return getFriendlyErrorMessage(err) || 'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
 }
 
 export default function IntakeFormPage() {
