@@ -13,6 +13,7 @@
  *   parentNote    objeto nota padre (opcional, para mostrar quote)
  *   exercisesMap  Map<id, exercise> para resolver nombres
  *   onTagClick    (tag) => void — clickear un tag agrega al filtro
+ *   isUnread      bool — si la nota no fue leída por el viewer (muestra dot)
  */
 
 import { format, parseISO, formatDistanceToNow } from 'date-fns'
@@ -54,7 +55,7 @@ function buildContextLabel(note, exercisesMap) {
   return baseLabel
 }
 
-export default function NoteCard({ note, parentNote, exercisesMap, onTagClick }) {
+export default function NoteCard({ note, parentNote, exercisesMap, onTagClick, isUnread = false }) {
   if (!note) return null
 
   const isCoach = note.author_role === 'coach'
@@ -68,10 +69,11 @@ export default function NoteCard({ note, parentNote, exercisesMap, onTagClick })
   const contextLabel = buildContextLabel(note, exercisesMap)
   const tags = Array.isArray(note.tags) ? note.tags : []
 
-  // Estilos de burbuja (chat) — planos, sin gradientes
+  // Estilos de burbuja (chat) — planos, sin gradientes. Notas no leídas
+  // por el viewer reciben un borde más marcado para destacarlas.
   const bubbleClass = isCoach
-    ? 'bg-primary-50 border-primary-100 text-gray-900'
-    : 'bg-white border-gray-200 text-gray-900'
+    ? `bg-primary-50 text-gray-900 ${isUnread ? 'border-2 border-primary-300' : 'border border-primary-100'}`
+    : `bg-white text-gray-900 ${isUnread ? 'border-2 border-orange-300' : 'border border-gray-200'}`
 
   const alignmentClass = isCoach ? 'items-end' : 'items-start'
   const metaAlignment = isCoach ? 'justify-end' : 'justify-start'
@@ -80,8 +82,17 @@ export default function NoteCard({ note, parentNote, exercisesMap, onTagClick })
     <div className={`flex flex-col ${alignmentClass} gap-1`}>
       {/* Burbuja */}
       <div
-        className={`max-w-[88%] sm:max-w-[80%] border rounded-2xl px-3.5 py-2.5 ${bubbleClass}`}
+        className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 relative ${bubbleClass}`}
       >
+        {/* Dot de no-leída (esquina del lado opuesto al autor) */}
+        {isUnread && (
+          <span
+            className={`absolute -top-1 ${isCoach ? '-left-1' : '-right-1'} w-2.5 h-2.5 rounded-full bg-orange-500 ring-2 ring-white`}
+            aria-label="Sin leer"
+            title="Sin leer"
+          />
+        )}
+
         {/* ── Header: rol + privada + contexto ── */}
         <div className={`flex items-center gap-1.5 flex-wrap mb-1 ${metaAlignment}`}>
           <span className="text-[11px] font-semibold text-gray-500">

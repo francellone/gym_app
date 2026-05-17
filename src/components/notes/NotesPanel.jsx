@@ -14,10 +14,10 @@
  *   authorId      string  (opcional, lo necesitará el composer en Fase B)
  */
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { useNotes } from '../../hooks/useNotes'
-import { listFilterOptions } from '../../lib/notes'
+import { listFilterOptions, markThreadRead } from '../../lib/notes'
 import NotesFilters from './NotesFilters'
 import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
@@ -30,11 +30,39 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   const [availableBlockTypes, setAvailableBlockTypes] = useState([])
 
   // ── Hook principal de notas (con realtime) ────────────────────
-  const { notes, loading, error, hasMore, loadMore, reload } = useNotes({
+  const { notes, loading, error, hasMore, loadMore, reload, unreadIds, unreadCount } = useNotes({
     threadId,
     filters,
     viewerRole,
   })
+
+  // ── Snapshot de no-leídas al primer render: las que entraron como
+  // unread se quedan marcadas durante toda la visita aunque después
+  // hagamos mark-as-read. Así el coach ve cuáles eran "nuevas". ──
+  const initialUnreadRef = useRef(new Set())
+  useEffect(() => {
+    for (const id of unreadIds) initialUnreadRef.current.add(id)
+  }, [unreadIds])
+  useEffect(() => {
+    // Reset al cambiar de thread
+    initialUnreadRef.current = new Set()
+  }, [threadId])
+
+  // ── Mark as read on mount (después de 1.5s de visualización) ──
+  const hasMarkedRef = useRef(false)
+  useEffect(() => {
+    hasMarkedRef.current = false
+  }, [threadId])
+  useEffect(() => {
+    if (!threadId || notes.length === 0 || hasMarkedRef.current) return
+    if (unreadCount === 0) return // nada para marcar
+    const t = setTimeout(async () => {
+      hasMarkedRef.current = true
+      await markThreadRead(threadId, viewerRole)
+      // El UPDATE viaja por realtime y refresca los notes con read_at_*
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [threadId, notes.length, unreadCount, viewerRole])
 
   // ── Carga de opciones de filtros desde la RPC del thread ──────
   // (una sola llamada que trae exercises + muscle_groups + block_types
@@ -84,6 +112,21 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-3">
+      {/* Header con contador de no leídas */}
+      {unreadCount > 0 && (
+        <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-orange-700 text-sm">
+            <span className="inline-block w-2 h-2 rounded-full bg-orange-500" />
+            <span className="font-medium">
+              {unreadCount} {unreadCount === 1 ? 'nota nueva' : 'notas nuevas'}
+            </span>
+          </div>
+          <span className="text-[11px] text-orange-600/80">
+            Se marcarán como leídas en unos segundos
+          </span>
+        </div>
+      )}
+
       {/* Filtros */}
       <NotesFilters
         value={filters}
@@ -133,6 +176,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             parentNote={note.parent_note_id ? notesById.get(note.parent_note_id) : null}
             exercisesMap={exercisesMap}
             onTagClick={handleTagClick}
+            isUnread={initialUnreadRef.current.has(note.id)}
           />
         ))}
 

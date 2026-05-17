@@ -18,7 +18,7 @@
  *   { notes, loading, error, hasMore, loadMore, reload }
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   listNotes,
@@ -245,6 +245,26 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
     return () => subscription.unsubscribe()
   }, [])
 
+  // ── Set de notas no leídas por el viewer ────────────────────
+  // Una nota es "no leída" si:
+  //   - no es del viewer (uno mismo)
+  //   - no está borrada
+  //   - el campo read_at correspondiente está NULL
+  //   - para alumno, además visibility = 'shared'
+  const unreadIds = useMemo(() => {
+    const s = new Set()
+    for (const n of notes) {
+      if (n.deleted_at) continue
+      if (n.author_role === viewerRole) continue
+      if (viewerRole === 'coach') {
+        if (n.read_at_coach == null) s.add(n.id)
+      } else {
+        if (n.read_at_student == null && n.visibility === 'shared') s.add(n.id)
+      }
+    }
+    return s
+  }, [notes, viewerRole])
+
   return {
     notes,
     loading,
@@ -252,6 +272,8 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
     hasMore: !!nextCursor,
     loadMore,
     reload,
+    unreadIds,
+    unreadCount: unreadIds.size,
   }
 }
 
