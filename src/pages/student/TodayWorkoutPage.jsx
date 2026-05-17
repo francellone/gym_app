@@ -18,7 +18,7 @@ import {
   readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import { buildErrorBanner } from '../../utils/errorHelpers'
-import { postPSEDayNote } from '../../lib/notes'
+import { postPSEDayNote, fetchSingleMirrorBodies } from '../../lib/notes'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
@@ -1272,8 +1272,19 @@ export default function TodayWorkoutPage() {
         }
       }
 
+      // Round 2a: mergear body de notas mirror sobre el log antes de
+      // armar el mapa, para que la textarea muestre la versión panel
+      // (que en round 2b será la fuente única tras dropear workout_logs.notes).
+      const rawLogs = logsRes.data || []
+      const logIds = rawLogs.map(l => l.id)
+      const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
       const logsMap = {}
-      ;(logsRes.data || []).forEach(log => { logsMap[log.plan_exercise_id] = log })
+      rawLogs.forEach(log => {
+        logsMap[log.plan_exercise_id] = {
+          ...log,
+          notes: bodiesMap.get(log.id) ?? log.notes ?? '',
+        }
+      })
       setLogs(logsMap)
 
       const blockLogsMap = {}
@@ -1423,6 +1434,11 @@ export default function TodayWorkoutPage() {
         .eq('id', logId)
         .single()
       if (fullLog) {
+        // Round 2a: leer body desde el mirror del panel para consistencia
+        // (writers siguen tocando workout_logs.notes via trigger v25e; en
+        // round 2b dropeamos esa columna y el mirror queda como única fuente).
+        const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: [logId] })
+        fullLog.notes = bodiesMap.get(logId) ?? fullLog.notes ?? ''
         setLogs(prev => ({ ...prev, [planExerciseId]: fullLog }))
       }
     }

@@ -15,6 +15,7 @@ import {
   groupEvaluationAssignments, statusConfig, getAssignmentStatus,
   assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
+import { fetchEvalMirrorBodies } from '../../../lib/notes'
 
 // ─────────────────────────────────────────────────────────────
 // StudentEvaluationsTab
@@ -347,12 +348,26 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
           .from('evaluation_test_responses')
           .select('*')
           .in('evaluation_result_id', resultIds)
+
+        // Round 2a: merge body de notas mirror eval (context_id=etr.id)
+        // sobre cada respuesta. Las 3 columnas legacy se preservan como
+        // fallback hasta que se dropeen en round 2b.
+        const respIds = (responsesData || []).map(r => r.id)
+        const evalMirrors = await fetchEvalMirrorBodies(respIds)
+
         const responsesByResult = {}
         for (const r of (responsesData || [])) {
+          const mirror = evalMirrors.get(r.id) || {}
+          const enriched = {
+            ...r,
+            student_comment: mirror.studentComment ?? r.student_comment,
+            coach_comment_public: mirror.coachPublic ?? r.coach_comment_public,
+            coach_comment_private: mirror.coachPrivate ?? r.coach_comment_private,
+          }
           if (!responsesByResult[r.evaluation_result_id]) {
             responsesByResult[r.evaluation_result_id] = []
           }
-          responsesByResult[r.evaluation_result_id].push(r)
+          responsesByResult[r.evaluation_result_id].push(enriched)
         }
         results.forEach(r => { r._responses = responsesByResult[r.id] || [] })
       }

@@ -5,6 +5,7 @@ import { format, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 import { readLogReps, readLogWeights } from '../../utils/planHelpers'
+import { fetchSingleMirrorBodies } from '../../lib/notes'
 
 function SessionGroup({ date, logs, session }) {
   const [expanded, setExpanded] = useState(false)
@@ -148,7 +149,14 @@ export default function HistoryPage() {
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
     if (!error && data) {
-      const newLogs = page === 0 ? data : [...logs, ...data]
+      // Round 2a: traer body de notas mirror (context_type='workout_log')
+      // y reemplazar log.notes con el panel. La columna workout_logs.notes
+      // sigue viva como compat; en round 2b se dropea.
+      const logIds = data.map(l => l.id)
+      const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
+      const dataWithMirror = data.map(l => ({ ...l, notes: bodiesMap.get(l.id) ?? l.notes ?? null }))
+
+      const newLogs = page === 0 ? dataWithMirror : [...logs, ...dataWithMirror]
       setLogs(newLogs)
 
       // Fetch workout_sessions for the dates visible in this page

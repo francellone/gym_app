@@ -366,6 +366,32 @@ Faltaba en Fase B/C la posibilidad de editar y borrar notas desde el panel. Agre
 
 **Flujo de edición**: `updateNote` actualiza el body. Trigger `notes_updated_at` setea `updated_at = now()`. Realtime envía el UPDATE → `useNotes` mergea el body actualizado. NoteCard re‑renderiza con "· editada".
 
+## 4h. Round 2a — readers migrados al panel (2026‑05‑17)
+
+Preparación para el drop de columnas legacy. Solo se modificaron lecturas; writers + triggers v25d/e/v26a/c siguen igual como red de seguridad. La diferencia es que cualquier pantalla que mostraba notas desde una columna legacy ahora trae el body desde la tabla `notes`. Cuando ese mirror existe (siempre, gracias a triggers), se prefiere sobre el valor de la columna legacy.
+
+**Frontend:**
+
+| Archivo | Cambio |
+|---|---|
+| `src/lib/notes.js` | Nuevos helpers: `fetchMirrorNotes`, `fetchSingleMirrorBodies` (`Map<context_id, body>`) y `fetchEvalMirrorBodies` (`Map<response_id, { studentComment, coachPublic, coachPrivate }>`). |
+| `src/pages/student/HistoryPage.jsx` | Tras el fetch de `workout_logs`, merge con `fetchSingleMirrorBodies({ contextType: 'workout_log' })` antes de `setLogs`. |
+| `src/pages/coach/StudentDetailPage.jsx` | Mismo patrón. Provee logs enriquecidos a `StudentLogsTab` y a otras pestañas que lean de `logs`. |
+| `src/pages/student/TodayWorkoutPage.jsx` | Merge mirror en (a) el fetch inicial de `logs` (para popular logsMap), (b) el re‑fetch individual después del save. Writer sigue mandando `p_notes` (red de seguridad: trigger v25e espeja al panel). |
+| `src/pages/coach/student/StudentProgressTab.jsx` | Merge mirror antes de `setProgressLogs`. `StudentProgressTableView` consume los logs enriquecidos. |
+| `src/pages/student/EvalWorkoutPage.jsx` | En las 2 ramas (custom y scientific) que cargan responses existentes: `fetchEvalMirrorBodies(responseIds)` y se prefiere `mirror.studentComment` sobre `r.student_comment`. |
+| `src/pages/coach/student/StudentEvaluationsTab.jsx` | En el fetch de responses para custom evals: `fetchEvalMirrorBodies` y enriquecemos cada response con las 3 columnas eval (`student_comment`, `coach_comment_public`, `coach_comment_private`) preferentemente desde el mirror. Esto cubre tanto las lecturas para mostrar al coach como la inicialización del `editingComments` state. |
+
+**`EvaluationDetailPage.jsx`:** revisado, no toca las 3 columnas eval (solo `results.notes` que es una columna distinta y no está en deprecación).
+
+**Coexistencia con writers:**
+- Writers siguen escribiendo a la columna legacy (`p_notes` RPC, `coach_comment_*`, `student_comment`).
+- Triggers v25e/v26c espejan al panel.
+- Mirror y columna legacy se mantienen en sync.
+- Readers ahora leen del mirror (con fallback a columna legacy si el mirror todavía no existe).
+
+**Riesgo cubierto:** si por alguna razón el trigger no se ejecutó (futuro debugging), las pantallas siguen mostrando la columna legacy como fallback. Cuando dropeamos en round 2b, el fallback desaparece pero el mirror ya está siendo la fuente principal de lectura.
+
 ## 5. Casos abiertos / no resueltos
 
 1. **`workout_sessions.{day}_notes` (`monday_notes`, etc.) y `borg_notes`.** No están en el backfill de v24 porque (a) la estructura por día no está documentada limpiamente en `schema.sql`, (b) el flujo de PSE/Borg está mezclado con la sesión y conviene resolver eso en su propia migración. Posibles caminos:

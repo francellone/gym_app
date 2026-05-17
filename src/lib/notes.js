@@ -712,6 +712,74 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
 }
 
 // ============================================================
+// B.6f — fetchMirrorNotes({ contextType, contextIds })
+// ------------------------------------------------------------
+// Helper batch para que las pantallas legacy puedan leer el body
+// de las notas mirror sin pegarle a las columnas viejas que vamos
+// a dropear en round 2b.
+//
+// Caso de uso: una pantalla muestra una lista de workout_logs y
+// quiere mostrar `notes` al lado. Antes leía `workout_logs.notes`.
+// Ahora hace UNA query batch a `notes` filtrando por context_type
+// + context_ids y construye un Map<context_id, body>.
+//
+// Para evaluation_test (3 mirrors por response: student, coach_pub,
+// coach_priv), la función devuelve todas las filas y el caller
+// hace el grouping según author_role + visibility.
+//
+// RLS: filtra automáticamente — alumno ve solo shared de su thread,
+// coach ve todo. No necesitamos pasar thread_id explícito.
+//
+// Devuelve:
+//   { data: Array<{id, context_id, author_role, visibility, body, created_at, updated_at}>, error }
+// ============================================================
+export async function fetchMirrorNotes({ contextType, contextIds }) {
+  if (!contextType || !Array.isArray(contextIds) || contextIds.length === 0) {
+    return { data: [], error: null }
+  }
+  const { data, error } = await supabase
+    .from('notes')
+    .select('id, context_id, author_role, visibility, body, created_at, updated_at')
+    .eq('context_type', contextType)
+    .in('context_id', contextIds)
+    .is('deleted_at', null)
+  if (error) {
+    return { data: [], error: normalizeError(error, 'No se pudieron cargar las notas.') }
+  }
+  return { data: data || [], error: null }
+}
+
+// Helper de conveniencia: workout_logs/workout_block_logs/plan_exercise
+// son 1 nota por context_id (siempre author='student' y visibility='shared').
+// Devuelve Map<context_id, body>.
+export async function fetchSingleMirrorBodies({ contextType, contextIds }) {
+  const { data } = await fetchMirrorNotes({ contextType, contextIds })
+  const map = new Map()
+  for (const n of data) {
+    map.set(n.context_id, n.body)
+  }
+  return map
+}
+
+// Helper de conveniencia para evaluation_test: hasta 3 mirrors por
+// response (student_comment, coach_comment_public, coach_comment_private).
+// Devuelve Map<response_id, { studentComment, coachPublic, coachPrivate }>.
+export async function fetchEvalMirrorBodies(responseIds) {
+  const { data } = await fetchMirrorNotes({ contextType: 'evaluation_test', contextIds: responseIds })
+  const map = new Map()
+  for (const n of data) {
+    if (!map.has(n.context_id)) {
+      map.set(n.context_id, { studentComment: null, coachPublic: null, coachPrivate: null })
+    }
+    const slot = map.get(n.context_id)
+    if (n.author_role === 'student' && n.visibility === 'shared') slot.studentComment = n.body
+    else if (n.author_role === 'coach' && n.visibility === 'shared') slot.coachPublic = n.body
+    else if (n.author_role === 'coach' && n.visibility === 'coach_private') slot.coachPrivate = n.body
+  }
+  return map
+}
+
+// ============================================================
 // B.11 — listAllActiveExercises()
 // ------------------------------------------------------------
 // Catálogo completo de ejercicios activos. Lo necesita el composer

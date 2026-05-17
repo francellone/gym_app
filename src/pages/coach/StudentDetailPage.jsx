@@ -17,6 +17,7 @@ import StudentWellbeingTab from './student/StudentWellbeingTab'
 import StudentFormsTab from './student/StudentFormsTab'
 import StudentNotesTab from './student/StudentNotesTab'
 import { useNoteThreadUnread } from '../../hooks/useNoteThreadUnread'
+import { fetchSingleMirrorBodies } from '../../lib/notes'
 
 const TABS = [
   { id: 'info',          label: 'Info'         },
@@ -109,7 +110,16 @@ export default function StudentDetailPage() {
 
       setStudent(studentRes.data)
       setAssignments(assignmentsRes.data || [])
-      setLogs(logsRes.data || [])
+
+      // Round 2a: traer body de notas mirror y mergear con los logs
+      // para que las vistas legacy (StudentLogsTab, StudentProgressTableView)
+      // sigan funcionando cuando dropeemos workout_logs.notes en round 2b.
+      // Mientras tanto, prefer mirror.body sobre log.notes si existe.
+      const rawLogs = logsRes.data || []
+      const logIds = rawLogs.map(l => l.id)
+      const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
+      const logsWithMirror = rawLogs.map(l => ({ ...l, notes: bodiesMap.get(l.id) ?? l.notes ?? null }))
+      setLogs(logsWithMirror)
       setAllPlans(plansRes.data || [])
       setEditHistory(historyRes.data || [])
       setFormAssignment(formAssignmentRes.data || null)

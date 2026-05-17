@@ -15,6 +15,7 @@ import {
 } from '../../../utils/planHelpers'
 import { filterTrainingLogs } from '../../../utils/planTypeFilters'
 import StudentProgressTableView from './StudentProgressTableView'
+import { fetchSingleMirrorBodies } from '../../../lib/notes'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes estáticas fuera del componente
@@ -150,7 +151,14 @@ export default function StudentProgressTab({ studentId }) {
 
     // Excluir logs de evaluaciones del cómputo de gráficos.
     const logData = filterTrainingLogs(logsRes.data || [])
-    setProgressLogs(logData)
+
+    // Round 2a: merge body de notas mirror para que StudentProgressTableView
+    // muestre la última versión del panel (en lugar de workout_logs.notes
+    // legacy que vamos a dropear en round 2b).
+    const logIds = logData.map(l => l.id)
+    const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
+    const logDataWithMirror = logData.map(l => ({ ...l, notes: bodiesMap.get(l.id) ?? l.notes ?? null }))
+    setProgressLogs(logDataWithMirror)
     setSessions(sessionsRes.data || [])
     setExerciseTags(tagsRes.data || [])
     setTagAssignments(tagAssignRes.data || [])

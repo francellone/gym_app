@@ -10,6 +10,7 @@ import {
 } from '../../utils/evalHelpers'
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle, MessageSquare, Eye } from 'lucide-react'
 import { parseReps } from '../../utils/planHelpers'
+import { fetchEvalMirrorBodies } from '../../lib/notes'
 
 // ============================================================
 // Shared: Method badge (locked by coach, not selectable)
@@ -1344,12 +1345,17 @@ export default function EvalWorkoutPage() {
             .from('evaluation_test_responses')
             .select('*')
             .eq('evaluation_result_id', existing.id)
+          // Round 2a: merge body de notas mirror eval (context_id=etr.id)
+          // sobre student_comment, para que muestre la versión del panel.
+          const respIds = (respData || []).map(r => r.id)
+          const evalMirrors = await fetchEvalMirrorBodies(respIds)
           const map = {}
           for (const r of (respData || [])) {
+            const mirror = evalMirrors.get(r.id)
             map[r.test_id] = {
               value: r.student_response?.value || '',
               unit: r.student_response?.unit || '',
-              comment: r.student_comment || '',
+              comment: mirror?.studentComment ?? r.student_comment ?? '',
             }
           }
           setPruebaResponses(map)
@@ -1491,12 +1497,16 @@ export default function EvalWorkoutPage() {
           .from('evaluation_test_responses')
           .select('*')
           .eq('evaluation_result_id', existing.id)
+        // Round 2a: merge mirror eval body sobre student_comment
+        const respIds = (respData || []).map(r => r.id)
+        const evalMirrors = await fetchEvalMirrorBodies(respIds)
         const map = {}
         for (const r of (respData || [])) {
+          const mirror = evalMirrors.get(r.id)
           map[r.test_id] = {
             value: r.student_response?.value || '',
             unit: r.student_response?.unit || '',
-            comment: r.student_comment || '',
+            comment: mirror?.studentComment ?? r.student_comment ?? '',
           }
         }
         setPruebaResponses(map)
