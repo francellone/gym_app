@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import {
   Edit2, Save, X, Lock, AlertCircle, Send, FileCheck,
   ClipboardList, CreditCard, Calendar, CheckCircle2,
+  MessageSquare, ChevronRight,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -26,6 +27,12 @@ import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '../..
 //   formSubmission - respuesta del intake form (puede ser null)
 //   onRefresh      - callback para que el padre recargue datos
 // ─────────────────────────────────────────────────────────────
+// Campos del FIELD_LABELS que NO se editan más desde este formulario
+// (migraron al panel de notas: el coach las escribe desde ahí y los
+// triggers v26a las espejan a profiles.observations/coach_notes mientras
+// la columna legacy siga viva. Acá solo mostramos preview read-only.)
+const FIELDS_MIGRATED_TO_NOTES_PANEL = new Set(['observations', 'coach_notes'])
+
 export default function StudentInfoTab({
   student,
   studentId,
@@ -33,6 +40,7 @@ export default function StudentInfoTab({
   formAssignment,
   formSubmission,
   onRefresh,
+  onOpenNotesTab,
 }) {
   // ── Edición de perfil ────────────────────────────────────
   const [editMode, setEditMode] = useState(false)
@@ -49,6 +57,60 @@ export default function StudentInfoTab({
   // ── Formulario de ingreso ────────────────────────────────
   const [sendingForm, setSendingForm] = useState(false)
   const [formSentOk, setFormSentOk] = useState(false)
+
+  // ── Preview de últimas notas free del thread (reemplazan las
+  //    textareas legacy de observations + coach_notes) ──────────
+  const [lastObs, setLastObs] = useState(null)
+  const [lastPriv, setLastPriv] = useState(null)
+  const [notesPreviewLoading, setNotesPreviewLoading] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    if (!studentId) return
+    async function loadPreview() {
+      setNotesPreviewLoading(true)
+      // Buscamos el thread del alumno, después la última nota free
+      // shared y la última coach_private.
+      const { data: thread } = await supabase
+        .from('note_threads')
+        .select('id')
+        .eq('student_id', studentId)
+        .maybeSingle()
+      if (!alive) return
+      if (!thread) {
+        setLastObs(null); setLastPriv(null); setNotesPreviewLoading(false)
+        return
+      }
+      const [obsRes, privRes] = await Promise.all([
+        supabase.from('notes')
+          .select('id, body, created_at')
+          .eq('thread_id', thread.id)
+          .eq('context_type', 'free')
+          .eq('author_role', 'coach')
+          .eq('visibility', 'shared')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from('notes')
+          .select('id, body, created_at')
+          .eq('thread_id', thread.id)
+          .eq('context_type', 'free')
+          .eq('author_role', 'coach')
+          .eq('visibility', 'coach_private')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+      if (!alive) return
+      setLastObs(obsRes.data || null)
+      setLastPriv(privRes.data || null)
+      setNotesPreviewLoading(false)
+    }
+    loadPreview()
+    return () => { alive = false }
+  }, [studentId])
 
   // ── Handlers: perfil ─────────────────────────────────────
   function startEdit() {
@@ -92,7 +154,10 @@ export default function StudentInfoTab({
         }
         return a !== b
       }
-      const changedFields = Object.keys(FIELD_LABELS).filter(isChanged)
+      // observations/coach_notes migraron al panel — no se editan desde acá
+      const changedFields = Object.keys(FIELD_LABELS)
+        .filter(f => !FIELDS_MIGRATED_TO_NOTES_PANEL.has(f))
+        .filter(isChanged)
       const updatePayload = {}
       changedFields.forEach(f => {
         const v = editData[f]
@@ -462,43 +527,63 @@ export default function StudentInfoTab({
         )}
       </div>
 
-      {/* ── Observaciones ── */}
-      <div className="card border-l-4 border-l-blue-400 space-y-2">
-        <h3 className="font-semibold text-gray-900 text-sm">Observaciones (visible para el alumno)</h3>
-        {editMode ? (
-          <textarea
-            className="input resize-none text-sm"
-            rows={3}
-            value={editData.observations || ''}
-            onChange={e => setEditData(p => ({ ...p, observations: e.target.value }))}
-            placeholder="Observaciones visibles para el alumno..."
-          />
-        ) : (
-          <p className="text-sm text-gray-600 whitespace-pre-wrap">
-            {student.observations || <span className="text-gray-400 italic">Sin observaciones</span>}
-          </p>
-        )}
-      </div>
-
-      {/* ── Notas privadas del coach ── */}
-      <div className="card border-l-4 border-l-primary-400 space-y-2">
-        <div className="flex items-center gap-2">
-          <Lock size={14} className="text-primary-500" />
-          <h3 className="font-semibold text-gray-900 text-sm">Notas privadas del coach</h3>
+      {/* ── Notas con el alumno (panel) ───────────────────────
+          Las textareas legacy de "Observaciones" + "Notas privadas"
+          se reemplazaron por preview de las últimas notas del panel.
+          Para escribir/editar/borrar el coach va al tab Notas. */}
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={15} className="text-primary-500" />
+            <h3 className="font-semibold text-gray-900 text-sm">Notas con el alumno</h3>
+          </div>
+          {onOpenNotesTab && (
+            <button
+              type="button"
+              onClick={onOpenNotesTab}
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
+            >
+              Ver y escribir <ChevronRight size={12} />
+            </button>
+          )}
         </div>
-        {editMode ? (
-          <textarea
-            className="input resize-none text-sm"
-            rows={3}
-            value={editData.coach_notes || ''}
-            onChange={e => setEditData(p => ({ ...p, coach_notes: e.target.value }))}
-            placeholder="Notas privadas (el alumno no las ve)..."
-          />
-        ) : (
-          <p className="text-sm text-gray-600 whitespace-pre-wrap">
-            {student.coach_notes || <span className="text-gray-400 italic">Sin notas</span>}
+
+        {/* Observación pública (última) */}
+        <div className="border-l-4 border-l-blue-400 pl-3 py-1">
+          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
+            Última observación pública
           </p>
-        )}
+          {notesPreviewLoading ? (
+            <p className="text-xs text-gray-400 italic">Cargando…</p>
+          ) : lastObs ? (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
+              {lastObs.body}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Sin observaciones aún.</p>
+          )}
+        </div>
+
+        {/* Nota privada (última) */}
+        <div className="border-l-4 border-l-primary-400 pl-3 py-1">
+          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5 flex items-center gap-1">
+            <Lock size={10} /> Última nota privada
+          </p>
+          {notesPreviewLoading ? (
+            <p className="text-xs text-gray-400 italic">Cargando…</p>
+          ) : lastPriv ? (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
+              {lastPriv.body}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Sin notas privadas aún.</p>
+          )}
+        </div>
+
+        <p className="text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+          Las observaciones y notas privadas viven en el panel de Notas.
+          Desde ahí podés escribir, responder, filtrar, editar y borrar.
+        </p>
       </div>
 
       {/* ── Gestión de pagos ── */}

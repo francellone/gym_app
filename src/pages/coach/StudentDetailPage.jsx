@@ -245,6 +245,7 @@ export default function StudentDetailPage() {
           formAssignment={formAssignment}
           formSubmission={formSubmission}
           onRefresh={fetchStudentData}
+          onOpenNotesTab={() => setActiveTab('notas')}
         />
       )}
 
