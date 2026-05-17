@@ -55,7 +55,23 @@ function safeDate(iso) {
   try { return parseISO(iso) } catch { return null }
 }
 
+// Convierte 'YYYY-MM-DD' a 'DD/MM/YYYY' (read-only display)
+function prettyDate(isoDate) {
+  if (!isoDate) return ''
+  const [y, m, d] = String(isoDate).split('-')
+  if (!y || !m || !d) return isoDate
+  return `${d}/${m}/${y}`
+}
+
 function buildContextLabel(note, exercisesMap) {
+  // Free + note_date: mostrar etiqueta "Día"
+  if (note?.context_type === 'free' && note?.note_date) {
+    return `Día: ${prettyDate(note.note_date)}`
+  }
+  // Free + muscle_group (sin exercise): mostrar grupo muscular
+  if (note?.context_type === 'free' && note?.muscle_group && !note?.exercise_id) {
+    return `Grupo: ${note.muscle_group}`
+  }
   if (!note?.context_type || note.context_type === 'free') return null
   const baseLabel = contextTypeLabel(note.context_type)
   if (note.exercise_id && exercisesMap?.get?.(note.exercise_id)) {

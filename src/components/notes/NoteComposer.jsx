@@ -28,15 +28,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Send, Lock, X, CornerDownRight, Loader2,
-  Paperclip, ChevronDown, MessageCircle, Dumbbell, Layers
+  Paperclip, ChevronDown, MessageCircle, Dumbbell, Layers, Calendar
 } from 'lucide-react'
 import { createNote, replyNote } from '../../lib/notes'
 
 const CONTEXT_TABS = [
-  { key: 'free',         label: 'Observación', Icon: MessageCircle },
-  { key: 'exercise',     label: 'Ejercicio',   Icon: Dumbbell },
+  { key: 'free',         label: 'Observación',    Icon: MessageCircle },
+  { key: 'exercise',     label: 'Ejercicio',      Icon: Dumbbell },
   { key: 'muscle_group', label: 'Grupo muscular', Icon: Layers },
+  { key: 'day',          label: 'Día',            Icon: Calendar },
 ]
+
+// Formatea Date → 'YYYY-MM-DD' en zona local (para que el date picker
+// coincida con la percepción del usuario, no con UTC midnight)
+function todayLocalIso() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export default function NoteComposer({
   threadId,
@@ -56,12 +67,11 @@ export default function NoteComposer({
   const [error, setError] = useState(null)
 
   // ── Context state ──
-  // tab: 'free' | 'exercise' | 'muscle_group'
-  // valueId: exercise.id (cuando tab='exercise')
-  // valueText: muscle_group string (cuando tab='muscle_group')
+  // tab: 'free' | 'exercise' | 'muscle_group' | 'day'
   const [contextTab, setContextTab] = useState('free')
   const [exerciseId, setExerciseId] = useState(null)
   const [muscleGroup, setMuscleGroup] = useState(null)
+  const [noteDate, setNoteDate] = useState(null) // YYYY-MM-DD local
 
   // ── Pickers desplegables ──
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false)
@@ -114,6 +124,7 @@ export default function NoteComposer({
     setContextTab('free')
     setExerciseId(null)
     setMuscleGroup(null)
+    setNoteDate(null)
     setExercisePickerOpen(false)
     setExerciseQuery('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
@@ -124,7 +135,10 @@ export default function NoteComposer({
     // Limpieza cruzada: si paso a otra solapa, descarto valores no aplicables.
     if (key !== 'exercise') setExerciseId(null)
     if (key !== 'muscle_group') setMuscleGroup(null)
+    if (key !== 'day') setNoteDate(null)
     setExercisePickerOpen(false)
+    // Si elige Día y todavía no hay fecha, pre-seleccionamos hoy
+    if (key === 'day' && !noteDate) setNoteDate(todayLocalIso())
   }
 
   async function handleSubmit() {
@@ -165,6 +179,15 @@ export default function NoteComposer({
         contextType: 'free',
         contextId: null,
         muscleGroup,
+      })
+    } else if (contextTab === 'day' && noteDate) {
+      // Free + note_date manual (v26b)
+      res = await createNote({
+        ...payload,
+        threadId,
+        contextType: 'free',
+        contextId: null,
+        noteDate,
       })
     } else {
       // Observación general libre
@@ -211,10 +234,18 @@ export default function NoteComposer({
     ? allExercises.find(ex => ex.id === exerciseId)
     : null
 
+  // Formato legible de fecha (para placeholder/header)
+  function prettyDate(isoDate) {
+    if (!isoDate) return ''
+    const [y, m, d] = isoDate.split('-')
+    return `${d}/${m}/${y}`
+  }
+
   const placeholder = (() => {
     if (isReply) return 'Escribir tu respuesta…'
     if (contextTab === 'exercise' && attachedExercise) return `Comentar sobre ${attachedExercise.name}…`
     if (contextTab === 'muscle_group' && muscleGroup) return `Comentar sobre ${muscleGroup}…`
+    if (contextTab === 'day' && noteDate) return `Comentar sobre el ${prettyDate(noteDate)}…`
     if (isCoach) return 'Escribir nota para el alumno…'
     return 'Escribir nota para tu coach…'
   })()
@@ -346,6 +377,37 @@ export default function NoteComposer({
                 )}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {!isReply && contextTab === 'day' && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-gray-500 inline-flex items-center gap-1">
+            <Calendar size={11} /> Día:
+          </label>
+          <input
+            type="date"
+            className="input text-xs py-1 px-2"
+            style={{ width: 'auto' }}
+            value={noteDate || ''}
+            max={todayLocalIso()}
+            onChange={e => setNoteDate(e.target.value || null)}
+            disabled={submitting}
+          />
+          {noteDate && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+              <Calendar size={10} />
+              {prettyDate(noteDate)}
+              <button
+                type="button"
+                onClick={() => setNoteDate(null)}
+                className="hover:text-amber-900"
+                aria-label="Quitar fecha"
+              >
+                <X size={11} />
+              </button>
+            </span>
           )}
         </div>
       )}

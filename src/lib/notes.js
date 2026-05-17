@@ -257,6 +257,7 @@ export async function createNote(payload) {
     authorId,
     authorRole,
     muscleGroup, // Fase B++: solo aplica cuando contextType='free'
+    noteDate,    // Fase D step 2 (v26b): fecha sobre la que habla la nota
   } = payload || {}
 
   // ── Validaciones ────────────────────────────────────────
@@ -302,6 +303,13 @@ export async function createNote(payload) {
   // este valor con la resolución correspondiente.
   if (ctxType === 'free' && muscleGroup) {
     insertRow.muscle_group = muscleGroup
+  }
+
+  // Fase D step 2: si el usuario adjunta una fecha manual en contexto
+  // free (la solapa "Día" del composer), enviamos note_date. En otros
+  // context_type el trigger lo deriva del log/source.
+  if (ctxType === 'free' && noteDate) {
+    insertRow.note_date = noteDate
   }
 
   const { data, error } = await supabase
