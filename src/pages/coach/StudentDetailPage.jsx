@@ -15,9 +15,11 @@ import StudentHistoryTab from './student/StudentHistoryTab'
 import StudentEvaluationsTab from './student/StudentEvaluationsTab'
 import StudentWellbeingTab from './student/StudentWellbeingTab'
 import StudentFormsTab from './student/StudentFormsTab'
+import StudentNotesTab from './student/StudentNotesTab'
 
 const TABS = [
   { id: 'info',          label: 'Info'         },
+  { id: 'notas',         label: 'Notas'        },
   { id: 'plans',         label: 'Planes'       },
   { id: 'evaluaciones',  label: 'Evaluaciones' },
   { id: 'formularios',   label: 'Formularios'  },
@@ -231,6 +233,10 @@ export default function StudentDetailPage() {
           formSubmission={formSubmission}
           onRefresh={fetchStudentData}
         />
+      )}
+
+      {activeTab === 'notas' && (
+        <StudentNotesTab studentId={id} />
       )}
 
       {activeTab === 'plans' && (
