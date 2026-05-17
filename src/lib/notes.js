@@ -540,13 +540,20 @@ export async function listExercisesForFilter() {
   if (_exercisesCache && _exercisesCache.expiresAt > Date.now()) {
     return { data: _exercisesCache.value, error: null }
   }
+  // Columna correcta: is_active (renombrada por fix_5_1_5_3_exercises_cosmetic
+  // antes de v24). El nombre 'active' nunca existió en producción.
   const { data, error } = await supabase
     .from('exercises')
     .select('id, name, muscle_group')
-    .eq('active', true)
+    .eq('is_active', true)
     .order('name', { ascending: true })
 
-  if (error) return { data: [], error: normalizeError(error, 'No se pudieron cargar los ejercicios.') }
+  if (error) {
+    // No cacheamos errores. Loggeamos sin tragar para diagnóstico.
+    // eslint-disable-next-line no-console
+    console.warn('[notes.listExercisesForFilter] error:', error)
+    return { data: [], error: normalizeError(error, 'No se pudieron cargar los ejercicios.') }
+  }
   _exercisesCache = { value: data || [], expiresAt: Date.now() + EXERCISES_CACHE_TTL_MS }
   return { data: data || [], error: null }
 }
