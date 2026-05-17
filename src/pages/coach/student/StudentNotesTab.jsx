@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext'
-import { getOrCreateThread } from '../../../lib/notes'
+import { getOrCreateThreadForStudent } from '../../../lib/notes'
 import NotesPanel from '../../../components/notes/NotesPanel'
 
 export default function StudentNotesTab({ studentId }) {
@@ -44,7 +44,12 @@ export default function StudentNotesTab({ studentId }) {
       setLoading(true)
       setError(null)
       try {
-        const { data, error: err } = await getOrCreateThread(profile.id, studentId)
+        // Importante: el thread se busca/crea contra el coach "real"
+        // (get_coach_id() del back), no contra profile.id. Razón: el
+        // modelo es admin-único y todas las notas viven bajo ese coach.
+        // Si usáramos profile.id, otro coach logueado vería un thread
+        // paralelo vacío (bug detectado el 2026-05-17).
+        const { data, error: err } = await getOrCreateThreadForStudent(studentId)
         if (cancelled) return
         if (err) {
           setError(err.message || 'No se pudo abrir el hilo de notas.')

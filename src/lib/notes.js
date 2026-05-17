@@ -104,6 +104,31 @@ export async function getOrCreateThread(coachId, studentId) {
 }
 
 // ============================================================
+// B.1b — getOrCreateThreadForStudent(studentId)
+// ------------------------------------------------------------
+// Wrapper que resuelve el coach_id "real" vía la RPC get_coach_id()
+// del back en lugar de usar el profile.id del coach logueado.
+//
+// Motivo: el modelo de la app es admin-único pero la tabla
+// `profiles` permite múltiples filas con role='coach'. El backfill
+// de v24 metió todas las notas bajo el coach que devuelve
+// get_coach_id() (el primero por orden de creación). Si otro
+// "coach" se loguea y abre el panel, no debería crear un thread
+// paralelo vacío — debería ver el mismo thread del coach principal.
+//
+// Devuelve: { data: threadId | null, error }
+// ============================================================
+export async function getOrCreateThreadForStudent(studentId) {
+  if (!studentId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId.', details: null, hint: null, raw: null } }
+  }
+  const { data: coachId, error: coachErr } = await supabase.rpc('get_coach_id')
+  if (coachErr) return { data: null, error: normalizeError(coachErr, 'No se pudo resolver el coach.') }
+  if (!coachId)   return { data: null, error: { code: 'NOT_FOUND', message: 'No hay coach configurado.', details: null, hint: null, raw: null } }
+  return getOrCreateThread(coachId, studentId)
+}
+
+// ============================================================
 // B.2 — getStudentThread(studentId)
 // ------------------------------------------------------------
 // Para el alumno: busca su único thread por student_id.
