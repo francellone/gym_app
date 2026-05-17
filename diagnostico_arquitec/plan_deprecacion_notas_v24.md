@@ -15,6 +15,7 @@
 | `v25a` | Tipo `student_note` en `notifications_type_check` + trigger `fn_notify_student_note` (AFTER INSERT en `notes` para `author_role='student'`). El coach recibe push/badge cuando el alumno escribe. | ✓ aplicada |
 | `v25b` | `context_type='exercise'` agregado al enum + rama nueva en `notes_resolve_context`. Permite adjuntar una nota a un ejercicio del catálogo (no a un log/plan específico). El trigger denormaliza `exercise_id = context_id` y `muscle_group` haciendo lookup a `exercises`. | ✓ aplicada |
 | `v25c` | Trigger `notes_resolve_context` ahora respeta `muscle_group` enviado por el cliente cuando `context_type='free'`. Habilita "notas de grupo muscular sueltas" (sin atarlas a un ejercicio) que igual aparecen en el filtro por grupo. | ✓ aplicada |
+| `v25d` | **Fase C — dual write triggers.** Triggers en `workout_logs` (col `notes`) y `evaluation_test_responses` (`student_comment`, `coach_comment_public`, `coach_comment_private`) que espejan cada save a la tabla `notes`. Update de `notes_bump_thread` para decrementar contadores cuando una nota previamente unread se soft-deletea. Sin cambios de UI: las textareas viejas siguen funcionando idénticamente. | ✓ aplicada |
 
 **Resumen ejecutivo.** v24 creó la única fuente de verdad de comunicación coach↔alumno (`note_threads` + `notes`) y **dejó intactos** los 6 campos viejos donde la comunicación vivía dispersa. Mientras el front todavía los lee/escribe, los dos sistemas conviven. Cuando el front esté 100% migrado a `notes`, los campos viejos se borran con `migration_v26_drop_legacy_notes.sql`.
 
@@ -295,6 +296,47 @@ VALUES ('<thread>', '<coach>', 'coach', 'test', 'shared', 'free', NULL, 'KNEE DO
   Diferido hasta que se priorice. La auditoría DR6 sigue válida.
 
 - **Tags con taxonomía**: si se reintroducen tags, agregar tabla `tag_definitions(id, name, color, created_by)` y CHECK por array contra esa tabla. Mejor que el text array libre.
+
+## 4f. Fase C — dual-write triggers (2026‑05‑17)
+
+Estrategia elegida: **trigger‑based dual‑write** en lugar de modificar la UI de las pantallas legacy (TodayWorkoutPage, EvalWorkoutPage, StudentEvaluationsTab). Cuando el alumno o el coach guardan en los campos viejos, la base de datos automáticamente crea/actualiza la nota equivalente en `notes`. Esto significa:
+
+- **Cero cambios de UI** en Fase C. Los flujos viejos siguen como están.
+- **Atomicidad garantizada**: el save al campo legacy y el espejo a `notes` ocurren en la misma transacción.
+- **Migración a Fase D simplificada**: en Fase D, cuando reemplacemos las textareas viejas por escritura directa al panel, simplemente desactivamos los triggers y borramos las columnas. Cero riesgo de doble-escritura mientras tanto.
+
+**Backend (1 migración aplicada, ningún cambio de frontend):**
+
+- `v25d` — actualiza `notes_bump_thread` para decrementar contadores en soft-delete + agrega dos triggers de sincronización:
+  - `fn_sync_workout_log_to_notes` (AFTER INSERT OR UPDATE OF `notes` en `workout_logs`): cuando el body de la nota del log cambia, soft-deletea cualquier mirror previa y crea una nueva nota en el panel con `context_type='workout_log'`, `context_id=log.id`, `author_role='student'`. Si el body queda vacío, solo se borra la mirror previa.
+  - `fn_sync_eval_response_to_notes` (AFTER INSERT OR UPDATE OF `student_comment`, `coach_comment_public`, `coach_comment_private` en `evaluation_test_responses`): mismo patrón, una mirror por columna afectada, con `context_type='evaluation_test'`, `context_id=test_id`. La columna `coach_comment_private` se espeja con `visibility='coach_private'`.
+
+**Idempotencia**: una sola nota viva por (thread, context_type, context_id, author_role, visibility). Si el body no cambió (`IS NOT DISTINCT FROM`), trigger es no-op — no hay UPDATEs innecesarios ni notif spam.
+
+**Flujo de notificaciones**: cuando un trigger inserta una nota nueva, dispara la cadena de v24/v25a:
+- `trg_notes_resolve_context` denormaliza `exercise_id` / `muscle_group` / `block_type`.
+- `trg_notes_bump_thread_ins` actualiza `last_message_at` y suma 1 al contador del receptor.
+- `trg_notify_coach_note` o `trg_notify_student_note` insertan una notificación.
+
+**Smoke test verificado en producción:**
+
+```sql
+UPDATE public.workout_logs SET notes = 'test body' WHERE id = '<log>';
+-- Resultado: la mirror previa queda soft-deleted, hay una nueva nota
+-- viva con body='test body', unread_for_coach aumenta en 1, notif
+-- 'student_note' aparece en la campanita del coach.
+UPDATE public.workout_logs SET notes = 'test body' WHERE id = '<log>';
+-- Re-save con mismo body → no-op por IS NOT DISTINCT FROM (sin spam).
+UPDATE public.workout_logs SET notes = NULL WHERE id = '<log>';
+-- Resultado: la mirror se soft-deletea, no se inserta nada nuevo,
+-- unread_for_coach se decrementa.
+```
+
+**Fuera del alcance de Fase C (deuda explícita):**
+
+- **`workout_block_logs.notes`**: la columna existe (v14) pero la UI del alumno no la usa hoy. Backfill v24 sí espejó las que había. No agregamos trigger porque no hay flujo de escritura activo; si en algún momento se cablea desde el front, sumar `fn_sync_workout_block_log_to_notes` siguiendo el mismo patrón que `workout_logs`.
+- **`workout_sessions.{day}_notes`**: 7 columnas día‑por‑día con notas del PSE. Requiere decidir antes (a) si el contexto correcto es `'session_day'` con `context_id=workout_sessions.id`, (b) si conviene agregar columna `notes.note_date` para fechas sin sesión, o (c) si simplemente queda como `'free'` con `muscle_group` denormalizado. Bloqueante para Fase D drop de esas columnas. Diferido.
+- **`profiles.observations` / `profiles.coach_notes`**: estos son coach‑side y se editan desde `StudentInfoTab`. Pertenecen semánticamente más a Fase D (donde se va a reemplazar el UI por un panel embebido), porque cada save de `observations` no es un "evento nuevo" sino una actualización de una observación corriente — mirror plano tipo upsert puede confundir al coach que esperaba ver historial. Si igual querés mirror para tener consistencia, agregamos trigger en Fase D antes del UI swap.
 
 ## 5. Casos abiertos / no resueltos
 
