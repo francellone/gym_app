@@ -70,7 +70,7 @@ export default function CoachLayout() {
           {/* Campana en sidebar desktop */}
           <div className="flex items-center justify-between px-3 py-1.5 mb-1">
             <span className="text-xs text-slate-500 font-medium">Notificaciones</span>
-            <NotificationBell userId={profile?.id} theme="dark" />
+            <NotificationBell userId={profile?.id} theme="dark" placement="right" />
           </div>
           <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
             <div className="w-7 h-7 bg-primary-500/20 rounded-full flex items-center justify-center flex-shrink-0">

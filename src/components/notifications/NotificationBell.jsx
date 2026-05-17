@@ -5,8 +5,14 @@
  * Se puede usar tanto en el layout del coach (sidebar) como en el del alumno (header).
  *
  * Props:
- *   userId    string  — id del usuario autenticado
- *   theme     'dark' | 'light'  — 'dark' para el sidebar del coach, 'light' para el alumno
+ *   userId     string  — id del usuario autenticado
+ *   theme      'dark' | 'light'  — 'dark' para el sidebar del coach, 'light' para el alumno
+ *   placement  'bottom-right' | 'right'  — cómo posicionar el panel relativo al botón.
+ *              'bottom-right' (default): cuelga debajo del botón, alineado a la derecha.
+ *                Apto para headers full-width (student y coach mobile).
+ *              'right': se proyecta hacia la derecha del botón, alineado arriba.
+ *                Apto para sidebars angostos (coach desktop) donde 'bottom-right'
+ *                haría que el panel se salga por la izquierda del viewport.
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -107,7 +113,7 @@ function NotificationItem({ notification, onRead, highlightAsUnread }) {
   )
 }
 
-export default function NotificationBell({ userId, theme = 'dark' }) {
+export default function NotificationBell({ userId, theme = 'dark', placement = 'bottom-right' }) {
   const [open, setOpen] = useState(false)
   // Set de IDs que estaban unread cuando se abrió el panel.
   // Sirve para mantener el destacado visual mientras el panel está abierto,
@@ -161,6 +167,11 @@ export default function NotificationBell({ userId, theme = 'dark' }) {
     ? 'text-slate-400 hover:bg-white/8 hover:text-slate-200'
     : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
 
+  // Posicionamiento del panel según placement
+  const panelPosition = placement === 'right'
+    ? 'left-full ml-3 bottom-0'   // a la derecha del botón, alineado abajo (sidebar coach)
+    : 'right-0 mt-2'              // default: debajo del botón, alineado a la derecha
+
   return (
     <div className="relative">
       {/* Botón campana */}
@@ -186,8 +197,8 @@ export default function NotificationBell({ userId, theme = 'dark' }) {
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100
-                     z-50 overflow-hidden flex flex-col"
+          className={`absolute ${panelPosition} w-80 bg-white rounded-2xl shadow-xl border border-gray-100
+                     z-50 overflow-hidden flex flex-col`}
           style={{ maxHeight: '420px' }}
         >
           {/* Header del panel */}
