@@ -120,6 +120,25 @@ export default function NotesFilters({
     return BLOCK_TYPE_PRESETS
   }, [availableBlockTypes])
 
+  // ── Ejercicios en cascada: si hay grupo muscular elegido,
+  // mostramos solo los ejercicios de ese grupo. ──
+  const exercisesToShow = useMemo(() => {
+    if (!value.muscleGroup) return exercises
+    return exercises.filter(ex => ex.muscle_group === value.muscleGroup)
+  }, [exercises, value.muscleGroup])
+
+  // Si cambia el grupo muscular y el ejercicio actual ya no pertenece
+  // al grupo, limpiamos el filtro de ejercicio. Evita que quede
+  // colgado un filtro que no devuelve nada.
+  useEffect(() => {
+    if (!value.exerciseId) return
+    const stillValid = exercisesToShow.some(ex => ex.id === value.exerciseId)
+    if (!stillValid) {
+      patch({ exerciseId: undefined })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.muscleGroup])
+
   // ── Tags actuales / sugerencias filtradas ─────────────────────
   const currentTags = Array.isArray(value.tags) ? value.tags : []
   const tagSuggestions = useMemo(() => {
@@ -284,9 +303,16 @@ export default function NotesFilters({
       {/* ── Ejercicio + Grupo muscular ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div>
-          <label className="label text-[11px]">Ejercicio</label>
+          <label className="label text-[11px]">
+            Ejercicio
+            {value.muscleGroup && (
+              <span className="ml-1 text-[10px] font-normal text-gray-400">
+                · filtrado por {value.muscleGroup}
+              </span>
+            )}
+          </label>
           {/* Si hay >200 usamos input+datalist; sino select directo */}
-          {exercises.length > 200 ? (
+          {exercisesToShow.length > 200 ? (
             <>
               <input
                 list="notes-exercises-datalist"
@@ -294,16 +320,16 @@ export default function NotesFilters({
                 placeholder="Buscar ejercicio…"
                 defaultValue={
                   value.exerciseId
-                    ? (exercises.find(e => e.id === value.exerciseId)?.name || '')
+                    ? (exercisesToShow.find(e => e.id === value.exerciseId)?.name || '')
                     : ''
                 }
                 onChange={e => {
-                  const match = exercises.find(ex => ex.name === e.target.value)
+                  const match = exercisesToShow.find(ex => ex.name === e.target.value)
                   patch({ exerciseId: match?.id || undefined })
                 }}
               />
               <datalist id="notes-exercises-datalist">
-                {exercises.map(ex => (
+                {exercisesToShow.map(ex => (
                   <option key={ex.id} value={ex.name} />
                 ))}
               </datalist>
@@ -313,9 +339,10 @@ export default function NotesFilters({
               className="input text-xs"
               value={value.exerciseId || ''}
               onChange={e => patch({ exerciseId: e.target.value || undefined })}
+              disabled={exercisesToShow.length === 0}
             >
               <option value="">Todos</option>
-              {exercises.map(ex => (
+              {exercisesToShow.map(ex => (
                 <option key={ex.id} value={ex.id}>{ex.name}</option>
               ))}
             </select>
