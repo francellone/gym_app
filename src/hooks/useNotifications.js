@@ -39,29 +39,62 @@ export function useNotifications(userId) {
 
   // ── Marcar una como leída ─────────────────────────────────
   const markAsRead = useCallback(async (notificationId) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    )
-    setUnreadCount(prev => Math.max(0, prev - 1))
+    // Guardar snapshot previo para poder revertir si falla el UPDATE
+    let prevNotifications
+    let prevUnread
+    setNotifications(prev => {
+      prevNotifications = prev
+      return prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    })
+    setUnreadCount(prev => {
+      prevUnread = prev
+      return Math.max(0, prev - 1)
+    })
 
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('id', notificationId)
       .eq('user_id', userId)
+
+    if (error) {
+      console.error('[useNotifications] markAsRead failed:', error)
+      // Revertir
+      setNotifications(prevNotifications)
+      setUnreadCount(prevUnread)
+    }
   }, [userId])
 
   // ── Marcar todas como leídas ──────────────────────────────
+  // No-op si no hay unread (evita UPDATE innecesario). No devuelve nada.
   const markAllAsRead = useCallback(async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-    setUnreadCount(0)
+    if (unreadCount === 0) return
 
-    await supabase
+    // Guardar snapshot previo (array entero) para poder revertir
+    let prevNotifications
+    let prevUnread
+    setNotifications(prev => {
+      prevNotifications = prev
+      return prev.map(n => ({ ...n, read: true }))
+    })
+    setUnreadCount(prev => {
+      prevUnread = prev
+      return 0
+    })
+
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('user_id', userId)
       .eq('read', false)
-  }, [userId])
+
+    if (error) {
+      console.error('[useNotifications] markAllAsRead failed:', error)
+      // Revertir
+      setNotifications(prevNotifications)
+      setUnreadCount(prevUnread)
+    }
+  }, [userId, unreadCount])
 
   // ── Realtime ───────────────────────────────────────────────
   useEffect(() => {
@@ -69,7 +102,8 @@ export function useNotifications(userId) {
 
     load()
 
-    // Suscribirse a INSERT de nuevas notificaciones propias
+    // Suscribirse a INSERT de nuevas notificaciones propias y a UPDATE
+    // (para sincronizar entre pestañas cuando se marca como leída en otra)
     const channel = supabase
       .channel(`notifications:${userId}`)
       .on(
@@ -97,6 +131,26 @@ export function useNotifications(userId) {
               badge: '/favicon.svg',
             })
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updated = payload.new
+          setNotifications(prev => {
+            const next = prev.map(n =>
+              n.id === updated.id ? { ...n, ...updated } : n
+            )
+            // Recontar unread desde el state nuevo (más robusto que ±1)
+            setUnreadCount(next.filter(n => !n.read).length)
+            return next
+          })
         }
       )
       .subscribe()

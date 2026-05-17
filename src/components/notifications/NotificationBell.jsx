@@ -62,7 +62,7 @@ const TYPE_CONFIG = {
   },
 }
 
-function NotificationItem({ notification, onRead }) {
+function NotificationItem({ notification, onRead, highlightAsUnread }) {
   const cfg   = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.activity_update
   const { Icon, color, bg } = cfg
 
@@ -71,11 +71,15 @@ function NotificationItem({ notification, onRead }) {
     locale: es,
   })
 
+  // `highlightAsUnread` permite mantener el destacado visual aunque la notif
+  // ya esté marcada como leída en BD (caso: marcadas al abrir el panel).
+  const showAsUnread = highlightAsUnread || !notification.read
+
   return (
     <button
       onClick={() => !notification.read && onRead(notification.id)}
       className={`w-full text-left flex items-start gap-3 px-4 py-3 transition-colors
-        hover:bg-gray-50 ${!notification.read ? 'bg-blue-50/30' : ''}`}
+        hover:bg-gray-50 ${showAsUnread ? 'bg-blue-50/30' : ''}`}
     >
       {/* Ícono */}
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}>
@@ -84,7 +88,7 @@ function NotificationItem({ notification, onRead }) {
 
       {/* Contenido */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${notification.read ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>
+        <p className={`text-sm leading-snug ${showAsUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
           {notification.title}
         </p>
         {notification.body && (
@@ -96,7 +100,7 @@ function NotificationItem({ notification, onRead }) {
       </div>
 
       {/* Punto de no leída */}
-      {!notification.read && (
+      {showAsUnread && (
         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />
       )}
     </button>
@@ -105,6 +109,10 @@ function NotificationItem({ notification, onRead }) {
 
 export default function NotificationBell({ userId, theme = 'dark' }) {
   const [open, setOpen] = useState(false)
+  // Set de IDs que estaban unread cuando se abrió el panel.
+  // Sirve para mantener el destacado visual mientras el panel está abierto,
+  // aunque markAllAsRead las haya marcado como leídas en BD.
+  const [wasUnreadAtOpen, setWasUnreadAtOpen] = useState(() => new Set())
   const panelRef        = useRef(null)
   const buttonRef       = useRef(null)
 
@@ -128,6 +136,24 @@ export default function NotificationBell({ userId, theme = 'dark' }) {
     }
     if (open) document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  // Al abrir el panel: snapshot de unread + marcar todas como leídas.
+  // Deps deliberadamente solo [open] para que dispare exactamente una vez por
+  // apertura (no quiero re-correr cuando cambian notifications/unreadCount/markAllAsRead).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (open) {
+      // Capturar IDs unread ANTES de marcar, para mantener el highlight visual
+      const unreadIds = new Set(
+        notifications.filter(n => !n.read).map(n => n.id)
+      )
+      setWasUnreadAtOpen(unreadIds)
+      if (unreadCount > 0) markAllAsRead()
+    } else {
+      // Al cerrar, limpiar el snapshot
+      setWasUnreadAtOpen(new Set())
+    }
   }, [open])
 
   // Estilos según tema
@@ -217,6 +243,7 @@ export default function NotificationBell({ userId, theme = 'dark' }) {
                   key={n.id}
                   notification={n}
                   onRead={markAsRead}
+                  highlightAsUnread={wasUnreadAtOpen.has(n.id)}
                 />
               ))
             )}
