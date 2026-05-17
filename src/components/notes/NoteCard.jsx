@@ -32,7 +32,7 @@ import {
   Lock, Tag, MessageSquare, CornerDownRight, Reply,
   MoreVertical, Edit2, Trash2, Check, X, Loader2
 } from 'lucide-react'
-import { contextTypeLabel, updateNote, softDeleteNote } from '../../lib/notes'
+import { contextTypeLabel, editNote, deleteNote } from '../../lib/notes'
 
 const BLOCK_TYPE_LABELS = {
   strength: 'Fuerza',
@@ -40,11 +40,15 @@ const BLOCK_TYPE_LABELS = {
   circuit: 'Circuito',
 }
 
-// Notas que SÍ pueden editarse/borrarse desde el panel: las creadas
-// directamente desde el composer (free / exercise). Las espejadas
-// desde campos legacy son read-only acá — su source of truth está en
-// workout_logs/eval_test_responses y los triggers v25d las re-sincronizan.
-const PANEL_AUTHORED_CONTEXTS = new Set(['free', 'exercise'])
+// Notas que pueden editarse/borrarse desde el panel:
+//   - free / exercise: panel-authored, UPDATE directo en notes.
+//   - workout_log / workout_block_log: mirrors, routeamos al campo
+//     legacy y el trigger v25e re-sincroniza el mirror in-place.
+//   - evaluation_test / plan / session_day: read-only por ahora
+//     (deuda D5 / Fase D).
+const EDITABLE_CONTEXTS = new Set([
+  'free', 'exercise', 'workout_log', 'workout_block_log',
+])
 
 function safeDate(iso) {
   if (!iso) return null
@@ -130,10 +134,11 @@ export default function NoteCard({
   // ── ¿Mostrar menú de edición/borrado? ──
   // Solo si:
   //   1) el viewer es el autor (currentUserId === note.author_id)
-  //   2) la nota es panel-authored (free/exercise), no un mirror
+  //   2) el context_type permite edición desde el panel (panel-authored
+  //      o mirror con routing soportado).
   const isOwn = !!currentUserId && note.author_id === currentUserId
-  const isPanelAuthored = PANEL_AUTHORED_CONTEXTS.has(note.context_type)
-  const canEditOrDelete = isOwn && isPanelAuthored && !note.deleted_at
+  const isEditable = EDITABLE_CONTEXTS.has(note.context_type)
+  const canEditOrDelete = isOwn && isEditable && !note.deleted_at
 
   const bubbleClass = isCoach
     ? `bg-primary-50 text-gray-900 ${isUnread ? 'border-2 border-primary-300' : 'border border-primary-100'}`
@@ -166,7 +171,10 @@ export default function NoteCard({
     }
     setSaving(true)
     setError(null)
-    const { error: err } = await updateNote(note.id, { body: clean })
+    // editNote rutea automáticamente: panel-authored → UPDATE notes;
+    // mirror legacy (workout_log) → UPDATE en la fuente, trigger v25e
+    // upsertea el mirror preservando el id de la nota.
+    const { error: err } = await editNote(note, { body: clean })
     setSaving(false)
     if (err) {
       setError(err)
@@ -179,7 +187,7 @@ export default function NoteCard({
     setMenuOpen(false)
     const ok = window.confirm('¿Borrar esta nota? Esta acción no se puede deshacer.')
     if (!ok) return
-    const { error: err } = await softDeleteNote(note.id)
+    const { error: err } = await deleteNote(note)
     if (err) {
       setError(err)
     }

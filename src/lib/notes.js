@@ -412,6 +412,110 @@ export async function updateNote(noteId, payload = {}) {
 }
 
 // ============================================================
+// B.6c — editNote(note, { body })
+// ------------------------------------------------------------
+// API unificada que decide automáticamente si:
+//   - Es una nota panel-authored (context_type free / exercise):
+//     UPDATE directo en `notes` (vía updateNote).
+//   - Es una nota mirror desde una fuente legacy
+//     (context_type workout_log / workout_block_log): UPDATE en la
+//     tabla fuente, y el trigger v25e re-sincroniza el mirror.
+//   - Cualquier otro context_type: read-only, devuelve INVALID_INPUT.
+//
+// Esto le permite al alumno editar sus comentarios "viejos" de
+// TodayWorkoutPage directamente desde el panel.
+// ============================================================
+export async function editNote(note, payload = {}) {
+  if (!note?.id) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (payload.body || '').trim()
+  if (!cleanBody) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
+  }
+
+  // Mirror de workout_log → editar workout_logs.notes (trigger v25e
+  // upsertea el mirror y preserva el id).
+  if (note.context_type === 'workout_log' && note.context_id) {
+    const { error } = await supabase
+      .from('workout_logs')
+      .update({ notes: cleanBody })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
+    return { data: null, error: null }
+  }
+  // Mirror de workout_block_log → workout_block_logs.notes
+  if (note.context_type === 'workout_block_log' && note.context_id) {
+    const { error } = await supabase
+      .from('workout_block_logs')
+      .update({ notes: cleanBody })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
+    return { data: null, error: null }
+  }
+
+  // Panel-authored (free / exercise): UPDATE directo
+  if (note.context_type === 'free' || note.context_type === 'exercise') {
+    return updateNote(note.id, { body: cleanBody })
+  }
+
+  // Resto (evaluation_test / plan / session_day): read-only por ahora
+  return {
+    data: null,
+    error: {
+      code: 'NOT_SUPPORTED',
+      message: 'Este tipo de nota se edita desde su pantalla origen.',
+      details: null, hint: null, raw: null,
+    },
+  }
+}
+
+// ============================================================
+// B.6d — deleteNote(note)
+// ------------------------------------------------------------
+// Análogo a editNote: rutea por context_type.
+//   - workout_log / workout_block_log: SET notes = NULL en la fuente
+//     legacy; el trigger v25e soft-deletea el mirror.
+//   - free / exercise: softDeleteNote directo.
+//   - resto: read-only.
+// ============================================================
+export async function deleteNote(note) {
+  if (!note?.id) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
+  }
+
+  if (note.context_type === 'workout_log' && note.context_id) {
+    const { error } = await supabase
+      .from('workout_logs')
+      .update({ notes: null })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
+    return { data: null, error: null }
+  }
+  if (note.context_type === 'workout_block_log' && note.context_id) {
+    const { error } = await supabase
+      .from('workout_block_logs')
+      .update({ notes: null })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
+    return { data: null, error: null }
+  }
+
+  if (note.context_type === 'free' || note.context_type === 'exercise') {
+    return softDeleteNote(note.id)
+  }
+
+  return {
+    data: null,
+    error: {
+      code: 'NOT_SUPPORTED',
+      message: 'Este tipo de nota se borra desde su pantalla origen.',
+      details: null, hint: null, raw: null,
+    },
+  }
+}
+
+// ============================================================
 // B.7 — softDeleteNote(noteId)
 // ------------------------------------------------------------
 // Soft-delete: no hay DELETE policy en RLS.
