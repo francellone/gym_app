@@ -1,6 +1,17 @@
 # Plan de deprecación — campos legacy de notas (post v24)
 
-**Estado:** v24 aplicada en producción el 2026-05-16. Backfill OK (10 threads, 64 notas migradas). Smoke tests G.1–G.5 verdes.
+**Estado:** v24 + v24b/c/d/e/f aplicadas en producción entre 2026‑05‑16 y 2026‑05‑17. Backfill OK (10 threads, 64 notas migradas, 49 timestamps únicos en 13 días). Smoke tests G.1–G.5 verdes. Auditoría post‑hotfixes ejecutada y cerrada para Fase A.
+
+## 0. Migraciones aplicadas hasta acá
+
+| Versión | Qué hace | Estado |
+|---|---|---|
+| `v24` | Crea `note_threads` + `notes` con RLS, triggers, RPC `notes_get_or_create_thread`, backfill de los 6 campos viejos | ✓ aplicada |
+| `v24b` | Policy `coach_select_all_exercises` (catálogo compartido) | ✓ aplicada |
+| `v24c` | Re‑ancla `created_at` de notas backfilleadas a los timestamps reales de la fila origen (`updated_at` había sido tocado en masa) | ✓ aplicada |
+| `v24d` | RPC `notes_thread_filter_options` para que los selectores muestren solo valores con notas en el thread | ✓ aplicada |
+| `v24e` | Habilita realtime en `notes` + `note_threads` (`ALTER PUBLICATION supabase_realtime`) | ✓ aplicada |
+| `v24f` | RPC `notes_mark_thread_read` (bypasa RLS con SECURITY DEFINER para el alumno) + endurece policies del coach: `Coach select all notes` (SELECT) + `Coach insert as self coach` (INSERT exige `author_id = auth.uid()` y `author_role = 'coach'`) + `Coach update notes` (UPDATE permisivo) | ✓ aplicada |
 
 **Resumen ejecutivo.** v24 creó la única fuente de verdad de comunicación coach↔alumno (`note_threads` + `notes`) y **dejó intactos** los 6 campos viejos donde la comunicación vivía dispersa. Mientras el front todavía los lee/escribe, los dos sistemas conviven. Cuando el front esté 100% migrado a `notes`, los campos viejos se borran con `migration_v26_drop_legacy_notes.sql`.
 
@@ -137,6 +148,25 @@ COMMIT;
 > Antes de correr v26: re-tomar el backup en ese momento (los nombres `20XX` ajustarlos a la fecha real). El backup que se hace dentro de la migración es la red de emergencia, pero es buen práctica también dumpear a almacenamiento externo.
 
 ---
+
+## 4b. Resultado de auditoría 2026‑05‑17
+
+Lo que se cerró en esta tanda:
+
+- 🔴 BLOCKER **B1 (realtime apagado en `notes`)** → resuelto en `v24e`.
+- 🟡 DEFECT **D1 (markThreadRead no funciona para alumno)** → resuelto en `v24f` + nueva implementación en `notes.js#markThreadRead` que llama la RPC.
+- 🟡 DEFECT **D3 (lógica redundante en `availableMuscleGroups`)** → resuelto en `NotesFilters.jsx`.
+- 🟡 DEFECT **D6 (`23:59:59.000` en custom date pierde 999ms)** → `setHours(23,59,59,999)`.
+- 🔵 DRIFT **DR1 (código muerto en `notes.js`)** → borrados `listExercisesForFilter`, `listAvailableTags`, `getThreadChannelState`, `resetNotesCaches`, `_exercisesCache`, `_tagsCache`, `TAGS_CACHE_TTL_MS`, `EXERCISES_CACHE_TTL_MS` (~80 líneas).
+- 🔵 DRIFT **DR5 (policy coach permitía impersonar alumno)** → resuelto en `v24f` con policy `Coach insert as self coach`.
+
+Lo que quedó como deuda explícita (ver §5):
+
+- 🔵 DRIFT **DR4 (zona horaria en `detectTimePreset`)** → marginal; resucitará si en algún momento persistimos filtros en URL/storage.
+- 🟡 DEFECT residual **D4 (filter options stale tras INSERT realtime)** → relevante en Fase B cuando aparezcan tags y ejercicios nuevos por nota.
+- 🟡 DEFECT **D2 (sin notificación `student_note` para el coach)** → decisión arquitectónica abierta antes de Fase B.
+- 🟡 DEFECT **D5 (`evaluation_test` con `context_id = test_id`)** → re‑anchor a `response_id` diferido a Fase C.
+- 🔵 DRIFT **DR6 (`notes_resolve_context` no maneja `session_day`)** → §5.1.
 
 ## 5. Casos abiertos / no resueltos
 

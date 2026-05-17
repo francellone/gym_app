@@ -98,11 +98,7 @@ export default function NotesFilters({
   // de las notas del thread), usamos eso; sino fallback a derivar
   // del catálogo `exercises` (modo legacy). ──
   const muscleGroups = useMemo(() => {
-    if (Array.isArray(availableMuscleGroups) && availableMuscleGroups.length >= 0) {
-      // Si availableMuscleGroups fue provisto (aunque vacío), respetarlo.
-      // Si vino null/undefined caemos al else.
-      if (availableMuscleGroups !== null) return [...availableMuscleGroups]
-    }
+    if (Array.isArray(availableMuscleGroups)) return availableMuscleGroups
     const set = new Set()
     for (const ex of exercises) {
       if (ex.muscle_group) set.add(ex.muscle_group)
@@ -177,7 +173,7 @@ export default function NotesFilters({
     // Construir Date desde YYYY-MM-DD en zona local (no UTC midnight)
     // así "Desde 2026-05-09" arranca a las 00:00 locales del coach.
     const d = new Date(`${dateStr}T00:00:00`)
-    if (field === 'to') d.setHours(23, 59, 59, 0) // ms a 0 para estabilidad
+    if (field === 'to') d.setHours(23, 59, 59, 999) // incluye el día completo
     setActiveTimeKey('custom')
     patch({ [field]: d.toISOString() })
   }

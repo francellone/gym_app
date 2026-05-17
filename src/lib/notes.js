@@ -20,12 +20,6 @@ import { supabase } from './supabase'
 // ── Constantes ────────────────────────────────────────────────
 const DEFAULT_PAGE_SIZE = 50
 const MAX_PAGE_SIZE = 200
-const TAGS_CACHE_TTL_MS = 60_000
-
-// Caches de módulo
-const _tagsCache = new Map() // threadId → { value, expiresAt }
-let _exercisesCache = null   // { value, expiresAt }
-const EXERCISES_CACHE_TTL_MS = 60_000 * 5
 
 // ============================================================
 // Normalización de errores
@@ -308,8 +302,6 @@ export async function createNote(payload) {
     .single()
 
   if (error) return { data: null, error: normalizeError(error, 'No se pudo crear la nota.') }
-  // Invalida cache de tags del thread (puede haber tags nuevos)
-  _tagsCache.delete(threadId)
   return { data, error: null }
 }
 
@@ -363,36 +355,24 @@ export async function replyNote(parentNoteId, payload = {}) {
 // ============================================================
 // B.6 — markThreadRead(threadId, asRole)
 // ------------------------------------------------------------
-// Marca como leídas las notas del OTRO rol que aún no fueron
-// leídas. Para el alumno limita a visibility='shared' (red de
-// seguridad además de RLS).
+// Usa la RPC notes_mark_thread_read (v24f) que bypasea RLS con
+// SECURITY DEFINER y valida permisos explícitamente. Necesario
+// porque la policy "Student update own notes" no permite al alumno
+// actualizar notas del coach (correcto: el alumno no debería poder
+// editar bodies del coach), pero sí necesita poder marcarlas como
+// leídas.
 // Devuelve: { data: { marked }, error }
 // ============================================================
 export async function markThreadRead(threadId, asRole) {
   if (!threadId || !asRole) {
     return { data: { marked: 0 }, error: null }
   }
-  const otherRole = asRole === 'coach' ? 'student' : 'coach'
-  const readField = asRole === 'coach' ? 'read_at_coach' : 'read_at_student'
-  const nowIso = new Date().toISOString()
-
-  let q = supabase
-    .from('notes')
-    .update({ [readField]: nowIso })
-    .eq('thread_id', threadId)
-    .eq('author_role', otherRole)
-    .is(readField, null)
-    .is('deleted_at', null)
-
-  if (asRole === 'student') {
-    q = q.eq('visibility', 'shared')
-  }
-
-  // En UPDATE…select(), `count` viene null en supabase-js v2. Usamos data.length
-  // como única fuente de verdad (RLS filtra lo que no podemos tocar).
-  const { data, error } = await q.select('id')
+  const { data, error } = await supabase.rpc('notes_mark_thread_read', {
+    p_thread_id: threadId,
+    p_as_role:   asRole,
+  })
   if (error) return { data: { marked: 0 }, error: normalizeError(error, 'No se pudo marcar como leído.') }
-  return { data: { marked: data?.length ?? 0 }, error: null }
+  return { data: { marked: typeof data === 'number' ? data : 0 }, error: null }
 }
 
 // ============================================================
@@ -408,13 +388,10 @@ export async function softDeleteNote(noteId) {
     .from('notes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', noteId)
-    .select('id, thread_id, tags, deleted_at')
+    .select('id, thread_id, deleted_at')
     .maybeSingle()
 
   if (error) return { data: null, error: normalizeError(error, 'No se pudo eliminar la nota.') }
-  // Si la nota tenía tags, invalidamos la cache del thread para no devolver
-  // tags fantasma. Si no hay thread_id (no debería) cae al else conservador.
-  if (data?.thread_id) _tagsCache.delete(data.thread_id)
   return { data: data || null, error: null }
 }
 
@@ -477,61 +454,8 @@ export function subscribeThread(threadId, onChange) {
   return cleanup
 }
 
-// Helper de compatibilidad (deprecated): preferir cleanup.getState() del
-// retorno de subscribeThread. Lo dejamos por si algún caller externo lo usa.
-export function getThreadChannelState(threadId) {
-  if (!threadId) return null
-  const channels = supabase.getChannels?.() || []
-  const found = channels.find(c =>
-    c.topic === `realtime:notes:thread:${threadId}` ||
-    c.topic?.includes(`notes:thread:${threadId}`)
-  )
-  return found?.state || null
-}
-
-// Limpia las caches de módulo (tags + exercises). Llamar en SIGNED_OUT
-// o cuando se cambia de cuenta para evitar fugas cross-sesión.
-export function resetNotesCaches() {
-  _tagsCache.clear()
-  _exercisesCache = null
-}
-
 // ============================================================
-// B.9 — listAvailableTags(threadId)
-// ------------------------------------------------------------
-// Devuelve string[] dedupeado y ordenado. Cache 60s por thread.
-// ============================================================
-export async function listAvailableTags(threadId) {
-  if (!threadId) return { data: [], error: null }
-
-  const cached = _tagsCache.get(threadId)
-  if (cached && cached.expiresAt > Date.now()) {
-    return { data: cached.value, error: null }
-  }
-
-  const { data, error } = await supabase
-    .from('notes')
-    .select('tags')
-    .eq('thread_id', threadId)
-    .is('deleted_at', null)
-
-  if (error) return { data: [], error: normalizeError(error, 'No se pudieron cargar los tags.') }
-
-  const set = new Set()
-  for (const row of data || []) {
-    if (Array.isArray(row.tags)) {
-      for (const t of row.tags) {
-        if (t && typeof t === 'string') set.add(t)
-      }
-    }
-  }
-  const value = Array.from(set).sort((a, b) => a.localeCompare(b))
-  _tagsCache.set(threadId, { value, expiresAt: Date.now() + TAGS_CACHE_TTL_MS })
-  return { data: value, error: null }
-}
-
-// ============================================================
-// B.9b — listFilterOptions(threadId)
+// B.9 — listFilterOptions(threadId)
 // ------------------------------------------------------------
 // Devuelve las opciones de filtros del panel derivadas de las
 // PROPIAS notas del thread (no del catálogo completo). Garantiza
@@ -571,40 +495,10 @@ export async function listFilterOptions(threadId) {
 }
 
 // ============================================================
-// B.10 — listExercisesForFilter() [DEPRECATED a partir de v24d]
-// ------------------------------------------------------------
-// Mantener por compatibilidad. Preferir listFilterOptions(threadId)
-// que devuelve solo ejercicios con notas en el thread.
-// ============================================================
-export async function listExercisesForFilter() {
-  if (_exercisesCache && _exercisesCache.expiresAt > Date.now()) {
-    return { data: _exercisesCache.value, error: null }
-  }
-  // Columna correcta: is_active (renombrada por fix_5_1_5_3_exercises_cosmetic
-  // antes de v24). El nombre 'active' nunca existió en producción.
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('id, name, muscle_group')
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-
-  if (error) {
-    // No cacheamos errores. Loggeamos sin tragar para diagnóstico.
-    // eslint-disable-next-line no-console
-    console.warn('[notes.listExercisesForFilter] error:', error)
-    return { data: [], error: normalizeError(error, 'No se pudieron cargar los ejercicios.') }
-  }
-  _exercisesCache = { value: data || [], expiresAt: Date.now() + EXERCISES_CACHE_TTL_MS }
-  return { data: data || [], error: null }
-}
-
-// ============================================================
 // Helpers extra (no en spec pero útiles para los componentes)
 // ============================================================
 
-// Etiqueta legible para context_type. Si más adelante hay que
-// resolver el nombre de un contexto (ej. nombre del ejercicio),
-// el componente lo hace aparte vía exercise_id → listExercisesForFilter.
+// Etiqueta legible para context_type.
 const CONTEXT_TYPE_LABELS = {
   free: 'Libre',
   workout_log: 'Registro',

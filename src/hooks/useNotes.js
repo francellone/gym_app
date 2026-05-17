@@ -23,7 +23,6 @@ import { supabase } from '../lib/supabase'
 import {
   listNotes,
   subscribeThread,
-  resetNotesCaches,
 } from '../lib/notes'
 
 // Tiempo mínimo en background para forzar reload al volver
@@ -238,8 +237,6 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
           unsubscribeRef.current()
           unsubscribeRef.current = null
         }
-        // Limpiar caches de módulo para evitar fuga cross-sesión
-        resetNotesCaches()
         setNotes([])
         setNextCursor(null)
         setError(null)
