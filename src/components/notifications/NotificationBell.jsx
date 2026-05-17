@@ -19,7 +19,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useNotifications } from '../../hooks/useNotifications'
 import {
   Bell, BellDot, CheckCheck, Dumbbell, Calendar,
-  AlertTriangle, UserCheck, TrendingUp, MessageSquare, X
+  AlertTriangle, UserCheck, TrendingUp, MessageSquare, X,
+  ClipboardCheck, RefreshCw
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -65,6 +66,16 @@ const TYPE_CONFIG = {
     Icon:  TrendingUp,
     color: 'text-indigo-500',
     bg:    'bg-indigo-50',
+  },
+  form_submitted: {
+    Icon:  ClipboardCheck,
+    color: 'text-teal-500',
+    bg:    'bg-teal-50',
+  },
+  plan_updated: {
+    Icon:  RefreshCw,
+    color: 'text-sky-500',
+    bg:    'bg-sky-50',
   },
 }
 
