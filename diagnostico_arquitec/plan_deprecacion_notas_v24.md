@@ -338,6 +338,27 @@ UPDATE public.workout_logs SET notes = NULL WHERE id = '<log>';
 - **`workout_sessions.{day}_notes`**: 7 columnas día‑por‑día con notas del PSE. Requiere decidir antes (a) si el contexto correcto es `'session_day'` con `context_id=workout_sessions.id`, (b) si conviene agregar columna `notes.note_date` para fechas sin sesión, o (c) si simplemente queda como `'free'` con `muscle_group` denormalizado. Bloqueante para Fase D drop de esas columnas. Diferido.
 - **`profiles.observations` / `profiles.coach_notes`**: estos son coach‑side y se editan desde `StudentInfoTab`. Pertenecen semánticamente más a Fase D (donde se va a reemplazar el UI por un panel embebido), porque cada save de `observations` no es un "evento nuevo" sino una actualización de una observación corriente — mirror plano tipo upsert puede confundir al coach que esperaba ver historial. Si igual querés mirror para tener consistencia, agregamos trigger en Fase D antes del UI swap.
 
+## 4g. Fase C+ — editar y borrar notas en panel (2026‑05‑17)
+
+Faltaba en Fase B/C la posibilidad de editar y borrar notas desde el panel. Agregado en frontend (backend ya tenía `softDeleteNote` desde v24 y las policies de UPDATE desde v24f).
+
+**Frontend (2 archivos):**
+
+| Archivo | Cambios |
+|---|---|
+| `src/lib/notes.js` | Nueva función `updateNote(noteId, { body })`. RLS: coach puede editar cualquier nota (policy 'Coach update notes'), alumno solo las suyas (policy 'Student update own notes'). `updated_at` se setea por trigger automático. |
+| `src/components/notes/NoteCard.jsx` | Menú "⋮" en el header de la burbuja con opciones **Editar** y **Borrar**. Solo visible si la nota es propia (`note.author_id === currentUserId`) Y es panel‑authored (`context_type ∈ {free, exercise}`). Modo edición inline: textarea con Save/Cancel + shortcut Cmd+Enter / Esc. Borrado pide confirmación con `window.confirm`. Indicador "· editada" cuando `updated_at > created_at + 2s`. |
+| `src/components/notes/NotesPanel.jsx` | Pasa `currentUserId={authorId}` a cada `NoteCard`. |
+
+**Regla clave**: las notas espejadas desde campos legacy (context_type `workout_log`, `workout_block_log`, `evaluation_test`, `plan_exercise`) son **read‑only desde el panel**. Razón: el source of truth es el campo legacy, y los triggers v25d re‑sincronizan en cada save. Si el alumno quiere editar su nota de un workout_log, lo hace desde TodayWorkoutPage (la textarea espeja automáticamente al panel). Cuando lleguemos a Fase D y reemplacemos esas textareas por escritura directa al panel, los context_type van a ser editables sin problema porque ya no habrá un campo legacy compitiendo por ser source of truth.
+
+**Flujo de borrado integrado con realtime y contadores**:
+1. Usuario clickea "Borrar" → `softDeleteNote` setea `deleted_at = now()`.
+2. Trigger `notes_bump_thread` (actualizado en v25d) detecta el UPDATE de `deleted_at` y decrementa `unread_for_<role>` si la nota estaba unread.
+3. Realtime envía el UPDATE → el hook `useNotes` detecta `deleted_at != null` y la remueve del listado local.
+
+**Flujo de edición**: `updateNote` actualiza el body. Trigger `notes_updated_at` setea `updated_at = now()`. Realtime envía el UPDATE → `useNotes` mergea el body actualizado. NoteCard re‑renderiza con "· editada".
+
 ## 5. Casos abiertos / no resueltos
 
 1. **`workout_sessions.{day}_notes` (`monday_notes`, etc.) y `borg_notes`.** No están en el backfill de v24 porque (a) la estructura por día no está documentada limpiamente en `schema.sql`, (b) el flujo de PSE/Borg está mezclado con la sesión y conviene resolver eso en su propia migración. Posibles caminos:

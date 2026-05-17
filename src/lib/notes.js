@@ -385,6 +385,33 @@ export async function markThreadRead(threadId, asRole) {
 }
 
 // ============================================================
+// B.6b — updateNote(noteId, { body })
+// ------------------------------------------------------------
+// Actualiza el body de una nota existente. RLS permite:
+//   - Coach: cualquier nota (policy 'Coach update notes')
+//   - Alumno: solo sus propias (policy 'Student update own notes')
+// El campo updated_at se setea automáticamente por trigger.
+// Devuelve: { data: nota actualizada | null, error }
+// ============================================================
+export async function updateNote(noteId, payload = {}) {
+  if (!noteId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta noteId.', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (payload.body || '').trim()
+  if (!cleanBody) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
+  }
+  const { data, error } = await supabase
+    .from('notes')
+    .update({ body: cleanBody })
+    .eq('id', noteId)
+    .select()
+    .maybeSingle()
+  if (error) return { data: null, error: normalizeError(error, 'No se pudo actualizar la nota.') }
+  return { data: data || null, error: null }
+}
+
+// ============================================================
 // B.7 — softDeleteNote(noteId)
 // ------------------------------------------------------------
 // Soft-delete: no hay DELETE policy en RLS.

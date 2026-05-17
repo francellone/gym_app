@@ -233,6 +233,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             onTagClick={handleTagClick}
             isUnread={initialUnreadRef.current.has(note.id)}
             onReply={handleReply}
+            currentUserId={authorId}
           />
         ))}
 
