@@ -1,28 +1,36 @@
 /**
  * NoteComposer
  *
- * Composer para escribir notas desde el panel (Fase B).
+ * Composer para escribir notas desde el panel (Fase B + B+).
  *
  * Soporta:
  *   - Body con textarea autosize
  *   - Visibility toggle (solo para coach: Compartida | Privada)
  *   - Tags como chips (agregar con Enter, eliminar con X)
- *   - Modo reply: si parentNote viene seteado, muestra quote y al
- *     enviar pasa parentNoteId + hereda context_type/context_id.
- *   - Cancel reply.
+ *     + picker desplegable con todos los tags existentes en el thread
+ *   - Context picker (Fase B+): adjuntar la nota a un ejercicio del
+ *     catálogo (context_type='exercise'). Si llega `defaultExerciseId`
+ *     (típicamente desde el filtro activo del panel), se preselecciona.
+ *   - Modo reply: si parentNote viene seteado, muestra quote y hereda
+ *     context_type / context_id / visibility del padre.
  *
  * Props:
- *   threadId        string
- *   authorId        string
- *   authorRole      'coach' | 'student'
- *   parentNote      objeto note (opcional) — activa modo reply
- *   availableTags   string[] — sugerencias para el input de tags
- *   onCancelReply   () => void
- *   onCreated       (note) => void  — callback tras insert exitoso
+ *   threadId          string
+ *   authorId          string
+ *   authorRole        'coach' | 'student'
+ *   parentNote        objeto note (opcional) — activa modo reply
+ *   availableTags     string[] — tags ya presentes en el thread
+ *   allExercises      Array<{id, name, muscle_group}> — catálogo completo
+ *   defaultExerciseId string|null — preselección desde filtro del panel
+ *   onCancelReply     () => void
+ *   onCreated         (note) => void  — callback tras insert exitoso
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { Send, Lock, Tag as TagIcon, X, CornerDownRight, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Send, Lock, Tag as TagIcon, X, CornerDownRight, Loader2,
+  Paperclip, ChevronDown
+} from 'lucide-react'
 import { createNote, replyNote } from '../../lib/notes'
 
 export default function NoteComposer({
@@ -31,6 +39,8 @@ export default function NoteComposer({
   authorRole,
   parentNote = null,
   availableTags = [],
+  allExercises = [],
+  defaultExerciseId = null,
   onCancelReply,
   onCreated,
 }) {
@@ -38,13 +48,29 @@ export default function NoteComposer({
   const [visibility, setVisibility] = useState('shared')
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
+  const [tagPickerOpen, setTagPickerOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-  const textareaRef = useRef(null)
 
+  // ── Context picker state ──
+  // attachedExerciseId: null = nota libre. uuid = adjuntada al ejercicio.
+  const [attachedExerciseId, setAttachedExerciseId] = useState(null)
+  const [exercisePickerOpen, setExercisePickerOpen] = useState(false)
+  const [exerciseQuery, setExerciseQuery] = useState('')
+
+  const textareaRef = useRef(null)
   const isReply = !!parentNote
   const isCoach = authorRole === 'coach'
   const disabled = !threadId || !authorId || !authorRole || submitting
+
+  // Preselección desde el filtro activo del panel. Se actualiza si el
+  // usuario cambia de filtro mientras el composer está abierto, salvo
+  // que ya haya escrito (no pisamos lo elegido manualmente).
+  useEffect(() => {
+    if (isReply) return // en reply el contexto se hereda del padre
+    if (body.trim()) return // no pisar si el user ya está escribiendo
+    setAttachedExerciseId(defaultExerciseId || null)
+  }, [defaultExerciseId, isReply]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autofoco cuando se activa modo reply
   useEffect(() => {
@@ -79,6 +105,10 @@ export default function NoteComposer({
     setTagInput('')
     setError(null)
     setVisibility('shared')
+    setAttachedExerciseId(defaultExerciseId || null)
+    setTagPickerOpen(false)
+    setExercisePickerOpen(false)
+    setExerciseQuery('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
@@ -93,7 +123,7 @@ export default function NoteComposer({
     setSubmitting(true)
     setError(null)
 
-    // Si hay tag a medio escribir, lo agregamos antes de enviar
+    // Si hay un tag a medio escribir, lo agregamos antes de enviar
     const finalTags = tagInput.trim() && !tags.includes(tagInput.trim())
       ? [...tags, tagInput.trim()]
       : tags
@@ -108,8 +138,18 @@ export default function NoteComposer({
 
     let res
     if (isReply) {
+      // Reply hereda context_type / context_id / visibility del padre
       res = await replyNote(parentNote.id, payload)
+    } else if (attachedExerciseId) {
+      // Nota adjuntada a un ejercicio del catálogo (v25b)
+      res = await createNote({
+        ...payload,
+        threadId,
+        contextType: 'exercise',
+        contextId: attachedExerciseId,
+      })
     } else {
+      // Nota libre
       res = await createNote({
         ...payload,
         threadId,
@@ -138,15 +178,38 @@ export default function NoteComposer({
     }
   }
 
-  // Sugerencias filtradas para el input de tags
-  const tagSuggestions = (() => {
+  // ── Sugerencias de ejercicios filtradas ──
+  const exerciseSuggestions = useMemo(() => {
+    if (!exerciseQuery.trim()) return allExercises.slice(0, 20)
+    const q = exerciseQuery.trim().toLowerCase()
+    return allExercises
+      .filter(ex =>
+        ex.name?.toLowerCase().includes(q) ||
+        ex.muscle_group?.toLowerCase().includes(q)
+      )
+      .slice(0, 20)
+  }, [exerciseQuery, allExercises])
+
+  const attachedExercise = attachedExerciseId
+    ? allExercises.find(ex => ex.id === attachedExerciseId)
+    : null
+
+  // ── Sugerencias de tags filtradas por lo que va escribiendo ──
+  const tagSuggestions = useMemo(() => {
     const q = tagInput.trim().toLowerCase()
     if (!q) return []
     return availableTags
       .filter(t => !tags.includes(t) && t.toLowerCase().includes(q))
       .slice(0, 5)
-  })()
+  }, [tagInput, availableTags, tags])
 
+  // Tags disponibles para el picker (los del thread que aún no agregué)
+  const pickerTags = useMemo(
+    () => availableTags.filter(t => !tags.includes(t)),
+    [availableTags, tags]
+  )
+
+  // ── Render ───────────────────────────────────────────────────
   return (
     <div className="card space-y-2">
       {/* ── Modo reply: quote del padre ── */}
@@ -175,6 +238,82 @@ export default function NoteComposer({
         </div>
       )}
 
+      {/* ── Context picker (no aparece en reply: contexto heredado) ── */}
+      {!isReply && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+            Adjuntar a:
+          </span>
+
+          {attachedExercise ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+              <Paperclip size={10} />
+              {attachedExercise.name}
+              <button
+                type="button"
+                onClick={() => setAttachedExerciseId(null)}
+                className="hover:text-blue-900"
+                aria-label="Quitar ejercicio"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400">Sin contexto</span>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setExercisePickerOpen(v => !v)}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
+          >
+            {attachedExercise ? 'Cambiar' : '+ Adjuntar ejercicio'}
+            <ChevronDown size={11} className={exercisePickerOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Exercise picker desplegable ── */}
+      {!isReply && exercisePickerOpen && (
+        <div className="border border-gray-200 rounded-lg bg-white">
+          <input
+            type="text"
+            value={exerciseQuery}
+            onChange={e => setExerciseQuery(e.target.value)}
+            placeholder="Buscar ejercicio…"
+            className="input text-xs border-0 rounded-b-none focus:ring-0"
+            autoFocus
+          />
+          <div className="max-h-44 overflow-y-auto border-t border-gray-100">
+            {exerciseSuggestions.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+            ) : (
+              exerciseSuggestions.map(ex => (
+                <button
+                  type="button"
+                  key={ex.id}
+                  onClick={() => {
+                    setAttachedExerciseId(ex.id)
+                    setExercisePickerOpen(false)
+                    setExerciseQuery('')
+                  }}
+                  className="block w-full text-left text-xs px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-gray-700">{ex.name}</span>
+                    {ex.muscle_group && (
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">
+                        {ex.muscle_group}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Textarea ── */}
       <textarea
         ref={textareaRef}
@@ -182,9 +321,13 @@ export default function NoteComposer({
         onChange={handleBodyChange}
         onKeyDown={handleKeyDown}
         placeholder={
-          isCoach
-            ? 'Escribir nota para el alumno…'
-            : 'Escribir nota para tu coach…'
+          isReply
+            ? 'Escribir tu respuesta…'
+            : attachedExercise
+              ? `Comentar sobre ${attachedExercise.name}…`
+              : isCoach
+                ? 'Escribir nota para el alumno…'
+                : 'Escribir nota para tu coach…'
         }
         rows={2}
         className="input text-sm resize-none"
@@ -192,7 +335,7 @@ export default function NoteComposer({
         disabled={submitting}
       />
 
-      {/* ── Tags chips ── */}
+      {/* ── Tags chips actuales ── */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map(t => (
@@ -216,7 +359,7 @@ export default function NoteComposer({
 
       {/* ── Tag input + visibility toggle + submit ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Tag input */}
+        {/* Tag input + botón "Ver tags" */}
         <div className="relative flex-1 min-w-[140px]">
           <TagIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -232,11 +375,22 @@ export default function NoteComposer({
               }
             }}
             placeholder="Tag…"
-            className="input pl-7 text-xs"
+            className="input pl-7 pr-16 text-xs"
             disabled={submitting}
           />
-          {/* Sugerencias */}
-          {tagSuggestions.length > 0 && (
+          {pickerTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTagPickerOpen(v => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
+            >
+              Ver
+              <ChevronDown size={10} className={tagPickerOpen ? 'rotate-180' : ''} />
+            </button>
+          )}
+
+          {/* Sugerencias autocomplete (mientras escribís) */}
+          {tagSuggestions.length > 0 && !tagPickerOpen && (
             <div className="absolute left-0 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-xl shadow-md max-h-32 overflow-y-auto z-10">
               {tagSuggestions.map(s => (
                 <button
@@ -284,6 +438,31 @@ export default function NoteComposer({
           {isReply ? 'Responder' : 'Enviar'}
         </button>
       </div>
+
+      {/* ── Tag picker: chips clickeables con todos los tags del thread ── */}
+      {tagPickerOpen && pickerTags.length > 0 && (
+        <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+          <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
+            Tags existentes en este hilo
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {pickerTags.map(t => (
+              <button
+                type="button"
+                key={t}
+                onClick={() => {
+                  addTag(t)
+                  // No cerramos el picker — el coach quizás quiera agregar varios
+                }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-medium hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700"
+              >
+                <TagIcon size={9} />
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Error inline ── */}
       {error && (

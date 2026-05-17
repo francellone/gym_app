@@ -13,6 +13,7 @@
 | `v24e` | Habilita realtime en `notes` + `note_threads` (`ALTER PUBLICATION supabase_realtime`) | ✓ aplicada |
 | `v24f` | RPC `notes_mark_thread_read` (bypasa RLS con SECURITY DEFINER para el alumno) + endurece policies del coach: `Coach select all notes` (SELECT) + `Coach insert as self coach` (INSERT exige `author_id = auth.uid()` y `author_role = 'coach'`) + `Coach update notes` (UPDATE permisivo) | ✓ aplicada |
 | `v25a` | Tipo `student_note` en `notifications_type_check` + trigger `fn_notify_student_note` (AFTER INSERT en `notes` para `author_role='student'`). El coach recibe push/badge cuando el alumno escribe. | ✓ aplicada |
+| `v25b` | `context_type='exercise'` agregado al enum + rama nueva en `notes_resolve_context`. Permite adjuntar una nota a un ejercicio del catálogo (no a un log/plan específico). El trigger denormaliza `exercise_id = context_id` y `muscle_group` haciendo lookup a `exercises`. | ✓ aplicada |
 
 **Resumen ejecutivo.** v24 creó la única fuente de verdad de comunicación coach↔alumno (`note_threads` + `notes`) y **dejó intactos** los 6 campos viejos donde la comunicación vivía dispersa. Mientras el front todavía los lee/escribe, los dos sistemas conviven. Cuando el front esté 100% migrado a `notes`, los campos viejos se borran con `migration_v26_drop_legacy_notes.sql`.
 
@@ -207,6 +208,46 @@ Fase B agrega ESCRITURA al panel y construye el lado del alumno. La Fase A enter
 - Handler de `session_day` en `notes_resolve_context` — DR6, diferido.
 - Composer con selector explícito de contexto (ej. "asociar a este ejercicio del plan") — diferido a una Fase B.1; hoy el composer libre crea notas `context_type='free'` salvo en mode reply.
 - Edición de bodies y soft‑delete desde la UI — diferido.
+
+## 4d. Fase B+ — context picker (2026‑05‑17, mismo día que B)
+
+Detectado en uso real: el composer de Fase B siempre creaba notas con `context_type='free'`, lo cual significa que si la coach filtraba por un ejercicio y escribía una nota, la nota no aparecía en ese filtro (queda fuera de contexto). Lo arreglamos sumando un selector de contexto y un picker de tags visible.
+
+**Backend (1 migración aplicada):**
+
+- `v25b` — agrega `'exercise'` al enum `context_type` y maneja la rama en `notes_resolve_context`. Caso de uso: comentario directo sobre un ejercicio del catálogo, sin estar atado a un workout_log puntual ni a un plan específico. Diferencia clave con los context_types existentes: `'plan_exercise'` referencia "ese ejercicio dentro de un plan concreto" (vía `plan_exercises.id`); `'exercise'` referencia el ejercicio del catálogo (vía `exercises.id`).
+
+**Frontend:**
+
+| Archivo | Cambios |
+|---|---|
+| `src/lib/notes.js` | Nueva función `listAllActiveExercises()` (cache módulo 5min) que devuelve el catálogo activo completo, usado por el composer para que el coach pueda adjuntar notas a cualquier ejercicio, no solo los ya presentes en el thread. `CONTEXT_TYPE_LABELS` actualizado para distinguir `'Ejercicio (plan)'` vs `'Ejercicio'` (catálogo). |
+| `src/components/notes/NotesPanel.jsx` | Trae el catálogo al montar, lo pasa al composer como `allExercises`. También pasa `defaultExerciseId={filters.exerciseId}` para que cuando el coach esté filtrando por un ejercicio, el composer pre-seleccione ese contexto. |
+| `src/components/notes/NoteComposer.jsx` | **Reescritura parcial**. Nuevo chip "Adjuntar a:" arriba del textarea que arranca con el ejercicio del filtro o vacío. Botón "+ Adjuntar ejercicio" / "Cambiar" abre un dropdown con buscador (autocomplete por name y muscle_group). Si hay ejercicio adjunto, la nota va con `context_type='exercise'` + `context_id=<exercise.id>`. Placeholder del textarea cambia a "Comentar sobre <ejercicio>…". En modo reply no aparece (contexto heredado del padre). |
+| `src/components/notes/NoteComposer.jsx` | **Tag picker visible**. Junto al input de tags, botón "Ver" que despliega los tags existentes en el thread como chips clickeables, así el usuario no tiene que adivinar qué tags se usaron antes. El autocomplete por typing sigue funcionando para tags que no son del thread. El picker no se cierra al elegir (permite multi‑selección rápida). |
+
+**Flujos resultantes:**
+
+- **Caso 1**: Coach filtra "Press de banca" → composer pre‑selecciona "Adjuntar a: Press de banca" → manda → la nota tiene `exercise_id = <press_id>` y `muscle_group = 'PUSH EXERCISE'` (denorm por trigger v25b) → aparece en el filtro automáticamente.
+- **Caso 2**: Coach quiere comentar un ejercicio sin notas previas → click en "+ Adjuntar ejercicio" → busca → selecciona → mismo flujo que el caso 1.
+- **Caso 3**: Coach ve el listado de tags ya usados y los aplica con un click en vez de tipear (evita typos tipo `lesion` vs `lesión`).
+- **Caso 4** (alumno escribiendo proactivamente sobre un ejercicio): mismo flujo, el composer del alumno también tiene el picker.
+
+**Smoke test post‑deploy:**
+
+```sql
+-- Verificado el 2026-05-17: insertar con context_type='exercise' funciona
+-- y el trigger denormaliza correctamente.
+INSERT INTO public.notes (thread_id, author_id, author_role, body, visibility, context_type, context_id)
+VALUES ('<thread>', '<coach>', 'coach', 'Test', 'shared', 'exercise', '<exercise_id>');
+-- Resultado: exercise_id = context_id, muscle_group = <exercises.muscle_group>, block_type = NULL.
+```
+
+**Lo que quedó como deuda explícita** (no resuelto en Fase B+, ver §5 abajo):
+
+- **Caso 5** (comentar inline desde otras vistas como `StudentLogsTab` / `EvaluationDetailPage`): drawer o link "Comentar este log" desde cada pantalla relevante. Es un proyecto en sí (cada vista necesita su entry point + pre‑setear contexto). Diferido.
+- **Caso 6** (comentar un día / sesión específico): requiere agregar handler para `context_type='session_day'` en el trigger (DR6) + decidir qué entidad referencia `context_id` (¿`workout_sessions.id`? ¿`(student_id, date)`?). Diferido.
+- **Caso 7** (comentar un grupo muscular como entidad pura sin ejercicio específico): `muscle_group` no es una entidad estable en la DB (es text label en exercises). Workaround disponible: usar el nombre del grupo como tag (`#PUSH EXERCISE`). No requiere cambios de schema.
 
 ## 5. Casos abiertos / no resueltos
 

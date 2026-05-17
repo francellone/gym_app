@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { useNotes } from '../../hooks/useNotes'
-import { listFilterOptions, markThreadRead } from '../../lib/notes'
+import { listFilterOptions, markThreadRead, listAllActiveExercises } from '../../lib/notes'
 import NotesFilters from './NotesFilters'
 import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
@@ -35,6 +35,18 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   const [availableMuscleGroups, setAvailableMuscleGroups] = useState([])
   const [availableBlockTypes, setAvailableBlockTypes] = useState([])
   const [replyingTo, setReplyingTo] = useState(null)
+  const [catalogExercises, setCatalogExercises] = useState([])
+
+  // Carga del catálogo completo (lo necesita el composer para que el
+  // coach pueda comentar sobre cualquier ejercicio, no solo los ya
+  // presentes en el thread).
+  useEffect(() => {
+    let alive = true
+    listAllActiveExercises().then(({ data }) => {
+      if (alive) setCatalogExercises(data || [])
+    })
+    return () => { alive = false }
+  }, [])
 
   // ── fetchOpts en ref para invocarlo desde realtime sin re-armar useEffect ──
   const fetchOptsRef = useRef(null)
@@ -231,13 +243,15 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         )}
       </div>
 
-      {/* Composer (Fase B: habilitado) */}
+      {/* Composer (Fase B: habilitado, con context picker Fase B+) */}
       <NoteComposer
         threadId={threadId}
         authorId={authorId}
         authorRole={viewerRole}
         parentNote={replyingTo}
         availableTags={availableTags}
+        allExercises={catalogExercises}
+        defaultExerciseId={filters.exerciseId}
         onCancelReply={() => setReplyingTo(null)}
         onCreated={handleNoteSent}
       />

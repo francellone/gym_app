@@ -495,6 +495,39 @@ export async function listFilterOptions(threadId) {
 }
 
 // ============================================================
+// B.11 — listAllActiveExercises()
+// ------------------------------------------------------------
+// Catálogo completo de ejercicios activos. Lo necesita el composer
+// para que el coach/alumno pueda elegir cualquier ejercicio al
+// que adjuntar la nota (no solo los ya comentados en el thread,
+// que es lo que devuelve listFilterOptions).
+//
+// Cache módulo (5 min) — el catálogo rara vez cambia.
+// Devuelve: { data: Array<{id, name, muscle_group}>, error }
+// ============================================================
+let _catalogCache = null
+const CATALOG_CACHE_TTL_MS = 5 * 60_000
+
+export async function listAllActiveExercises() {
+  if (_catalogCache && _catalogCache.expiresAt > Date.now()) {
+    return { data: _catalogCache.value, error: null }
+  }
+  const { data, error } = await supabase
+    .from('exercises')
+    .select('id, name, muscle_group')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('[notes.listAllActiveExercises] error:', error)
+    return { data: [], error: normalizeError(error, 'No se pudo cargar el catálogo.') }
+  }
+  _catalogCache = { value: data || [], expiresAt: Date.now() + CATALOG_CACHE_TTL_MS }
+  return { data: data || [], error: null }
+}
+
+// ============================================================
 // Helpers extra (no en spec pero útiles para los componentes)
 // ============================================================
 
@@ -503,7 +536,8 @@ const CONTEXT_TYPE_LABELS = {
   free: 'Libre',
   workout_log: 'Registro',
   workout_block_log: 'Bloque registrado',
-  plan_exercise: 'Ejercicio',
+  plan_exercise: 'Ejercicio (plan)',
+  exercise: 'Ejercicio',
   evaluation_test: 'Evaluación',
   plan: 'Plan',
   session_day: 'Sesión',
