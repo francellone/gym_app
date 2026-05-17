@@ -462,6 +462,20 @@ export async function editNote(note, payload = {}) {
     return { data: null, error: null }
   }
 
+  // Mirror de evaluation_test (v26c: context_id = response.id).
+  // Columna según author_role + visibility.
+  if (note.context_type === 'evaluation_test' && note.context_id) {
+    const col = note.author_role === 'student'
+      ? 'student_comment'
+      : (note.visibility === 'coach_private' ? 'coach_comment_private' : 'coach_comment_public')
+    const { error } = await supabase
+      .from('evaluation_test_responses')
+      .update({ [col]: cleanBody })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
+    return { data: null, error: null }
+  }
+
   // Panel-authored (free / exercise): UPDATE directo
   if (note.context_type === 'free' || note.context_type === 'exercise') {
     return updateNote(note.id, { body: cleanBody })
@@ -504,6 +518,19 @@ export async function deleteNote(note) {
     const { error } = await supabase
       .from('workout_block_logs')
       .update({ notes: null })
+      .eq('id', note.context_id)
+    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
+    return { data: null, error: null }
+  }
+
+  // Eval response (v26c): borrar = vaciar la columna correspondiente
+  if (note.context_type === 'evaluation_test' && note.context_id) {
+    const col = note.author_role === 'student'
+      ? 'student_comment'
+      : (note.visibility === 'coach_private' ? 'coach_comment_private' : 'coach_comment_public')
+    const { error } = await supabase
+      .from('evaluation_test_responses')
+      .update({ [col]: null })
       .eq('id', note.context_id)
     if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
     return { data: null, error: null }

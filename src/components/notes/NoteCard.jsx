@@ -44,10 +44,11 @@ const BLOCK_TYPE_LABELS = {
 //   - free / exercise: panel-authored, UPDATE directo en notes.
 //   - workout_log / workout_block_log: mirrors, routeamos al campo
 //     legacy y el trigger v25e re-sincroniza el mirror in-place.
-//   - evaluation_test / plan / session_day: read-only por ahora
-//     (deuda D5 / Fase D).
+//   - evaluation_test: routeamos a la columna correspondiente de
+//     evaluation_test_responses (post v26c).
+//   - plan / session_day: read-only (no se crean desde UI).
 const EDITABLE_CONTEXTS = new Set([
-  'free', 'exercise', 'workout_log', 'workout_block_log',
+  'free', 'exercise', 'workout_log', 'workout_block_log', 'evaluation_test',
 ])
 
 function safeDate(iso) {
