@@ -156,7 +156,7 @@ export async function listNotes(threadId, filters = {}, pagination = {}) {
 
   let q = supabase
     .from('notes')
-    .select('id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, muscle_group, block_type, parent_note_id, tags, read_at_coach, read_at_student, created_at, updated_at, deleted_at')
+    .select('id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, muscle_group, block_type, parent_note_id, tags, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at')
     .eq('thread_id', threadId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
