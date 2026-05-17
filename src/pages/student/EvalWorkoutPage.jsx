@@ -10,7 +10,7 @@ import {
 } from '../../utils/evalHelpers'
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle, MessageSquare, Eye } from 'lucide-react'
 import { parseReps } from '../../utils/planHelpers'
-import { fetchEvalMirrorBodies } from '../../lib/notes'
+import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../lib/notes'
 
 // ============================================================
 // Shared: Method badge (locked by coach, not selectable)
@@ -1603,7 +1603,10 @@ export default function EvalWorkoutPage() {
         for (const prueba of pruebas) {
           const resp = pruebaResponses[prueba.id]
           if (!resp && !resp?.value) continue
-          await supabase
+          // Round 2b: ya no escribimos student_comment a la columna
+          // (dropeada en v26d). Después del upsert llamamos a
+          // postEvalCommentNote() con el body, que aterriza en el panel.
+          const { data: upsertedResp } = await supabase
             .from('evaluation_test_responses')
             .upsert({
               evaluation_result_id: resultId,
@@ -1612,9 +1615,24 @@ export default function EvalWorkoutPage() {
                 value: resp?.value || '',
                 unit: resp?.unit || pruebaTypeInfo(prueba.test_type)?.unit || '',
               },
-              student_comment: resp?.comment || null,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'evaluation_result_id,test_id' })
+            .select('id')
+            .single()
+
+          if (upsertedResp?.id) {
+            const { error: noteErr } = await postEvalCommentNote({
+              studentId: user.id,
+              responseId: upsertedResp.id,
+              body: resp?.comment || '',
+              role: 'student',
+              visibility: 'shared',
+            })
+            if (noteErr) {
+              // eslint-disable-next-line no-console
+              console.warn('[saveEval] no se pudo guardar el comment en el panel:', noteErr)
+            }
+          }
         }
       }
 

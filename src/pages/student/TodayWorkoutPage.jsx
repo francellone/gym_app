@@ -18,7 +18,7 @@ import {
   readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import { buildErrorBanner } from '../../utils/errorHelpers'
-import { postPSEDayNote, fetchSingleMirrorBodies } from '../../lib/notes'
+import { postPSEDayNote, fetchSingleMirrorBodies, postWorkoutLogNote } from '../../lib/notes'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
@@ -388,7 +388,10 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
       p_perceived_difficulty_label: logData.perceived_difficulty
         ? PSE_OPTIONS.find(p => p.value === logData.perceived_difficulty)?.label
         : null,
-      p_notes: logData.notes || null,
+      // Round 2b: el RPC ya no escribe a workout_logs.notes (la columna
+      // se dropeó en v26d). Pasamos null y después del save llamamos
+      // a postWorkoutLogNote() con el body para que aterrice en el panel.
+      p_notes: null,
       p_completed: true,
     }
   }
@@ -1428,17 +1431,27 @@ export default function TodayWorkoutPage() {
     // Refetch del log completo (la RPC devuelve solo el uuid)
     const logId = existingLog?.id ?? returnedId
     if (logId) {
+      // Round 2b: el RPC ya no escribe workout_logs.notes (columna dropeada
+      // en v26d). Persistimos el body del log directamente al panel.
+      const { error: noteErr } = await postWorkoutLogNote({
+        studentId: profile.id,
+        logId,
+        body: logData.notes || '',
+      })
+      if (noteErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[saveLog] no se pudo guardar la nota del log en el panel:', noteErr)
+      }
+
       const { data: fullLog } = await supabase
         .from('workout_logs')
         .select('*')
         .eq('id', logId)
         .single()
       if (fullLog) {
-        // Round 2a: leer body desde el mirror del panel para consistencia
-        // (writers siguen tocando workout_logs.notes via trigger v25e; en
-        // round 2b dropeamos esa columna y el mirror queda como única fuente).
+        // Leemos el body desde el mirror del panel (fuente única post v26d).
         const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: [logId] })
-        fullLog.notes = bodiesMap.get(logId) ?? fullLog.notes ?? ''
+        fullLog.notes = bodiesMap.get(logId) ?? ''
         setLogs(prev => ({ ...prev, [planExerciseId]: fullLog }))
       }
     }

@@ -102,8 +102,9 @@ export default function CreateStudentPage() {
     level: 'beginner',
     weekly_frequency: 3,
     goal: '',
-    coach_notes: '',
-    observations: '',
+    // observations + coach_notes migraron al panel de notas (Fase D /
+    // round 2b). Para escribirlas: crear primero el alumno y después
+    // ir al tab "Notas" en su detalle.
     target_weight_kg: '',
   })
 
@@ -138,8 +139,6 @@ export default function CreateStudentPage() {
       level: form.level || null,
       weekly_frequency: form.weekly_frequency ? parseInt(form.weekly_frequency) : null,
       goal: form.goal || null,
-      coach_notes: form.coach_notes || null,
-      observations: form.observations || null,
       target_weight_kg: form.target_weight_kg ? parseFloat(form.target_weight_kg) : null,
       coach_id: profile?.id || null,
     }
@@ -287,37 +286,9 @@ export default function CreateStudentPage() {
           </div>
         </div>
 
-        {/* Observaciones (visibles para ambos) */}
-        <div className="card space-y-3">
-          <div>
-            <h2 className="font-semibold text-gray-900">Observaciones del alumno</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Visibles para vos y el alumno</p>
-          </div>
-          <textarea
-            name="observations"
-            value={form.observations}
-            onChange={handleChange}
-            className="input resize-none"
-            rows={3}
-            placeholder="Particularidades, historial relevante, preferencias..."
-          />
-        </div>
-
-        {/* Notas privadas del coach */}
-        <div className="card space-y-3">
-          <div>
-            <h2 className="font-semibold text-gray-900">Notas privadas del coach</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Solo vos podés ver estas notas</p>
-          </div>
-          <textarea
-            name="coach_notes"
-            value={form.coach_notes}
-            onChange={handleChange}
-            className="input resize-none"
-            rows={3}
-            placeholder="Lesiones, consideraciones especiales..."
-          />
-        </div>
+        {/* Las observaciones y notas privadas se escriben desde el panel
+            de Notas del alumno después de crearlo (round 2b: las columnas
+            legacy se dropearon, todo vive en notes). */}
 
         {error && (
           <div className="flex items-start gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">

@@ -15,7 +15,7 @@ import {
   groupEvaluationAssignments, statusConfig, getAssignmentStatus,
   assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
-import { fetchEvalMirrorBodies } from '../../../lib/notes'
+import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../../lib/notes'
 
 // ─────────────────────────────────────────────────────────────
 // StudentEvaluationsTab
@@ -529,23 +529,45 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
     try {
       const comment = getComment(testId)
       const existing = responses[testId]
-      if (existing) {
-        await supabase
+      // Round 2b: las columnas coach_comment_* fueron dropeadas en v26d.
+      // Ahora los comentarios viven en el panel. Necesitamos el response_id
+      // para asociarlas; si no existe la response, la creamos vacía para
+      // tener un context_id estable.
+      let responseId = existing?.id
+      if (!responseId) {
+        const { data: inserted } = await supabase
           .from('evaluation_test_responses')
-          .update({
-            coach_comment_public: comment.public || null,
-            coach_comment_private: comment.private || null,
+          .insert({
+            evaluation_result_id: resultado.id,
+            test_id: testId,
           })
-          .eq('id', existing.id)
-      } else {
-        // Crear respuesta vacía con comentario del coach
-        await supabase.from('evaluation_test_responses').insert({
-          evaluation_result_id: resultado.id,
-          test_id: testId,
-          coach_comment_public: comment.public || null,
-          coach_comment_private: comment.private || null,
-        })
+          .select('id')
+          .single()
+        responseId = inserted?.id
       }
+
+      if (resultado.student_id && responseId) {
+        // Public + private en paralelo
+        const [pubRes, privRes] = await Promise.all([
+          postEvalCommentNote({
+            studentId: resultado.student_id,
+            responseId,
+            body: comment.public || '',
+            role: 'coach',
+            visibility: 'shared',
+          }),
+          postEvalCommentNote({
+            studentId: resultado.student_id,
+            responseId,
+            body: comment.private || '',
+            role: 'coach',
+            visibility: 'coach_private',
+          }),
+        ])
+        if (pubRes.error) console.warn('[saveComments] pub error:', pubRes.error)
+        if (privRes.error) console.warn('[saveComments] priv error:', privRes.error)
+      }
+
       onSaved()
     } catch (err) {
       console.error(err)

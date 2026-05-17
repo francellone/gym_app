@@ -442,51 +442,26 @@ export async function editNote(note, payload = {}) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
   }
 
-  // Mirror de workout_log → editar workout_logs.notes (trigger v25e
-  // upsertea el mirror y preserva el id).
-  if (note.context_type === 'workout_log' && note.context_id) {
-    const { error } = await supabase
-      .from('workout_logs')
-      .update({ notes: cleanBody })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
-    return { data: null, error: null }
-  }
-  // Mirror de workout_block_log → workout_block_logs.notes
-  if (note.context_type === 'workout_block_log' && note.context_id) {
-    const { error } = await supabase
-      .from('workout_block_logs')
-      .update({ notes: cleanBody })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
-    return { data: null, error: null }
-  }
-
-  // Mirror de evaluation_test (v26c: context_id = response.id).
-  // Columna según author_role + visibility.
-  if (note.context_type === 'evaluation_test' && note.context_id) {
-    const col = note.author_role === 'student'
-      ? 'student_comment'
-      : (note.visibility === 'coach_private' ? 'coach_comment_private' : 'coach_comment_public')
-    const { error } = await supabase
-      .from('evaluation_test_responses')
-      .update({ [col]: cleanBody })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo editar la nota.') }
-    return { data: null, error: null }
-  }
-
-  // Panel-authored (free / exercise): UPDATE directo
-  if (note.context_type === 'free' || note.context_type === 'exercise') {
+  // Round 2b: UPDATE directo de notes para todos los context_types.
+  // El routing previo (rutear a columnas legacy) ya no aplica porque
+  // las columnas se dropean en v26d. Si llega un context que no
+  // soportamos editar desde panel (plan, session_day), devolvemos
+  // NOT_SUPPORTED.
+  if (
+    note.context_type === 'free' ||
+    note.context_type === 'exercise' ||
+    note.context_type === 'workout_log' ||
+    note.context_type === 'workout_block_log' ||
+    note.context_type === 'evaluation_test'
+  ) {
     return updateNote(note.id, { body: cleanBody })
   }
 
-  // Resto (evaluation_test / plan / session_day): read-only por ahora
   return {
     data: null,
     error: {
       code: 'NOT_SUPPORTED',
-      message: 'Este tipo de nota se edita desde su pantalla origen.',
+      message: 'Este tipo de nota no se puede editar desde el panel.',
       details: null, hint: null, raw: null,
     },
   }
@@ -506,37 +481,14 @@ export async function deleteNote(note) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
   }
 
-  if (note.context_type === 'workout_log' && note.context_id) {
-    const { error } = await supabase
-      .from('workout_logs')
-      .update({ notes: null })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
-    return { data: null, error: null }
-  }
-  if (note.context_type === 'workout_block_log' && note.context_id) {
-    const { error } = await supabase
-      .from('workout_block_logs')
-      .update({ notes: null })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
-    return { data: null, error: null }
-  }
-
-  // Eval response (v26c): borrar = vaciar la columna correspondiente
-  if (note.context_type === 'evaluation_test' && note.context_id) {
-    const col = note.author_role === 'student'
-      ? 'student_comment'
-      : (note.visibility === 'coach_private' ? 'coach_comment_private' : 'coach_comment_public')
-    const { error } = await supabase
-      .from('evaluation_test_responses')
-      .update({ [col]: null })
-      .eq('id', note.context_id)
-    if (error) return { data: null, error: normalizeError(error, 'No se pudo borrar la nota.') }
-    return { data: null, error: null }
-  }
-
-  if (note.context_type === 'free' || note.context_type === 'exercise') {
+  // Round 2b: soft-delete directo en notes para todos los context_types.
+  if (
+    note.context_type === 'free' ||
+    note.context_type === 'exercise' ||
+    note.context_type === 'workout_log' ||
+    note.context_type === 'workout_block_log' ||
+    note.context_type === 'evaluation_test'
+  ) {
     return softDeleteNote(note.id)
   }
 
@@ -544,7 +496,7 @@ export async function deleteNote(note) {
     data: null,
     error: {
       code: 'NOT_SUPPORTED',
-      message: 'Este tipo de nota se borra desde su pantalla origen.',
+      message: 'Este tipo de nota no se puede borrar desde el panel.',
       details: null, hint: null, raw: null,
     },
   }
@@ -708,6 +660,146 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
     noteDate: sessionLoggedDate || null,
     authorId: studentId,
     authorRole: 'student',
+  })
+}
+
+// ============================================================
+// B.6g — postWorkoutLogNote({ studentId, logId, body })
+// ------------------------------------------------------------
+// Upsert directo al panel. Reemplaza al trigger fn_sync_workout_log_to_notes
+// que en round 2b se elimina junto con la columna workout_logs.notes.
+//
+// Lógica:
+//   - Si existe mirror vivo para (student, log): UPDATE body.
+//   - Si no existe: INSERT nuevo.
+//   - Si body vacío y existe mirror: soft-delete.
+//   - Si body vacío y no existe: no-op.
+//
+// Devuelve { data, error } donde data es la nota afectada (puede ser
+// null si fue soft-delete o no-op).
+// ============================================================
+export async function postWorkoutLogNote({ studentId, logId, body }) {
+  if (!studentId || !logId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o logId.', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (body || '').trim()
+
+  // Buscar mirror existente del log para este alumno
+  const { data: existing, error: findErr } = await supabase
+    .from('notes')
+    .select('id, body, thread_id')
+    .eq('context_type', 'workout_log')
+    .eq('context_id', logId)
+    .eq('author_role', 'student')
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (findErr && !isNoRowsError(findErr)) {
+    return { data: null, error: normalizeError(findErr, 'No se pudo buscar la nota del log.') }
+  }
+
+  // Caso 1: body vacío → soft-delete si existe
+  if (!cleanBody) {
+    if (!existing) return { data: null, error: null } // no-op
+    return softDeleteNote(existing.id)
+  }
+
+  // Caso 2: existe → UPDATE body si cambió
+  if (existing) {
+    if (existing.body === cleanBody) return { data: existing, error: null } // no-op
+    return updateNote(existing.id, { body: cleanBody })
+  }
+
+  // Caso 3: no existe → INSERT. Resolvemos el thread del alumno.
+  const { data: thread, error: threadErr } = await getStudentThread(studentId)
+  if (threadErr) return { data: null, error: threadErr }
+  if (!thread) {
+    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+  }
+
+  return createNote({
+    threadId: thread.id,
+    body: cleanBody,
+    visibility: 'shared',
+    contextType: 'workout_log',
+    contextId: logId,
+    authorId: studentId,
+    authorRole: 'student',
+  })
+}
+
+// ============================================================
+// B.6h — postEvalCommentNote({ studentId, responseId, body, role, visibility })
+// ------------------------------------------------------------
+// Análogo a postWorkoutLogNote pero para mirrors de evaluation_test.
+// Args:
+//   studentId    uuid del alumno (autor si role='student')
+//   responseId   uuid de evaluation_test_responses (context_id)
+//   body         text — body limpio o vacío para borrar
+//   role         'student' | 'coach' — autor de la nota
+//   visibility   'shared' | 'coach_private' — solo aplica si role='coach'
+//
+// Para role='coach' usamos public.get_coach_id() como author_id.
+// ============================================================
+export async function postEvalCommentNote({ studentId, responseId, body, role, visibility }) {
+  if (!studentId || !responseId || !role) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Faltan args obligatorios (studentId, responseId, role).', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (body || '').trim()
+  const effectiveVisibility = role === 'student'
+    ? 'shared'
+    : (visibility === 'coach_private' ? 'coach_private' : 'shared')
+
+  // Buscar mirror existente con el matching exacto (response_id, role, visibility)
+  const { data: existing, error: findErr } = await supabase
+    .from('notes')
+    .select('id, body, thread_id, author_id')
+    .eq('context_type', 'evaluation_test')
+    .eq('context_id', responseId)
+    .eq('author_role', role)
+    .eq('visibility', effectiveVisibility)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (findErr && !isNoRowsError(findErr)) {
+    return { data: null, error: normalizeError(findErr, 'No se pudo buscar la nota eval.') }
+  }
+
+  if (!cleanBody) {
+    if (!existing) return { data: null, error: null }
+    return softDeleteNote(existing.id)
+  }
+
+  if (existing) {
+    if (existing.body === cleanBody) return { data: existing, error: null }
+    return updateNote(existing.id, { body: cleanBody })
+  }
+
+  // Insert nuevo
+  const { data: thread, error: threadErr } = await getStudentThread(studentId)
+  if (threadErr) return { data: null, error: threadErr }
+  if (!thread) {
+    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+  }
+
+  // Para coach, necesitamos su id. Lo resolvemos via RPC get_coach_id.
+  let authorId = studentId
+  if (role === 'coach') {
+    const { data: coachId } = await supabase.rpc('get_coach_id')
+    if (!coachId) {
+      return { data: null, error: { code: 'NOT_FOUND', message: 'No hay coach configurado.', details: null, hint: null, raw: null } }
+    }
+    authorId = coachId
+  }
+
+  return createNote({
+    threadId: thread.id,
+    body: cleanBody,
+    visibility: effectiveVisibility,
+    contextType: 'evaluation_test',
+    contextId: responseId,
+    authorId,
+    authorRole: role,
   })
 }
 
