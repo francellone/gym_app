@@ -1,60 +1,69 @@
 /**
- * NoteComposer
+ * NoteComposer (Fase B++)
  *
- * Composer para escribir notas desde el panel (Fase B + B+).
+ * Composer con tres opciones de contexto:
+ *   1. Observación general (context_type='free', sin denormalización)
+ *   2. Ejercicio          (context_type='exercise', context_id=<exercise.id>)
+ *   3. Grupo muscular     (context_type='free' + muscle_group manual,
+ *                          el trigger v25c respeta lo enviado)
  *
- * Soporta:
- *   - Body con textarea autosize
- *   - Visibility toggle (solo para coach: Compartida | Privada)
- *   - Tags como chips (agregar con Enter, eliminar con X)
- *     + picker desplegable con todos los tags existentes en el thread
- *   - Context picker (Fase B+): adjuntar la nota a un ejercicio del
- *     catálogo (context_type='exercise'). Si llega `defaultExerciseId`
- *     (típicamente desde el filtro activo del panel), se preselecciona.
- *   - Modo reply: si parentNote viene seteado, muestra quote y hereda
- *     context_type / context_id / visibility del padre.
+ * En modo reply el contexto se hereda del padre y los tabs no aparecen.
+ *
+ * Removido en B++: input de tags (campo libre sin curaduría). Las notas
+ * legacy con tags se siguen renderizando en NoteCard.
  *
  * Props:
- *   threadId          string
- *   authorId          string
- *   authorRole        'coach' | 'student'
- *   parentNote        objeto note (opcional) — activa modo reply
- *   availableTags     string[] — tags ya presentes en el thread
- *   allExercises      Array<{id, name, muscle_group}> — catálogo completo
- *   defaultExerciseId string|null — preselección desde filtro del panel
- *   onCancelReply     () => void
- *   onCreated         (note) => void  — callback tras insert exitoso
+ *   threadId              string
+ *   authorId              string
+ *   authorRole            'coach' | 'student'
+ *   parentNote            objeto note — activa modo reply
+ *   allExercises          Array<{id, name, muscle_group}>
+ *   allMuscleGroups       string[] — opciones de grupo muscular disponibles
+ *   defaultExerciseId     string|null — preselección desde filtro
+ *   defaultMuscleGroup    string|null — preselección desde filtro
+ *   onCancelReply         () => void
+ *   onCreated             (note) => void
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Send, Lock, Tag as TagIcon, X, CornerDownRight, Loader2,
-  Paperclip, ChevronDown
+  Send, Lock, X, CornerDownRight, Loader2,
+  Paperclip, ChevronDown, MessageCircle, Dumbbell, Layers
 } from 'lucide-react'
 import { createNote, replyNote } from '../../lib/notes'
+
+const CONTEXT_TABS = [
+  { key: 'free',         label: 'Observación', Icon: MessageCircle },
+  { key: 'exercise',     label: 'Ejercicio',   Icon: Dumbbell },
+  { key: 'muscle_group', label: 'Grupo muscular', Icon: Layers },
+]
 
 export default function NoteComposer({
   threadId,
   authorId,
   authorRole,
   parentNote = null,
-  availableTags = [],
   allExercises = [],
+  allMuscleGroups = [],
   defaultExerciseId = null,
+  defaultMuscleGroup = null,
   onCancelReply,
   onCreated,
 }) {
   const [body, setBody] = useState('')
   const [visibility, setVisibility] = useState('shared')
-  const [tags, setTags] = useState([])
-  const [tagInput, setTagInput] = useState('')
-  const [tagPickerOpen, setTagPickerOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  // ── Context picker state ──
-  // attachedExerciseId: null = nota libre. uuid = adjuntada al ejercicio.
-  const [attachedExerciseId, setAttachedExerciseId] = useState(null)
+  // ── Context state ──
+  // tab: 'free' | 'exercise' | 'muscle_group'
+  // valueId: exercise.id (cuando tab='exercise')
+  // valueText: muscle_group string (cuando tab='muscle_group')
+  const [contextTab, setContextTab] = useState('free')
+  const [exerciseId, setExerciseId] = useState(null)
+  const [muscleGroup, setMuscleGroup] = useState(null)
+
+  // ── Pickers desplegables ──
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false)
   const [exerciseQuery, setExerciseQuery] = useState('')
 
@@ -63,14 +72,25 @@ export default function NoteComposer({
   const isCoach = authorRole === 'coach'
   const disabled = !threadId || !authorId || !authorRole || submitting
 
-  // Preselección desde el filtro activo del panel. Se actualiza si el
-  // usuario cambia de filtro mientras el composer está abierto, salvo
-  // que ya haya escrito (no pisamos lo elegido manualmente).
+  // Preselección desde filtros del panel (al primer mount, o al cambiar
+  // filtros si todavía no escribió nada)
   useEffect(() => {
-    if (isReply) return // en reply el contexto se hereda del padre
-    if (body.trim()) return // no pisar si el user ya está escribiendo
-    setAttachedExerciseId(defaultExerciseId || null)
-  }, [defaultExerciseId, isReply]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (isReply) return
+    if (body.trim()) return
+    if (defaultExerciseId) {
+      setContextTab('exercise')
+      setExerciseId(defaultExerciseId)
+      setMuscleGroup(null)
+    } else if (defaultMuscleGroup) {
+      setContextTab('muscle_group')
+      setMuscleGroup(defaultMuscleGroup)
+      setExerciseId(null)
+    } else {
+      setContextTab('free')
+      setExerciseId(null)
+      setMuscleGroup(null)
+    }
+  }, [defaultExerciseId, defaultMuscleGroup, isReply]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autofoco cuando se activa modo reply
   useEffect(() => {
@@ -87,29 +107,24 @@ export default function NoteComposer({
     }
   }
 
-  function addTag(raw) {
-    const t = (raw || '').trim()
-    if (!t) return
-    if (tags.includes(t)) return
-    setTags([...tags, t])
-    setTagInput('')
-  }
-
-  function removeTag(t) {
-    setTags(tags.filter(x => x !== t))
-  }
-
   function clearForm() {
     setBody('')
-    setTags([])
-    setTagInput('')
     setError(null)
     setVisibility('shared')
-    setAttachedExerciseId(defaultExerciseId || null)
-    setTagPickerOpen(false)
+    setContextTab('free')
+    setExerciseId(null)
+    setMuscleGroup(null)
     setExercisePickerOpen(false)
     setExerciseQuery('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+  }
+
+  function setTab(key) {
+    setContextTab(key)
+    // Limpieza cruzada: si paso a otra solapa, descarto valores no aplicables.
+    if (key !== 'exercise') setExerciseId(null)
+    if (key !== 'muscle_group') setMuscleGroup(null)
+    setExercisePickerOpen(false)
   }
 
   async function handleSubmit() {
@@ -123,33 +138,36 @@ export default function NoteComposer({
     setSubmitting(true)
     setError(null)
 
-    // Si hay un tag a medio escribir, lo agregamos antes de enviar
-    const finalTags = tagInput.trim() && !tags.includes(tagInput.trim())
-      ? [...tags, tagInput.trim()]
-      : tags
-
     const payload = {
       body: clean,
       visibility,
-      tags: finalTags,
       authorId,
       authorRole,
     }
 
     let res
     if (isReply) {
-      // Reply hereda context_type / context_id / visibility del padre
+      // Reply: hereda context_type / context_id / visibility del padre
       res = await replyNote(parentNote.id, payload)
-    } else if (attachedExerciseId) {
-      // Nota adjuntada a un ejercicio del catálogo (v25b)
+    } else if (contextTab === 'exercise' && exerciseId) {
+      // Adjuntar a ejercicio del catálogo
       res = await createNote({
         ...payload,
         threadId,
         contextType: 'exercise',
-        contextId: attachedExerciseId,
+        contextId: exerciseId,
+      })
+    } else if (contextTab === 'muscle_group' && muscleGroup) {
+      // Free + muscle_group manual (v25c)
+      res = await createNote({
+        ...payload,
+        threadId,
+        contextType: 'free',
+        contextId: null,
+        muscleGroup,
       })
     } else {
-      // Nota libre
+      // Observación general libre
       res = await createNote({
         ...payload,
         threadId,
@@ -171,7 +189,6 @@ export default function NoteComposer({
   }
 
   function handleKeyDown(e) {
-    // Cmd/Ctrl + Enter para enviar
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
       handleSubmit()
@@ -190,24 +207,17 @@ export default function NoteComposer({
       .slice(0, 20)
   }, [exerciseQuery, allExercises])
 
-  const attachedExercise = attachedExerciseId
-    ? allExercises.find(ex => ex.id === attachedExerciseId)
+  const attachedExercise = exerciseId
+    ? allExercises.find(ex => ex.id === exerciseId)
     : null
 
-  // ── Sugerencias de tags filtradas por lo que va escribiendo ──
-  const tagSuggestions = useMemo(() => {
-    const q = tagInput.trim().toLowerCase()
-    if (!q) return []
-    return availableTags
-      .filter(t => !tags.includes(t) && t.toLowerCase().includes(q))
-      .slice(0, 5)
-  }, [tagInput, availableTags, tags])
-
-  // Tags disponibles para el picker (los del thread que aún no agregué)
-  const pickerTags = useMemo(
-    () => availableTags.filter(t => !tags.includes(t)),
-    [availableTags, tags]
-  )
+  const placeholder = (() => {
+    if (isReply) return 'Escribir tu respuesta…'
+    if (contextTab === 'exercise' && attachedExercise) return `Comentar sobre ${attachedExercise.name}…`
+    if (contextTab === 'muscle_group' && muscleGroup) return `Comentar sobre ${muscleGroup}…`
+    if (isCoach) return 'Escribir nota para el alumno…'
+    return 'Escribir nota para tu coach…'
+  })()
 
   // ── Render ───────────────────────────────────────────────────
   return (
@@ -238,79 +248,152 @@ export default function NoteComposer({
         </div>
       )}
 
-      {/* ── Context picker (no aparece en reply: contexto heredado) ── */}
+      {/* ── Tabs de contexto (oculto en reply: contexto heredado) ── */}
       {!isReply && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-            Adjuntar a:
-          </span>
-
-          {attachedExercise ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-              <Paperclip size={10} />
-              {attachedExercise.name}
-              <button
-                type="button"
-                onClick={() => setAttachedExerciseId(null)}
-                className="hover:text-blue-900"
-                aria-label="Quitar ejercicio"
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ) : (
-            <span className="text-xs text-gray-400">Sin contexto</span>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setExercisePickerOpen(v => !v)}
-            className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
-          >
-            {attachedExercise ? 'Cambiar' : '+ Adjuntar ejercicio'}
-            <ChevronDown size={11} className={exercisePickerOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
-          </button>
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+          {CONTEXT_TABS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setTab(tab.key)}
+              className={`flex-1 py-1.5 px-2 text-[11px] font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${
+                contextTab === tab.key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <tab.Icon size={11} />
+              {tab.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* ── Exercise picker desplegable ── */}
-      {!isReply && exercisePickerOpen && (
-        <div className="border border-gray-200 rounded-lg bg-white">
-          <input
-            type="text"
-            value={exerciseQuery}
-            onChange={e => setExerciseQuery(e.target.value)}
-            placeholder="Buscar ejercicio…"
-            className="input text-xs border-0 rounded-b-none focus:ring-0"
-            autoFocus
-          />
-          <div className="max-h-44 overflow-y-auto border-t border-gray-100">
-            {exerciseSuggestions.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
-            ) : (
-              exerciseSuggestions.map(ex => (
+      {/* ── Selector según tab activo ── */}
+      {!isReply && contextTab === 'exercise' && (
+        <div>
+          {attachedExercise ? (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                <Paperclip size={10} />
+                {attachedExercise.name}
+                {attachedExercise.muscle_group && (
+                  <span className="text-blue-500/70 text-[10px]">· {attachedExercise.muscle_group}</span>
+                )}
                 <button
                   type="button"
-                  key={ex.id}
-                  onClick={() => {
-                    setAttachedExerciseId(ex.id)
-                    setExercisePickerOpen(false)
-                    setExerciseQuery('')
-                  }}
-                  className="block w-full text-left text-xs px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                  onClick={() => setExerciseId(null)}
+                  className="hover:text-blue-900"
+                  aria-label="Quitar ejercicio"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-gray-700">{ex.name}</span>
-                    {ex.muscle_group && (
-                      <span className="text-[10px] text-gray-400 flex-shrink-0">
-                        {ex.muscle_group}
-                      </span>
-                    )}
-                  </div>
+                  <X size={11} />
                 </button>
-              ))
-            )}
-          </div>
+              </span>
+              <button
+                type="button"
+                onClick={() => setExercisePickerOpen(v => !v)}
+                className="text-[11px] text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
+              >
+                Cambiar <ChevronDown size={10} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setExercisePickerOpen(v => !v)}
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-1"
+            >
+              <Paperclip size={11} /> Elegir ejercicio del catálogo
+              <ChevronDown size={11} className={exercisePickerOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+          )}
+
+          {exercisePickerOpen && (
+            <div className="border border-gray-200 rounded-lg bg-white mt-2">
+              <input
+                type="text"
+                value={exerciseQuery}
+                onChange={e => setExerciseQuery(e.target.value)}
+                placeholder="Buscar ejercicio…"
+                className="input text-xs border-0 rounded-b-none focus:ring-0"
+                autoFocus
+              />
+              <div className="max-h-44 overflow-y-auto border-t border-gray-100">
+                {exerciseSuggestions.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+                ) : (
+                  exerciseSuggestions.map(ex => (
+                    <button
+                      type="button"
+                      key={ex.id}
+                      onClick={() => {
+                        setExerciseId(ex.id)
+                        setExercisePickerOpen(false)
+                        setExerciseQuery('')
+                      }}
+                      className="block w-full text-left text-xs px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-gray-700">{ex.name}</span>
+                        {ex.muscle_group && (
+                          <span className="text-[10px] text-gray-400 flex-shrink-0">
+                            {ex.muscle_group}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isReply && contextTab === 'muscle_group' && (
+        <div>
+          {muscleGroup ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                <Layers size={10} />
+                {muscleGroup}
+                <button
+                  type="button"
+                  onClick={() => setMuscleGroup(null)}
+                  className="hover:text-green-900"
+                  aria-label="Quitar grupo muscular"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+              <span className="text-[11px] text-gray-400">Cambiá clickeando otro:</span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Elegí un grupo muscular:</p>
+          )}
+
+          {allMuscleGroups.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {allMuscleGroups.map(mg => (
+                <button
+                  type="button"
+                  key={mg}
+                  onClick={() => setMuscleGroup(mg)}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
+                    muscleGroup === mg
+                      ? 'bg-green-100 text-green-700 border-green-200'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {mg}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-400 mt-1">
+              No hay grupos musculares cargados todavía en el catálogo.
+            </p>
+          )}
         </div>
       )}
 
@@ -320,93 +403,15 @@ export default function NoteComposer({
         value={body}
         onChange={handleBodyChange}
         onKeyDown={handleKeyDown}
-        placeholder={
-          isReply
-            ? 'Escribir tu respuesta…'
-            : attachedExercise
-              ? `Comentar sobre ${attachedExercise.name}…`
-              : isCoach
-                ? 'Escribir nota para el alumno…'
-                : 'Escribir nota para tu coach…'
-        }
+        placeholder={placeholder}
         rows={2}
         className="input text-sm resize-none"
         style={{ minHeight: '60px' }}
         disabled={submitting}
       />
 
-      {/* ── Tags chips actuales ── */}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map(t => (
-            <span
-              key={t}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs font-medium"
-            >
-              {t}
-              <button
-                type="button"
-                onClick={() => removeTag(t)}
-                className="hover:text-primary-900"
-                aria-label={`Quitar tag ${t}`}
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ── Tag input + visibility toggle + submit ── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Tag input + botón "Ver tags" */}
-        <div className="relative flex-1 min-w-[140px]">
-          <TagIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={tagInput}
-            onChange={e => setTagInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addTag(tagInput)
-              } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-                removeTag(tags[tags.length - 1])
-              }
-            }}
-            placeholder="Tag…"
-            className="input pl-7 pr-16 text-xs"
-            disabled={submitting}
-          />
-          {pickerTags.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setTagPickerOpen(v => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
-            >
-              Ver
-              <ChevronDown size={10} className={tagPickerOpen ? 'rotate-180' : ''} />
-            </button>
-          )}
-
-          {/* Sugerencias autocomplete (mientras escribís) */}
-          {tagSuggestions.length > 0 && !tagPickerOpen && (
-            <div className="absolute left-0 bottom-full mb-1 w-full bg-white border border-gray-200 rounded-xl shadow-md max-h-32 overflow-y-auto z-10">
-              {tagSuggestions.map(s => (
-                <button
-                  type="button"
-                  key={s}
-                  onClick={() => addTag(s)}
-                  className="block w-full text-left text-xs px-3 py-1.5 hover:bg-gray-50"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Visibility toggle (solo coach, oculto en modo reply si heredamos) */}
+      {/* ── Visibility toggle + submit ── */}
+      <div className="flex items-center gap-2 flex-wrap justify-end">
         {isCoach && !isReply && (
           <button
             type="button"
@@ -424,7 +429,6 @@ export default function NoteComposer({
           </button>
         )}
 
-        {/* Submit */}
         <button
           type="button"
           onClick={handleSubmit}
@@ -439,31 +443,6 @@ export default function NoteComposer({
         </button>
       </div>
 
-      {/* ── Tag picker: chips clickeables con todos los tags del thread ── */}
-      {tagPickerOpen && pickerTags.length > 0 && (
-        <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
-            Tags existentes en este hilo
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {pickerTags.map(t => (
-              <button
-                type="button"
-                key={t}
-                onClick={() => {
-                  addTag(t)
-                  // No cerramos el picker — el coach quizás quiera agregar varios
-                }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-medium hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700"
-              >
-                <TagIcon size={9} />
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Error inline ── */}
       {error && (
         <p className="text-xs text-red-600">
@@ -471,9 +450,8 @@ export default function NoteComposer({
         </p>
       )}
 
-      {/* ── Hint shortcut ── */}
       {!error && (
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[10px] text-gray-400 text-right">
           Cmd/Ctrl + Enter para enviar
         </p>
       )}

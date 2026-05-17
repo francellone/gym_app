@@ -124,6 +124,17 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     return m
   }, [exercises])
 
+  // ── Lista de grupos musculares para el composer: unión de los
+  // grupos presentes en el thread (filtro de notas existentes) +
+  // todos los grupos del catálogo (para poder estrenar uno). ──
+  const composerMuscleGroups = useMemo(() => {
+    const set = new Set(availableMuscleGroups || [])
+    for (const ex of catalogExercises) {
+      if (ex.muscle_group) set.add(ex.muscle_group)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [availableMuscleGroups, catalogExercises])
+
   // ── Mapa id → nota (para resolver parent en replies) ──────────
   const notesById = useMemo(() => {
     const m = new Map()
@@ -243,15 +254,16 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         )}
       </div>
 
-      {/* Composer (Fase B: habilitado, con context picker Fase B+) */}
+      {/* Composer (Fase B / B+ / B++) */}
       <NoteComposer
         threadId={threadId}
         authorId={authorId}
         authorRole={viewerRole}
         parentNote={replyingTo}
-        availableTags={availableTags}
         allExercises={catalogExercises}
+        allMuscleGroups={composerMuscleGroups}
         defaultExerciseId={filters.exerciseId}
+        defaultMuscleGroup={filters.muscleGroup}
         onCancelReply={() => setReplyingTo(null)}
         onCreated={handleNoteSent}
       />

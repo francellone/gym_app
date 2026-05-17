@@ -14,6 +14,7 @@
 | `v24f` | RPC `notes_mark_thread_read` (bypasa RLS con SECURITY DEFINER para el alumno) + endurece policies del coach: `Coach select all notes` (SELECT) + `Coach insert as self coach` (INSERT exige `author_id = auth.uid()` y `author_role = 'coach'`) + `Coach update notes` (UPDATE permisivo) | ✓ aplicada |
 | `v25a` | Tipo `student_note` en `notifications_type_check` + trigger `fn_notify_student_note` (AFTER INSERT en `notes` para `author_role='student'`). El coach recibe push/badge cuando el alumno escribe. | ✓ aplicada |
 | `v25b` | `context_type='exercise'` agregado al enum + rama nueva en `notes_resolve_context`. Permite adjuntar una nota a un ejercicio del catálogo (no a un log/plan específico). El trigger denormaliza `exercise_id = context_id` y `muscle_group` haciendo lookup a `exercises`. | ✓ aplicada |
+| `v25c` | Trigger `notes_resolve_context` ahora respeta `muscle_group` enviado por el cliente cuando `context_type='free'`. Habilita "notas de grupo muscular sueltas" (sin atarlas a un ejercicio) que igual aparecen en el filtro por grupo. | ✓ aplicada |
 
 **Resumen ejecutivo.** v24 creó la única fuente de verdad de comunicación coach↔alumno (`note_threads` + `notes`) y **dejó intactos** los 6 campos viejos donde la comunicación vivía dispersa. Mientras el front todavía los lee/escribe, los dos sistemas conviven. Cuando el front esté 100% migrado a `notes`, los campos viejos se borran con `migration_v26_drop_legacy_notes.sql`.
 
@@ -248,6 +249,52 @@ VALUES ('<thread>', '<coach>', 'coach', 'Test', 'shared', 'exercise', '<exercise
 - **Caso 5** (comentar inline desde otras vistas como `StudentLogsTab` / `EvaluationDetailPage`): drawer o link "Comentar este log" desde cada pantalla relevante. Es un proyecto en sí (cada vista necesita su entry point + pre‑setear contexto). Diferido.
 - **Caso 6** (comentar un día / sesión específico): requiere agregar handler para `context_type='session_day'` en el trigger (DR6) + decidir qué entidad referencia `context_id` (¿`workout_sessions.id`? ¿`(student_id, date)`?). Diferido.
 - **Caso 7** (comentar un grupo muscular como entidad pura sin ejercicio específico): `muscle_group` no es una entidad estable en la DB (es text label en exercises). Workaround disponible: usar el nombre del grupo como tag (`#PUSH EXERCISE`). No requiere cambios de schema.
+
+## 4e. Fase B++ — tags fuera + 3 contextos (2026‑05‑17)
+
+Pulido del composer post‑uso real:
+
+**Tags removidos del composer.** El campo libre sin curaduría tendía a generar duplicados (`lesion` / `lesión`) y la tag picker era poco descubrible. Se removió el input + chips + picker del `NoteComposer`. La columna `notes.tags` y los índices GIN siguen vivos; las notas legacy con tags se siguen renderizando en `NoteCard` y el filtro por tag en `NotesFilters` sigue funcional (para data existente). Si en el futuro se quiere reintroducir, conviene hacerlo con una taxonomía controlada (`tag_definitions` tabla).
+
+**Context picker con 3 solapas explícitas.** Antes: chip "Adjuntar a:" con un solo ejercicio. Ahora: tabs en el composer con `Observación` (default sin contexto) · `Ejercicio` (picker del catálogo) · `Grupo muscular` (chips con `availableMuscleGroups ∪ exercises.muscle_group`).
+
+**Backend (1 migración aplicada):**
+
+- `v25c` — modifica `notes_resolve_context` para que, cuando `context_type='free'`, **respete** el `muscle_group` que mandó el cliente en vez de pisarlo con NULL. `exercise_id` y `block_type` sí se limpian (no aplican). Es el patrón mínimo que necesitábamos para "nota de grupo muscular suelta" sin agregar entidades nuevas.
+
+**Frontend:**
+
+| Archivo | Cambios |
+|---|---|
+| `src/lib/notes.js` | `createNote` acepta nuevo parámetro opcional `muscleGroup`. Si `contextType='free'` y `muscleGroup` viene seteado, se incluye en el `INSERT`. En cualquier otro `contextType` el trigger pisa el valor. |
+| `src/components/notes/NoteComposer.jsx` | **Reescritura**. Se removió todo lo de tags (input + chips + picker). Estado nuevo: `contextTab` ∈ `'free'|'exercise'|'muscle_group'`. Tres tabs visuales con íconos. La solapa activa muestra su selector específico (picker de ejercicio con buscador, o chips de grupos musculares). Preselección automática desde `defaultExerciseId` o `defaultMuscleGroup`. En modo reply los tabs se ocultan (contexto heredado del padre). |
+| `src/components/notes/NotesPanel.jsx` | Computa `composerMuscleGroups = availableMuscleGroups ∪ catalogExercises.muscle_group` para que el composer ofrezca grupos del catálogo aunque el thread no tenga notas previas con ese grupo. Pasa `defaultMuscleGroup={filters.muscleGroup}` al composer (cascada simétrica al ejercicio). |
+
+**Flujos verificados:**
+
+- **Caso 1 (filtro activo de ejercicio)**: solapa `Ejercicio` preseleccionada con el ejercicio del filtro. Mandar → `context_type='exercise'`. ✓
+- **Caso 2 (comentar ejercicio sin notas previas)**: solapa `Ejercicio` → picker con catálogo completo. ✓
+- **Caso 3 (filtro activo de grupo muscular)**: solapa `Grupo muscular` preseleccionada con el grupo del filtro. Mandar → `context_type='free'`, `muscle_group=<X>`. Aparece en el filtro por grupo. ✓
+- **Caso 4 (observación general)**: solapa `Observación`. Mandar → `context_type='free'`, sin denorm. ✓
+
+**Smoke test SQL post‑deploy:**
+
+```sql
+-- v25c: free con muscle_group manual respetado por trigger
+INSERT INTO public.notes (thread_id, author_id, author_role, body, visibility, context_type, context_id, muscle_group)
+VALUES ('<thread>', '<coach>', 'coach', 'test', 'shared', 'free', NULL, 'KNEE DOMINANT');
+-- Resultado verificado: muscle_group='KNEE DOMINANT' preservado.
+```
+
+**Lo que queda como deuda explícita:**
+
+- **Caso 6** (comentar un día/sesión específico): requiere migración `v26a` que (a) agregue handler para `context_type='session_day'` en el trigger y (b) decida qué entidad referencia `context_id`. Posibles diseños:
+  - `context_id = workout_sessions.id` (UUID estable, requiere que la sesión exista).
+  - Agregar columna `notes.note_date date` que se setee manualmente para notas `free` (similar al patrón de `muscle_group` en v25c).
+  - Combo: usar `session_day` cuando hay sesión y `free + note_date` cuando no.
+  Diferido hasta que se priorice. La auditoría DR6 sigue válida.
+
+- **Tags con taxonomía**: si se reintroducen tags, agregar tabla `tag_definitions(id, name, color, created_by)` y CHECK por array contra esa tabla. Mejor que el text array libre.
 
 ## 5. Casos abiertos / no resueltos
 

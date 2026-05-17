@@ -256,6 +256,7 @@ export async function createNote(payload) {
     parentNoteId,
     authorId,
     authorRole,
+    muscleGroup, // Fase B++: solo aplica cuando contextType='free'
   } = payload || {}
 
   // ── Validaciones ────────────────────────────────────────
@@ -293,6 +294,14 @@ export async function createNote(payload) {
     context_id: ctxId,
     parent_note_id: parentNoteId || null,
     tags: Array.isArray(tags) ? tags : [],
+  }
+
+  // Fase B++: si el usuario adjunta un "Grupo muscular" manual sin
+  // ejercicio (context_type='free'), enviamos muscle_group y el trigger
+  // v25c lo respeta. En cualquier otro context_type el trigger pisa
+  // este valor con la resolución correspondiente.
+  if (ctxType === 'free' && muscleGroup) {
+    insertRow.muscle_group = muscleGroup
   }
 
   const { data, error } = await supabase
