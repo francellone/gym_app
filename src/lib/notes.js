@@ -670,6 +670,48 @@ export async function listFilterOptions(threadId) {
 }
 
 // ============================================================
+// B.6e — postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, body })
+// ------------------------------------------------------------
+// Helper específico para el modal PSE diario de TodayWorkoutPage.
+// Toma la observación que el alumno escribe al cerrar el día y la
+// publica como nota libre en el panel con context_type='free' +
+// note_date = la fecha de la sesión, con un prefijo "[Día X]" para
+// indicar qué sección/día del plan corresponde.
+//
+// Antes (legacy): la nota se guardaba como key dentro de
+// workout_sessions.borg_per_day jsonb. Quedaba enterrada sin que
+// ningún UI la leyera. Esta función reemplaza ese flujo.
+//
+// Devuelve: { data: nota | null, error }
+// ============================================================
+export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, body }) {
+  if (!studentId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId.', details: null, hint: null, raw: null } }
+  }
+  const clean = (body || '').trim()
+  if (!clean) return { data: null, error: null } // sin contenido no hace nada (no-op)
+
+  const { data: thread, error: threadErr } = await getStudentThread(studentId)
+  if (threadErr) return { data: null, error: threadErr }
+  if (!thread) {
+    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+  }
+
+  const prefixedBody = dayLabel ? `[${dayLabel}] ${clean}` : clean
+
+  return createNote({
+    threadId: thread.id,
+    body: prefixedBody,
+    visibility: 'shared',
+    contextType: 'free',
+    contextId: null,
+    noteDate: sessionLoggedDate || null,
+    authorId: studentId,
+    authorRole: 'student',
+  })
+}
+
+// ============================================================
 // B.11 — listAllActiveExercises()
 // ------------------------------------------------------------
 // Catálogo completo de ejercicios activos. Lo necesita el composer

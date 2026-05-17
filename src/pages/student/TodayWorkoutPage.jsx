@@ -18,6 +18,7 @@ import {
   readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import { buildErrorBanner } from '../../utils/errorHelpers'
+import { postPSEDayNote } from '../../lib/notes'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
@@ -1558,13 +1559,16 @@ export default function TodayWorkoutPage() {
     return map
   }
 
-  // Guardar PSE del día en borg_per_day (JSONB en workout_sessions)
+  // Guardar PSE del día. Borg/efforto va a `borg_per_day` (jsonb en
+  // workout_sessions); la observación textual va al panel de notas
+  // (Fase D step 2, v26b) — antes se guardaba como key `${day}_notes`
+  // dentro del mismo jsonb y quedaba enterrada sin que nadie la leyera.
   async function saveDayPSE(day, effortScale, effortNotes) {
     const currentPerDay = session?.borg_per_day || {}
     const newPerDay = {
       ...currentPerDay,
       [day]: effortScale,
-      ...(effortNotes ? { [`${day}_notes`]: effortNotes } : {}),
+      // (legacy removido) — la observación va al panel via postPSEDayNote
     }
     // finished_at se marca siempre que el alumno cierre el PSE del día que entrenó.
     // En la práctica una sesión = un día calendario = un día del plan, así que tratar
@@ -1586,6 +1590,25 @@ export default function TodayWorkoutPage() {
     }
     try {
       await upsertSession(payload)
+
+      // Si el alumno escribió observación del día, publicarla en el panel
+      // como nota libre con note_date = la fecha de la sesión + prefijo
+      // del día (ej: "[Día A] me sentí bien"). El error del posteo no
+      // rompe el flujo: el PSE/scale ya se guardó.
+      if (effortNotes && effortNotes.trim() && profile?.id && session?.logged_date) {
+        const dayLabel = DAY_SHORT_LABELS[day] || SECTION_LABELS[day] || 'Día'
+        const { error: noteErr } = await postPSEDayNote({
+          studentId: profile.id,
+          sessionLoggedDate: session.logged_date,
+          dayLabel,
+          body: effortNotes,
+        })
+        if (noteErr) {
+          // eslint-disable-next-line no-console
+          console.warn('[saveDayPSE] no se pudo publicar la nota en el panel:', noteErr)
+        }
+      }
+
       pseTriggeredRef.current[day] = true
       setShowPSEForDay(null)
     } catch (err) {
