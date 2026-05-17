@@ -30,7 +30,7 @@ const VISIBILITY_RELOAD_THRESHOLD_MS = 30_000
 // Tiempo de gracia para considerar el canal "caído"
 const CHANNEL_REJOIN_CHECK_MS = 5_000
 
-export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) {
+export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteCreated } = {}) {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -41,6 +41,10 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
   const unsubscribeRef = useRef(null)      // función cleanup del canal realtime
   const lastHiddenAtRef = useRef(null)     // timestamp cuando la pestaña se ocultó
   const channelCheckTimerRef = useRef(null) // setTimeout para re-sub
+  // Callback ref para que el effect de subscripción no se re-monte cuando
+  // el caller pasa una función inline; se llama con la nota recién insertada.
+  const onNoteCreatedRef = useRef(onNoteCreated)
+  useEffect(() => { onNoteCreatedRef.current = onNoteCreated }, [onNoteCreated])
 
   // Serializamos filtros como string para usar de dep en useEffect
   const filtersKey = JSON.stringify(filters || {})
@@ -156,6 +160,7 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
       // un poco más que ocultar.)
       if (!matchesFilters(newRow, filters)) return
 
+      let wasInsert = false
       setNotes(prev => {
         const idx = prev.findIndex(n => n.id === newRow.id)
         if (idx >= 0) {
@@ -165,8 +170,13 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach' } = {}) 
           return next
         }
         // INSERT: prepend (orden DESC por created_at)
+        wasInsert = true
         return [newRow, ...prev]
       })
+      // Notificar al consumidor para que pueda refrescar filtros etc.
+      if (wasInsert && onNoteCreatedRef.current) {
+        try { onNoteCreatedRef.current(newRow) } catch { /* ignore */ }
+      }
     })
 
     // Chequeo de salud del canal (re-suscribir si no joineó)

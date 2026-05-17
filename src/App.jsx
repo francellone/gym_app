@@ -32,6 +32,7 @@ import FollowUpFormBuilderPage from './pages/coach/FollowUpFormBuilderPage'
 import IntakeFormPage from './pages/student/IntakeFormPage'
 import FormsListPage from './pages/student/FormsListPage'
 import FollowUpFormPage from './pages/student/FollowUpFormPage'
+import NotesPage from './pages/student/NotesPage'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, profile, loading } = useAuth()
@@ -111,6 +112,7 @@ function AppRoutes() {
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="forms" element={<FormsListPage />} />
+        <Route path="notes" element={<NotesPage />} />
       </Route>
 
       {/* Intake form — fuera del StudentLayout para evitar conflicto de navbars */}

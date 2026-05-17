@@ -1,11 +1,13 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Home, Dumbbell, BarChart2, Clock, User } from 'lucide-react'
+import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
 import NotificationBell from '../notifications/NotificationBell'
+import { useNoteThreadUnread } from '../../hooks/useNoteThreadUnread'
 
 const navItems = [
   { to: '/student', label: 'Inicio', icon: Home, end: true },
   { to: '/student/workout', label: 'Hoy', icon: Dumbbell },
+  { to: '/student/notes', label: 'Notas', icon: MessageSquare, key: 'notes' },
   { to: '/student/progress', label: 'Progreso', icon: BarChart2 },
   { to: '/student/history', label: 'Historial', icon: Clock },
   { to: '/student/profile', label: 'Perfil', icon: User },
@@ -13,6 +15,8 @@ const navItems = [
 
 export default function StudentLayout() {
   const { profile } = useAuth()
+  // Badge de no-leídas en el item Notas (suscripción realtime a note_threads)
+  const { count: unreadNotes } = useNoteThreadUnread(profile?.id, 'student')
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -37,27 +41,41 @@ export default function StudentLayout() {
       {/* Bottom nav (mobile-first) */}
       <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 z-40 safe-area-inset-bottom">
         <div className="flex items-center justify-around px-2 py-2 max-w-lg mx-auto">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-0 ${
-                  isActive
-                    ? 'text-primary-600'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
+          {navItems.map(item => {
+            const showBadge = item.key === 'notes' && unreadNotes > 0
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl transition-colors min-w-0 relative ${
+                    isActive
+                      ? 'text-primary-600'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="relative">
+                      <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
+                      {showBadge && (
+                        <span
+                          className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 bg-orange-500
+                                     text-white text-[10px] font-bold rounded-full
+                                     flex items-center justify-center leading-none ring-2 ring-white"
+                        >
+                          {unreadNotes > 9 ? '9+' : unreadNotes}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium">{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
         </div>
       </nav>
     </div>

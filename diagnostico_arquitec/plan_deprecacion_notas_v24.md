@@ -12,6 +12,7 @@
 | `v24d` | RPC `notes_thread_filter_options` para que los selectores muestren solo valores con notas en el thread | ✓ aplicada |
 | `v24e` | Habilita realtime en `notes` + `note_threads` (`ALTER PUBLICATION supabase_realtime`) | ✓ aplicada |
 | `v24f` | RPC `notes_mark_thread_read` (bypasa RLS con SECURITY DEFINER para el alumno) + endurece policies del coach: `Coach select all notes` (SELECT) + `Coach insert as self coach` (INSERT exige `author_id = auth.uid()` y `author_role = 'coach'`) + `Coach update notes` (UPDATE permisivo) | ✓ aplicada |
+| `v25a` | Tipo `student_note` en `notifications_type_check` + trigger `fn_notify_student_note` (AFTER INSERT en `notes` para `author_role='student'`). El coach recibe push/badge cuando el alumno escribe. | ✓ aplicada |
 
 **Resumen ejecutivo.** v24 creó la única fuente de verdad de comunicación coach↔alumno (`note_threads` + `notes`) y **dejó intactos** los 6 campos viejos donde la comunicación vivía dispersa. Mientras el front todavía los lee/escribe, los dos sistemas conviven. Cuando el front esté 100% migrado a `notes`, los campos viejos se borran con `migration_v26_drop_legacy_notes.sql`.
 
@@ -167,6 +168,45 @@ Lo que quedó como deuda explícita (ver §5):
 - 🟡 DEFECT **D2 (sin notificación `student_note` para el coach)** → decisión arquitectónica abierta antes de Fase B.
 - 🟡 DEFECT **D5 (`evaluation_test` con `context_id = test_id`)** → re‑anchor a `response_id` diferido a Fase C.
 - 🔵 DRIFT **DR6 (`notes_resolve_context` no maneja `session_day`)** → §5.1.
+
+## 4c. Fase B — alcance entregado (2026‑05‑17)
+
+Fase B agrega ESCRITURA al panel y construye el lado del alumno. La Fase A entera era read‑only; ahora ambos lados pueden mandar y leer notas en tiempo real.
+
+**Backend (1 migración aplicada):**
+
+- `v25a` — agregado `student_note` al enum CHECK de `notifications.type` y nuevo trigger `fn_notify_student_note` simétrico al `fn_notify_coach_note` existente. Cuando el alumno inserta una nota (`author_role='student'` y `deleted_at IS NULL`), el coach recibe una notificación con título "<Nombre> te escribió una nota" y un excerpt de 140 chars.
+
+**Frontend nuevo:**
+
+| Archivo | Qué |
+|---|---|
+| `src/components/notes/NoteComposer.jsx` | **Reescritura completa**: textarea autosize, tags como chips (con sugerencias de `availableTags`), toggle de visibility para el coach (Compartida ↔ Privada), modo reply con quote del padre y botón cancelar, Cmd/Ctrl+Enter para enviar, manejo de error inline. Llama `createNote` o `replyNote` según corresponda. |
+| `src/components/notes/NoteCard.jsx` | Botón "Responder" debajo de la burbuja cuando se pasa `onReply`. No aparece en notas borradas. |
+| `src/components/notes/NotesPanel.jsx` | Estado `replyingTo`. `fetchOpts` movido a ref para re‑disparar desde realtime (D4): cuando llega un INSERT, se debounce 1.5s y se refresca `listFilterOptions(threadId)`, así los selectores ven ejercicios/tags nuevos sin recargar la página. |
+| `src/hooks/useNotes.js` | Acepta `onNoteCreated` callback. Cuando recibe un INSERT por realtime (no UPDATE), llama el callback con la nota nueva. |
+| `src/hooks/useNoteThreadUnread.js` | **Nuevo**. Hook que devuelve `{ count, loading }` para `(studentId, role)`. Hace SELECT inicial a `note_threads.unread_for_<role>` y se suscribe vía realtime a INSERT/UPDATE en `note_threads` filtrando por `student_id`. Sirve para badges en menú y en tabs. |
+| `src/pages/student/NotesPage.jsx` | **Nueva** página del alumno. Resuelve thread vía `getStudentThread(profile.id)`. Render: header + `<NotesPanel viewerRole="student" />`. Estados de loading / error. |
+| `src/App.jsx` | Ruta `/student/notes` (dentro de `StudentLayout`). |
+| `src/components/layout/StudentLayout.jsx` | Nueva entrada de menú "Notas" entre Hoy y Progreso. Badge naranja en el ícono con `unreadNotes` (vía `useNoteThreadUnread`). Tipografía del nav ajustada a `text-[11px]` por la sexta entrada. |
+| `src/pages/coach/StudentDetailPage.jsx` | Badge naranja en el tab "Notas" mostrando `unread_for_coach` del thread. Realtime, actualiza apenas el alumno escribe. |
+| `src/components/notifications/NotificationBell.jsx` | Config de ícono/color para el nuevo tipo `student_note` (naranja, mismo `MessageSquare`). |
+
+**Flujos resultantes verificables:**
+
+- **Coach escribe → alumno recibe**: nota se inserta (RLS valida `author_id=auth.uid()` y `author_role='coach'` por v24f). Trigger `fn_notify_coach_note` (v24) genera notif `coach_comment` para el alumno. Trigger `notes_bump_thread` (v24) actualiza `last_message_at` y suma 1 a `unread_for_student`. Realtime envía INSERT a la suscripción del alumno; si el alumno tiene el panel abierto, ve la burbuja aparecer con borde naranja y dot; el `useNoteThreadUnread` actualiza el badge del menú.
+- **Alumno escribe → coach recibe**: simétrico. La nota va con `author_role='student'` y `visibility='shared'` forzados por la policy "Student insert own notes". Trigger `fn_notify_student_note` (v25a) genera notif `student_note` para el coach. El badge del tab "Notas" en `StudentDetailPage` se actualiza por realtime.
+- **Reply con contexto heredado**: cuando se clickea "Responder" en una nota, el composer entra en modo reply, hereda `context_type`, `context_id` y `visibility` del padre (a menos que el caller los override). Mostramos quote del padre arriba del textarea con botón "X" para cancelar.
+- **Tags y ejercicios nuevos en filtros**: si la primera nota sobre `Bench Press` o con tag `lesión` llega vía realtime, el debounce de 1.5s dispara `fetchOptsRef.current()` y el filtro empieza a listarlos sin reload.
+
+**Cosas que se mantuvieron explícitamente afuera de Fase B:**
+
+- Dual write a campos viejos (`workout_logs.notes`, `profiles.observations`, etc.) — eso es **Fase C**, donde modificamos `TodayWorkoutPage` y `StudentInfoTab` para escribir simultáneamente en `notes` y los campos legacy.
+- Borrar columnas viejas — **Fase D + migration_v26**.
+- Re‑anclar `context_id` en eval_test responses — D5, diferido.
+- Handler de `session_day` en `notes_resolve_context` — DR6, diferido.
+- Composer con selector explícito de contexto (ej. "asociar a este ejercicio del plan") — diferido a una Fase B.1; hoy el composer libre crea notas `context_type='free'` salvo en mode reply.
+- Edición de bodies y soft‑delete desde la UI — diferido.
 
 ## 5. Casos abiertos / no resueltos
 

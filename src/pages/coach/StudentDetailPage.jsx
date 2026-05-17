@@ -16,6 +16,7 @@ import StudentEvaluationsTab from './student/StudentEvaluationsTab'
 import StudentWellbeingTab from './student/StudentWellbeingTab'
 import StudentFormsTab from './student/StudentFormsTab'
 import StudentNotesTab from './student/StudentNotesTab'
+import { useNoteThreadUnread } from '../../hooks/useNoteThreadUnread'
 
 const TABS = [
   { id: 'info',          label: 'Info'         },
@@ -51,6 +52,9 @@ export default function StudentDetailPage() {
   const [formSubmission, setFormSubmission] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
+
+  // Badge de no-leídas para el tab "Notas" (coach side)
+  const { count: notesUnread } = useNoteThreadUnread(id, 'coach')
 
   useEffect(() => { fetchStudentData() }, [id])
 
@@ -209,7 +213,7 @@ export default function StudentDetailPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all relative ${
               activeTab === tab.id
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -218,6 +222,15 @@ export default function StudentDetailPage() {
             {tab.label}
             {tab.id === 'history' && editHistory.length > 0 && (
               <span className="ml-1 text-xs text-gray-400">({editHistory.length})</span>
+            )}
+            {tab.id === 'notas' && notesUnread > 0 && (
+              <span
+                className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1
+                           bg-orange-500 text-white text-[10px] font-bold rounded-full leading-none align-middle"
+                title={`${notesUnread} sin leer`}
+              >
+                {notesUnread > 9 ? '9+' : notesUnread}
+              </span>
             )}
           </button>
         ))}

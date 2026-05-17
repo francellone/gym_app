@@ -14,11 +14,13 @@
  *   exercisesMap  Map<id, exercise> para resolver nombres
  *   onTagClick    (tag) => void — clickear un tag agrega al filtro
  *   isUnread      bool — si la nota no fue leída por el viewer (muestra dot)
+ *   onReply       (note) => void — botón "Responder" (Fase B). Si no se pasa,
+ *                 el botón no se muestra.
  */
 
 import { format, parseISO, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Lock, Tag, MessageSquare, CornerDownRight } from 'lucide-react'
+import { Lock, Tag, MessageSquare, CornerDownRight, Reply } from 'lucide-react'
 import { contextTypeLabel } from '../../lib/notes'
 
 // ── Etiquetas de muscle group / block type (mínimas) ─────────
@@ -55,7 +57,7 @@ function buildContextLabel(note, exercisesMap) {
   return baseLabel
 }
 
-export default function NoteCard({ note, parentNote, exercisesMap, onTagClick, isUnread = false }) {
+export default function NoteCard({ note, parentNote, exercisesMap, onTagClick, isUnread = false, onReply }) {
   if (!note) return null
 
   const isCoach = note.author_role === 'coach'
@@ -151,13 +153,24 @@ export default function NoteCard({ note, parentNote, exercisesMap, onTagClick, i
         )}
       </div>
 
-      {/* ── Hora (debajo de la burbuja) ── */}
-      <span
-        className="text-[10px] text-gray-400 px-1"
-        title={fullDate}
-      >
-        {relativeTime}
-      </span>
+      {/* ── Hora + responder (debajo de la burbuja) ── */}
+      <div className={`flex items-center gap-2 px-1 ${metaAlignment}`}>
+        {onReply && !note.deleted_at && (
+          <button
+            type="button"
+            onClick={() => onReply(note)}
+            className="text-[10px] text-gray-400 hover:text-primary-600 flex items-center gap-0.5 font-medium"
+          >
+            <Reply size={10} /> Responder
+          </button>
+        )}
+        <span
+          className="text-[10px] text-gray-400"
+          title={fullDate}
+        >
+          {relativeTime}
+        </span>
+      </div>
     </div>
   )
 }

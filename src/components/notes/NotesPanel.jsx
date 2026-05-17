@@ -1,17 +1,21 @@
 /**
  * NotesPanel
  *
- * Orquestador del panel de notas:
- *   - Mantiene estado de filtros
- *   - Trae available tags + exercises para los filtros y los cards
- *   - Usa useNotes para la lista (incluye realtime)
- *   - Render: NotesFilters arriba + lista de NoteCard + NoteComposer (disabled)
+ * Orquestador del panel de notas.
+ *
+ * Responsabilidades:
+ *   - Estado de filtros + replies
+ *   - Trae opciones de filtros (RPC notes_thread_filter_options)
+ *   - Usa useNotes para la lista (con realtime)
+ *   - Mark-as-read automático tras 1.5s
+ *   - Refetch de opciones de filtro al recibir INSERT por realtime (D4)
+ *   - Render: filtros + lista de NoteCard + NoteComposer
  *
  * Props:
  *   threadId      string  — id del note_thread
  *   viewerRole    'coach' | 'student'
  *   studentId     string  (opcional, solo informativo)
- *   authorId      string  (opcional, lo necesitará el composer en Fase B)
+ *   authorId      string  — id del profile autenticado (lo usa NoteComposer)
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
@@ -22,54 +26,21 @@ import NotesFilters from './NotesFilters'
 import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
 
+const FILTER_REFETCH_DEBOUNCE_MS = 1500
+
 export default function NotesPanel({ threadId, viewerRole = 'coach', authorId }) {
   const [filters, setFilters] = useState({})
   const [availableTags, setAvailableTags] = useState([])
   const [exercises, setExercises] = useState([])
   const [availableMuscleGroups, setAvailableMuscleGroups] = useState([])
   const [availableBlockTypes, setAvailableBlockTypes] = useState([])
+  const [replyingTo, setReplyingTo] = useState(null)
 
-  // ── Hook principal de notas (con realtime) ────────────────────
-  const { notes, loading, error, hasMore, loadMore, reload, unreadIds, unreadCount } = useNotes({
-    threadId,
-    filters,
-    viewerRole,
-  })
-
-  // ── Snapshot de no-leídas al primer render: las que entraron como
-  // unread se quedan marcadas durante toda la visita aunque después
-  // hagamos mark-as-read. Así el coach ve cuáles eran "nuevas". ──
-  const initialUnreadRef = useRef(new Set())
-  useEffect(() => {
-    for (const id of unreadIds) initialUnreadRef.current.add(id)
-  }, [unreadIds])
-  useEffect(() => {
-    // Reset al cambiar de thread
-    initialUnreadRef.current = new Set()
-  }, [threadId])
-
-  // ── Mark as read on mount (después de 1.5s de visualización) ──
-  const hasMarkedRef = useRef(false)
-  useEffect(() => {
-    hasMarkedRef.current = false
-  }, [threadId])
-  useEffect(() => {
-    if (!threadId || notes.length === 0 || hasMarkedRef.current) return
-    if (unreadCount === 0) return // nada para marcar
-    const t = setTimeout(async () => {
-      hasMarkedRef.current = true
-      await markThreadRead(threadId, viewerRole)
-      // El UPDATE viaja por realtime y refresca los notes con read_at_*
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [threadId, notes.length, unreadCount, viewerRole])
-
-  // ── Carga de opciones de filtros desde la RPC del thread ──────
-  // (una sola llamada que trae exercises + muscle_groups + block_types
-  //  + tags, todos derivados de las notas reales del thread)
+  // ── fetchOpts en ref para invocarlo desde realtime sin re-armar useEffect ──
+  const fetchOptsRef = useRef(null)
   useEffect(() => {
     let alive = true
-    async function fetchOpts() {
+    fetchOptsRef.current = async () => {
       if (!threadId) {
         setExercises([]); setAvailableMuscleGroups([])
         setAvailableBlockTypes([]); setAvailableTags([])
@@ -82,9 +53,57 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
       setAvailableBlockTypes(data.block_types)
       setAvailableTags(data.tags)
     }
-    fetchOpts()
+    // primera carga
+    fetchOptsRef.current()
     return () => { alive = false }
   }, [threadId])
+
+  // ── D4: cuando llega un INSERT por realtime, re-fetch debounced de las
+  // opciones de filtros (puede haber un ejercicio / tag nuevo). ──
+  const refetchTimerRef = useRef(null)
+  const handleNoteCreated = useCallback(() => {
+    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current)
+    refetchTimerRef.current = setTimeout(() => {
+      fetchOptsRef.current?.()
+    }, FILTER_REFETCH_DEBOUNCE_MS)
+  }, [])
+  useEffect(() => {
+    return () => {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current)
+    }
+  }, [])
+
+  // ── Hook principal de notas (con realtime) ────────────────────
+  const { notes, loading, error, hasMore, loadMore, reload, unreadIds, unreadCount } = useNotes({
+    threadId,
+    filters,
+    viewerRole,
+    onNoteCreated: handleNoteCreated,
+  })
+
+  // ── Snapshot de no-leídas al primer render ──────────────────────
+  const initialUnreadRef = useRef(new Set())
+  useEffect(() => {
+    for (const id of unreadIds) initialUnreadRef.current.add(id)
+  }, [unreadIds])
+  useEffect(() => {
+    initialUnreadRef.current = new Set()
+  }, [threadId])
+
+  // ── Mark as read on mount (después de 1.5s) ─────────────────────
+  const hasMarkedRef = useRef(false)
+  useEffect(() => {
+    hasMarkedRef.current = false
+  }, [threadId])
+  useEffect(() => {
+    if (!threadId || notes.length === 0 || hasMarkedRef.current) return
+    if (unreadCount === 0) return
+    const t = setTimeout(async () => {
+      hasMarkedRef.current = true
+      await markThreadRead(threadId, viewerRole)
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [threadId, notes.length, unreadCount, viewerRole])
 
   // ── Mapa id → ejercicio (para resolver contexto en NoteCard) ──
   const exercisesMap = useMemo(() => {
@@ -100,7 +119,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     return m
   }, [notes])
 
-  // Callback: click en tag desde NoteCard agrega al filtro
+  // Callback: click en tag agrega al filtro
   const handleTagClick = useCallback((tag) => {
     setFilters(prev => {
       const current = Array.isArray(prev.tags) ? prev.tags : []
@@ -109,10 +128,21 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     })
   }, [])
 
+  // Callback: click en "Responder" en un NoteCard
+  const handleReply = useCallback((note) => {
+    setReplyingTo(note)
+  }, [])
+
+  // Callback: tras crear una nota, scrolleamos arriba (lista DESC).
+  // No tocamos `notes` manualmente: realtime ya va a traer el INSERT.
+  const handleNoteSent = useCallback(() => {
+    // No-op por ahora; podríamos hacer scrollIntoView si fuese necesario.
+  }, [])
+
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-3">
-      {/* Header con contador de no leídas */}
+      {/* Banner contador de no leídas */}
       {unreadCount > 0 && (
         <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
           <div className="flex items-center gap-2 text-orange-700 text-sm">
@@ -164,7 +194,9 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm font-medium text-gray-500">Sin notas</p>
             <p className="text-xs text-gray-400 mt-1">
-              No hay notas para los filtros actuales.
+              {viewerRole === 'coach'
+                ? 'Todavía no se intercambiaron notas con este alumno.'
+                : 'Todavía no hay notas en este hilo.'}
             </p>
           </div>
         )}
@@ -177,6 +209,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             exercisesMap={exercisesMap}
             onTagClick={handleTagClick}
             isUnread={initialUnreadRef.current.has(note.id)}
+            onReply={handleReply}
           />
         ))}
 
@@ -198,12 +231,15 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         )}
       </div>
 
-      {/* Composer (deshabilitado en Fase A) */}
+      {/* Composer (Fase B: habilitado) */}
       <NoteComposer
         threadId={threadId}
         authorId={authorId}
         authorRole={viewerRole}
-        viewerRole={viewerRole}
+        parentNote={replyingTo}
+        availableTags={availableTags}
+        onCancelReply={() => setReplyingTo(null)}
+        onCreated={handleNoteSent}
       />
     </div>
   )

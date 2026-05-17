@@ -50,6 +50,11 @@ const TYPE_CONFIG = {
     color: 'text-purple-500',
     bg:    'bg-purple-50',
   },
+  student_note: {
+    Icon:  MessageSquare,
+    color: 'text-orange-500',
+    bg:    'bg-orange-50',
+  },
   weekly_summary: {
     Icon:  TrendingUp,
     color: 'text-indigo-500',
