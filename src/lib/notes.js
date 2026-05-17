@@ -531,10 +531,50 @@ export async function listAvailableTags(threadId) {
 }
 
 // ============================================================
-// B.10 — listExercisesForFilter()
+// B.9b — listFilterOptions(threadId)
 // ------------------------------------------------------------
-// Solo ejercicios activos. Cache módulo (5min) porque rara vez
-// cambia y el panel puede montarse varias veces.
+// Devuelve las opciones de filtros del panel derivadas de las
+// PROPIAS notas del thread (no del catálogo completo). Garantiza
+// que solo aparezcan valores que efectivamente devolverán filas.
+//
+// Una sola RPC: notes_thread_filter_options (v24d). SECURITY DEFINER
+// bypasea RLS de exercises (el thread_id ya filtra qué se ve).
+//
+// Devuelve: { data: { exercises, muscle_groups, block_types, tags }, error }
+//   - exercises:    Array<{ id, name, muscle_group }>
+//   - muscle_groups: string[]
+//   - block_types:  Array<'strength'|'aerobic'|'circuit'>
+//   - tags:         string[]
+// ============================================================
+const EMPTY_OPTS = { exercises: [], muscle_groups: [], block_types: [], tags: [] }
+
+export async function listFilterOptions(threadId) {
+  if (!threadId) return { data: EMPTY_OPTS, error: null }
+  const { data, error } = await supabase.rpc('notes_thread_filter_options', {
+    p_thread_id: threadId,
+  })
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('[notes.listFilterOptions] error:', error)
+    return { data: EMPTY_OPTS, error: normalizeError(error, 'No se pudieron cargar los filtros.') }
+  }
+  // La RPC devuelve jsonb; supabase-js lo deserializa a objeto JS.
+  return {
+    data: {
+      exercises:     Array.isArray(data?.exercises)     ? data.exercises     : [],
+      muscle_groups: Array.isArray(data?.muscle_groups) ? data.muscle_groups : [],
+      block_types:   Array.isArray(data?.block_types)   ? data.block_types   : [],
+      tags:          Array.isArray(data?.tags)          ? data.tags          : [],
+    },
+    error: null,
+  }
+}
+
+// ============================================================
+// B.10 — listExercisesForFilter() [DEPRECATED a partir de v24d]
+// ------------------------------------------------------------
+// Mantener por compatibilidad. Preferir listFilterOptions(threadId)
+// que devuelve solo ejercicios con notas en el thread.
 // ============================================================
 export async function listExercisesForFilter() {
   if (_exercisesCache && _exercisesCache.expiresAt > Date.now()) {

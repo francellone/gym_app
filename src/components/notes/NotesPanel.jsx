@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { useNotes } from '../../hooks/useNotes'
-import { listAvailableTags, listExercisesForFilter } from '../../lib/notes'
+import { listFilterOptions } from '../../lib/notes'
 import NotesFilters from './NotesFilters'
 import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
@@ -26,6 +26,8 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   const [filters, setFilters] = useState({})
   const [availableTags, setAvailableTags] = useState([])
   const [exercises, setExercises] = useState([])
+  const [availableMuscleGroups, setAvailableMuscleGroups] = useState([])
+  const [availableBlockTypes, setAvailableBlockTypes] = useState([])
 
   // ── Hook principal de notas (con realtime) ────────────────────
   const { notes, loading, error, hasMore, loadMore, reload } = useNotes({
@@ -34,19 +36,25 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     viewerRole,
   })
 
-  // ── Carga inicial de tags + exercises ─────────────────────────
+  // ── Carga de opciones de filtros desde la RPC del thread ──────
+  // (una sola llamada que trae exercises + muscle_groups + block_types
+  //  + tags, todos derivados de las notas reales del thread)
   useEffect(() => {
     let alive = true
-    async function fetchAux() {
-      const [tagsRes, exercisesRes] = await Promise.all([
-        threadId ? listAvailableTags(threadId) : Promise.resolve({ data: [], error: null }),
-        listExercisesForFilter(),
-      ])
+    async function fetchOpts() {
+      if (!threadId) {
+        setExercises([]); setAvailableMuscleGroups([])
+        setAvailableBlockTypes([]); setAvailableTags([])
+        return
+      }
+      const { data } = await listFilterOptions(threadId)
       if (!alive) return
-      setAvailableTags(tagsRes.data || [])
-      setExercises(exercisesRes.data || [])
+      setExercises(data.exercises)
+      setAvailableMuscleGroups(data.muscle_groups)
+      setAvailableBlockTypes(data.block_types)
+      setAvailableTags(data.tags)
     }
-    fetchAux()
+    fetchOpts()
     return () => { alive = false }
   }, [threadId])
 
@@ -82,6 +90,8 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         onChange={setFilters}
         exercises={exercises}
         availableTags={availableTags}
+        availableMuscleGroups={availableMuscleGroups}
+        availableBlockTypes={availableBlockTypes}
       />
 
       {/* Error banner */}

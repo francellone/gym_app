@@ -67,7 +67,14 @@ function detectTimePreset(filters) {
   return 'custom'
 }
 
-export default function NotesFilters({ value = {}, onChange, exercises = [], availableTags = [] }) {
+export default function NotesFilters({
+  value = {},
+  onChange,
+  exercises = [],
+  availableTags = [],
+  availableMuscleGroups = null, // si viene null, se deriva de exercises
+  availableBlockTypes = null,   // si viene null, se muestran los 3 presets
+}) {
   const [customOpen, setCustomOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
   // Estado local del preset activo. Se setea explícitamente cuando el
@@ -87,14 +94,31 @@ export default function NotesFilters({ value = {}, onChange, exercises = [], ava
 
   const activeTime = activeTimeKey ?? detectTimePreset(value)
 
-  // ── Lista de grupos musculares única (a partir de exercises) ──
+  // ── Lista de grupos musculares: si llegan desde props (derivados
+  // de las notas del thread), usamos eso; sino fallback a derivar
+  // del catálogo `exercises` (modo legacy). ──
   const muscleGroups = useMemo(() => {
+    if (Array.isArray(availableMuscleGroups) && availableMuscleGroups.length >= 0) {
+      // Si availableMuscleGroups fue provisto (aunque vacío), respetarlo.
+      // Si vino null/undefined caemos al else.
+      if (availableMuscleGroups !== null) return [...availableMuscleGroups]
+    }
     const set = new Set()
     for (const ex of exercises) {
       if (ex.muscle_group) set.add(ex.muscle_group)
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [exercises])
+  }, [exercises, availableMuscleGroups])
+
+  // ── Tipos de bloque: si vienen de props mostramos solo los que
+  // tienen notas; sino todos los presets. ──
+  const blockTypesToShow = useMemo(() => {
+    if (Array.isArray(availableBlockTypes)) {
+      const set = new Set(availableBlockTypes)
+      return BLOCK_TYPE_PRESETS.filter(p => set.has(p.key))
+    }
+    return BLOCK_TYPE_PRESETS
+  }, [availableBlockTypes])
 
   // ── Tags actuales / sugerencias filtradas ─────────────────────
   const currentTags = Array.isArray(value.tags) ? value.tags : []
@@ -313,28 +337,30 @@ export default function NotesFilters({ value = {}, onChange, exercises = [], ava
         </div>
       </div>
 
-      {/* ── BlockType chips ── */}
-      <div>
-        <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Tipo de bloque</p>
-        <div className="flex flex-wrap gap-1.5">
-          {BLOCK_TYPE_PRESETS.map(b => (
-            <button
-              key={b.key}
-              type="button"
-              onClick={() =>
-                patch({ blockType: value.blockType === b.key ? undefined : b.key })
-              }
-              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                value.blockType === b.key
-                  ? 'bg-primary-100 text-primary-700 border-primary-200'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {b.label}
-            </button>
-          ))}
+      {/* ── BlockType chips (solo los presentes en el thread) ── */}
+      {blockTypesToShow.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Tipo de bloque</p>
+          <div className="flex flex-wrap gap-1.5">
+            {blockTypesToShow.map(b => (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() =>
+                  patch({ blockType: value.blockType === b.key ? undefined : b.key })
+                }
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  value.blockType === b.key
+                    ? 'bg-primary-100 text-primary-700 border-primary-200'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Tags ── */}
       <div>
