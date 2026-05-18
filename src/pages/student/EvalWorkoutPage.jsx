@@ -10,7 +10,17 @@ import {
 } from '../../utils/evalHelpers'
 import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle, MessageSquare, Eye } from 'lucide-react'
 import { parseReps } from '../../utils/planHelpers'
-import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../lib/notes'
+import { fetchEvalMirrorBodies, postEvalCommentNote, postEvalResultNote, fetchSingleMirrorBodies } from '../../lib/notes'
+
+// ============================================================
+// Helper: leer la nota general de un evaluation_result desde el panel
+// (post v26f: la columna evaluation_results.notes fue dropeada).
+// ============================================================
+async function loadResultNotesFromPanel(resultId) {
+  if (!resultId) return ''
+  const m = await fetchSingleMirrorBodies({ contextType: 'evaluation_result', contextIds: [resultId] })
+  return m.get(resultId) ?? ''
+}
 
 // ============================================================
 // Shared: Method badge (locked by coach, not selectable)
@@ -1339,7 +1349,7 @@ export default function EvalWorkoutPage() {
 
         if (existing) {
           setExistingResultId(existing.id)
-          setNotes(existing.notes || '')
+          setNotes(await loadResultNotesFromPanel(existing.id))
           // Cargar las responses existentes
           const { data: respData } = await supabase
             .from('evaluation_test_responses')
@@ -1426,7 +1436,7 @@ export default function EvalWorkoutPage() {
           }
         }
         setResults(loadedResults)
-        setNotes(existing.notes || '')
+        setNotes(await loadResultNotesFromPanel(existing.id))
         setExistingResultId(existing.id)
       }
     } catch (err) {
@@ -1492,7 +1502,7 @@ export default function EvalWorkoutPage() {
         .maybeSingle()
       if (existing) {
         setExistingResultId(existing.id)
-        setNotes(existing.notes || '')
+        setNotes(await loadResultNotesFromPanel(existing.id))
         const { data: respData } = await supabase
           .from('evaluation_test_responses')
           .select('*')
@@ -1530,7 +1540,7 @@ export default function EvalWorkoutPage() {
         loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
       }
       setResults(loaded)
-      setNotes(existing.notes || '')
+      setNotes(await loadResultNotesFromPanel(existing.id))
       setExistingResultId(existing.id)
     }
   }
@@ -1551,7 +1561,7 @@ export default function EvalWorkoutPage() {
         loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
       }
       setResults(loaded)
-      setNotes(existing.notes || '')
+      setNotes(await loadResultNotesFromPanel(existing.id))
     }
   }
 
@@ -1581,7 +1591,10 @@ export default function EvalWorkoutPage() {
     setSaving(true)
     setError(null)
     try {
-      // 1. Upsert evaluation_result
+      // 1. Upsert evaluation_result. v26f: la columna `notes` se dropeó;
+      // ahora la observación general va al panel via postEvalResultNote.
+      // Para custom seguimos guardando { notes } dentro del jsonb `results`
+      // (compat con readers de detail page mientras migran).
       const { data: upserted, error } = await supabase
         .from('evaluation_results')
         .upsert({
@@ -1590,13 +1603,23 @@ export default function EvalWorkoutPage() {
           eval_date: evalDate,
           eval_type: plan.eval_type,
           results: plan.eval_type === 'custom' ? { notes } : results,
-          notes,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'student_id,plan_id,eval_date' })
         .select('id')
         .single()
       if (error) throw error
       const resultId = upserted.id
+
+      // 1.b — guardar nota general en el panel
+      const { error: noteErr } = await postEvalResultNote({
+        studentId: user.id,
+        resultId,
+        body: notes || '',
+      })
+      if (noteErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[handleSave] no se pudo guardar la nota general en el panel:', noteErr)
+      }
 
       // 2. Para custom: upsert evaluation_test_responses
       if (plan.eval_type === 'custom') {

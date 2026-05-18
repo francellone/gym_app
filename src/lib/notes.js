@@ -731,6 +731,64 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
 }
 
 // ============================================================
+// B.6g.2 — postWorkoutBlockLogNote({ studentId, blockLogId, body })
+// ------------------------------------------------------------
+// Análogo a postWorkoutLogNote pero para workout_block_logs
+// (bloques aeróbicos y de circuito). La columna `notes` de la
+// tabla workout_block_logs se dropeó en v26d, así que el body
+// se persiste como una nota mirror en el panel.
+// ============================================================
+export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
+  if (!studentId || !blockLogId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o blockLogId.', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (body || '').trim()
+
+  // Buscar mirror existente del block_log para este alumno
+  const { data: existing, error: findErr } = await supabase
+    .from('notes')
+    .select('id, body, thread_id')
+    .eq('context_type', 'workout_block_log')
+    .eq('context_id', blockLogId)
+    .eq('author_role', 'student')
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (findErr && !isNoRowsError(findErr)) {
+    return { data: null, error: normalizeError(findErr, 'No se pudo buscar la nota del bloque.') }
+  }
+
+  // Caso 1: body vacío → soft-delete si existe
+  if (!cleanBody) {
+    if (!existing) return { data: null, error: null }
+    return softDeleteNote(existing.id)
+  }
+
+  // Caso 2: existe → UPDATE body si cambió
+  if (existing) {
+    if (existing.body === cleanBody) return { data: existing, error: null }
+    return updateNote(existing.id, { body: cleanBody })
+  }
+
+  // Caso 3: no existe → INSERT. Resolvemos el thread del alumno.
+  const { data: thread, error: threadErr } = await getStudentThread(studentId)
+  if (threadErr) return { data: null, error: threadErr }
+  if (!thread) {
+    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+  }
+
+  return createNote({
+    threadId: thread.id,
+    body: cleanBody,
+    visibility: 'shared',
+    contextType: 'workout_block_log',
+    contextId: blockLogId,
+    authorId: studentId,
+    authorRole: 'student',
+  })
+}
+
+// ============================================================
 // B.6h.1 — postEvalResultNote({ studentId, resultId, body })
 // ------------------------------------------------------------
 // Upsert para la nota GENERAL del evaluation_result (no por prueba).

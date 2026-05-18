@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { EVAL_TYPES, METHODS, evalTypeColor, evalTypeLabel, evalTypeIcon } from '../../utils/evalHelpers'
 import { ArrowLeft, Users, Calendar, ChevronDown, ChevronUp, Edit2, ExternalLink, Trash2 } from 'lucide-react'
 import DeletePlanModal from '../../components/DeletePlanModal'
+import { fetchSingleMirrorBodies } from '../../lib/notes'
 
 // ============================================================
 // Shared mini components
@@ -380,7 +381,26 @@ export default function EvaluationDetailPage() {
       ])
       setPlan(planRes.data)
       setAssignments(assignmentsRes.data || [])
-      setResults(resultsRes.data || [])
+
+      // v26f: la columna evaluation_results.notes fue dropeada. Las
+      // observaciones generales viven en el panel con context_type=
+      // 'evaluation_result'. Si hay mirror, override results.notes (jsonb)
+      // y agregamos res.notes (que ya no existe en DB) para que los
+      // viewers legacy que leen `results.notes` muestren la versión
+      // del panel.
+      const rawResults = resultsRes.data || []
+      const resultIds = rawResults.map(r => r.id)
+      const panelBodies = await fetchSingleMirrorBodies({ contextType: 'evaluation_result', contextIds: resultIds })
+      const resultsWithPanel = rawResults.map(r => {
+        const panelBody = panelBodies.get(r.id)
+        if (panelBody == null) return r
+        return {
+          ...r,
+          notes: panelBody, // legacy fallback en JSX `{res.notes && ...}`
+          results: { ...(r.results || {}), notes: panelBody },
+        }
+      })
+      setResults(resultsWithPanel)
     } catch (err) {
       console.error(err)
     } finally {
