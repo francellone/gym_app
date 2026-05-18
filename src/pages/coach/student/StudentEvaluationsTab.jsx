@@ -16,6 +16,7 @@ import {
   assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
 import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../../lib/notes'
+import { useAuth } from '../../../contexts/AuthContext'
 
 // ─────────────────────────────────────────────────────────────
 // StudentEvaluationsTab
@@ -26,6 +27,8 @@ import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../../lib/notes'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
+  const { profile } = useAuth()  // multi-coach v31: necesitamos profile.id como coachId
+
   // Solo evaluaciones asignadas (incluye históricas — el agrupador las separa).
   const evalAssignments = (assignments || []).filter(a => {
     const t = a.plan_type || a.plan?.plan_type
@@ -555,6 +558,7 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
             body: comment.public || '',
             role: 'coach',
             visibility: 'shared',
+            coachId: profile?.id,
           }),
           postEvalCommentNote({
             studentId: resultado.student_id,
@@ -562,6 +566,7 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
             body: comment.private || '',
             role: 'coach',
             visibility: 'coach_private',
+            coachId: profile?.id,
           }),
         ])
         if (pubRes.error) console.warn('[saveComments] pub error:', pubRes.error)

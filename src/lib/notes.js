@@ -98,27 +98,29 @@ export async function getOrCreateThread(coachId, studentId) {
 }
 
 // ============================================================
-// B.1b — getOrCreateThreadForStudent(studentId)
+// B.1b — getOrCreateThreadForStudent(studentId, coachId)
 // ------------------------------------------------------------
-// Wrapper que resuelve el coach_id "real" vía la RPC get_coach_id()
-// del back en lugar de usar el profile.id del coach logueado.
+// Wrapper para el coach: abre/crea el thread con el alumno
+// indicado, usando SU propio id como coach.
 //
-// Motivo: el modelo de la app es admin-único pero la tabla
-// `profiles` permite múltiples filas con role='coach'. El backfill
-// de v24 metió todas las notas bajo el coach que devuelve
-// get_coach_id() (el primero por orden de creación). Si otro
-// "coach" se loguea y abre el panel, no debería crear un thread
-// paralelo vacío — debería ver el mismo thread del coach principal.
+// Multi-coach (v31): el caller debe pasar el id del coach
+// logueado (`profile?.id`). Antes esta función llamaba a
+// rpc('get_coach_id'), que siempre devolvía el primer coach
+// (Carlos) y rompía el modelo cuando hay más de uno.
+//
+// El RPC del back valida que el coach esté asignado al alumno
+// (o que el alumno no tenga coach todavía), así que pasar un
+// coachId que no corresponda al alumno va a devolver error.
 //
 // Devuelve: { data: threadId | null, error }
 // ============================================================
-export async function getOrCreateThreadForStudent(studentId) {
+export async function getOrCreateThreadForStudent(studentId, coachId) {
   if (!studentId) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId.', details: null, hint: null, raw: null } }
   }
-  const { data: coachId, error: coachErr } = await supabase.rpc('get_coach_id')
-  if (coachErr) return { data: null, error: normalizeError(coachErr, 'No se pudo resolver el coach.') }
-  if (!coachId)   return { data: null, error: { code: 'NOT_FOUND', message: 'No hay coach configurado.', details: null, hint: null, raw: null } }
+  if (!coachId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta coachId del coach logueado.', details: null, hint: null, raw: null } }
+  }
   return getOrCreateThread(coachId, studentId)
 }
 
@@ -442,17 +444,15 @@ export async function editNote(note, payload = {}) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
   }
 
-  // Round 2b: UPDATE directo de notes para todos los context_types.
-  // El routing previo (rutear a columnas legacy) ya no aplica porque
-  // las columnas se dropean en v26d. Si llega un context que no
-  // soportamos editar desde panel (plan, session_day), devolvemos
-  // NOT_SUPPORTED.
+  // Round 2b: UPDATE directo de notes para todos los context_types
+  // soportados desde el panel. v26f suma 'evaluation_result'.
   if (
     note.context_type === 'free' ||
     note.context_type === 'exercise' ||
     note.context_type === 'workout_log' ||
     note.context_type === 'workout_block_log' ||
-    note.context_type === 'evaluation_test'
+    note.context_type === 'evaluation_test' ||
+    note.context_type === 'evaluation_result'
   ) {
     return updateNote(note.id, { body: cleanBody })
   }
@@ -481,13 +481,15 @@ export async function deleteNote(note) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
   }
 
-  // Round 2b: soft-delete directo en notes para todos los context_types.
+  // Round 2b: soft-delete directo en notes para todos los context_types
+  // soportados desde el panel. v26f suma 'evaluation_result'.
   if (
     note.context_type === 'free' ||
     note.context_type === 'exercise' ||
     note.context_type === 'workout_log' ||
     note.context_type === 'workout_block_log' ||
-    note.context_type === 'evaluation_test'
+    note.context_type === 'evaluation_test' ||
+    note.context_type === 'evaluation_result'
   ) {
     return softDeleteNote(note.id)
   }
@@ -729,6 +731,59 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
 }
 
 // ============================================================
+// B.6h.1 — postEvalResultNote({ studentId, resultId, body })
+// ------------------------------------------------------------
+// Upsert para la nota GENERAL del evaluation_result (no por prueba).
+// Reemplaza al campo legacy `evaluation_results.notes` dropeado en v26f.
+// Siempre con role='student', visibility='shared', context='evaluation_result'.
+// ============================================================
+export async function postEvalResultNote({ studentId, resultId, body }) {
+  if (!studentId || !resultId) {
+    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o resultId.', details: null, hint: null, raw: null } }
+  }
+  const cleanBody = (body || '').trim()
+
+  const { data: existing, error: findErr } = await supabase
+    .from('notes')
+    .select('id, body')
+    .eq('context_type', 'evaluation_result')
+    .eq('context_id', resultId)
+    .eq('author_role', 'student')
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (findErr && !isNoRowsError(findErr)) {
+    return { data: null, error: normalizeError(findErr, 'No se pudo buscar la nota de la evaluación.') }
+  }
+
+  if (!cleanBody) {
+    if (!existing) return { data: null, error: null }
+    return softDeleteNote(existing.id)
+  }
+
+  if (existing) {
+    if (existing.body === cleanBody) return { data: existing, error: null }
+    return updateNote(existing.id, { body: cleanBody })
+  }
+
+  const { data: thread, error: threadErr } = await getStudentThread(studentId)
+  if (threadErr) return { data: null, error: threadErr }
+  if (!thread) {
+    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+  }
+
+  return createNote({
+    threadId: thread.id,
+    body: cleanBody,
+    visibility: 'shared',
+    contextType: 'evaluation_result',
+    contextId: resultId,
+    authorId: studentId,
+    authorRole: 'student',
+  })
+}
+
+// ============================================================
 // B.6h — postEvalCommentNote({ studentId, responseId, body, role, visibility })
 // ------------------------------------------------------------
 // Análogo a postWorkoutLogNote pero para mirrors de evaluation_test.
@@ -741,7 +796,7 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
 //
 // Para role='coach' usamos public.get_coach_id() como author_id.
 // ============================================================
-export async function postEvalCommentNote({ studentId, responseId, body, role, visibility }) {
+export async function postEvalCommentNote({ studentId, responseId, body, role, visibility, coachId }) {
   if (!studentId || !responseId || !role) {
     return { data: null, error: { code: 'INVALID_INPUT', message: 'Faltan args obligatorios (studentId, responseId, role).', details: null, hint: null, raw: null } }
   }
@@ -782,12 +837,13 @@ export async function postEvalCommentNote({ studentId, responseId, body, role, v
     return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
   }
 
-  // Para coach, necesitamos su id. Lo resolvemos via RPC get_coach_id.
+  // Para coach, el author_id es el del coach logueado (multi-coach v31).
+  // Antes esto llamaba a rpc('get_coach_id') y atribuía todas las notas
+  // al primer coach que devuelve la RPC (Carlos), pisando autoría real.
   let authorId = studentId
   if (role === 'coach') {
-    const { data: coachId } = await supabase.rpc('get_coach_id')
     if (!coachId) {
-      return { data: null, error: { code: 'NOT_FOUND', message: 'No hay coach configurado.', details: null, hint: null, raw: null } }
+      return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta coachId del coach logueado.', details: null, hint: null, raw: null } }
     }
     authorId = coachId
   }

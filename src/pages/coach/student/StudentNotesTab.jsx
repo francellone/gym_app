@@ -44,12 +44,10 @@ export default function StudentNotesTab({ studentId }) {
       setLoading(true)
       setError(null)
       try {
-        // Importante: el thread se busca/crea contra el coach "real"
-        // (get_coach_id() del back), no contra profile.id. Razón: el
-        // modelo es admin-único y todas las notas viven bajo ese coach.
-        // Si usáramos profile.id, otro coach logueado vería un thread
-        // paralelo vacío (bug detectado el 2026-05-17).
-        const { data, error: err } = await getOrCreateThreadForStudent(studentId)
+        // Multi-coach (v31): pasamos profile.id del coach logueado.
+        // El RPC del back valida que el alumno esté asignado a este
+        // coach (o que no tenga coach todavía).
+        const { data, error: err } = await getOrCreateThreadForStudent(studentId, profile.id)
         if (cancelled) return
         if (err) {
           setError(err.message || 'No se pudo abrir el hilo de notas.')
