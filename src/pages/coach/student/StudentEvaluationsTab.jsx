@@ -15,7 +15,7 @@ import {
   groupEvaluationAssignments, statusConfig, getAssignmentStatus,
   assignTemplateToStudent,
 } from '../../../utils/assignmentHelpers'
-import { fetchEvalMirrorBodies, postEvalCommentNote } from '../../../lib/notes'
+import { fetchEvalMirrorBodies, postEvalCommentNote, fetchSingleMirrorBodies } from '../../../lib/notes'
 import { useAuth } from '../../../contexts/AuthContext'
 
 // ─────────────────────────────────────────────────────────────
@@ -343,6 +343,25 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
         .eq('student_id', studentId)
         .order('eval_date', { ascending: false })
       const results = resultsData || []
+
+      // Round 2b (handoff m26→m27): la columna evaluation_results.notes se
+      // dropeó. La nota general del alumno vive en public.notes con
+      // context_type='evaluation_result'. Mergemos el body del mirror
+      // sobre `notes` (y `results.notes` para JSX legacy que la usa).
+      if (results.length > 0) {
+        const resultIds = results.map(r => r.id)
+        const resultMirrors = await fetchSingleMirrorBodies({
+          contextType: 'evaluation_result',
+          contextIds: resultIds,
+        })
+        for (const r of results) {
+          const panelBody = resultMirrors.get(r.id)
+          if (panelBody) {
+            r.notes = panelBody
+            r.results = { ...(r.results || {}), notes: panelBody }
+          }
+        }
+      }
 
       // Si hay pruebas custom, cargar responses para cada resultado
       if (isCustom && results.length > 0) {

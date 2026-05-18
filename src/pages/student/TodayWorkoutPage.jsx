@@ -18,7 +18,7 @@ import {
   readLogReps, readLogWeights,
 } from '../../utils/planHelpers'
 import { buildErrorBanner } from '../../utils/errorHelpers'
-import { postPSEDayNote, fetchSingleMirrorBodies, postWorkoutLogNote } from '../../lib/notes'
+import { postPSEDayNote, fetchSingleMirrorBodies, postWorkoutLogNote, postWorkoutBlockLogNote } from '../../lib/notes'
 import AerobicBlockRunCard from '../../components/workout/AerobicBlockRunCard'
 import CircuitBlockRunCard from '../../components/workout/CircuitBlockRunCard'
 import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '../../components/wellbeing/WellbeingModal'
@@ -294,6 +294,24 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
     reps_unit: log?.reps_unit || null,
   })
 
+  // Sincronizar state local con el prop `log` cuando cambia (p.ej. tras un
+  // save: el padre actualiza logs[exId] y nosotros re-renderizamos con un
+  // nuevo log). Sin este efecto, el useState solo se evaluaba al mount y
+  // el badge verde podía quedar desfasado hasta un refresh.
+  useEffect(() => {
+    if (!log) return
+    setLogData(p => ({
+      ...p,
+      actual_sets: log.actual_sets?.toString() || p.actual_sets,
+      perceived_difficulty: log.perceived_difficulty ?? p.perceived_difficulty,
+      notes: log.notes ?? p.notes,
+      completed: !!log.completed,
+      weight_mode: log.weight_mode || p.weight_mode,
+      unilateral: log.unilateral != null ? !!log.unilateral : p.unilateral,
+      reps_unit: log.reps_unit || p.reps_unit,
+    }))
+  }, [log?.id, log?.completed, log?.updated_at])
+
   const completed = logData.completed
   const isBodyweight = logData.weight_mode === 'bodyweight'
   const showWeightInputs = !isBodyweight
@@ -393,6 +411,10 @@ function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
       // a postWorkoutLogNote() con el body para que aterrice en el panel.
       p_notes: null,
       p_completed: true,
+      // Body del alumno para postWorkoutLogNote(). Underscore-prefijado
+      // para distinguir de los p_* que van a la RPC; saveLog del padre
+      // lo extrae antes de hacer rpcArgs.
+      _noteBody: logData.notes || '',
     }
   }
 
@@ -1290,8 +1312,15 @@ export default function TodayWorkoutPage() {
       })
       setLogs(logsMap)
 
+      // Mismo patrón que workout_logs: enrich blockLogs con el body
+      // desde notes (fuente única tras drop de workout_block_logs.notes en v26d).
+      const rawBlockLogs = blockLogsRes.data || []
+      const blockLogIds = rawBlockLogs.map(bl => bl.id)
+      const blockBodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_block_log', contextIds: blockLogIds })
       const blockLogsMap = {}
-      ;(blockLogsRes.data || []).forEach(bl => { blockLogsMap[bl.plan_block_id] = bl })
+      rawBlockLogs.forEach(bl => {
+        blockLogsMap[bl.plan_block_id] = { ...bl, notes: blockBodiesMap.get(bl.id) ?? '' }
+      })
       setBlockLogs(blockLogsMap)
 
       setSession(sessionRes.data)
@@ -1407,6 +1436,12 @@ export default function TodayWorkoutPage() {
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
     maybeFireWellbeingStartAviso()
 
+    // Extraemos el body de la nota del data ANTES de armar los rpcArgs:
+    // el ExerciseCard (strength) y CircuitBlockRunCard meten el texto del
+    // alumno en _noteBody. Underscore-prefijado para que no se confunda
+    // con los p_* que sí van a la RPC.
+    const { _noteBody, ...rpcData } = data || {}
+
     // Llamada a la RPC. Si existingLog → UPDATE (p_log_id), sino INSERT.
     const rpcArgs = {
       p_log_id: existingLog?.id ?? null,
@@ -1415,7 +1450,8 @@ export default function TodayWorkoutPage() {
       p_plan_exercise_id: planExerciseId,
       p_logged_date: selectedDate,
       p_logged_late: !isToday,
-      ...data, // ya tiene los p_* desde buildSaveData
+      ...rpcData, // p_reps, p_weights, p_weight_mode, p_unilateral, p_reps_unit,
+                  // p_actual_sets, p_perceived_difficulty, p_notes=null, p_completed
     }
 
     const { data: returnedId, error } = await supabase.rpc('save_workout_log', rpcArgs)
@@ -1431,12 +1467,14 @@ export default function TodayWorkoutPage() {
     // Refetch del log completo (la RPC devuelve solo el uuid)
     const logId = existingLog?.id ?? returnedId
     if (logId) {
-      // Round 2b: el RPC ya no escribe workout_logs.notes (columna dropeada
-      // en v26d). Persistimos el body del log directamente al panel.
+      // Round 2b (handoff m26→m27): la columna workout_logs.notes se dropeó.
+      // Persistimos el body del alumno como mirror en public.notes via
+      // postWorkoutLogNote. Si _noteBody viene vacío y existía mirror,
+      // la función hace soft-delete automáticamente.
       const { error: noteErr } = await postWorkoutLogNote({
         studentId: profile.id,
         logId,
-        body: logData.notes || '',
+        body: _noteBody || '',
       })
       if (noteErr) {
         // eslint-disable-next-line no-console
@@ -1496,12 +1534,17 @@ export default function TodayWorkoutPage() {
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
     maybeFireWellbeingStartAviso()
 
+    // La columna workout_block_logs.notes se dropeó en v26d.
+    // Extraemos `notes` del data y la persistimos como mirror en el panel
+    // después del save exitoso, igual que hace saveLog para workout_logs.
+    const { notes: bodyForPanel, ...dataForDb } = data || {}
+
     const existing = blockLogs[planBlockId]
     let result
     if (existing) {
       result = await supabase
         .from('workout_block_logs')
-        .update({ ...data, updated_at: new Date().toISOString() })
+        .update({ ...dataForDb, updated_at: new Date().toISOString() })
         .eq('id', existing.id)
         .select()
         .single()
@@ -1509,7 +1552,7 @@ export default function TodayWorkoutPage() {
       result = await supabase
         .from('workout_block_logs')
         .insert({
-          ...data,
+          ...dataForDb,
           student_id: profile.id,
           plan_id: assignment.plan_id,
           plan_block_id: planBlockId,
@@ -1525,7 +1568,26 @@ export default function TodayWorkoutPage() {
       showSaveErrorAviso(result.error)
       throw result.error
     }
-    setBlockLogs(prev => ({ ...prev, [planBlockId]: result.data }))
+
+    // Persistir la nota del bloque al panel (round 2b: fuente única tras
+    // dropear workout_block_logs.notes). Si bodyForPanel viene vacío y
+    // existía mirror, la función hace soft-delete.
+    const blockLogId = result.data?.id
+    if (blockLogId) {
+      const { error: noteErr } = await postWorkoutBlockLogNote({
+        studentId: profile.id,
+        blockLogId,
+        body: bodyForPanel || '',
+      })
+      if (noteErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[saveBlockLog] no se pudo guardar la nota del bloque en el panel:', noteErr)
+      }
+    }
+
+    // Enriquecer el blockLog con el body para que el componente lo muestre sin reload
+    const enrichedBlockLog = { ...result.data, notes: bodyForPanel || '' }
+    setBlockLogs(prev => ({ ...prev, [planBlockId]: enrichedBlockLog }))
   }
 
   async function deleteBlockLog(planBlockId) {

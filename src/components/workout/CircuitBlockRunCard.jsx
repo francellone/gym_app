@@ -95,6 +95,10 @@ export default function CircuitBlockRunCard({
         const weightNum = !isNaN(parseFloat(data.actual_weight))
           ? parseFloat(data.actual_weight) : null
 
+        // Round 2b (handoff m26→m27): la columna workout_logs.notes se dropeó.
+        // No mandar `p_notes` a la RPC: el body del alumno (acá "Tiempo: 45s"
+        // como anotación implícita para ejercicios time-based) va por
+        // _noteBody y saveLog del padre lo redirige a postWorkoutLogNote.
         await onSaveExerciseLog(ex.id, {
           p_reps: repsNum != null ? [repsNum] : [],
           p_weights: weightMode === 'bodyweight'
@@ -106,8 +110,9 @@ export default function CircuitBlockRunCard({
           p_actual_sets: 1,
           p_perceived_difficulty: null,
           p_perceived_difficulty_label: null,
-          p_notes: data.actual_time ? `Tiempo: ${data.actual_time}s` : null,
+          p_notes: null,
           p_completed: true,
+          _noteBody: data.actual_time ? `Tiempo: ${data.actual_time}s` : '',
         })
       }
       setEditing(false)
