@@ -1,0 +1,10 @@
+dist
+dist-verify
+dist-claude-verify
+node_modules
+package-lock.json
+public/sw.js
+vite.config.js.timestamp-*.mjs
+supabase
+diagnostico_arquitec
+Aplicación para Gimnasio y entrenamiento
