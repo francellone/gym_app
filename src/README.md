@@ -42,7 +42,7 @@ src/
 
 ## Convenciones
 
-- **Imports:** preferir aliases `@/`, `@lib/`, `@utils/`, `@components/`, `@pages/`, `@hooks/`, `@contexts/`, `@services/` (definidos en `vite.config.js`). Los imports relativos `../../foo` siguen funcionando — convertir gradualmente cuando se toca cada archivo.
+- **Imports:** preferir aliases `@/`, `@features/`, `@lib/`, `@utils/`, `@components/` (definidos en `vite.config.js`). Dentro de una misma feature usar imports relativos (`../api`, `../hooks/useNotes`); cross-feature, alias absoluto (`@/features/notes/api` o `@features/notes/api`). Los imports relativos largos siguen funcionando — convertir gradualmente cuando se toca cada archivo.
 - **Rutas:** definidas en `src/App.jsx`. Coach bajo `/coach/*`, alumno bajo `/student/*`. `PrivateRoute` valida `requiredRole`.
 - **Acceso a Supabase:** siempre vía `src/lib/supabase.js`. Hay dos clientes: `supabase` (sesión persistida) y `supabaseIsolated` (sin sesión — se usa cuando hay que crear alumnos sin reemplazar la sesión del coach).
 - **Errores hacia el usuario:** mapearlos vía `src/utils/errorHelpers.js`. Si el back devuelve un CHECK constraint conocido, se traduce ahí en un solo lugar.
