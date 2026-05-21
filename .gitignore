@@ -1,5 +1,17 @@
 node_modules
 dist
+dist-verify
 .env
 .env.local
+.env.local.tmp
 .DS_Store
+
+# Vite — temp config snapshots
+vite.config.js.timestamp-*.mjs
+vite.config.ts.timestamp-*.mjs
+
+# Mensajes de commit guardados en archivo (no commitear)
+commit_message_*.txt
+
+# Carpeta wrapper de Cowork (sólo contiene CLAUDE.md y no es código del proyecto)
+Aplicación para Gimnasio y entrenamiento/

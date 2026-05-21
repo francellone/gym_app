@@ -1,155 +1,300 @@
-# GymCoach - Guía de instalación y deploy
+# GymCoach — Guía de instalación y operación
 
-## Stack tecnológico (100% gratuito)
-- **Frontend:** React + Vite + Tailwind CSS
-- **Base de datos + Auth:** Supabase (plan gratuito)
-- **Hosting:** Vercel (gratuito)
+> **Estado del documento:** draft del 2026-05-20. Reemplazo propuesto del `SETUP.md` original (que quedó desactualizado: hablaba de un `schema.sql`/`seed.sql` inexistentes y no mencionaba la mitad de las features actuales). Revisar y, si está OK, pisar `SETUP.md`.
 
----
-
-## Paso 1 – Crear cuenta en Supabase
-
-1. Ir a [supabase.com](https://supabase.com) y crear una cuenta gratis
-2. Crear un nuevo proyecto (elegir región más cercana, ej: South America)
-3. Anotar la contraseña del proyecto (la vas a necesitar)
-4. Esperar a que el proyecto se inicialice (~2 minutos)
+Esta guía describe **lo que efectivamente corre en producción** del proyecto GymCoach, no lo que se planeó al inicio.
 
 ---
 
-## Paso 2 – Configurar la base de datos
+## 0. Qué es esto
 
-1. En el panel de Supabase, ir a **SQL Editor**
-2. Copiar y ejecutar todo el contenido de `supabase/schema.sql`
-3. Copiar y ejecutar el contenido de `supabase/seed.sql`
-   - ⚠️ Primero creá el usuario coach (Paso 3), luego ejecutá el seed
+App mobile-first para que un coach (Anto) gestione planes y entrenamientos de sus alumnos. El alumno entra desde el celular, ve su rutina del día, registra sets/reps/peso/RPE, completa formularios (intake + seguimientos), recibe notificaciones push y le manda notas al coach. El coach ve todo consolidado: dashboard con alertas, calendario, biblioteca de ejercicios, evaluaciones, panel de notas, etc.
+
+Hoy en producción: **5 alumnos activos, 25 planes, ~460 logs**. Deploy en `https://gym-appv2.vercel.app/`.
 
 ---
 
-## Paso 3 – Crear el usuario coach
+## 1. Stack real
 
-1. En Supabase, ir a **Authentication → Users**
-2. Hacer click en **Add user → Create new user**
-3. Ingresar el email y contraseña del coach
-4. En **SQL Editor**, actualizar el perfil con rol coach:
+| Capa | Tecnología | Notas |
+|---|---|---|
+| Frontend | React 18 + Vite 5 + Tailwind 3 | JSX puro (sin TypeScript). |
+| Routing / estado | `react-router-dom` 6 + Context API (`AuthContext`) | Sin Redux/Zustand. |
+| Iconos / charts | `lucide-react`, `recharts`, `date-fns` | |
+| Backend | Supabase Postgres 17.6 + Auth + Storage + Realtime + Edge Functions + pg_cron | Proyecto `bvexjanqmfypmtgoapbt`, región `sa-east-1`. |
+| Edge Functions | `create-student`, `notify-cron` | Código en `supabase/functions/`. Versionadas en Supabase. |
+| PWA / push | Service Worker propio (`public/sw.js`) + Web Push API | Registro en `src/main.jsx`. |
+| Hosting | Vercel | `vercel.json` con rewrite SPA. |
+| Repo | GitHub `francellone/gym_app` | Ramas: `main` (default) y `v2`. |
 
-```sql
-UPDATE profiles
-SET role = 'coach', name = 'Tu Nombre'
-WHERE email = 'tu-email@gmail.com';
+No hay TypeScript, no hay tests automatizados, no hay linter configurado en `package.json`. El refactor de BD del 16/05 dejó **24 tablas con RLS** y guardrails en producción (triggers, cron jobs, CHECK constraints). Detalle completo en `diagnostico_arquitec/01_changelog_back.md`.
+
+---
+
+## 2. Estructura del repo (snapshot 2026-05-20)
+
+```
+gym_app/
+├── src/
+│   ├── App.jsx              ← rutas
+│   ├── main.jsx             ← bootstrap + service worker
+│   ├── index.css
+│   ├── contexts/            AuthContext
+│   ├── components/          UI: dashboard, layout, notes, notifications, plan, wellbeing, workout
+│   ├── pages/
+│   │   ├── coach/           CoachDashboard, PlansPage, EditPlanPage, …
+│   │   │   └── student/     10 tabs internos para StudentDetailPage
+│   │   └── student/         StudentDashboard, TodayWorkoutPage, …
+│   ├── hooks/               useCoachAlerts, useNotes, useNotifications, …
+│   ├── utils/               assignmentHelpers, calendarLogic, planHelpers, …
+│   ├── services/            pushService.js
+│   └── lib/                 supabase.js (cliente), notes.js (data layer)
+├── public/                  favicon, manifest.json, sw.js
+├── supabase/
+│   ├── migration_v*.sql     ← migraciones históricas (v2 → v29). Aplicadas, no renombrar.
+│   ├── migrations/          ← convención nueva: YYYYMMDDHHMMSS_NN_descripcion.sql
+│   └── functions/
+│       ├── create-student/  edge function (sign-up + perfil)
+│       └── notify-cron/     edge function (notificaciones programadas)
+├── src/features/forms/intake/  ← intake + follow-up forms (movido desde intake-form/ el 21/05)
+├── scripts/                 verify_calendar_fix.mjs, verify_student_dashboard_fix.mjs
+├── diagnostico_arquitec/    auditorías, changelog del refactor de BD, handoffs back↔front
+├── vite.config.js           con path aliases @, @lib, @utils, @components, @pages, @hooks, @contexts, @services
+├── tailwind.config.js
+├── postcss.config.js
+├── vercel.json              rewrite SPA → index.html
+├── package.json
+└── .env.example             plantilla de variables
 ```
 
 ---
 
-## Paso 4 – Obtener las credenciales de Supabase
+## 3. Levantar el proyecto en local
 
-1. Ir a **Settings → API** en el panel de Supabase
-2. Copiar:
-   - **Project URL** (ej: `https://abcdefgh.supabase.co`)
-   - **anon public key** (la clave pública)
+### 3.1 Pre-requisitos
 
----
+- Node.js 20+ (probado en 20 y 22).
+- Cuenta en [Supabase](https://supabase.com) (free tier alcanza).
+- Cuenta en [Vercel](https://vercel.com) para deploy (free tier).
+- Opcional: [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) si vas a aplicar migraciones nuevas desde el repo.
 
-## Paso 5 – Configurar y correr localmente
+### 3.2 Variables de entorno
+
+Copiar plantilla y completar:
 
 ```bash
-# 1. Entrar a la carpeta del proyecto
-cd gym-app
-
-# 2. Instalar dependencias
-npm install
-
-# 3. Crear archivo de variables de entorno
 cp .env.example .env
+```
 
-# 4. Editar .env con tus credenciales de Supabase
-# VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-# VITE_SUPABASE_ANON_KEY=tu-anon-key-aqui
+`.env` debe quedar así (valores reales del proyecto Supabase):
 
-# 5. Correr en modo desarrollo
+```
+VITE_SUPABASE_URL=https://bvexjanqmfypmtgoapbt.supabase.co
+VITE_SUPABASE_ANON_KEY=<copiar desde Supabase Dashboard → Settings → API → anon public>
+```
+
+### 3.3 Instalación y dev server
+
+```bash
+npm install
 npm run dev
 ```
 
-La app estará disponible en `http://localhost:5173`
+App disponible en `http://localhost:5173`. Cualquier cambio en `src/` se hot-reloadea.
 
----
+### 3.4 Build de producción
 
-## Paso 6 – Deploy en Vercel (gratis)
-
-1. Subir el proyecto a GitHub
-2. Ir a [vercel.com](https://vercel.com) y crear cuenta gratis
-3. Importar el repositorio de GitHub
-4. Configurar las variables de entorno en Vercel:
-   - `VITE_SUPABASE_URL` = tu URL de Supabase
-   - `VITE_SUPABASE_ANON_KEY` = tu anon key
-5. Hacer click en **Deploy**
-
-Vercel genera una URL pública como `gymcoach-xxx.vercel.app` — esa URL se comparte con los alumnos.
-
----
-
-## Cómo agregar alumnos
-
-### Opción A: Desde el coach (recomendado)
-1. Ingresar como coach
-2. Ir a **Alumnos → Nuevo alumno**
-3. Completar los datos y crear
-4. Compartir el email/contraseña con el alumno
-
-### Opción B: Manual en Supabase
-1. Ir a **Authentication → Users → Add user**
-2. Crear el usuario
-3. En SQL Editor, asignarle rol student:
-```sql
-UPDATE profiles SET role = 'student', name = 'Nombre Alumno'
-WHERE email = 'alumno@email.com';
+```bash
+npm run build      # genera dist/
+npm run preview    # sirve dist/ localmente
 ```
 
 ---
 
-## Cómo cargar los planes del Excel
+## 4. Acceso a Supabase
 
-Los 9 planes de tu Excel ya están incluidos como datos iniciales en `supabase/seed.sql`. Solo necesitás ejecutar ese SQL después de configurar la base de datos.
+### 4.1 Conectarse
 
-Para cargar los ejercicios de los planes restantes (3-9) con todos sus detalles, podés:
-1. Ingresar como coach
-2. Ir a **Planes** y seleccionar el plan
-3. Agregar los ejercicios manualmente desde la biblioteca
+- Dashboard: https://supabase.com/dashboard/project/bvexjanqmfypmtgoapbt
+- Cliente JS configurado en `src/lib/supabase.js`. Exporta `supabase` (sesión persistida) y `supabaseIsolated` (sin sesión — se usa para crear alumnos sin reemplazar la del coach).
+
+### 4.2 Esquema actual (24 tablas, todas con RLS)
+
+Ver `diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` sección 4 para el inventario con conteo de filas y comentarios por tabla. Resumido:
+
+- **Identidad / acceso:** `profiles`, `student_edit_history`.
+- **Catálogo:** `exercises`, `exercise_tags`, `exercise_tag_assignments`.
+- **Planificación:** `plans`, `plan_assignments`, `plan_exercises`, `plan_blocks`.
+- **Ejecución de entrenamiento:** `workout_sessions`, `workout_logs`, `workout_block_logs`.
+- **Evaluaciones:** `evaluation_tests`, `evaluation_test_responses`, `evaluation_results`.
+- **Formularios:** `intake_form_templates`, `intake_form_assignments`, `intake_form_submissions`.
+- **Comunicación coach↔alumno (v24+):** `note_threads`, `notes`, `legacy_notes_shim_log`.
+- **Notificaciones:** `notifications`, `push_subscriptions`.
+- **Bienestar:** `wellbeing_logs`.
+
+Además: schema `archive` con backups nominales (`plan_assignments_backup_20260508`).
+
+### 4.3 Migraciones
+
+**Convención vigente desde 2026-05-21:** toda migración nueva vive en `supabase/migrations/YYYYMMDDHHMMSS_NN_descripcion.sql` (formato estándar del CLI). Las migraciones históricas (`supabase/migration_v2.sql` a `supabase/migration_v29_*.sql`) **no se renombran** — son auditoría.
+
+Para aplicar:
+
+- Vía CLI: `supabase db push` (requiere tener el CLI configurado contra el proyecto).
+- Vía MCP de Supabase: enviar el SQL como `apply_migration` con `name` igual al sufijo del archivo (sin la fecha).
+
+**Importante:** antes de aplicar, doble check del `project_id`. El 19/05/2026 se aplicó por error el esquema del proyecto "Aplicación para clubes deportivos" contra esta base; se rolleó en 13 minutos y no hubo impacto, pero quedó archivado en `diagnostico_arquitec/legacy_multiclub_experiment/` como recordatorio.
+
+### 4.4 Edge Functions
+
+Dos funciones activas:
+
+| Slug | Verifica JWT | Para qué sirve | Código |
+|---|---|---|---|
+| `create-student` | No (público, usa service role internamente) | Sign-up + creación de `profiles` para alumnos nuevos sin tocar la sesión del coach. | `supabase/functions/create-student/index.ts` |
+| `notify-cron` | Sí | Trigger de notificaciones programadas (vencimientos de planes, estancamientos). | `supabase/functions/notify-cron/index.ts` |
+
+Para deploy: `supabase functions deploy <slug>` con el CLI configurado.
+
+### 4.5 Cron jobs activos (pg_cron)
+
+Detalle en `diagnostico_arquitec/01_changelog_back.md` sección "Guardrails automáticos". A grandes rasgos: cleanup diario de sesiones abandonadas, 4 jobs de notificaciones de negocio, y un health check semanal que detecta regresiones de esquema y notifica a los coaches.
 
 ---
 
-## Estructura de la app
+## 5. Rutas de la app
 
 ```
-/login          → Pantalla de inicio de sesión
+/login
 
-/coach          → Dashboard del coach
-/coach/students → Lista de alumnos
-/coach/students/new → Crear alumno
-/coach/students/:id → Detalle del alumno (planes, progreso, logs)
-/coach/plans    → Lista de planes
-/coach/plans/new → Crear plan
-/coach/plans/:id → Ver/editar plan
-/coach/exercises → Biblioteca de ejercicios
+/coach/                                  CoachDashboard (alertas + calendario + actividad)
+/coach/students                          listado de alumnos
+/coach/students/new                      alta de alumno
+/coach/students/:id                      detalle del alumno (10 tabs: Info, Plans, Logs, Progress, ProgressTableView, Evaluations, Forms, Notes, Wellbeing, History)
+/coach/plans                             listado de planes
+/coach/plans/new                         crear plan
+/coach/plans/:id                         ver plan
+/coach/plans/:id/edit                    editar plan
+/coach/exercises                         biblioteca de ejercicios
+/coach/evaluations                       listado de evaluaciones
+/coach/evaluations/:id                   detalle
+/coach/form-builder                      builder de intake form
+/coach/follow-up-forms                   listado de follow-ups
+/coach/follow-up-forms/:id               builder de follow-up
 
-/student        → Dashboard del alumno
-/student/workout → Entrenamiento de hoy (registrar ejercicios)
-/student/progress → Gráficos de progreso
-/student/history → Historial de todos los entrenamientos
-/student/profile → Perfil y configuración
+/student/                                StudentDashboard
+/student/workout                         entrenamiento del día (registrar)
+/student/eval/:planId                    evaluación
+/student/progress                        gráficos de progreso
+/student/history                         historial
+/student/profile                         perfil
+/student/forms                           listado de formularios pendientes
+/student/notes                           hilo de notas con el coach
+/student/intake                          intake form (fuera del layout)
+/student/form/:assignmentId              follow-up form individual (fuera del layout)
 ```
+
+`PrivateRoute` en `src/App.jsx` valida `requiredRole` (coach o student) y redirige a `/login` si no hay sesión.
 
 ---
 
-## Dudas frecuentes
+## 6. Deploy
 
-**¿Cuánto cuesta?**
-Nada. Supabase tiene plan gratuito con 500MB de base de datos y 50,000 auth users. Vercel es gratis para proyectos personales.
+### 6.1 Producción (Vercel)
+
+Configurado en `vercel.json`: rewrite SPA a `index.html`. Las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` se cargan desde el dashboard de Vercel (Settings → Environment Variables).
+
+Cada push a `main` en GitHub dispara un deploy automático. URL pública: `https://gym-appv2.vercel.app/`.
+
+### 6.2 Edge functions
+
+`supabase functions deploy create-student` y `supabase functions deploy notify-cron` cuando cambien.
+
+### 6.3 Service Worker / push notifications
+
+El `public/sw.js` se sirve directo desde el bundle. Para suscribir un alumno, se llama a `pushService.js` (en `src/services/`) que registra la suscripción en la tabla `public.push_subscriptions`. Hoy esa tabla tiene 0 filas — la feature está en standby hasta decidir si se mantiene.
+
+---
+
+## 7. Operaciones comunes
+
+### 7.1 Crear un alumno
+
+Opción recomendada — desde la app:
+
+1. Ingresar como coach.
+2. `/coach/students/new`, completar datos + asignar plan inicial.
+3. El backend usa la edge function `create-student` para no perder la sesión del coach.
+4. Compartirle al alumno email + password.
+
+Opción manual (debugging):
+
+1. Supabase Dashboard → Authentication → Users → Add user.
+2. SQL Editor: `UPDATE profiles SET role = 'student', name = '…' WHERE email = '…';`
+
+### 7.2 Crear un plan
+
+Como coach: `/coach/plans/new`. Editor con bloques (`A1`, `B1`, activación, core), cada bloque con ejercicios desde la biblioteca o nuevos. El plan se asigna a uno o varios alumnos.
+
+### 7.3 Cargar ejercicios masivamente
+
+Hoy es manual desde `/coach/exercises`. No hay seed automático.
+
+### 7.4 Notificaciones push en el celular
+
+Una vez instalada como PWA ("Agregar a pantalla de inicio" en el navegador), el alumno recibe notificaciones nativas. Requiere que `pushService.js` haya registrado la suscripción.
+
+---
+
+## 8. Operación de Supabase
+
+### 8.1 Cuando aparezca un bug nuevo
+
+Crear un handoff nuevo en `diagnostico_arquitec/handoff_<bug>_<nombre>_para_front.md` siguiendo el formato de los anteriores. Documentar decisiones antes de tocar BD.
+
+### 8.2 Health check semanal
+
+Cron job que detecta 6 categorías de regresiones de esquema y manda una `notification` a los coaches. Si llega una alerta, revisar el `data` del notification (jsonb con los counts por categoría) y cruzar con el `01_changelog_back.md` para entender contexto.
+
+### 8.3 Linter externo
+
+Cada vez que se aplica una migración mayor, conviene correr `mcp__supabase__get_advisors` (security + performance). El snapshot 2026-05-20 dejó **0 ERROR**, **101 WARN** (mayormente RPCs intencionalmente expuestas a `anon` + algunas funciones sin `search_path` ya fixeadas) y **2 INFO**. Detalle en `03_auditoria_estructura_2026-05-20.md` sección 5.
+
+---
+
+## 9. Costos (snapshot 2026-05-20)
+
+| Item | Hoy | Cuándo deja de ser gratis |
+|---|---|---|
+| Supabase (DB + Auth + Storage + Functions) | USD 0 | 500 MB DB, 1 GB storage, 50k MAU, 500k edge function invocations/mes. |
+| Vercel | USD 0 | Hobby tier para proyectos personales. |
+| GitHub | USD 0 | Repo privado, free tier. |
+| Total mensual | USD 0 | |
+
+---
+
+## 10. Dónde más leer
+
+| Para entender… | Mirá |
+|---|---|
+| El refactor de BD de mayo y los guardrails que quedaron | `diagnostico_arquitec/01_changelog_back.md` |
+| La auditoría post-refactor del 16/05 | `diagnostico_arquitec/02_auditoria_post_refactor_2026-05-16.md` |
+| El estado real del repo y los huecos de doc al 20/05 | `diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` |
+| Plan de reorganización por tiers | `diagnostico_arquitec/04_propuesta_reorganizacion.md` |
+| El módulo de notas v24+ | `diagnostico_arquitec/plan_deprecacion_notas_v24.md`, `src/lib/notes.js`, `src/components/notes/` |
+
+---
+
+## 11. FAQ
 
 **¿Funciona en celular?**
-Sí, está diseñada mobile-first. También funciona en computadora.
+Sí, mobile-first. También en escritorio.
 
 **¿Se puede instalar como app en el celular?**
-Sí, es una PWA. En el navegador del celular, hay una opción "Agregar a pantalla de inicio".
+Sí, es una PWA. "Agregar a pantalla de inicio" desde el navegador.
 
 **¿Los alumnos ven las notas privadas del coach?**
-No. Las notas privadas del coach están protegidas por Row Level Security en la base de datos.
+No. Las notas privadas del coach están protegidas por RLS y por separación de columnas (campos `private_*` solo legibles por el coach).
+
+**¿Por qué no hay tests?**
+Deuda real. Está en `diagnostico_arquitec/04_propuesta_reorganizacion.md` (Tier 3) — la propuesta es arrancar con `vitest` + 5 tests críticos + `supabase/tests/rls_smoke_tests.sql`.

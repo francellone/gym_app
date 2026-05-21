@@ -1,0 +1,1855 @@
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthContext'
+import {
+  METHODS, FMS_PATTERNS,
+  emptyResults, evalTypeLabel, evalTypeIcon,
+  calc1RM, calcPower, calcVO2max, calcBodyComp, calcFMSScore,
+  pruebaTypeInfo,
+} from '../helpers'
+import { ArrowLeft, Save, Plus, Trash2, AlertCircle, CheckCircle, Lock, PlayCircle, MessageSquare, Eye } from 'lucide-react'
+import { parseReps } from '@/features/plans/helpers'
+import { fetchEvalMirrorBodies, postEvalCommentNote, postEvalResultNote, fetchSingleMirrorBodies } from '@/features/notes/api'
+
+// ============================================================
+// Helper: leer la nota general de un evaluation_result desde el panel
+// (post v26f: la columna evaluation_results.notes fue dropeada).
+// ============================================================
+async function loadResultNotesFromPanel(resultId) {
+  if (!resultId) return ''
+  const m = await fetchSingleMirrorBodies({ contextType: 'evaluation_result', contextIds: [resultId] })
+  return m.get(resultId) ?? ''
+}
+
+// ============================================================
+// Shared: Method badge (locked by coach, not selectable)
+// ============================================================
+function MethodBadge({ evalType, methodKey }) {
+  const methods = METHODS[evalType] || []
+  const m = methods.find(x => x.key === methodKey)
+  if (!m) return null
+  return (
+    <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl p-3">
+      <Lock size={14} className="text-purple-500 mt-0.5 flex-shrink-0" />
+      <div>
+        <p className="text-xs font-semibold text-purple-700">
+          Método: {m.label}
+        </p>
+        {m.note && <p className="text-xs text-purple-500 mt-0.5">{m.note}</p>}
+      </div>
+    </div>
+  )
+}
+
+// Shared: Result box
+function ResultBox({ label, value, unit, sub }) {
+  if (value === null || value === undefined) return null
+  return (
+    <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 text-center">
+      <p className="text-xs text-primary-600 font-medium uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-3xl font-bold text-primary-700">
+        {value} <span className="text-base font-medium">{unit}</span>
+      </p>
+      {sub && <p className="text-xs text-primary-500 mt-1">{sub}</p>}
+    </div>
+  )
+}
+
+function NumInput({ label, value, onChange, placeholder, step = '1', unit, hint }) {
+  return (
+    <div>
+      <label className="label text-xs">
+        {label}
+        {unit && <span className="text-gray-400 font-normal ml-1">({unit})</span>}
+      </label>
+      <input
+        type="number"
+        step={step}
+        className="input text-sm"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
+      {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+    </div>
+  )
+}
+
+function SexSelector({ value, onChange }) {
+  return (
+    <div>
+      <label className="label text-xs">Sexo</label>
+      <div className="flex gap-2">
+        {[['male', 'Masculino'], ['female', 'Femenino']].map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onChange(k)}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all border ${
+              value === k
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'bg-white text-gray-600 border-gray-200'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Helpers de pesos/reps sugeridos por el coach (igual lógica que TodayWorkoutPage)
+// ============================================================
+function parseSuggestedWeightVal(val) {
+  if (!val || val === 'None' || val === 'none') return ''
+  const n = parseFloat(String(val).replace(/[^\d.]/g, ''))
+  return isNaN(n) ? '' : String(n)
+}
+
+function buildSuggestedWeightsArr(pe, setsCount) {
+  const legacy = parseSuggestedWeightVal(pe.suggested_weight)
+  if (pe.suggested_weights) {
+    try {
+      const parsed = JSON.parse(pe.suggested_weights)
+      if (Array.isArray(parsed)) {
+        return Array.from({ length: setsCount || parsed.length }, (_, i) =>
+          parsed[i] != null ? String(parsed[i]) : ''
+        )
+      }
+    } catch {}
+    const val = parseSuggestedWeightVal(pe.suggested_weights)
+    return Array.from({ length: setsCount || 1 }, () => val)
+  }
+  return Array.from({ length: setsCount || 1 }, () => legacy)
+}
+
+// Construir sets_arr vacío para un plan_exercise dado
+function buildInitialSetsArr(pe, evalType) {
+  const setsCount = parseInt(pe.suggested_sets) || 1
+  const sugWeightsArr = buildSuggestedWeightsArr(pe, setsCount)
+  const sugRepsArr = parseReps(pe.suggested_reps)
+  return Array.from({ length: setsCount }, (_, i) => ({
+    weight_kg: sugWeightsArr[i] || '',
+    reps: String(sugRepsArr[i] || ''),
+    ...(evalType === 'one_rm' ? { one_rm: null } : {}),
+  }))
+}
+
+// ============================================================
+// FORM: 1RM
+// ============================================================
+function OneRMForm({ results, onChange, planMethod, planExercises }) {
+  const method = planMethod || results.method || 'brzycki'
+  const usePlanExercises = planExercises && planExercises.length > 0
+
+  // ── Modo libre (sin ejercicios del plan) ───────────────────
+  function updateExercise(i, field, value) {
+    const exercises = [...(results.exercises || [])]
+    exercises[i] = { ...exercises[i], [field]: value }
+    if (field === 'weight_kg' || field === 'reps') {
+      const w = field === 'weight_kg' ? value : exercises[i].weight_kg
+      const r = field === 'reps' ? value : exercises[i].reps
+      exercises[i].one_rm = calc1RM(method, w, r)
+    }
+    onChange({ ...results, method, exercises })
+  }
+
+  function addExercise() {
+    const ex = { name: '', weight_kg: '', reps: '', one_rm: null }
+    onChange({ ...results, method, exercises: [...(results.exercises || []), ex] })
+  }
+
+  function removeExercise(i) {
+    onChange({ ...results, exercises: results.exercises.filter((_, idx) => idx !== i) })
+  }
+
+  // ── Modo con plan: grilla por serie ───────────────────────
+  function updateSet(exIdx, setIdx, field, value) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    const sets_arr = [...(ex.sets_arr || [{ weight_kg: '', reps: '', one_rm: null }])]
+    sets_arr[setIdx] = { ...sets_arr[setIdx], [field]: value }
+
+    const w = field === 'weight_kg' ? value : sets_arr[setIdx].weight_kg
+    const r = field === 'reps' ? value : sets_arr[setIdx].reps
+    sets_arr[setIdx].one_rm =
+      w && r && parseFloat(w) > 0 && parseInt(r) > 0
+        ? calc1RM(method, w, r)
+        : null
+
+    const best = sets_arr.reduce(
+      (max, s) => (s.one_rm != null && (max === null || s.one_rm > max) ? s.one_rm : max),
+      null
+    )
+    exercises[exIdx] = { ...ex, sets_arr, best_one_rm: best, one_rm: best }
+    onChange({ ...results, method, exercises })
+  }
+
+  function addSet(exIdx) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    exercises[exIdx] = { ...ex, sets_arr: [...(ex.sets_arr || []), { weight_kg: '', reps: '', one_rm: null }] }
+    onChange({ ...results, exercises })
+  }
+
+  function removeSet(exIdx, setIdx) {
+    const exercises = [...(results.exercises || [])]
+    const ex = { ...exercises[exIdx] }
+    if ((ex.sets_arr || []).length <= 1) return
+    const sets_arr = ex.sets_arr.filter((_, i) => i !== setIdx)
+    const best = sets_arr.reduce(
+      (max, s) => (s.one_rm != null && (max === null || s.one_rm > max) ? s.one_rm : max),
+      null
+    )
+    exercises[exIdx] = { ...ex, sets_arr, best_one_rm: best, one_rm: best }
+    onChange({ ...results, exercises })
+  }
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="one_rm" methodKey={method} />
+
+      {(results.exercises || []).map((ex, i) => {
+        const pe = planExercises[i]
+        const setsCount = parseInt(pe?.suggested_sets) || 1
+        const sugWeightsArr = pe ? buildSuggestedWeightsArr(pe, setsCount) : []
+        const sugRepsArr = pe ? parseReps(pe.suggested_reps) : []
+        // Migrar datos viejos (sin sets_arr) a un array de 1 set
+        const sets_arr = ex.sets_arr || [{ weight_kg: ex.weight_kg || '', reps: ex.reps || '', one_rm: ex.one_rm || null }]
+
+        return (
+          <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
+            {/* Header: nombre + video */}
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold truncate ${usePlanExercises ? 'text-sm text-gray-900' : 'text-xs text-gray-500'}`}>
+                {ex.name || `Ejercicio ${i + 1}`}
+              </span>
+              {ex.video_url && ex.video_url.startsWith('http') && (
+                <a
+                  href={ex.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                  title="Ver video del ejercicio"
+                >
+                  <PlayCircle size={16} />
+                </a>
+              )}
+              {!usePlanExercises && (results.exercises || []).length > 1 && (
+                <button onClick={() => removeExercise(i)} className="ml-auto text-red-400 hover:text-red-600 p-1 flex-shrink-0">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Modo libre: input de nombre */}
+            {!usePlanExercises && (
+              <input
+                className="input text-sm"
+                placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
+                value={ex.name || ''}
+                onChange={e => updateExercise(i, 'name', e.target.value)}
+              />
+            )}
+
+            {/* Nota del coach */}
+            {usePlanExercises && pe?.notes && (
+              <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>
+            )}
+
+            {/* Modo con plan: grilla por serie */}
+            {usePlanExercises ? (
+              <div>
+                {/* Encabezados de columna con sugeridos */}
+                <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] gap-1.5 mb-1 px-0.5">
+                  <div />
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Reps
+                    {sugRepsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugRepsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Peso (kg)
+                    {sugWeightsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">1RM</div>
+                </div>
+
+                {/* Fila por serie */}
+                {sets_arr.map((set, si) => (
+                  <div key={si} className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] gap-1.5 mb-1.5 items-center">
+                    <div className="text-xs text-center text-gray-400 font-medium">{si + 1}</div>
+                    <input
+                      className="input text-sm text-center py-1.5"
+                      placeholder={String(sugRepsArr[si] || '—')}
+                      value={set.reps || ''}
+                      onChange={e => updateSet(i, si, 'reps', e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center py-1.5"
+                      placeholder={sugWeightsArr[si] || '0'}
+                      value={set.weight_kg || ''}
+                      onChange={e => updateSet(i, si, 'weight_kg', e.target.value)}
+                    />
+                    <div className="flex items-center justify-between gap-0.5 pl-1">
+                      <span className="text-xs font-semibold text-primary-600 flex-1 text-center">
+                        {set.one_rm != null ? `${set.one_rm}` : '—'}
+                      </span>
+                      {sets_arr.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSet(i, si)}
+                          className="text-gray-300 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => addSet(i)}
+                  className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
+                >
+                  <Plus size={11} /> Agregar serie
+                </button>
+
+                {/* Mejor 1RM destacado */}
+                {(ex.best_one_rm != null || sets_arr.some(s => s.one_rm != null)) && (
+                  <ResultBox
+                    label={`Mejor 1RM estimado (${method})`}
+                    value={ex.best_one_rm ?? sets_arr.reduce((m, s) => s.one_rm != null && s.one_rm > (m ?? 0) ? s.one_rm : m, null)}
+                    unit="kg"
+                    sub={`${sets_arr.filter(s => s.one_rm != null).length} intento(s) calculado(s)`}
+                  />
+                )}
+              </div>
+            ) : (
+              /* Modo libre: un solo peso/reps */
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumInput
+                    label="Peso levantado"
+                    unit="kg"
+                    step="0.5"
+                    placeholder="80"
+                    value={ex.weight_kg || ''}
+                    onChange={v => updateExercise(i, 'weight_kg', v)}
+                  />
+                  <NumInput
+                    label="Repeticiones"
+                    placeholder="6"
+                    value={ex.reps || ''}
+                    onChange={v => updateExercise(i, 'reps', v)}
+                    hint="Máx 30 reps"
+                  />
+                </div>
+                {ex.one_rm !== null && ex.one_rm !== undefined && (
+                  <ResultBox
+                    label={`1RM estimado (${method})`}
+                    value={ex.one_rm}
+                    unit="kg"
+                    sub="Repetición máxima calculada"
+                  />
+                )}
+              </>
+            )}
+          </div>
+        )
+      })}
+
+      {!usePlanExercises && (
+        <button
+          type="button"
+          onClick={addExercise}
+          className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
+        >
+          <Plus size={14} /> Agregar ejercicio
+        </button>
+      )}
+
+      <div>
+        <label className="label">Notas</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Condiciones, observaciones..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Max Reps
+// ============================================================
+function MaxRepsForm({ results, onChange, planMethod, planExercises }) {
+  const method = planMethod || results.method || 'pushup'
+  const usePlanExercises = planExercises && planExercises.length > 0
+  const needsWeight = method === 'submax'
+  const needsTime = method === 'situp'
+
+  if (usePlanExercises) {
+    // ── Grilla por serie para cada ejercicio ──────────────
+    function updateSet(exIdx, setIdx, field, value) {
+      const exercises = [...(results.exercises || [])]
+      const ex = { ...exercises[exIdx] }
+      const sets_arr = [...(ex.sets_arr || [{ reps: '', weight_kg: '' }])]
+      sets_arr[setIdx] = { ...sets_arr[setIdx], [field]: value }
+      exercises[exIdx] = { ...ex, sets_arr }
+      onChange({ ...results, method, exercises })
+    }
+
+    function addSet(exIdx) {
+      const exercises = [...(results.exercises || [])]
+      const ex = { ...exercises[exIdx] }
+      exercises[exIdx] = { ...ex, sets_arr: [...(ex.sets_arr || []), { reps: '', weight_kg: '' }] }
+      onChange({ ...results, exercises })
+    }
+
+    function removeSet(exIdx, setIdx) {
+      const exercises = [...(results.exercises || [])]
+      const ex = { ...exercises[exIdx] }
+      if ((ex.sets_arr || []).length <= 1) return
+      exercises[exIdx] = { ...ex, sets_arr: ex.sets_arr.filter((_, i) => i !== setIdx) }
+      onChange({ ...results, exercises })
+    }
+
+    const colCount = needsWeight
+      ? '[1.5rem_1fr_1fr]'
+      : '[1.5rem_1fr]'
+
+    return (
+      <div className="space-y-5">
+        <MethodBadge evalType="max_reps" methodKey={method} />
+
+        {(results.exercises || []).map((ex, i) => {
+          const pe = planExercises[i]
+          const setsCount = parseInt(pe?.suggested_sets) || 1
+          const sugWeightsArr = pe ? buildSuggestedWeightsArr(pe, setsCount) : []
+          const sugRepsArr = pe ? parseReps(pe.suggested_reps) : []
+          const sets_arr = ex.sets_arr || [{ reps: ex.reps || '', weight_kg: ex.weight_kg || '' }]
+
+          return (
+            <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-800 truncate">{ex.name || `Ejercicio ${i + 1}`}</p>
+                {ex.video_url && ex.video_url.startsWith('http') && (
+                  <a
+                    href={ex.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                    title="Ver video del ejercicio"
+                  >
+                    <PlayCircle size={16} />
+                  </a>
+                )}
+              </div>
+
+              {pe?.notes && (
+                <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>
+              )}
+
+              {/* Encabezados de columna */}
+              <div className={`grid grid-cols-${colCount} gap-1.5 mb-1 px-0.5`}>
+                <div />
+                <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                  {needsTime ? 'Reps (60 seg)' : 'Reps máx'}
+                  {sugRepsArr.some(Boolean) && (
+                    <span className="block font-normal normal-case text-primary-400">
+                      sug: {sugRepsArr.filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                </div>
+                {needsWeight && (
+                  <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
+                    Peso (kg)
+                    {sugWeightsArr.some(Boolean) && (
+                      <span className="block font-normal normal-case text-primary-400">
+                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Fila por serie */}
+              {sets_arr.map((set, si) => (
+                <div key={si} className={`grid grid-cols-${colCount} gap-1.5 mb-1.5 items-center`}>
+                  <div className="text-xs text-center text-gray-400 font-medium">{si + 1}</div>
+                  <input
+                    className="input text-sm text-center py-1.5"
+                    placeholder={String(sugRepsArr[si] || '—')}
+                    value={set.reps || ''}
+                    onChange={e => updateSet(i, si, 'reps', e.target.value)}
+                  />
+                  {needsWeight && (
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input text-sm text-center py-1.5"
+                      placeholder={sugWeightsArr[si] || '0'}
+                      value={set.weight_kg || ''}
+                      onChange={e => updateSet(i, si, 'weight_kg', e.target.value)}
+                    />
+                  )}
+                  {sets_arr.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSet(i, si)}
+                      className="text-gray-300 hover:text-red-400 transition-colors flex justify-center"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => addSet(i)}
+                className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
+              >
+                <Plus size={11} /> Agregar serie
+              </button>
+            </div>
+          )
+        })}
+
+        <div>
+          <label className="label">Notas</label>
+          <textarea
+            className="input resize-none text-sm"
+            rows={2}
+            placeholder="Condiciones del test, fatiga, pausas..."
+            value={results.notes || ''}
+            onChange={e => onChange({ ...results, notes: e.target.value })}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Single exercise mode (free-form)
+  const totalReps = parseInt(results.reps) || 0
+  const weight = parseFloat(results.weight_kg) || 0
+  const volume = needsWeight && totalReps && weight ? +(totalReps * weight).toFixed(1) : null
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="max_reps" methodKey={method} />
+
+      <div className="grid grid-cols-1 gap-3">
+        <NumInput
+          label={needsTime ? 'Repeticiones completadas (en 60 seg)' : 'Repeticiones máximas'}
+          placeholder="Ej: 25"
+          value={results.reps || ''}
+          onChange={v => onChange({ ...results, reps: v })}
+        />
+        {needsWeight && (
+          <NumInput
+            label="Peso utilizado"
+            unit="kg"
+            step="0.5"
+            placeholder="Ej: 60"
+            value={results.weight_kg || ''}
+            onChange={v => onChange({ ...results, weight_kg: v })}
+            hint="Requerido para calcular volumen"
+          />
+        )}
+      </div>
+
+      {totalReps > 0 && (
+        <div className="grid gap-3">
+          <ResultBox label="Repeticiones máximas" value={totalReps} unit="reps" />
+          {volume !== null && (
+            <ResultBox label="Volumen total" value={volume} unit="kg" sub={`${totalReps} reps × ${weight} kg`} />
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="label">Notas</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Condiciones del test, fatiga, pausas..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Power
+// ============================================================
+function PowerForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'harman'
+
+  const computed = calcPower(method, {
+    mass_kg: results.mass_kg,
+    jump_cm: results.jump_cm,
+    time_sec: results.time_sec,
+    distance_m: results.distance_m,
+  })
+
+  // Store computed result in results JSONB on every change
+  function update(field, value) {
+    const updated = { ...results, method, [field]: value }
+    const c = calcPower(method, {
+      mass_kg: updated.mass_kg,
+      jump_cm: updated.jump_cm,
+      time_sec: updated.time_sec,
+      distance_m: updated.distance_m,
+    })
+    onChange({ ...updated, result: c || null })
+  }
+
+  const needsMass = ['lewis', 'harman'].includes(method)
+  const needsJump = ['lewis', 'harman'].includes(method)
+  const needsDist = ['broad_jump', 'sprint'].includes(method)
+  const needsTime = method === 'sprint'
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="power" methodKey={method} />
+
+      <div className="grid grid-cols-2 gap-3">
+        {needsMass && (
+          <NumInput label="Masa corporal" unit="kg" step="0.1" placeholder="70"
+            value={results.mass_kg || ''} onChange={v => update('mass_kg', v)} />
+        )}
+        {needsJump && (
+          <NumInput label="Altura de salto" unit="cm" step="0.5" placeholder="45"
+            value={results.jump_cm || ''} onChange={v => update('jump_cm', v)} />
+        )}
+        {needsDist && (
+          <NumInput label="Distancia" unit="m" step="0.01" placeholder="Ej: 2.35"
+            value={results.distance_m || ''} onChange={v => update('distance_m', v)} />
+        )}
+        {needsTime && (
+          <NumInput label="Tiempo" unit="seg" step="0.01" placeholder="Ej: 1.85"
+            value={results.time_sec || ''} onChange={v => update('time_sec', v)} />
+        )}
+      </div>
+
+      {computed && (
+        <div className="space-y-3">
+          {computed.power_w !== undefined && (
+            <ResultBox label="Potencia media (Lewis)" value={computed.power_w} unit="W" />
+          )}
+          {computed.peak_w !== undefined && (
+            <ResultBox label="Potencia pico (Harman)" value={computed.peak_w} unit="W" sub={`Potencia media: ${computed.mean_w} W`} />
+          )}
+          {computed.distance_m !== undefined && method === 'broad_jump' && (
+            <ResultBox label="Distancia horizontal" value={computed.distance_m} unit="m" />
+          )}
+          {computed.time_sec !== undefined && method === 'sprint' && (
+            <ResultBox label="Tiempo en pista" value={computed.time_sec} unit="seg" sub={`Velocidad media: ${computed.speed_ms} m/s`} />
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="label">Notas</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Tipo de superficie, calzado, intentos..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Cardio
+// ============================================================
+function CardioForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'cooper'
+
+  function update(patch) {
+    const updated = { ...results, method, ...patch }
+    const vo2 = calcVO2max(method, updated)
+    onChange({ ...updated, vo2max: vo2 })
+  }
+
+  const vo2 = calcVO2max(method, results)
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="cardio" methodKey={method} />
+
+      {method === 'cooper' && (
+        <NumInput label="Distancia recorrida en 12 min" unit="m" placeholder="2800"
+          value={results.distance_m || ''}
+          onChange={v => update({ distance_m: v })}
+          hint="Test Cooper clásico: correr 12 minutos y medir distancia"
+        />
+      )}
+
+      {method === 'rockport' && (
+        <div className="space-y-3">
+          <SexSelector value={results.sex || 'male'} onChange={v => update({ sex: v })} />
+          <div className="grid grid-cols-2 gap-3">
+            <NumInput label="Edad" unit="años" placeholder="30" value={results.age || ''} onChange={v => update({ age: v })} />
+            <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => update({ weight_kg: v })} />
+            <NumInput label="Tiempo en caminar 1 milla" unit="min" step="0.01" placeholder="12.5" value={results.time_min || ''} onChange={v => update({ time_min: v })} hint="1 milla = 1609 m" />
+            <NumInput label="FC al finalizar" unit="bpm" placeholder="150" value={results.heart_rate || ''} onChange={v => update({ heart_rate: v })} />
+          </div>
+        </div>
+      )}
+
+      {method === 'yoyo' && (
+        <NumInput label="Nivel alcanzado (Yo-Yo Nivel 1)" placeholder="Ej: 16.3" value={results.yoyo_level || ''} onChange={v => update({ yoyo_level: v })} hint="Nivel en formato etapa.número (ej: 16.3)" />
+      )}
+
+      {method === 'beep' && (
+        <div className="grid grid-cols-2 gap-3">
+          <NumInput label="Nivel alcanzado" placeholder="Ej: 12" value={results.beep_level || ''} onChange={v => update({ beep_level: v })} />
+          <NumInput label="Velocidad (km/h)" step="0.1" placeholder="12" value={results.beep_speed || ''} onChange={v => update({ beep_speed: v })} />
+        </div>
+      )}
+
+      {method === 'harvard' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">Pulso de recuperación: contar durante 30 seg y multiplicar × 2</p>
+          <div className="grid grid-cols-3 gap-3">
+            <NumInput label={`FC 1'-1'30"`} unit="bpm" placeholder="150" value={results.hr1 || ''} onChange={v => update({ hr1: v })} />
+            <NumInput label={`FC 2'-2'30"`} unit="bpm" placeholder="130" value={results.hr2 || ''} onChange={v => update({ hr2: v })} />
+            <NumInput label={`FC 3'-3'30"`} unit="bpm" placeholder="120" value={results.hr3 || ''} onChange={v => update({ hr3: v })} />
+          </div>
+          <NumInput label="Duración del test" unit="seg" placeholder="300" value={results.step_duration_sec || '300'} onChange={v => update({ step_duration_sec: v })} hint="Máx 300 seg (5 min)" />
+        </div>
+      )}
+
+      {vo2 !== null && (
+        <ResultBox
+          label={method === 'harvard' ? 'Índice Físico (PFI)' : 'VO₂max estimado'}
+          value={vo2}
+          unit={method === 'harvard' ? 'pts' : 'ml/kg/min'}
+          sub={method === 'harvard'
+            ? vo2 < 55 ? 'Aceptable' : vo2 < 70 ? 'Bueno' : 'Excelente'
+            : vo2 < 30 ? 'Muy bajo' : vo2 < 40 ? 'Regular' : vo2 < 50 ? 'Bueno' : vo2 < 60 ? 'Muy bueno' : 'Superior'
+          }
+        />
+      )}
+
+      <div>
+        <label className="label">Notas</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Condiciones del test, temperatura, sensaciones..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Body Composition
+// ============================================================
+function BodyCompForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'jp3'
+  const sex = results.sex || 'male'
+
+  const skinfoldFields = {
+    jp3: sex === 'male'
+      ? [['chest','Pectoral'],['abdomen','Abdominal'],['thigh','Muslo']]
+      : [['triceps','Tríceps'],['suprailiac','Suprailiaco'],['thigh','Muslo']],
+    jp7: [['chest','Pectoral'],['abdomen','Abdominal'],['thigh','Muslo'],['triceps','Tríceps'],['subscapular','Subescapular'],['suprailiac','Suprailiaco'],['midaxillary','Midaxilar']],
+    dw:  [['biceps','Bíceps'],['triceps','Tríceps'],['subscapular','Subescapular'],['suprailiac','Suprailiaco']],
+    navy: [],
+  }
+
+  const perimeterFields = {
+    navy: sex === 'male'
+      ? [['neck','Cuello'],['waist','Cintura']]
+      : [['neck','Cuello'],['waist','Cintura'],['hip','Cadera']],
+    jp3: [], jp7: [], dw: [],
+  }
+
+  const sFields = skinfoldFields[method] || []
+  const pFields = perimeterFields[method] || []
+
+  function update(patch) {
+    const updated = { ...results, method, ...patch }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
+  }
+
+  function updateSkinfold(key, value) {
+    const updated = { ...results, method, skinfolds: { ...results.skinfolds, [key]: value } }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
+  }
+
+  function updatePerimeter(key, value) {
+    const updated = { ...results, method, perimeters: { ...results.perimeters, [key]: value } }
+    const c = calcBodyComp(method, updated)
+    onChange({ ...updated, result: c || null })
+  }
+
+  const computed = calcBodyComp(method, results)
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="body_comp" methodKey={method} />
+
+      <SexSelector value={sex} onChange={v => update({ sex: v })} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <NumInput label="Edad" unit="años" placeholder="28" value={results.age || ''} onChange={v => update({ age: v })} />
+        <NumInput label="Peso corporal" unit="kg" step="0.1" placeholder="70" value={results.weight_kg || ''} onChange={v => update({ weight_kg: v })} />
+        {method === 'navy' && (
+          <NumInput label="Talla" unit="cm" step="0.5" placeholder="175" value={results.height_cm || ''} onChange={v => update({ height_cm: v })} />
+        )}
+      </div>
+
+      {sFields.length > 0 && (
+        <div>
+          <label className="label">Pliegues cutáneos (mm)</label>
+          <div className="grid grid-cols-2 gap-2">
+            {sFields.map(([key, label]) => (
+              <NumInput key={key} label={label} unit="mm" step="0.1" placeholder="0"
+                value={results.skinfolds?.[key] || ''}
+                onChange={v => updateSkinfold(key, v)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pFields.length > 0 && (
+        <div>
+          <label className="label">Perímetros (cm)</label>
+          <div className="grid grid-cols-2 gap-2">
+            {pFields.map(([key, label]) => (
+              <NumInput key={key} label={label} unit="cm" step="0.1" placeholder="0"
+                value={results.perimeters?.[key] || ''}
+                onChange={v => updatePerimeter(key, v)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {computed && (
+        <div className="space-y-3">
+          <ResultBox label="% Grasa corporal" value={computed.fat_pct} unit="%" />
+          {computed.fat_kg !== null && (
+            <div className="grid grid-cols-2 gap-3">
+              <ResultBox label="Masa grasa" value={computed.fat_kg} unit="kg" />
+              <ResultBox label="Masa magra" value={computed.lean_kg} unit="kg" />
+            </div>
+          )}
+          {computed.sum_mm && (
+            <p className="text-xs text-gray-400 text-center">Suma pliegues: {computed.sum_mm} mm</p>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="label">Notas</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Condiciones, equipo utilizado..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Scored / Funcional
+// ============================================================
+const SCORES = [0, 1, 2, 3]
+const SCORE_COLORS = ['bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-green-500']
+
+function ScoreButton({ value, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-9 h-9 rounded-xl text-sm font-bold transition-all border-2 ${
+        selected
+          ? `${SCORE_COLORS[value]} text-white border-transparent shadow`
+          : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400'
+      }`}
+    >
+      {value}
+    </button>
+  )
+}
+
+function ScoredForm({ results, onChange, planMethod }) {
+  const method = planMethod || results.method || 'fms'
+
+  function updateFMS(i, field, value) {
+    const patterns = [...(results.fms_patterns || [])]
+    patterns[i] = { ...patterns[i], [field]: value }
+    const { total, asymmetries } = calcFMSScore(patterns)
+    onChange({ ...results, method, fms_patterns: patterns, result: { total, asymmetries } })
+  }
+
+  const fmsTotal = results.result?.total
+
+  return (
+    <div className="space-y-5">
+      <MethodBadge evalType="scored" methodKey={method} />
+
+      {method === 'fms' && (
+        <div className="space-y-4">
+          {(results.fms_patterns || FMS_PATTERNS.map(p => ({ ...p, score: null, score_left: null, score_right: null, pain: false, notes: '' }))).map((p, i) => (
+            <div key={p.key} className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-800 flex-1">{p.label}</p>
+                <button
+                  type="button"
+                  onClick={() => updateFMS(i, 'pain', !p.pain)}
+                  className={`text-xs px-2 py-1 rounded-lg font-medium transition-all ${
+                    p.pain ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-white text-gray-400 border border-gray-200'
+                  }`}
+                >
+                  {p.pain ? '⚠️ Dolor' : 'Sin dolor'}
+                </button>
+              </div>
+
+              {p.bilateral ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {[['score_left', '← Izquierda'], ['score_right', 'Derecha →']].map(([field, lbl]) => (
+                    <div key={field}>
+                      <p className="text-xs text-gray-500 mb-2">{lbl}</p>
+                      <div className="flex gap-1.5">
+                        {SCORES.map(s => (
+                          <ScoreButton
+                            key={s}
+                            value={s}
+                            selected={p[field] === s}
+                            onClick={() => updateFMS(i, field, p[field] === s ? null : s)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Puntuación</p>
+                  <div className="flex gap-1.5">
+                    {SCORES.map(s => (
+                      <ScoreButton
+                        key={s}
+                        value={s}
+                        selected={p.score === s}
+                        onClick={() => updateFMS(i, 'score', p.score === s ? null : s)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <input
+                className="input text-xs"
+                placeholder="Observaciones de este patrón..."
+                value={p.notes || ''}
+                onChange={e => updateFMS(i, 'notes', e.target.value)}
+              />
+            </div>
+          ))}
+
+          {fmsTotal !== undefined && fmsTotal !== null && (
+            <ResultBox
+              label="Puntaje FMS Total"
+              value={fmsTotal}
+              unit="/ 21"
+              sub={fmsTotal < 14
+                ? '⚠️ Riesgo de lesión — score < 14'
+                : results.result?.asymmetries?.length > 0
+                  ? `Asimetrías detectadas en: ${results.result.asymmetries.join(', ')}`
+                  : '✅ Score dentro del rango aceptable'
+              }
+            />
+          )}
+        </div>
+      )}
+
+      {method === 'sit_reach' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">Distancia desde la línea de los pies. Positivo = más allá de los pies.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <NumInput label="Mejor intento" unit="cm" step="0.5" placeholder="Ej: 12"
+              value={results.distance_left_cm || ''} onChange={v => onChange({ ...results, distance_left_cm: v })} />
+            <NumInput label="Segundo intento" unit="cm" step="0.5" placeholder="Ej: 10"
+              value={results.distance_right_cm || ''} onChange={v => onChange({ ...results, distance_right_cm: v })} />
+          </div>
+          {results.distance_left_cm && (
+            <ResultBox label="Flexibilidad isquiosural" value={results.distance_left_cm} unit="cm" />
+          )}
+        </div>
+      )}
+
+      {method === 'shoulder_mob' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">Distancia entre ambas manos detrás de la espalda. Menor = mejor movilidad.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <NumInput label="Mano derecha arriba" unit="cm" step="0.5" placeholder="Ej: 5"
+              value={results.distance_left_cm || ''} onChange={v => onChange({ ...results, distance_left_cm: v })} />
+            <NumInput label="Mano izquierda arriba" unit="cm" step="0.5" placeholder="Ej: 8"
+              value={results.distance_right_cm || ''} onChange={v => onChange({ ...results, distance_right_cm: v })} />
+          </div>
+          {results.distance_left_cm && results.distance_right_cm && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center text-sm">
+              {Math.abs(parseFloat(results.distance_left_cm) - parseFloat(results.distance_right_cm)) > 1.5
+                ? '⚠️ Asimetría detectada (diferencia > 1.5 cm)'
+                : '✅ Simetría dentro del rango normal'
+              }
+            </div>
+          )}
+        </div>
+      )}
+
+      {method === 'y_balance' && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">3 vectores de alcance en apoyo monopodal (cm). Normalizar dividiendo por largo de pierna.</p>
+          {[
+            ['reach_anterior', 'Vector Anterior'],
+            ['reach_posteromedial', 'Vector Posteromedial'],
+            ['reach_posterolateral', 'Vector Posterolateral'],
+          ].map(([field, label]) => (
+            <div key={field}>
+              <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <NumInput label="Izquierda" unit="cm" step="0.5" placeholder="0"
+                  value={results[`${field}_l`] || ''} onChange={v => onChange({ ...results, [`${field}_l`]: v })} />
+                <NumInput label="Derecha" unit="cm" step="0.5" placeholder="0"
+                  value={results[`${field}_r`] || ''} onChange={v => onChange({ ...results, [`${field}_r`]: v })} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div>
+        <label className="label">Notas generales</label>
+        <textarea
+          className="input resize-none text-sm"
+          rows={2}
+          placeholder="Observaciones de la evaluación..."
+          value={results.notes || ''}
+          onChange={e => onChange({ ...results, notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FORM: Custom (tabla de pruebas)
+// Recibe: pruebas (evaluation_tests[]), responses (map test_id → {value, unit, comment})
+//         onChange(testId, field, value)
+// ============================================================
+function CustomForm({ pruebas, responses, onChange }) {
+  if (pruebas.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 text-center py-4">
+        Esta evaluación no tiene pruebas configuradas. Pedile al coach que las agregue.
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {pruebas.map((prueba, i) => {
+        const typeInfo = pruebaTypeInfo(prueba.test_type)
+        const resp = responses[prueba.id] || { value: '', unit: typeInfo.unit || '', comment: '' }
+
+        return (
+          <div key={prueba.id} className="border-2 border-gray-100 rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gray-50 px-4 py-2.5 flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-sm font-semibold text-gray-800">
+                    {prueba.exercise_name || `Prueba ${i + 1}`}
+                  </p>
+                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                    {typeInfo.label}
+                  </span>
+                  {prueba.mandatory && (
+                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Obligatoria</span>
+                  )}
+                </div>
+                {prueba.instructions && (
+                  <p className="text-xs text-gray-500 mt-0.5">{prueba.instructions}</p>
+                )}
+                {prueba.expected_value && (
+                  <p className="text-xs text-blue-500 mt-0.5">
+                    Esperado: <strong>{prueba.expected_value} {prueba.expected_unit}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Input de respuesta */}
+            <div className="px-4 py-3 space-y-3">
+              <PruebaInput
+                testType={prueba.test_type}
+                typeInfo={typeInfo}
+                value={resp.value}
+                unit={resp.unit}
+                onChangeValue={v => onChange(prueba.id, 'value', v)}
+                onChangeUnit={u => onChange(prueba.id, 'unit', u)}
+              />
+
+              {/* Comentario del alumno */}
+              <div>
+                <label className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                  <MessageSquare size={12} /> Tu comentario (opcional)
+                </label>
+                <textarea
+                  className="input resize-none text-sm"
+                  rows={2}
+                  placeholder="¿Cómo te sentiste en esta prueba?"
+                  value={resp.comment || ''}
+                  onChange={e => onChange(prueba.id, 'comment', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Input adaptado al tipo de prueba
+function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeUnit }) {
+  switch (testType) {
+    case 'reps':
+      return (
+        <div>
+          <label className="label text-xs">Repeticiones</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" className="input flex-1 text-lg font-bold" placeholder="0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">reps</span>
+          </div>
+        </div>
+      )
+
+    case 'tiempo':
+      return (
+        <div>
+          <label className="label text-xs">Tiempo (segundos)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.1" className="input flex-1 text-lg font-bold" placeholder="0.0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">seg</span>
+          </div>
+        </div>
+      )
+
+    case 'distancia':
+      return (
+        <div>
+          <label className="label text-xs">Distancia</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.01" className="input flex-1 text-lg font-bold" placeholder="0.00"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <input className="input w-20 text-sm" placeholder="m"
+              value={unit} onChange={e => onChangeUnit(e.target.value)} />
+          </div>
+        </div>
+      )
+
+    case 'peso':
+      return (
+        <div>
+          <label className="label text-xs">Peso (kg)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.5" className="input flex-1 text-lg font-bold" placeholder="0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">kg</span>
+          </div>
+        </div>
+      )
+
+    case 'movilidad':
+      return (
+        <div>
+          <label className="label text-xs">Medición (cm)</label>
+          <div className="flex gap-2 items-center">
+            <input type="number" step="0.1" className="input flex-1 text-lg font-bold" placeholder="0.0"
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <span className="text-sm text-gray-400">cm</span>
+          </div>
+        </div>
+      )
+
+    case 'tecnica': {
+      const numVal = parseInt(value) || 0
+      return (
+        <div>
+          <label className="label text-xs">Puntaje técnica (1–10)</label>
+          <div className="flex gap-2">
+            {[1,2,3,4,5,6,7,8,9,10].map(n => (
+              <button key={n} type="button"
+                onClick={() => onChangeValue(String(n))}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                  numVal === n
+                    ? 'border-purple-500 bg-purple-600 text-white'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    case 'video':
+      return (
+        <div>
+          <label className="label text-xs">Link del video</label>
+          <input type="url" className="input" placeholder="https://..."
+            value={value} onChange={e => onChangeValue(e.target.value)} />
+          <p className="text-xs text-gray-400 mt-1">
+            Podés usar YouTube, Google Drive, Instagram u otro servicio. No se sube el archivo.
+          </p>
+        </div>
+      )
+
+    default: // libre
+      return (
+        <div>
+          <label className="label text-xs">Respuesta</label>
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder={typeInfo.placeholder || 'Escribí tu respuesta...'}
+              value={value} onChange={e => onChangeValue(e.target.value)} />
+            <input className="input w-20 text-sm" placeholder="unidad"
+              value={unit} onChange={e => onChangeUnit(e.target.value)} />
+          </div>
+        </div>
+      )
+  }
+}
+
+// ============================================================
+// Dispatcher
+// ============================================================
+function EvalForm({ evalType, results, onChange, planMethod, planExercises, pruebas, pruebaResponses, onChangePrueba }) {
+  const props = { results, onChange, planMethod, planExercises }
+  switch (evalType) {
+    case 'one_rm':    return <OneRMForm {...props} />
+    case 'max_reps':  return <MaxRepsForm {...props} />
+    case 'power':     return <PowerForm {...props} />
+    case 'cardio':    return <CardioForm {...props} />
+    case 'body_comp': return <BodyCompForm {...props} />
+    case 'scored':    return <ScoredForm {...props} />
+    case 'custom':    return (
+      <CustomForm pruebas={pruebas || []} responses={pruebaResponses || {}} onChange={onChangePrueba} />
+    )
+    default:          return <p className="text-sm text-gray-400">Tipo de evaluación no reconocido.</p>
+  }
+}
+
+// ============================================================
+// Main page
+// ============================================================
+export default function EvalWorkoutPage() {
+  const { planId } = useParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const [plan, setPlan] = useState(null)
+  const [planExercises, setPlanExercises] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Editar / Desmarcar
+  const [existingResultId, setExistingResultId] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const [evalDate, setEvalDate] = useState(new Date().toISOString().slice(0, 10))
+  const [results, setResults] = useState(null)
+  const [notes, setNotes] = useState('')
+
+  // Estado exclusivo para evaluaciones custom (pruebas)
+  const [pruebas, setPruebas] = useState([])        // evaluation_tests del plan
+  const [pruebaResponses, setPruebaResponses] = useState({}) // { test_id: { value, unit, comment } }
+
+  useEffect(() => { fetchPlan() }, [planId])
+
+  async function fetchPlan() {
+    try {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('id', planId)
+        .single()
+      if (error) throw error
+      setPlan(data)
+
+      // Para tipo custom: cargar pruebas (evaluation_tests)
+      if (data.eval_type === 'custom') {
+        const { data: pruebasData } = await supabase
+          .from('evaluation_tests')
+          .select('*')
+          .eq('plan_id', planId)
+          .order('order_index')
+        setPruebas(pruebasData || [])
+        setResults({ notes: '' })
+
+        // Load existing result for today (custom)
+        const { data: existing } = await supabase
+          .from('evaluation_results')
+          .select('*')
+          .eq('plan_id', planId)
+          .eq('student_id', user.id)
+          .eq('eval_date', new Date().toISOString().slice(0, 10))
+          .maybeSingle()
+
+        if (existing) {
+          setExistingResultId(existing.id)
+          setNotes(await loadResultNotesFromPanel(existing.id))
+          // Cargar las responses existentes
+          const { data: respData } = await supabase
+            .from('evaluation_test_responses')
+            .select('*')
+            .eq('evaluation_result_id', existing.id)
+          // Round 2a: merge body de notas mirror eval (context_id=etr.id)
+          // sobre student_comment, para que muestre la versión del panel.
+          const respIds = (respData || []).map(r => r.id)
+          const evalMirrors = await fetchEvalMirrorBodies(respIds)
+          const map = {}
+          for (const r of (respData || [])) {
+            const mirror = evalMirrors.get(r.id)
+            map[r.test_id] = {
+              value: r.student_response?.value || '',
+              unit: r.student_response?.unit || '',
+              comment: mirror?.studentComment ?? r.student_comment ?? '',
+            }
+          }
+          setPruebaResponses(map)
+        }
+        return // early return — no sigue con lógica científica
+      }
+
+      // For exercise-based eval types, pre-load the plan's exercises
+      let planEx = []
+      if (['one_rm', 'max_reps'].includes(data.eval_type)) {
+        const { data: exData } = await supabase
+          .from('plan_exercises')
+          .select('*, exercises(name, video_url)')
+          .eq('plan_id', planId)
+          .eq('section', 'day_a')
+          .order('order_index')
+        planEx = exData || []
+        setPlanExercises(planEx)
+      }
+
+      // Build initial results with method and pre-loaded exercises
+      const initResults = emptyResults(data.eval_type, data.eval_method || '')
+      if (planEx.length > 0) {
+        initResults.exercises = planEx.map(pe => ({
+          exercise_id: pe.exercise_id,
+          name: pe.exercises?.name || 'Ejercicio',
+          video_url: pe.exercises?.video_url || null,
+          sets_arr: buildInitialSetsArr(pe, data.eval_type),
+          best_one_rm: null,
+          weight_kg: '',
+          reps: '',
+          one_rm: null,
+        }))
+      }
+      setResults(initResults)
+
+      // Load existing result for today (if any)
+      const { data: existing } = await supabase
+        .from('evaluation_results')
+        .select('*')
+        .eq('plan_id', planId)
+        .eq('student_id', user.id)
+        .eq('eval_date', new Date().toISOString().slice(0, 10))
+        .maybeSingle()
+
+      if (existing) {
+        let loadedResults = existing.results
+        if (planEx.length > 0 && loadedResults.exercises) {
+          loadedResults = {
+            ...loadedResults,
+            exercises: loadedResults.exercises.map((ex, i) => {
+              const pe = planEx[i]
+              const enriched = {
+                ...ex,
+                name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
+                video_url: pe?.exercises?.video_url || ex.video_url || null,
+              }
+              // Migrar formato viejo (sin sets_arr) → un set con los datos guardados
+              if (!enriched.sets_arr) {
+                enriched.sets_arr = [{
+                  weight_kg: ex.weight_kg || '',
+                  reps: ex.reps || '',
+                  ...(data.eval_type === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
+                }]
+              }
+              return enriched
+            }),
+          }
+        }
+        setResults(loadedResults)
+        setNotes(await loadResultNotesFromPanel(existing.id))
+        setExistingResultId(existing.id)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Helpers internos ─────────────────────────────────────
+  function makeFreshResults(evalType, evalMethod, planEx) {
+    const init = emptyResults(evalType, evalMethod || '')
+    if (planEx.length > 0) {
+      init.exercises = planEx.map(pe => ({
+        exercise_id: pe.exercise_id,
+        name: pe.exercises?.name || 'Ejercicio',
+        video_url: pe.exercises?.video_url || null,
+        sets_arr: buildInitialSetsArr(pe, evalType),
+        best_one_rm: null,
+        weight_kg: '',
+        reps: '',
+        one_rm: null,
+      }))
+    }
+    return init
+  }
+
+  function enrichExercises(exercises, planEx, evalType) {
+    return exercises.map((ex, i) => {
+      const pe = planEx[i]
+      const enriched = {
+        ...ex,
+        name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
+        video_url: pe?.exercises?.video_url || ex.video_url || null,
+      }
+      if (!enriched.sets_arr) {
+        enriched.sets_arr = [{
+          weight_kg: ex.weight_kg || '',
+          reps: ex.reps || '',
+          ...(evalType === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
+        }]
+      }
+      return enriched
+    })
+  }
+
+  // Cambio de fecha: resetea y carga resultado existente si lo hay
+  async function handleDateChange(dateStr) {
+    setEvalDate(dateStr)
+    setEditing(false)
+    setExistingResultId(null)
+    setError(null)
+    setNotes('')
+
+    if (plan.eval_type === 'custom') {
+      setPruebaResponses({})
+      const { data: existing } = await supabase
+        .from('evaluation_results')
+        .select('*')
+        .eq('plan_id', planId)
+        .eq('student_id', user.id)
+        .eq('eval_date', dateStr)
+        .maybeSingle()
+      if (existing) {
+        setExistingResultId(existing.id)
+        setNotes(await loadResultNotesFromPanel(existing.id))
+        const { data: respData } = await supabase
+          .from('evaluation_test_responses')
+          .select('*')
+          .eq('evaluation_result_id', existing.id)
+        // Round 2a: merge mirror eval body sobre student_comment
+        const respIds = (respData || []).map(r => r.id)
+        const evalMirrors = await fetchEvalMirrorBodies(respIds)
+        const map = {}
+        for (const r of (respData || [])) {
+          const mirror = evalMirrors.get(r.id)
+          map[r.test_id] = {
+            value: r.student_response?.value || '',
+            unit: r.student_response?.unit || '',
+            comment: mirror?.studentComment ?? r.student_comment ?? '',
+          }
+        }
+        setPruebaResponses(map)
+      }
+      return
+    }
+
+    setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
+
+    const { data: existing } = await supabase
+      .from('evaluation_results')
+      .select('*')
+      .eq('plan_id', planId)
+      .eq('student_id', user.id)
+      .eq('eval_date', dateStr)
+      .maybeSingle()
+
+    if (existing) {
+      let loaded = existing.results
+      if (planExercises.length > 0 && loaded.exercises) {
+        loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
+      }
+      setResults(loaded)
+      setNotes(await loadResultNotesFromPanel(existing.id))
+      setExistingResultId(existing.id)
+    }
+  }
+
+  // Cancelar edición: recarga los datos guardados
+  async function handleCancelEdit() {
+    setEditing(false)
+    setError(null)
+    if (!existingResultId) return
+    const { data: existing } = await supabase
+      .from('evaluation_results')
+      .select('*')
+      .eq('id', existingResultId)
+      .single()
+    if (existing) {
+      let loaded = existing.results
+      if (planExercises.length > 0 && loaded.exercises) {
+        loaded = { ...loaded, exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type) }
+      }
+      setResults(loaded)
+      setNotes(await loadResultNotesFromPanel(existing.id))
+    }
+  }
+
+  // Borrar resultado
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      const { error } = await supabase
+        .from('evaluation_results')
+        .delete()
+        .eq('id', existingResultId)
+      if (error) throw error
+      setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
+      setNotes('')
+      setExistingResultId(null)
+      setConfirmDelete(false)
+      setEditing(false)
+    } catch (err) {
+      setError(err.message || 'Error al desmarcar')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      // 1. Upsert evaluation_result. v26f: la columna `notes` se dropeó;
+      // ahora la observación general va al panel via postEvalResultNote.
+      // Para custom seguimos guardando { notes } dentro del jsonb `results`
+      // (compat con readers de detail page mientras migran).
+      const { data: upserted, error } = await supabase
+        .from('evaluation_results')
+        .upsert({
+          student_id: user.id,
+          plan_id: planId,
+          eval_date: evalDate,
+          eval_type: plan.eval_type,
+          results: plan.eval_type === 'custom' ? { notes } : results,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'student_id,plan_id,eval_date' })
+        .select('id')
+        .single()
+      if (error) throw error
+      const resultId = upserted.id
+
+      // 1.b — guardar nota general en el panel
+      const { error: noteErr } = await postEvalResultNote({
+        studentId: user.id,
+        resultId,
+        body: notes || '',
+      })
+      if (noteErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[handleSave] no se pudo guardar la nota general en el panel:', noteErr)
+      }
+
+      // 2. Para custom: upsert evaluation_test_responses
+      if (plan.eval_type === 'custom') {
+        for (const prueba of pruebas) {
+          const resp = pruebaResponses[prueba.id]
+          if (!resp && !resp?.value) continue
+          // Round 2b: ya no escribimos student_comment a la columna
+          // (dropeada en v26d). Después del upsert llamamos a
+          // postEvalCommentNote() con el body, que aterriza en el panel.
+          const { data: upsertedResp } = await supabase
+            .from('evaluation_test_responses')
+            .upsert({
+              evaluation_result_id: resultId,
+              test_id: prueba.id,
+              student_response: {
+                value: resp?.value || '',
+                unit: resp?.unit || pruebaTypeInfo(prueba.test_type)?.unit || '',
+              },
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'evaluation_result_id,test_id' })
+            .select('id')
+            .single()
+
+          if (upsertedResp?.id) {
+            const { error: noteErr } = await postEvalCommentNote({
+              studentId: user.id,
+              responseId: upsertedResp.id,
+              body: resp?.comment || '',
+              role: 'student',
+              visibility: 'shared',
+            })
+            if (noteErr) {
+              // eslint-disable-next-line no-console
+              console.warn('[saveEval] no se pudo guardar el comment en el panel:', noteErr)
+            }
+          }
+        }
+      }
+
+      setExistingResultId(resultId)
+      setEditing(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(err.message || 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
+  if (!results && plan.eval_type !== 'custom') return null
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Modal: confirmar borrado */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Trash2 size={20} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">¿Desmarcar evaluación?</p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Se borrarán los datos del <strong>{new Date(evalDate + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}</strong>. Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {deleting
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><Trash2 size={14} /> Sí, desmarcar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="btn-ghost p-2">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{evalTypeIcon(plan.eval_type)}</span>
+            <h1 className="text-lg font-bold text-gray-900 truncate">{plan.title}</h1>
+          </div>
+          <p className="text-sm text-gray-500">{evalTypeLabel(plan.eval_type)}</p>
+        </div>
+      </div>
+
+      {/* Date selector */}
+      <div className="card">
+        <label className="label">Fecha de evaluación</label>
+        <input
+          type="date"
+          className="input"
+          value={evalDate}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={e => handleDateChange(e.target.value)}
+        />
+      </div>
+
+      {/* Eval form */}
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-gray-900">Registro</h2>
+        <EvalForm
+          evalType={plan.eval_type}
+          results={results}
+          onChange={setResults}
+          planMethod={plan.eval_method || ''}
+          planExercises={planExercises}
+          pruebas={pruebas}
+          pruebaResponses={pruebaResponses}
+          onChangePrueba={(testId, field, value) =>
+            setPruebaResponses(prev => ({
+              ...prev,
+              [testId]: { ...(prev[testId] || { value: '', unit: '', comment: '' }), [field]: value },
+            }))
+          }
+        />
+      </div>
+
+      {/* General notes */}
+      <div className="card space-y-3">
+        <h2 className="font-semibold text-gray-900">Observaciones del alumno</h2>
+        <textarea
+          className="input resize-none"
+          rows={3}
+          placeholder="¿Cómo te sentiste? Algún dato adicional..."
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+        />
+      </div>
+
+      {/* Zona de acción: varía según estado */}
+      <div className="pb-8 space-y-3">
+
+        {/* Error visible en cualquier modo */}
+        {error && (
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Flash de guardado exitoso */}
+        {saved && (
+          <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl p-3 text-sm">
+            <CheckCircle size={16} />
+            <span>{editing ? '¡Cambios guardados!' : '¡Evaluación guardada!'}</span>
+          </div>
+        )}
+
+        {existingResultId && !editing ? (
+          /* ── Resultado guardado: banner con Editar / Desmarcar ── */
+          <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
+              <p className="text-sm font-semibold text-green-800 flex-1">Evaluación registrada</p>
+              <button
+                onClick={() => setEditing(true)}
+                className="text-sm text-primary-600 font-medium hover:text-primary-700 transition-colors"
+              >
+                Editar
+              </button>
+              <span className="text-gray-300 select-none">·</span>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="text-sm text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+              >
+                <Trash2 size={13} /> Desmarcar
+              </button>
+            </div>
+          </div>
+        ) : existingResultId && editing ? (
+          /* ── Editando resultado existente ── */
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancelEdit}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
+            >
+              {saving
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <><Save size={16} /> Guardar cambios</>
+              }
+            </button>
+          </div>
+        ) : (
+          /* ── Sin resultado guardado: primer registro ── */
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            {saving
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <><Save size={16} /> Guardar evaluación</>
+            }
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

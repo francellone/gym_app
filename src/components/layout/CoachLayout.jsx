@@ -1,11 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '@/features/auth/AuthContext'
 import {
   LayoutDashboard, Users, ClipboardList, Dumbbell,
   LogOut, Menu, X, ChevronRight, BarChart2, FileText, MessageSquare
 } from 'lucide-react'
 import { useState } from 'react'
-import NotificationBell from '../notifications/NotificationBell'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
 
 const navItems = [
   { to: '/coach', label: 'Dashboard', icon: LayoutDashboard, end: true },

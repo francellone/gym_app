@@ -1,8 +1,8 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '@/features/auth/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
-import NotificationBell from '../notifications/NotificationBell'
-import { useNoteThreadUnread } from '../../hooks/useNoteThreadUnread'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
+import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 
 const navItems = [
   { to: '/student', label: 'Inicio', icon: Home, end: true },
