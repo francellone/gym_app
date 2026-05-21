@@ -12,7 +12,6 @@ import {
   blockDisplayTitle,
   suggestNextDay,
 } from '@/features/plans/helpers'
-import { buildErrorBanner } from '@/utils/errorHelpers'
 import {
   postPSEDayNote,
   fetchSingleMirrorBodies,
@@ -23,6 +22,8 @@ import BlockRenderer from '../components/BlockRenderer'
 import ValidationWarning from '../components/ValidationWarning'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
+import SaveErrorBanner from '../components/SaveErrorBanner'
+import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor, isSectionCompleted } from '../helpers'
 import WellbeingModal from '@/features/wellbeing/components/WellbeingModal'
 
@@ -100,36 +101,13 @@ export default function TodayWorkoutPage() {
   //
   // Reemplaza el console.error silencioso previo que dejaba al alumno con la
   // impresión de haber guardado cuando en realidad el back rechazó la operación.
-  // Shape: { message: string, persistent: boolean } | null
-  const [saveErrorAviso, setSaveErrorAviso] = useState(null)
-  const saveErrorTimerRef = useRef(null)
-
-  /**
-   * Muestra el banner de error. Acepta varias firmas para mantener
-   * compat con los call sites existentes:
-   *   showSaveErrorAviso(error)                  → infiere todo del error
-   *   showSaveErrorAviso('mensaje custom')       → mensaje fijo, recuperable
-   *   showSaveErrorAviso('mensaje custom', err)  → mensaje fijo, persistencia
-   *                                                inferida del error
-   */
-  function showSaveErrorAviso(arg, errOverride) {
-    if (saveErrorTimerRef.current) {
-      clearTimeout(saveErrorTimerRef.current)
-      saveErrorTimerRef.current = null
-    }
-    let banner
-    if (arg && typeof arg === 'object') {
-      // Caso 1: nos pasaron el error directo
-      banner = buildErrorBanner(arg)
-    } else {
-      // Caso 2 y 3: mensaje custom (opcionalmente con error para inferir persistencia)
-      banner = buildErrorBanner(errOverride || null, arg)
-    }
-    setSaveErrorAviso(banner)
-    if (!banner.persistent) {
-      saveErrorTimerRef.current = setTimeout(() => setSaveErrorAviso(null), 6000)
-    }
-  }
+  // Banner de error de save — extraído al hook useSaveErrorBanner (21/05).
+  // Renombrado en los callers: showSaveErrorAviso → showSaveError.
+  const {
+    banner: saveErrorAviso,
+    show: showSaveError,
+    dismiss: dismissSaveError,
+  } = useSaveErrorBanner()
 
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
@@ -381,10 +359,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveLog: upsertSession error:', err)
-        showSaveErrorAviso(
-          'No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.',
-          err
-        )
+        showSaveError('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
         throw err
       }
     }
@@ -416,7 +391,7 @@ export default function TodayWorkoutPage() {
       // El helper clasifica por código (23514 / 23503 / 42501 / etc.) y
       // arma mensaje + persistencia. CHECK violations quedan visibles
       // hasta que el alumno las lea (handoff 9.1).
-      showSaveErrorAviso(error)
+      showSaveError(error)
       throw error
     }
 
@@ -481,10 +456,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveBlockLog: upsertSession error:', err)
-        showSaveErrorAviso(
-          'No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.',
-          err
-        )
+        showSaveError('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
         throw err
       }
     }
@@ -523,7 +495,7 @@ export default function TodayWorkoutPage() {
     if (result.error) {
       console.error('saveBlockLog: workout_block_logs error:', result.error)
       // El helper decide si persiste o auto-cierra según el código.
-      showSaveErrorAviso(result.error)
+      showSaveError(result.error)
       throw result.error
     }
 
@@ -657,7 +629,7 @@ export default function TodayWorkoutPage() {
       setShowPSEForDay(null)
     } catch (err) {
       console.error('saveDayPSE error:', err)
-      showSaveErrorAviso('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.', err)
+      showSaveError('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.', err)
       // No cerramos el modal: dejamos que el alumno reintente sin perder lo que cargó.
     }
   }
@@ -905,43 +877,10 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Aviso de error al guardar: se muestra cuando alguna operación de
-              save falla (upsertSession, workout_logs, workout_block_logs).
-              Antes la falla quedaba como console.error silencioso, así que el
-              alumno creía haber guardado cuando el back rechazaba la operación
-              (p. ej. el PSE retroactivo violando la constraint
-              sessions_finished_requires_started). Auto-cierra a los ~6s. */}
-          {saveErrorAviso && (
-            <div
-              className={`rounded-xl p-3 flex items-start gap-2 ${
-                saveErrorAviso.persistent
-                  ? 'bg-rose-100 border-2 border-rose-300 shadow-sm'
-                  : 'bg-rose-50 border-2 border-rose-200'
-              }`}
-            >
-              <AlertTriangle size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">
-                <p className="text-xs text-rose-800">{saveErrorAviso.message}</p>
-                {saveErrorAviso.persistent && (
-                  <button
-                    onClick={() => setSaveErrorAviso(null)}
-                    className="mt-2 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded-lg transition"
-                  >
-                    Entendido
-                  </button>
-                )}
-              </div>
-              {!saveErrorAviso.persistent && (
-                <button
-                  onClick={() => setSaveErrorAviso(null)}
-                  className="text-rose-500 hover:text-rose-700 flex-shrink-0"
-                  aria-label="Cerrar aviso"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          )}
+          {/* Aviso de error al guardar — UI extraída a SaveErrorBanner (21/05).
+              Diferencia entre errores recuperables (auto-close 6s) y persistentes
+              (requieren "Entendido") manejada por el hook + componente. */}
+          <SaveErrorBanner banner={saveErrorAviso} onDismiss={dismissSaveError} />
 
           {/* Activación */}
           {activationBlocks.length > 0 && (
