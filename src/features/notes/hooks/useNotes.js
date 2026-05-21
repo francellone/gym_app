@@ -124,6 +124,21 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
     loadFirstPage()
   }, [loadFirstPage])
 
+  // ── Remove local (sin esperar realtime) ───────────────────────
+  // Escape hatch para casos donde realtime NO nos puede notificar.
+  // Caso real (2026-05-21): cuando un student hace soft-delete de su
+  // propia nota, la policy `Student read shared notes of own thread`
+  // exige deleted_at IS NULL → al setear deleted_at, el student pierde
+  // visibility de la fila vía RLS → realtime no le emite el UPDATE →
+  // la nota nunca desaparece de la UI. Solución: el caller (NoteCard)
+  // llama removeNoteLocally(id) tras un softDeleteNote exitoso.
+  // El coach NO necesita esto (su policy `Coach select all notes` no
+  // filtra por deleted_at, así que realtime sí le emite).
+  const removeNoteLocally = useCallback((noteId) => {
+    if (!noteId) return
+    setNotes((prev) => prev.filter((n) => n.id !== noteId))
+  }, [])
+
   // ── Suscripción realtime ──────────────────────────────────────
   const setupSubscription = useCallback(() => {
     if (!threadId) return
@@ -291,6 +306,7 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
     hasMore: !!nextCursor,
     loadMore,
     reload,
+    removeNoteLocally,
     unreadIds,
     unreadCount: unreadIds.size,
   }

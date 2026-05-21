@@ -55,6 +55,10 @@ const BLOCK_TYPE_LABELS = {
 //     legacy y el trigger v25e re-sincroniza el mirror in-place.
 //   - evaluation_test: routeamos a la columna correspondiente de
 //     evaluation_test_responses (post v26c).
+//   - evaluation_result: nota general sobre un eval result (v26f).
+//     SUMADO 2026-05-21 PM — antes faltaba acá, así que las notas
+//     de este tipo nunca mostraban el menú "..." de editar/borrar
+//     aunque `editNote` / `deleteNote` en notes/api.js sí las soportan.
 //   - plan / session_day: read-only (no se crean desde UI).
 const EDITABLE_CONTEXTS = new Set([
   'free',
@@ -62,6 +66,7 @@ const EDITABLE_CONTEXTS = new Set([
   'workout_log',
   'workout_block_log',
   'evaluation_test',
+  'evaluation_result',
 ])
 
 function safeDate(iso) {
@@ -119,6 +124,7 @@ export default function NoteCard({
   isUnread = false,
   onReply,
   currentUserId,
+  onDeleted,
 }) {
   const [editing, setEditing] = useState(false)
   const [editBody, setEditBody] = useState('')
@@ -221,11 +227,19 @@ export default function NoteCard({
     setMenuOpen(false)
     const ok = window.confirm('¿Borrar esta nota? Esta acción no se puede deshacer.')
     if (!ok) return
+    setError(null)
     const { error: err } = await deleteNote(note)
     if (err) {
       setError(err)
+      return
     }
-    // La nota desaparece via realtime soft-delete handler en useNotes.
+    // Para el coach la nota desaparece via realtime (su RLS no filtra por
+    // deleted_at). Para el alumno, en cambio, la policy `Student read shared
+    // notes of own thread` exige deleted_at IS NULL → tras setearlo, la fila
+    // sale de su scope vía RLS → realtime NO le emite el UPDATE → el
+    // handler de useNotes nunca corre. Por eso le avisamos al padre que
+    // remueva la nota del state local inmediatamente.
+    onDeleted?.(note.id)
   }
   function handleEditKeyDown(e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -360,7 +374,16 @@ export default function NoteCard({
             </p>
           </div>
         ) : (
-          <p className="text-sm whitespace-pre-wrap break-words">{note.body}</p>
+          <>
+            <p className="text-sm whitespace-pre-wrap break-words">{note.body}</p>
+            {/* Error de delete (u otra acción no-edit): se renderiza fuera
+                del bloque editing para que un fallo no quede invisible. */}
+            {error && !editing && (
+              <p className="mt-2 text-[11px] text-red-600">
+                {error.message || 'No se pudo completar la acción.'}
+              </p>
+            )}
+          </>
         )}
 
         {/* ── Tags ── */}

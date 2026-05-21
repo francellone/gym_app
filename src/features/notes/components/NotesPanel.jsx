@@ -92,7 +92,17 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   }, [])
 
   // ── Hook principal de notas (con realtime) ────────────────────
-  const { notes, loading, error, hasMore, loadMore, reload, unreadIds, unreadCount } = useNotes({
+  const {
+    notes,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    reload,
+    removeNoteLocally,
+    unreadIds,
+    unreadCount,
+  } = useNotes({
     threadId,
     filters,
     viewerRole,
@@ -240,6 +250,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             isUnread={initialUnreadRef.current.has(note.id)}
             onReply={handleReply}
             currentUserId={authorId}
+            onDeleted={removeNoteLocally}
           />
         ))}
 
