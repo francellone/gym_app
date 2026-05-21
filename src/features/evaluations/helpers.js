@@ -560,3 +560,45 @@ export function evalTypeIcon(key) {
 export function cooperVO2Max(distance_m) {
   return ((distance_m - 504.9) / 44.73).toFixed(1)
 }
+
+// ============================================================
+// Helpers de pesos/reps sugeridos por el coach (mismo patrón que features/plans).
+// Movidos desde EvalWorkoutPage el 2026-05-21 (Tier 2.3 batch 2).
+// ============================================================
+export function parseSuggestedWeightVal(val) {
+  if (!val || val === 'None' || val === 'none') return ''
+  const n = parseFloat(String(val).replace(/[^\d.]/g, ''))
+  return isNaN(n) ? '' : String(n)
+}
+
+export function buildSuggestedWeightsArr(pe, setsCount) {
+  const legacy = parseSuggestedWeightVal(pe.suggested_weight)
+  if (pe.suggested_weights) {
+    try {
+      const parsed = JSON.parse(pe.suggested_weights)
+      if (Array.isArray(parsed)) {
+        return Array.from({ length: setsCount || parsed.length }, (_, i) =>
+          parsed[i] != null ? String(parsed[i]) : ''
+        )
+      }
+    } catch {
+      // Si no parseó como JSON, tratar como valor único
+    }
+    const val = parseSuggestedWeightVal(pe.suggested_weights)
+    return Array.from({ length: setsCount || 1 }, () => val)
+  }
+  return Array.from({ length: setsCount || 1 }, () => legacy)
+}
+
+// Construir sets_arr vacío para un plan_exercise dado.
+// Recibe parseReps como param para no acoplar helpers de eval con features/plans.
+export function buildInitialSetsArr(pe, evalType, parseReps) {
+  const setsCount = parseInt(pe.suggested_sets) || 1
+  const sugWeightsArr = buildSuggestedWeightsArr(pe, setsCount)
+  const sugRepsArr = parseReps(pe.suggested_reps)
+  return Array.from({ length: setsCount }, (_, i) => ({
+    weight_kg: sugWeightsArr[i] || '',
+    reps: String(sugRepsArr[i] || ''),
+    ...(evalType === 'one_rm' ? { one_rm: null } : {}),
+  }))
+}
