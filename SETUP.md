@@ -132,11 +132,11 @@ Ver `diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` sección 4 para
 - **Notificaciones:** `notifications`, `push_subscriptions`.
 - **Bienestar:** `wellbeing_logs`.
 
-Además: schema `archive` con backups nominales (`plan_assignments_backup_20260508`).
+Además: schema `archive` con 7 backups nominales (`plan_assignments_backup_20260508`, `student_profiles` y 5 `*_notes_20260517`). Todos con RLS habilitada — los `*_notes_20260517` se habilitaron el 2026-05-21 vía migración `enable_rls_on_archive_notes_backups`.
 
 ### 4.3 Migraciones
 
-**Convención vigente desde 2026-05-21:** toda migración nueva vive en `supabase/migrations/YYYYMMDDHHMMSS_NN_descripcion.sql` (formato estándar del CLI). Las migraciones históricas (`supabase/migration_v2.sql` a `supabase/migration_v29_*.sql`) **no se renombran** — son auditoría.
+**Convención vigente desde 2026-05-21:** toda migración nueva vive en `supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql` (formato estándar del CLI de Supabase, sin sufijo `_NN_`). Las migraciones históricas (`migration_v2.sql` a `migration_v31_*.sql`) viven en `supabase/legacy/` con README explicativo — **no se renombran ni se vuelven a aplicar**.
 
 Para aplicar:
 
