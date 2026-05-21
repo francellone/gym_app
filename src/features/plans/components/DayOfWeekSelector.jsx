@@ -36,23 +36,15 @@ export default function DayOfWeekSelector({
     onChange([...next].sort((a, b) => a - b))
   }
 
-  const sizeClasses = compact
-    ? 'h-8 min-w-[40px] text-[11px]'
-    : 'h-10 min-w-[44px] text-xs'
+  const sizeClasses = compact ? 'h-8 min-w-[40px] text-[11px]' : 'h-10 min-w-[44px] text-xs'
 
   const countMismatch =
-    typeof suggestedCount === 'number' &&
-    selected.size > 0 &&
-    selected.size !== suggestedCount
+    typeof suggestedCount === 'number' && selected.size > 0 && selected.size !== suggestedCount
 
   return (
     <div className="space-y-2">
-      <div
-        role="group"
-        aria-label="Días de entrenamiento"
-        className="flex gap-1.5 flex-wrap"
-      >
-        {order.map(d => {
+      <div role="group" aria-label="Días de entrenamiento" className="flex gap-1.5 flex-wrap">
+        {order.map((d) => {
           const day = DAYS_OF_WEEK[d]
           const isOn = selected.has(d)
           return (
@@ -82,8 +74,8 @@ export default function DayOfWeekSelector({
       {/* Hint de mismatch contra sessions_per_week (no bloqueante) */}
       {countMismatch && (
         <p className="text-[11px] text-amber-600 leading-tight">
-          El plan sugiere {suggestedCount} sesion{suggestedCount === 1 ? '' : 'es'} por semana
-          y elegiste {selected.size} día{selected.size === 1 ? '' : 's'}. Podés guardarlo igual.
+          El plan sugiere {suggestedCount} sesion{suggestedCount === 1 ? '' : 'es'} por semana y
+          elegiste {selected.size} día{selected.size === 1 ? '' : 's'}. Podés guardarlo igual.
         </p>
       )}
     </div>

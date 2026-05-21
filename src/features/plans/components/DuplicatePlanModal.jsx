@@ -59,7 +59,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
 
       const blockIdMap = {}
       if (oldBlocks?.length) {
-        const blocksPayload = oldBlocks.map(b => {
+        const blocksPayload = oldBlocks.map((b) => {
           const { id, plan_id, created_at, updated_at, ...rest } = b
           return { ...rest, plan_id: newPlan.id }
         })
@@ -73,7 +73,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         // Es estable porque dentro de un plan no debería haber dos bloques
         // con la misma sección+orden+tipo.
         const keyed = {}
-        for (const b of (insertedBlocks || [])) {
+        for (const b of insertedBlocks || []) {
           keyed[`${b.section}|${b.order_index}|${b.block_type}`] = b.id
         }
         for (const b of oldBlocks) {
@@ -90,17 +90,15 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
       if (exErr) throw exErr
 
       if (exercises?.length) {
-        const payload = exercises.map(e => {
+        const payload = exercises.map((e) => {
           const { id, plan_id, created_at, updated_at, ...rest } = e
           return {
             ...rest,
             plan_id: newPlan.id,
-            block_id: e.block_id ? (blockIdMap[e.block_id] || null) : null,
+            block_id: e.block_id ? blockIdMap[e.block_id] || null : null,
           }
         })
-        const { error: insExErr } = await supabase
-          .from('plan_exercises')
-          .insert(payload)
+        const { error: insExErr } = await supabase.from('plan_exercises').insert(payload)
         if (insExErr) throw insExErr
       }
 
@@ -114,13 +112,11 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         if (testsErr) throw testsErr
 
         if (tests?.length) {
-          const payload = tests.map(t => {
+          const payload = tests.map((t) => {
             const { id, plan_id, created_at, updated_at, ...rest } = t
             return { ...rest, plan_id: newPlan.id }
           })
-          const { error: insTestsErr } = await supabase
-            .from('evaluation_tests')
-            .insert(payload)
+          const { error: insTestsErr } = await supabase.from('evaluation_tests').insert(payload)
           if (insTestsErr) throw insTestsErr
         }
       }
@@ -136,7 +132,9 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         {/* Header */}
@@ -152,13 +150,25 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
 
         {/* Steps indicator */}
         <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-primary-600' : 'text-gray-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${step >= 1 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>1</span>
+          <div
+            className={`flex items-center gap-1.5 text-xs font-medium ${step >= 1 ? 'text-primary-600' : 'text-gray-400'}`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${step >= 1 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+            >
+              1
+            </span>
             Nombre y tipo
           </div>
           <div className="flex-1 h-px bg-gray-200" />
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-primary-600' : 'text-gray-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${step >= 2 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>2</span>
+          <div
+            className={`flex items-center gap-1.5 text-xs font-medium ${step >= 2 ? 'text-primary-600' : 'text-gray-400'}`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${step >= 2 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+            >
+              2
+            </span>
             Categoría
           </div>
         </div>
@@ -173,7 +183,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                 <input
                   className="input"
                   value={title}
-                  onChange={e => setTitle(e.target.value)}
+                  onChange={(e) => setTitle(e.target.value)}
                   placeholder="Nombre del plan..."
                   autoFocus
                 />
@@ -192,9 +202,14 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <Dumbbell size={24} className={planType === 'training' ? 'text-primary-600' : 'text-gray-400'} />
+                    <Dumbbell
+                      size={24}
+                      className={planType === 'training' ? 'text-primary-600' : 'text-gray-400'}
+                    />
                     <div>
-                      <p className={`text-sm font-semibold ${planType === 'training' ? 'text-primary-700' : 'text-gray-700'}`}>
+                      <p
+                        className={`text-sm font-semibold ${planType === 'training' ? 'text-primary-700' : 'text-gray-700'}`}
+                      >
                         Entrenamiento
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">Rutina de ejercicios regular</p>
@@ -210,9 +225,14 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <BarChart2 size={24} className={planType === 'evaluation' ? 'text-purple-600' : 'text-gray-400'} />
+                    <BarChart2
+                      size={24}
+                      className={planType === 'evaluation' ? 'text-purple-600' : 'text-gray-400'}
+                    />
                     <div>
-                      <p className={`text-sm font-semibold ${planType === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}>
+                      <p
+                        className={`text-sm font-semibold ${planType === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}
+                      >
                         Evaluación
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">Protocolo de evaluación</p>
@@ -228,7 +248,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
             <div>
               <label className="label">Tipo de evaluación</label>
               <div className="space-y-2">
-                {EVAL_TYPES.map(et => (
+                {EVAL_TYPES.map((et) => (
                   <button
                     key={et.key}
                     type="button"
@@ -241,7 +261,9 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                   >
                     <span className="text-xl">{et.icon}</span>
                     <div>
-                      <p className={`text-sm font-semibold ${evalType === et.key ? 'text-purple-700' : 'text-gray-700'}`}>
+                      <p
+                        className={`text-sm font-semibold ${evalType === et.key ? 'text-purple-700' : 'text-gray-700'}`}
+                      >
                         {et.label}
                       </p>
                       <p className="text-xs text-gray-400">{et.description}</p>
@@ -258,16 +280,17 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
           )}
 
           {/* Error */}
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>}
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">
             {step === 2 && (
               <button
                 type="button"
-                onClick={() => { setStep(1); setError(null) }}
+                onClick={() => {
+                  setStep(1)
+                  setError(null)
+                }}
                 className="btn-secondary flex-1"
               >
                 Atrás
@@ -276,7 +299,14 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
             {step === 1 && planType === 'evaluation' ? (
               <button
                 type="button"
-                onClick={() => { if (!title.trim()) { setError('Ingresá un nombre'); return }; setError(null); setStep(2) }}
+                onClick={() => {
+                  if (!title.trim()) {
+                    setError('Ingresá un nombre')
+                    return
+                  }
+                  setError(null)
+                  setStep(2)
+                }}
                 className="btn-primary flex-1 flex items-center justify-center gap-2"
               >
                 Siguiente
@@ -292,7 +322,9 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                 {loading ? (
                   <Loader size={16} className="animate-spin" />
                 ) : (
-                  <><Copy size={16} /> Duplicar</>
+                  <>
+                    <Copy size={16} /> Duplicar
+                  </>
                 )}
               </button>
             )}

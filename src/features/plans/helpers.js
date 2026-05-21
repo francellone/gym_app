@@ -3,15 +3,45 @@
 // ============================================================
 
 // Letras de bloque A-Z
-export const BLOCK_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L','M',
-  'N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+export const BLOCK_LETTERS = [
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'F',
+  'G',
+  'H',
+  'I',
+  'J',
+  'K',
+  'L',
+  'M',
+  'N',
+  'O',
+  'P',
+  'Q',
+  'R',
+  'S',
+  'T',
+  'U',
+  'V',
+  'W',
+  'X',
+  'Y',
+  'Z',
+]
 
 // Números de sub-bloque 1-10
-export const BLOCK_NUMBERS = ['1','2','3','4','5','6','7','8','9','10']
+export const BLOCK_NUMBERS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 
 // Opciones PSE
 export const PSE_OPTIONS = [
-  'Fácil (1-3)', 'Moderado (4)', 'Duro (5-6)', 'Muy duro (7-9)', 'Esfuerzo máx (10)'
+  'Fácil (1-3)',
+  'Moderado (4)',
+  'Duro (5-6)',
+  'Muy duro (7-9)',
+  'Esfuerzo máx (10)',
 ]
 
 // Borg 0-10 para evaluación general del entrenamiento
@@ -99,10 +129,10 @@ export const WEIGHT_MODE_BY_KEY = WEIGHT_MODES.reduce((acc, m) => {
 
 // reps_unit válidos según CHECK constraint del back
 export const REPS_UNITS = [
-  { key: 'reps',          label: 'reps',          short: 'reps' },
-  { key: 'pasos',         label: 'pasos',         short: 'pasos' },
+  { key: 'reps', label: 'reps', short: 'reps' },
+  { key: 'pasos', label: 'pasos', short: 'pasos' },
   { key: 'respiraciones', label: 'respiraciones', short: 'resp.' },
-  { key: 'segundos',      label: 'segundos',      short: 'seg' },
+  { key: 'segundos', label: 'segundos', short: 'seg' },
 ]
 
 /**
@@ -170,7 +200,7 @@ export function readLogWeights(log) {
  */
 export function maxWeightOfLog(log) {
   const arr = readLogWeights(log)
-  const nums = arr.map(w => parseFloat(w)).filter(n => !isNaN(n) && n > 0)
+  const nums = arr.map((w) => parseFloat(w)).filter((n) => !isNaN(n) && n > 0)
   return nums.length > 0 ? Math.max(...nums) : 0
 }
 
@@ -179,7 +209,7 @@ export function maxWeightOfLog(log) {
  */
 export function avgWeightOfLog(log) {
   const arr = readLogWeights(log)
-  const nums = arr.map(w => parseFloat(w)).filter(n => !isNaN(n) && n > 0)
+  const nums = arr.map((w) => parseFloat(w)).filter((n) => !isNaN(n) && n > 0)
   return nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0
 }
 
@@ -200,7 +230,9 @@ export function avgWeightOfLog(log) {
  */
 export function calculateLogVolume(log, bodyWeightKg, opts = {}) {
   if (!log) return 0
-  const reps = readLogReps(log).map(r => parseFloat(r)).filter(n => !isNaN(n) && n > 0)
+  const reps = readLogReps(log)
+    .map((r) => parseFloat(r))
+    .filter((n) => !isNaN(n) && n > 0)
   if (reps.length === 0) return 0
 
   const weightMode = opts.weightMode || log.weight_mode || 'with_weight'
@@ -213,9 +245,9 @@ export function calculateLogVolume(log, bodyWeightKg, opts = {}) {
     return totalReps * bodyWeightKg * multiplier
   }
 
-  const weights = readLogWeights(log).map(w => parseFloat(w))
+  const weights = readLogWeights(log).map((w) => parseFloat(w))
   // Pareamos cada serie con su peso (o el primer peso si falta)
-  const fallback = weights.find(n => !isNaN(n) && n > 0) || 0
+  const fallback = weights.find((n) => !isNaN(n) && n > 0) || 0
   let vol = 0
   for (let i = 0; i < reps.length; i++) {
     const w = !isNaN(weights[i]) && weights[i] > 0 ? weights[i] : fallback
@@ -311,8 +343,8 @@ export function emptyPlanExercise(section) {
     block_number: section === 'activation' ? '' : '1',
     suggested_sets: '',
     suggested_reps_array: [''],
-    suggested_weights_array: [''],  // peso por serie
-    suggested_weight: '',           // legacy: retrocompat
+    suggested_weights_array: [''], // peso por serie
+    suggested_weight: '', // legacy: retrocompat
     rest_time: '',
     suggested_pse: '',
     extra_notes: '',
@@ -386,8 +418,8 @@ export function uiExToDBEx(ex, planId, section, index, blockId = null) {
   const weightsArr = ex.suggested_weights_array || []
   const serializedWeights = serializeReps(weightsArr) || null
   // suggested_weight (legacy): primer peso válido del array para retrocompat
-  const firstWeight = weightsArr.find(w => w !== '' && w !== null && w !== undefined)
-  const legacyWeight = firstWeight != null ? String(firstWeight) : (ex.suggested_weight || null)
+  const firstWeight = weightsArr.find((w) => w !== '' && w !== null && w !== undefined)
+  const legacyWeight = firstWeight != null ? String(firstWeight) : ex.suggested_weight || null
 
   return {
     plan_id: planId,
@@ -399,7 +431,7 @@ export function uiExToDBEx(ex, planId, section, index, blockId = null) {
     suggested_sets: ex.suggested_sets ? parseInt(ex.suggested_sets) : null,
     suggested_reps: serializeReps(ex.suggested_reps_array) || null,
     suggested_weights: serializedWeights, // nuevo: array de pesos por serie
-    suggested_weight: legacyWeight,       // legacy: primer peso (retrocompat)
+    suggested_weight: legacyWeight, // legacy: primer peso (retrocompat)
     rest_time: ex.rest_time || null,
     suggested_pse: ex.suggested_pse || null,
     extra_notes: ex.extra_notes || null,
@@ -448,9 +480,9 @@ export const BLOCK_TYPE_LIST = Object.values(BLOCK_TYPES)
 // que pudieran venir como aerobic_format='hiit' desde la base, lo tratamos
 // como 'intervals' a nivel UI (el migration v19 ya los actualiza).
 export const AEROBIC_FORMATS = [
-  { key: 'continuous',  label: 'Continuo',      description: 'Ritmo sostenido' },
-  { key: 'intervals',   label: 'Intervalos',    description: 'Trabajo / descanso' },
-  { key: 'progressive', label: 'Progresivo',    description: 'Sube de intensidad' },
+  { key: 'continuous', label: 'Continuo', description: 'Ritmo sostenido' },
+  { key: 'intervals', label: 'Intervalos', description: 'Trabajo / descanso' },
+  { key: 'progressive', label: 'Progresivo', description: 'Sube de intensidad' },
 ]
 
 // Formatos aeróbicos que requieren work/rest/rounds
@@ -458,45 +490,65 @@ export const AEROBIC_INTERVAL_FORMATS = ['intervals']
 
 // Tipos de circuito
 export const CIRCUIT_TYPES = [
-  { key: 'hiit',  label: 'HIIT',  description: 'Trabajo / descanso / rondas' },
+  { key: 'hiit', label: 'HIIT', description: 'Trabajo / descanso / rondas' },
   { key: 'amrap', label: 'AMRAP', description: 'Tantas rondas como puedas' },
-  { key: 'emom', label: 'EMOM',  description: 'Cada minuto al minuto' },
+  { key: 'emom', label: 'EMOM', description: 'Cada minuto al minuto' },
   { key: 'free', label: 'Libre', description: 'Sin estructura fija' },
 ]
 
 // Intensidad (común entre aeróbico y circuito)
 export const INTENSITY_LEVELS = [
-  { key: 'soft',     label: 'Suave',    color: 'bg-green-100 text-green-700' },
+  { key: 'soft', label: 'Suave', color: 'bg-green-100 text-green-700' },
   { key: 'moderate', label: 'Moderado', color: 'bg-yellow-100 text-yellow-700' },
-  { key: 'intense',  label: 'Intenso',  color: 'bg-red-100 text-red-700' },
+  { key: 'intense', label: 'Intenso', color: 'bg-red-100 text-red-700' },
 ]
 
 // Zonas aeróbicas (RPE Cardio con talk test)
 // Z1 = recuperación / muy suave  · Z5 = máximo / segundos
 export const AEROBIC_ZONES = [
   {
-    key: 'Z1', label: 'Z1', range: 'RPE 1–2', pct: '50–60%',
-    short: 'muy suave', desc: 'podés cantar · respiración nasal',
+    key: 'Z1',
+    label: 'Z1',
+    range: 'RPE 1–2',
+    pct: '50–60%',
+    short: 'muy suave',
+    desc: 'podés cantar · respiración nasal',
     color: 'bg-green-100 text-green-700 border-green-200',
   },
   {
-    key: 'Z2', label: 'Z2', range: 'RPE 3–4', pct: '60–70%',
-    short: 'leve / moderado bajo', desc: 'frases completas · cómodo',
+    key: 'Z2',
+    label: 'Z2',
+    range: 'RPE 3–4',
+    pct: '60–70%',
+    short: 'leve / moderado bajo',
+    desc: 'frases completas · cómodo',
     color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   {
-    key: 'Z3', label: 'Z3', range: 'RPE 5–6', pct: '70–80%',
-    short: 'moderado', desc: 'frases con pausas · sostenido',
+    key: 'Z3',
+    label: 'Z3',
+    range: 'RPE 5–6',
+    pct: '70–80%',
+    short: 'moderado',
+    desc: 'frases con pausas · sostenido',
     color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   },
   {
-    key: 'Z4', label: 'Z4', range: 'RPE 7', pct: '80–85%',
-    short: 'alto', desc: '2–3 palabras · foco mental',
+    key: 'Z4',
+    label: 'Z4',
+    range: 'RPE 7',
+    pct: '80–85%',
+    short: 'alto',
+    desc: '2–3 palabras · foco mental',
     color: 'bg-orange-100 text-orange-700 border-orange-200',
   },
   {
-    key: 'Z5', label: 'Z5', range: 'RPE 8–10', pct: '85–100%',
-    short: 'muy alto / máximo', desc: 'no podés hablar · al límite',
+    key: 'Z5',
+    label: 'Z5',
+    range: 'RPE 8–10',
+    pct: '85–100%',
+    short: 'muy alto / máximo',
+    desc: 'no podés hablar · al límite',
     color: 'bg-red-100 text-red-700 border-red-200',
   },
 ]
@@ -520,9 +572,7 @@ export function blockTypeIcon(type) {
 export function blockDisplayTitle(block, strengthIndexInSection = 0) {
   if (block.title) return block.title
   if (block.block_type === 'strength') {
-    return strengthIndexInSection > 0
-      ? `Fuerza ${strengthIndexInSection + 1}`
-      : 'Fuerza'
+    return strengthIndexInSection > 0 ? `Fuerza ${strengthIndexInSection + 1}` : 'Fuerza'
   }
   return blockTypeLabel(block.block_type)
 }
@@ -539,7 +589,7 @@ export function emptyStrengthBlock(section, order = 0) {
     order_index: order,
     title: '',
     notes: '',
-    exercises: [],                 // array de plan_exercise en formato UI
+    exercises: [], // array de plan_exercise en formato UI
     // campos aeróbico/circuito no aplican
   }
 }
@@ -553,11 +603,11 @@ export function emptyAerobicBlock(section, order = 0) {
     order_index: order,
     title: '',
     notes: '',
-    exercises: [],                 // puede tener 0-1 ejercicio asociado (dropdown)
+    exercises: [], // puede tener 0-1 ejercicio asociado (dropdown)
     aerobic_format: 'continuous',
     aerobic_total_minutes: '',
     aerobic_intensity: 'moderate',
-    aerobic_zone: 'Z2',            // obligatorio: zona objetivo (talk test)
+    aerobic_zone: 'Z2', // obligatorio: zona objetivo (talk test)
     aerobic_work_seconds: '',
     aerobic_rest_seconds: '',
     aerobic_rounds: '',
@@ -595,11 +645,11 @@ export function emptyCircuitExercise() {
   return {
     id: null,
     exercise_id: '',
-    exercise_mode: 'reps',       // 'reps' | 'time'
-    suggested_reps_array: [''],  // cuando es por reps (1 valor típicamente)
+    exercise_mode: 'reps', // 'reps' | 'time'
+    suggested_reps_array: [''], // cuando es por reps (1 valor típicamente)
     suggested_weights_array: [''],
-    suggested_sets: '1',         // los circuitos casi siempre son 1 set por ejercicio
-    duration_seconds: '',        // cuando es por tiempo
+    suggested_sets: '1', // los circuitos casi siempre son 1 set por ejercicio
+    duration_seconds: '', // cuando es por tiempo
     rest_time: '',
     block_letter: '',
     block_number: '',
@@ -617,7 +667,7 @@ export function emptyCircuitExercise() {
 export function dbBlockToUI(block, exercisesDb = []) {
   const exercises = (exercisesDb || [])
     .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-    .map(e => {
+    .map((e) => {
       const ui = dbExToUIEx(e)
       ui.exercise_mode = e.exercise_mode || 'reps'
       ui.duration_seconds = e.duration_seconds != null ? String(e.duration_seconds) : ''
@@ -634,19 +684,26 @@ export function dbBlockToUI(block, exercisesDb = []) {
     notes: block.notes || '',
     // HIIT como formato aeróbico fue eliminado (v19). Si aparece en la base
     // por algún motivo, lo mostramos como 'intervals' (que es funcionalmente equivalente).
-    aerobic_format: (block.aerobic_format === 'hiit' ? 'intervals' : block.aerobic_format) || 'continuous',
-    aerobic_total_minutes: block.aerobic_total_minutes != null ? String(block.aerobic_total_minutes) : '',
+    aerobic_format:
+      (block.aerobic_format === 'hiit' ? 'intervals' : block.aerobic_format) || 'continuous',
+    aerobic_total_minutes:
+      block.aerobic_total_minutes != null ? String(block.aerobic_total_minutes) : '',
     aerobic_intensity: block.aerobic_intensity || 'moderate',
     aerobic_zone: block.aerobic_zone || 'Z2',
-    aerobic_work_seconds: block.aerobic_work_seconds != null ? String(block.aerobic_work_seconds) : '',
-    aerobic_rest_seconds: block.aerobic_rest_seconds != null ? String(block.aerobic_rest_seconds) : '',
+    aerobic_work_seconds:
+      block.aerobic_work_seconds != null ? String(block.aerobic_work_seconds) : '',
+    aerobic_rest_seconds:
+      block.aerobic_rest_seconds != null ? String(block.aerobic_rest_seconds) : '',
     aerobic_rounds: block.aerobic_rounds != null ? String(block.aerobic_rounds) : '',
     aerobic_expected_sensation: block.aerobic_expected_sensation || '',
     circuit_type: block.circuit_type || 'hiit',
-    circuit_work_seconds: block.circuit_work_seconds != null ? String(block.circuit_work_seconds) : '',
-    circuit_rest_seconds: block.circuit_rest_seconds != null ? String(block.circuit_rest_seconds) : '',
+    circuit_work_seconds:
+      block.circuit_work_seconds != null ? String(block.circuit_work_seconds) : '',
+    circuit_rest_seconds:
+      block.circuit_rest_seconds != null ? String(block.circuit_rest_seconds) : '',
     circuit_rounds: block.circuit_rounds != null ? String(block.circuit_rounds) : '',
-    circuit_total_minutes: block.circuit_total_minutes != null ? String(block.circuit_total_minutes) : '',
+    circuit_total_minutes:
+      block.circuit_total_minutes != null ? String(block.circuit_total_minutes) : '',
     circuit_intensity: block.circuit_intensity || 'moderate',
     exercises,
   }
@@ -683,11 +740,17 @@ export function uiBlockToDB(block, planId, index) {
     base.aerobic_format = block.aerobic_format || 'continuous'
     base.aerobic_intensity = block.aerobic_intensity || null
     base.aerobic_zone = block.aerobic_zone || 'Z2'
-    base.aerobic_total_minutes = block.aerobic_total_minutes ? parseInt(block.aerobic_total_minutes) : null
+    base.aerobic_total_minutes = block.aerobic_total_minutes
+      ? parseInt(block.aerobic_total_minutes)
+      : null
     base.aerobic_expected_sensation = block.aerobic_expected_sensation || null
     if (AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)) {
-      base.aerobic_work_seconds = block.aerobic_work_seconds ? parseInt(block.aerobic_work_seconds) : null
-      base.aerobic_rest_seconds = block.aerobic_rest_seconds ? parseInt(block.aerobic_rest_seconds) : null
+      base.aerobic_work_seconds = block.aerobic_work_seconds
+        ? parseInt(block.aerobic_work_seconds)
+        : null
+      base.aerobic_rest_seconds = block.aerobic_rest_seconds
+        ? parseInt(block.aerobic_rest_seconds)
+        : null
       base.aerobic_rounds = block.aerobic_rounds ? parseInt(block.aerobic_rounds) : null
     }
   }
@@ -696,11 +759,17 @@ export function uiBlockToDB(block, planId, index) {
     base.circuit_type = block.circuit_type || 'hiit'
     base.circuit_intensity = block.circuit_intensity || null
     if (block.circuit_type === 'hiit') {
-      base.circuit_work_seconds = block.circuit_work_seconds ? parseInt(block.circuit_work_seconds) : null
-      base.circuit_rest_seconds = block.circuit_rest_seconds ? parseInt(block.circuit_rest_seconds) : null
+      base.circuit_work_seconds = block.circuit_work_seconds
+        ? parseInt(block.circuit_work_seconds)
+        : null
+      base.circuit_rest_seconds = block.circuit_rest_seconds
+        ? parseInt(block.circuit_rest_seconds)
+        : null
       base.circuit_rounds = block.circuit_rounds ? parseInt(block.circuit_rounds) : null
     } else if (block.circuit_type === 'amrap' || block.circuit_type === 'emom') {
-      base.circuit_total_minutes = block.circuit_total_minutes ? parseInt(block.circuit_total_minutes) : null
+      base.circuit_total_minutes = block.circuit_total_minutes
+        ? parseInt(block.circuit_total_minutes)
+        : null
     }
   }
 
@@ -730,8 +799,7 @@ export function suggestNextDay(activeDays, logs, exSection, today) {
   if (!logs || logs.length === 0) return activeDays[0]
 
   // Fechas con logs, ordenadas de más reciente a más vieja.
-  const datesDesc = [...new Set(logs.map(l => l.logged_date))]
-    .sort((a, b) => b.localeCompare(a))
+  const datesDesc = [...new Set(logs.map((l) => l.logged_date))].sort((a, b) => b.localeCompare(a))
 
   // Para una fecha dada, devuelve el day_* con más logs (excluye 'activation').
   function dayOfDate(date) {
@@ -743,9 +811,13 @@ export function suggestNextDay(activeDays, logs, exSection, today) {
         counts[sec] = (counts[sec] || 0) + 1
       }
     }
-    let best = null, bestCount = 0
+    let best = null,
+      bestCount = 0
     for (const [sec, c] of Object.entries(counts)) {
-      if (c > bestCount) { best = sec; bestCount = c }
+      if (c > bestCount) {
+        best = sec
+        bestCount = c
+      }
     }
     return best
   }
@@ -806,6 +878,7 @@ export function groupExercisesIntoBlocks(planExercises = [], planBlocks = []) {
 
   const virtualBlocks = Object.values(orphansBySection)
   const realBlocks = Object.values(blocksById)
-  return [...realBlocks, ...virtualBlocks]
-    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+  return [...realBlocks, ...virtualBlocks].sort(
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+  )
 }

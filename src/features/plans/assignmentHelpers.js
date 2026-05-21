@@ -32,15 +32,18 @@
 //
 // Returns: { assignment_id, plan_id (nueva instancia), template_id, student_id }
 // ============================================================
-export async function assignTemplateToStudent(supabase, {
-  templateId,
-  studentId,
-  startDate,            // 'YYYY-MM-DD' o null para hoy
-  endDate = null,       // 'YYYY-MM-DD' o null
-  scheduleMode = 'flexible',
-  preferredDays = null, // array de ints 0-6 o null
-  linkedAssignmentId = null,
-}) {
+export async function assignTemplateToStudent(
+  supabase,
+  {
+    templateId,
+    studentId,
+    startDate, // 'YYYY-MM-DD' o null para hoy
+    endDate = null, // 'YYYY-MM-DD' o null
+    scheduleMode = 'flexible',
+    preferredDays = null, // array de ints 0-6 o null
+    linkedAssignmentId = null,
+  }
+) {
   if (!templateId) throw new Error('assignTemplateToStudent: templateId requerido')
   if (!studentId) throw new Error('assignTemplateToStudent: studentId requerido')
 
@@ -72,19 +75,18 @@ export function enrichRpcError(error) {
     code === '23514' && /plantilla/i.test(msg)
       ? 'No se puede asignar una plantilla directamente. Volvé a intentar — si el problema persiste, reportá este caso.'
       : code === '23514' && /is_template/i.test(msg)
-      ? 'Ese plan no es una plantilla; no se puede clonar desde acá.'
-      : code === '23503'
-      ? 'No se encontró el plan o el alumno (referencia inválida).'
-      : code === '23505'
-      ? 'Ese alumno ya tiene un plan activo con esas condiciones. Reemplazá el actual desde el perfil del alumno.'
-      : null
+        ? 'Ese plan no es una plantilla; no se puede clonar desde acá.'
+        : code === '23503'
+          ? 'No se encontró el plan o el alumno (referencia inválida).'
+          : code === '23505'
+            ? 'Ese alumno ya tiene un plan activo con esas condiciones. Reemplazá el actual desde el perfil del alumno.'
+            : null
 
   const wrapped = new Error(friendly || msg || 'Error al asignar el plan')
   wrapped.code = code
   wrapped.original = error
   return wrapped
 }
-
 
 export const ASSIGNMENT_STATUSES = ['active', 'paused', 'replaced', 'completed', 'archived']
 
@@ -180,7 +182,7 @@ export function pickPrimaryTrainingAssignment(assignments) {
   if (!assignments || assignments.length === 0) return null
 
   const trainings = assignments.filter(
-    a => (a.plan_type || a.plan?.plan_type || 'training') === 'training'
+    (a) => (a.plan_type || a.plan?.plan_type || 'training') === 'training'
   )
   if (trainings.length === 0) return null
 
@@ -190,14 +192,10 @@ export function pickPrimaryTrainingAssignment(assignments) {
     return tb - ta
   }
 
-  const active = trainings
-    .filter(a => getAssignmentStatus(a) === 'active')
-    .sort(byCreated)
+  const active = trainings.filter((a) => getAssignmentStatus(a) === 'active').sort(byCreated)
   if (active.length > 0) return active[0]
 
-  const paused = trainings
-    .filter(a => getAssignmentStatus(a) === 'paused')
-    .sort(byCreated)
+  const paused = trainings.filter((a) => getAssignmentStatus(a) === 'paused').sort(byCreated)
   if (paused.length > 0) return paused[0]
 
   return null
@@ -211,11 +209,11 @@ export function pickPrimaryTrainingAssignment(assignments) {
 // la DB no fuerza estas reglas (no agregamos otro trigger por
 // ahora — son lo bastante simples como para vivir solo en cliente).
 export const ALLOWED_TRANSITIONS = {
-  active:    ['paused', 'completed', 'archived', 'replaced'],
-  paused:    ['active', 'completed', 'archived'],
-  replaced:  ['active'], // reactivar (con confirmación si hay otro activo)
+  active: ['paused', 'completed', 'archived', 'replaced'],
+  paused: ['active', 'completed', 'archived'],
+  replaced: ['active'], // reactivar (con confirmación si hay otro activo)
   completed: ['active'], // reabrir
-  archived:  ['active'], // reactivar
+  archived: ['active'], // reactivar
 }
 
 export function canTransition(from, to) {
@@ -231,22 +229,20 @@ export function actionsForStatus(status) {
   switch (status) {
     case 'active':
       return [
-        { key: 'pause',     label: 'Pausar',         tone: 'neutral',  toStatus: 'paused' },
-        { key: 'complete',  label: 'Marcar completado', tone: 'success', toStatus: 'completed' },
-        { key: 'archive',   label: 'Archivar',       tone: 'neutral',  toStatus: 'archived' },
+        { key: 'pause', label: 'Pausar', tone: 'neutral', toStatus: 'paused' },
+        { key: 'complete', label: 'Marcar completado', tone: 'success', toStatus: 'completed' },
+        { key: 'archive', label: 'Archivar', tone: 'neutral', toStatus: 'archived' },
       ]
     case 'paused':
       return [
-        { key: 'reactivate',label: 'Reactivar',      tone: 'primary',  toStatus: 'active' },
-        { key: 'complete',  label: 'Marcar completado', tone: 'success', toStatus: 'completed' },
-        { key: 'archive',   label: 'Archivar',       tone: 'neutral',  toStatus: 'archived' },
+        { key: 'reactivate', label: 'Reactivar', tone: 'primary', toStatus: 'active' },
+        { key: 'complete', label: 'Marcar completado', tone: 'success', toStatus: 'completed' },
+        { key: 'archive', label: 'Archivar', tone: 'neutral', toStatus: 'archived' },
       ]
     case 'replaced':
     case 'completed':
     case 'archived':
-      return [
-        { key: 'reactivate',label: 'Reactivar',      tone: 'primary',  toStatus: 'active' },
-      ]
+      return [{ key: 'reactivate', label: 'Reactivar', tone: 'primary', toStatus: 'active' }]
     default:
       return []
   }
@@ -261,7 +257,7 @@ export function actionsForStatus(status) {
 
 export function groupEvaluationAssignments(assignments) {
   const evals = (assignments || []).filter(
-    a => (a.plan_type || a.plan?.plan_type) === 'evaluation'
+    (a) => (a.plan_type || a.plan?.plan_type) === 'evaluation'
   )
 
   const activeTraining = pickPrimaryTrainingAssignment(assignments || [])
@@ -338,9 +334,7 @@ export function normalizePreferredDays(input) {
     }
   }
   if (!Array.isArray(arr)) return []
-  const valid = arr
-    .map(n => Number(n))
-    .filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
+  const valid = arr.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
   return [...new Set(valid)].sort((a, b) => a - b)
 }
 
@@ -351,7 +345,7 @@ export function getPreferredDays(assignment) {
 export function formatPreferredDays(days, { short = true } = {}) {
   const norm = normalizePreferredDays(days)
   if (norm.length === 0) return ''
-  return norm.map(d => (short ? DAYS_OF_WEEK[d].short : DAYS_OF_WEEK[d].label)).join(' · ')
+  return norm.map((d) => (short ? DAYS_OF_WEEK[d].short : DAYS_OF_WEEK[d].label)).join(' · ')
 }
 
 // ── Manipulación de fechas (sin date-fns para evitar acoplamiento) ──
@@ -487,12 +481,7 @@ export function getExpectedSessionDates(assignment, from, to) {
 //   partial  — > 0.5 y < 1 (más del 50%).
 //   poor     — <= 0.5 (50% o menos).
 // ============================================================
-export function computeWeekAdherence(
-  assignment,
-  sessionDates,
-  weekStart,
-  today = new Date()
-) {
+export function computeWeekAdherence(assignment, sessionDates, weekStart, today = new Date()) {
   const wStart = startOfWeekMonday(weekStart)
   const wEnd = endOfWeekSunday(weekStart)
   const todayD = startOfDay(today)
@@ -514,18 +503,18 @@ export function computeWeekAdherence(
     }
   }
 
-  const sessionSet = new Set((sessionDates || []).map(s => String(s).slice(0, 10)))
+  const sessionSet = new Set((sessionDates || []).map((s) => String(s).slice(0, 10)))
   const mode = getScheduleMode(assignment)
 
   if (mode === 'fixed') {
     const expectedDates = getExpectedSessionDates(assignment, wStart, wEnd)
     const expectedCount = expectedDates.length
 
-    const completedDates = expectedDates.filter(d => sessionSet.has(d))
+    const completedDates = expectedDates.filter((d) => sessionSet.has(d))
     const completedCount = completedDates.length
 
     // Pendiente = esperada todavía en el futuro respecto a "hoy".
-    const pendingCount = expectedDates.filter(d => {
+    const pendingCount = expectedDates.filter((d) => {
       const dd = parseYMD(d)
       return dd && dd > todayD && !sessionSet.has(d)
     }).length

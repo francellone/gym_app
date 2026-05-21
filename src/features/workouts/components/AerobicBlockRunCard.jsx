@@ -1,9 +1,20 @@
 import { useState } from 'react'
 import {
-  CheckCircle2, Circle, ChevronDown, ChevronUp, Info, Clock, Activity, Trash2,
+  CheckCircle2,
+  Circle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Clock,
+  Activity,
+  Trash2,
 } from 'lucide-react'
 import {
-  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS, AEROBIC_ZONES, blockDisplayTitle,
+  AEROBIC_FORMATS,
+  AEROBIC_INTERVAL_FORMATS,
+  INTENSITY_LEVELS,
+  AEROBIC_ZONES,
+  blockDisplayTitle,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
 
@@ -11,9 +22,7 @@ import RPEScale from './RPEScale'
  * Card del bloque AERÓBICO para la vista del alumno.
  * El alumno registra: duración real (min) + RPE + notas.
  */
-export default function AerobicBlockRunCard({
-  block, blockLog, onSaveLog, onDeleteLog,
-}) {
+export default function AerobicBlockRunCard({ block, blockLog, onSaveLog, onDeleteLog }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -21,14 +30,19 @@ export default function AerobicBlockRunCard({
 
   const completed = !!blockLog?.completed
   const [form, setForm] = useState({
-    actual_minutes: blockLog?.actual_minutes != null ? String(blockLog.actual_minutes) : (block.aerobic_total_minutes ? String(block.aerobic_total_minutes) : ''),
+    actual_minutes:
+      blockLog?.actual_minutes != null
+        ? String(blockLog.actual_minutes)
+        : block.aerobic_total_minutes
+          ? String(block.aerobic_total_minutes)
+          : '',
     perceived_difficulty: blockLog?.perceived_difficulty ?? null,
     notes: blockLog?.notes || '',
   })
 
-  const format = AEROBIC_FORMATS.find(f => f.key === block.aerobic_format)
-  const intensity = INTENSITY_LEVELS.find(i => i.key === block.aerobic_intensity)
-  const zone = AEROBIC_ZONES.find(z => z.key === block.aerobic_zone)
+  const format = AEROBIC_FORMATS.find((f) => f.key === block.aerobic_format)
+  const intensity = INTENSITY_LEVELS.find((i) => i.key === block.aerobic_intensity)
+  const zone = AEROBIC_ZONES.find((z) => z.key === block.aerobic_zone)
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
 
   const title = blockDisplayTitle(block)
@@ -71,7 +85,10 @@ export default function AerobicBlockRunCard({
             <p className="font-semibold text-gray-900">¿Desmarcar bloque?</p>
             <p className="text-sm text-gray-600">Se borrará tu registro de este bloque aeróbico.</p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1 text-sm">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
                 Cancelar
               </button>
               <button
@@ -85,26 +102,35 @@ export default function AerobicBlockRunCard({
         </div>
       )}
 
-      <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
-        completed ? 'border-sky-200 bg-sky-50' : 'border-gray-100 bg-white'
-      }`}>
+      <div
+        className={`rounded-2xl border-2 transition-all overflow-hidden ${
+          completed ? 'border-sky-200 bg-sky-50' : 'border-gray-100 bg-white'
+        }`}
+      >
         <div
           className="flex items-center gap-3 p-4 cursor-pointer"
           onClick={() => setExpanded(!expanded)}
         >
           <button
-            onClick={e => { e.stopPropagation(); if (!completed) setEditing(true) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!completed) setEditing(true)
+            }}
             className="flex-shrink-0"
           >
-            {completed
-              ? <CheckCircle2 size={24} className="text-sky-500" />
-              : <Circle size={24} className="text-gray-300" />}
+            {completed ? (
+              <CheckCircle2 size={24} className="text-sky-500" />
+            ) : (
+              <Circle size={24} className="text-gray-300" />
+            )}
           </button>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-base">🏃</span>
-              <p className={`font-semibold text-sm truncate ${completed ? 'text-sky-800' : 'text-gray-900'}`}>
+              <p
+                className={`font-semibold text-sm truncate ${completed ? 'text-sky-800' : 'text-gray-900'}`}
+              >
                 {title}
                 {exerciseName && <span className="text-gray-400"> · {exerciseName}</span>}
               </p>
@@ -114,21 +140,28 @@ export default function AerobicBlockRunCard({
                 format?.label,
                 block.aerobic_total_minutes && `${block.aerobic_total_minutes} min`,
                 intensity?.label,
-              ].filter(Boolean).join(' · ')}
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
             {blockLog && !expanded && (
               <p className="text-xs text-sky-600 mt-0.5 font-medium">
-                ✓ {[
+                ✓{' '}
+                {[
                   blockLog.actual_minutes && `${blockLog.actual_minutes} min`,
                   blockLog.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
-                ].filter(Boolean).join(' · ')}
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
             )}
           </div>
 
-          {expanded
-            ? <ChevronUp size={18} className="text-gray-400" />
-            : <ChevronDown size={18} className="text-gray-400" />}
+          {expanded ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
         </div>
 
         {expanded && (
@@ -147,12 +180,16 @@ export default function AerobicBlockRunCard({
                   </div>
                 )}
                 {zone && (
-                  <div className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${zone.color} w-fit font-semibold`}>
+                  <div
+                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${zone.color} w-fit font-semibold`}
+                  >
                     {zone.label} · {zone.short}
                   </div>
                 )}
                 {intensity && !zone && (
-                  <div className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${intensity.color} w-fit`}>
+                  <div
+                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${intensity.color} w-fit`}
+                  >
                     {intensity.label}
                   </div>
                 )}
@@ -163,11 +200,15 @@ export default function AerobicBlockRunCard({
                   {zone.desc} · FC {zone.pct}
                 </div>
               )}
-              {showIntervals && (block.aerobic_work_seconds || block.aerobic_rest_seconds || block.aerobic_rounds) && (
-                <div className="text-xs text-sky-700 pt-1 border-t border-sky-200 mt-1">
-                  {block.aerobic_rounds || '—'}× ({block.aerobic_work_seconds || '—'}s trabajo / {block.aerobic_rest_seconds || '—'}s descanso)
-                </div>
-              )}
+              {showIntervals &&
+                (block.aerobic_work_seconds ||
+                  block.aerobic_rest_seconds ||
+                  block.aerobic_rounds) && (
+                  <div className="text-xs text-sky-700 pt-1 border-t border-sky-200 mt-1">
+                    {block.aerobic_rounds || '—'}× ({block.aerobic_work_seconds || '—'}s trabajo /{' '}
+                    {block.aerobic_rest_seconds || '—'}s descanso)
+                  </div>
+                )}
               {block.aerobic_expected_sensation && (
                 <div className="text-xs text-sky-700 italic pt-1 border-t border-sky-200 mt-1">
                   "{block.aerobic_expected_sensation}"
@@ -183,17 +224,20 @@ export default function AerobicBlockRunCard({
             )}
 
             {/* Formulario */}
-            {(!completed || editing) ? (
+            {!completed || editing ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">Registrar bloque</p>
 
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Duración real (min)</label>
                   <input
-                    type="number" min="0" step="0.5" className="input text-sm"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className="input text-sm"
                     placeholder={block.aerobic_total_minutes || '20'}
                     value={form.actual_minutes}
-                    onChange={e => setForm(p => ({ ...p, actual_minutes: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, actual_minutes: e.target.value }))}
                   />
                 </div>
 
@@ -201,7 +245,7 @@ export default function AerobicBlockRunCard({
                   variant="cardio"
                   label="Esfuerzo percibido (talk test)"
                   value={form.perceived_difficulty}
-                  onChange={n => setForm(p => ({ ...p, perceived_difficulty: n }))}
+                  onChange={(n) => setForm((p) => ({ ...p, perceived_difficulty: n }))}
                 />
 
                 <div>
@@ -211,7 +255,7 @@ export default function AerobicBlockRunCard({
                     rows={2}
                     placeholder="¿Cómo te sentiste?"
                     value={form.notes}
-                    onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   />
                 </div>
 
@@ -220,10 +264,13 @@ export default function AerobicBlockRunCard({
                   disabled={saving}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                 >
-                  {saving
-                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <><CheckCircle2 size={16} /> Marcar como completado</>
-                  }
+                  {saving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} /> Marcar como completado
+                    </>
+                  )}
                 </button>
               </div>
             ) : (
@@ -233,11 +280,18 @@ export default function AerobicBlockRunCard({
                   {[
                     blockLog?.actual_minutes && `${blockLog.actual_minutes} min`,
                     blockLog?.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
-                  ].filter(Boolean).join(' · ')}
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
-                {blockLog?.notes && <p className="text-xs text-sky-700 italic">"{blockLog.notes}"</p>}
+                {blockLog?.notes && (
+                  <p className="text-xs text-sky-700 italic">"{blockLog.notes}"</p>
+                )}
                 <div className="flex items-center gap-3 pt-0.5">
-                  <button onClick={() => setEditing(true)} className="text-xs text-sky-700 underline">
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="text-xs text-sky-700 underline"
+                  >
                     Editar
                   </button>
                   <span className="text-sky-300 text-xs">·</span>

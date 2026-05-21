@@ -8,8 +8,8 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
-      .catch(err => console.warn('SW no registrado:', err))
+      .then((reg) => console.log('SW registrado:', reg.scope))
+      .catch((err) => console.warn('SW no registrado:', err))
   })
 
   // Escuchar mensajes del SW para navegación en click de notificación push
@@ -23,5 +23,5 @@ if ('serviceWorker' in navigator) {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>,
+  </React.StrictMode>
 )

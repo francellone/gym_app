@@ -16,16 +16,16 @@ Hoy en producción: **5 alumnos activos, 25 planes, ~460 logs**. Deploy en `http
 
 ## 1. Stack real
 
-| Capa | Tecnología | Notas |
-|---|---|---|
-| Frontend | React 18 + Vite 5 + Tailwind 3 | JSX puro (sin TypeScript). |
-| Routing / estado | `react-router-dom` 6 + Context API (`AuthContext`) | Sin Redux/Zustand. |
-| Iconos / charts | `lucide-react`, `recharts`, `date-fns` | |
-| Backend | Supabase Postgres 17.6 + Auth + Storage + Realtime + Edge Functions + pg_cron | Proyecto `bvexjanqmfypmtgoapbt`, región `sa-east-1`. |
-| Edge Functions | `create-student`, `notify-cron` | Código en `supabase/functions/`. Versionadas en Supabase. |
-| PWA / push | Service Worker propio (`public/sw.js`) + Web Push API | Registro en `src/main.jsx`. |
-| Hosting | Vercel | `vercel.json` con rewrite SPA. |
-| Repo | GitHub `francellone/gym_app` | Ramas: `main` (default) y `v2`. |
+| Capa             | Tecnología                                                                    | Notas                                                     |
+| ---------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Frontend         | React 18 + Vite 5 + Tailwind 3                                                | JSX puro (sin TypeScript).                                |
+| Routing / estado | `react-router-dom` 6 + Context API (`AuthContext`)                            | Sin Redux/Zustand.                                        |
+| Iconos / charts  | `lucide-react`, `recharts`, `date-fns`                                        |                                                           |
+| Backend          | Supabase Postgres 17.6 + Auth + Storage + Realtime + Edge Functions + pg_cron | Proyecto `bvexjanqmfypmtgoapbt`, región `sa-east-1`.      |
+| Edge Functions   | `create-student`, `notify-cron`                                               | Código en `supabase/functions/`. Versionadas en Supabase. |
+| PWA / push       | Service Worker propio (`public/sw.js`) + Web Push API                         | Registro en `src/main.jsx`.                               |
+| Hosting          | Vercel                                                                        | `vercel.json` con rewrite SPA.                            |
+| Repo             | GitHub `francellone/gym_app`                                                  | Ramas: `main` (default) y `v2`.                           |
 
 No hay TypeScript, no hay tests automatizados, no hay linter configurado en `package.json`. El refactor de BD del 16/05 dejó **24 tablas con RLS** y guardrails en producción (triggers, cron jobs, CHECK constraints). Detalle completo en `diagnostico_arquitec/01_changelog_back.md`.
 
@@ -149,10 +149,10 @@ Para aplicar:
 
 Dos funciones activas:
 
-| Slug | Verifica JWT | Para qué sirve | Código |
-|---|---|---|---|
+| Slug             | Verifica JWT                                | Para qué sirve                                                                      | Código                                       |
+| ---------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------- |
 | `create-student` | No (público, usa service role internamente) | Sign-up + creación de `profiles` para alumnos nuevos sin tocar la sesión del coach. | `supabase/functions/create-student/index.ts` |
-| `notify-cron` | Sí | Trigger de notificaciones programadas (vencimientos de planes, estancamientos). | `supabase/functions/notify-cron/index.ts` |
+| `notify-cron`    | Sí                                          | Trigger de notificaciones programadas (vencimientos de planes, estancamientos).     | `supabase/functions/notify-cron/index.ts`    |
 
 Para deploy: `supabase functions deploy <slug>` con el CLI configurado.
 
@@ -264,24 +264,24 @@ Cada vez que se aplica una migración mayor, conviene correr `mcp__supabase__get
 
 ## 9. Costos (snapshot 2026-05-20)
 
-| Item | Hoy | Cuándo deja de ser gratis |
-|---|---|---|
+| Item                                       | Hoy   | Cuándo deja de ser gratis                                             |
+| ------------------------------------------ | ----- | --------------------------------------------------------------------- |
 | Supabase (DB + Auth + Storage + Functions) | USD 0 | 500 MB DB, 1 GB storage, 50k MAU, 500k edge function invocations/mes. |
-| Vercel | USD 0 | Hobby tier para proyectos personales. |
-| GitHub | USD 0 | Repo privado, free tier. |
-| Total mensual | USD 0 | |
+| Vercel                                     | USD 0 | Hobby tier para proyectos personales.                                 |
+| GitHub                                     | USD 0 | Repo privado, free tier.                                              |
+| Total mensual                              | USD 0 |                                                                       |
 
 ---
 
 ## 10. Dónde más leer
 
-| Para entender… | Mirá |
-|---|---|
-| El refactor de BD de mayo y los guardrails que quedaron | `diagnostico_arquitec/01_changelog_back.md` |
-| La auditoría post-refactor del 16/05 | `diagnostico_arquitec/02_auditoria_post_refactor_2026-05-16.md` |
-| El estado real del repo y los huecos de doc al 20/05 | `diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` |
-| Plan de reorganización por tiers | `diagnostico_arquitec/04_propuesta_reorganizacion.md` |
-| El módulo de notas v24+ | `diagnostico_arquitec/plan_deprecacion_notas_v24.md`, `src/lib/notes.js`, `src/components/notes/` |
+| Para entender…                                          | Mirá                                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| El refactor de BD de mayo y los guardrails que quedaron | `diagnostico_arquitec/01_changelog_back.md`                                                       |
+| La auditoría post-refactor del 16/05                    | `diagnostico_arquitec/02_auditoria_post_refactor_2026-05-16.md`                                   |
+| El estado real del repo y los huecos de doc al 20/05    | `diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md`                                      |
+| Plan de reorganización por tiers                        | `diagnostico_arquitec/04_propuesta_reorganizacion.md`                                             |
+| El módulo de notas v24+                                 | `diagnostico_arquitec/plan_deprecacion_notas_v24.md`, `src/lib/notes.js`, `src/components/notes/` |
 
 ---
 

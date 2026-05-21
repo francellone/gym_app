@@ -31,7 +31,9 @@ export default function StudentDashboard() {
       const today = format(new Date(), 'yyyy-MM-dd')
 
       // Liberar formularios programados que ya vencieron (idempotente, no bloquea)
-      try { await supabase.rpc('release_due_forms') } catch {}
+      try {
+        await supabase.rpc('release_due_forms')
+      } catch {}
 
       const [assignmentsRes, logsRes, formsRes] = await Promise.all([
         supabase
@@ -54,12 +56,12 @@ export default function StudentDashboard() {
           .from('intake_form_assignments')
           .select('id, form_kind, form_snapshot')
           .eq('student_id', profile.id)
-          .in('status', ['pending', 'in_progress'])
+          .in('status', ['pending', 'in_progress']),
       ])
 
       const allForms = formsRes.data || []
-      setPendingIntake(allForms.some(f => f.form_kind === 'intake'))
-      setPendingFollowUps(allForms.filter(f => f.form_kind === 'follow_up'))
+      setPendingIntake(allForms.some((f) => f.form_kind === 'intake'))
+      setPendingFollowUps(allForms.filter((f) => f.form_kind === 'follow_up'))
 
       setAssignments(assignmentsRes.data || [])
 
@@ -80,8 +82,10 @@ export default function StudentDashboard() {
   // weekLogs ya viene filtrado a training (evaluaciones fuera).
   const trainingDays = computeWeekTrainingDays(weekLogs)
 
-  const trainingPlans = assignments.filter(a => !a.plan?.plan_type || a.plan?.plan_type === 'training')
-  const evalPlans = assignments.filter(a => a.plan?.plan_type === 'evaluation')
+  const trainingPlans = assignments.filter(
+    (a) => !a.plan?.plan_type || a.plan?.plan_type === 'training'
+  )
+  const evalPlans = assignments.filter((a) => a.plan?.plan_type === 'evaluation')
   const activePlan = trainingPlans[0]
 
   const hora = new Date().getHours()
@@ -99,7 +103,9 @@ export default function StudentDashboard() {
             <span className="text-2xl">📋</span>
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Tenés un formulario pendiente</p>
-              <p className="text-xs text-amber-600">Tu coach te envió el formulario de ingreso. Completalo para empezar.</p>
+              <p className="text-xs text-amber-600">
+                Tu coach te envió el formulario de ingreso. Completalo para empezar.
+              </p>
             </div>
             <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
           </div>
@@ -109,9 +115,11 @@ export default function StudentDashboard() {
       {/* Banner formularios de seguimiento pendientes */}
       {!pendingIntake && pendingFollowUps.length > 0 && (
         <Link
-          to={pendingFollowUps.length === 1
-            ? `/student/form/${pendingFollowUps[0].id}`
-            : '/student/forms'}
+          to={
+            pendingFollowUps.length === 1
+              ? `/student/form/${pendingFollowUps[0].id}`
+              : '/student/forms'
+          }
           className="block mx-4 mt-4 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-3 hover:bg-purple-100 transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -136,9 +144,7 @@ export default function StudentDashboard() {
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-8">
         <p className="text-primary-200 text-sm">{saludo}</p>
-        <h1 className="text-2xl font-bold text-white mt-0.5">
-          {profile?.name?.split(' ')[0]} 💪
-        </h1>
+        <h1 className="text-2xl font-bold text-white mt-0.5">{profile?.name?.split(' ')[0]} 💪</h1>
         <p className="text-primary-200 text-sm mt-1">
           {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
         </p>
@@ -146,7 +152,9 @@ export default function StudentDashboard() {
         {streak > 0 && (
           <div className="flex items-center gap-2 mt-4 bg-white/10 rounded-xl px-3 py-2 w-fit">
             <Flame size={18} className="text-orange-300" />
-            <span className="text-white font-semibold">{streak} día{streak > 1 ? 's' : ''} seguido{streak > 1 ? 's' : ''}</span>
+            <span className="text-white font-semibold">
+              {streak} día{streak > 1 ? 's' : ''} seguido{streak > 1 ? 's' : ''}
+            </span>
           </div>
         )}
       </div>
@@ -156,7 +164,7 @@ export default function StudentDashboard() {
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Esta semana</h3>
           <div className="flex gap-2 justify-between">
-            {last7Days.map(day => {
+            {last7Days.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const trained = trainingDays.has(dateStr)
               const today = isToday(day)
@@ -165,13 +173,15 @@ export default function StudentDashboard() {
                   <span className="text-xs text-gray-400">
                     {format(day, 'EEEEE', { locale: es })}
                   </span>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
-                    trained
-                      ? 'bg-primary-500 text-white'
-                      : today
-                      ? 'bg-primary-100 text-primary-600 border-2 border-primary-400'
-                      : 'bg-gray-100 text-gray-400'
-                  }`}>
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
+                      trained
+                        ? 'bg-primary-500 text-white'
+                        : today
+                          ? 'bg-primary-100 text-primary-600 border-2 border-primary-400'
+                          : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
                     {format(day, 'd')}
                   </div>
                 </div>
@@ -181,7 +191,10 @@ export default function StudentDashboard() {
         </div>
 
         {/* Go to today's workout */}
-        <Link to="/student/workout" className="block card bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 transition-all active:scale-[0.98]">
+        <Link
+          to="/student/workout"
+          className="block card bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 transition-all active:scale-[0.98]"
+        >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
               <Dumbbell className="w-6 h-6 text-white" />
@@ -203,7 +216,7 @@ export default function StudentDashboard() {
               <BarChart2 size={14} className="text-purple-500" />
               Mis evaluaciones
             </h3>
-            {evalPlans.map(a => (
+            {evalPlans.map((a) => (
               <Link
                 key={a.id}
                 to={`/student/eval/${a.plan_id}`}
@@ -226,7 +239,10 @@ export default function StudentDashboard() {
 
         {/* Quick links */}
         <div className="grid grid-cols-2 gap-3">
-          <Link to="/student/progress" className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3">
+          <Link
+            to="/student/progress"
+            className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3"
+          >
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
               <TrendingUp size={18} className="text-green-600" />
             </div>
@@ -235,7 +251,10 @@ export default function StudentDashboard() {
               <p className="text-xs text-gray-500">Ver gráficos</p>
             </div>
           </Link>
-          <Link to="/student/history" className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3">
+          <Link
+            to="/student/history"
+            className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3"
+          >
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <Calendar size={18} className="text-blue-600" />
             </div>

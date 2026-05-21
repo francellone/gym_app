@@ -29,8 +29,17 @@ import { useState, useRef, useEffect } from 'react'
 import { format, parseISO, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  Lock, Tag, MessageSquare, CornerDownRight, Reply,
-  MoreVertical, Edit2, Trash2, Check, X, Loader2
+  Lock,
+  Tag,
+  MessageSquare,
+  CornerDownRight,
+  Reply,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  Loader2,
 } from 'lucide-react'
 import { contextTypeLabel, editNote, deleteNote } from '../api'
 
@@ -48,12 +57,20 @@ const BLOCK_TYPE_LABELS = {
 //     evaluation_test_responses (post v26c).
 //   - plan / session_day: read-only (no se crean desde UI).
 const EDITABLE_CONTEXTS = new Set([
-  'free', 'exercise', 'workout_log', 'workout_block_log', 'evaluation_test',
+  'free',
+  'exercise',
+  'workout_log',
+  'workout_block_log',
+  'evaluation_test',
 ])
 
 function safeDate(iso) {
   if (!iso) return null
-  try { return parseISO(iso) } catch { return null }
+  try {
+    return parseISO(iso)
+  } catch {
+    return null
+  }
 }
 
 // Convierte 'YYYY-MM-DD' a 'DD/MM/YYYY' (read-only display)
@@ -222,7 +239,9 @@ export default function NoteCard({
 
   return (
     <div className={`flex flex-col ${alignmentClass} gap-1`}>
-      <div className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 relative ${bubbleClass}`}>
+      <div
+        className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 relative ${bubbleClass}`}
+      >
         {isUnread && (
           <span
             className={`absolute -top-1 ${isCoach ? '-left-1' : '-right-1'} w-2.5 h-2.5 rounded-full bg-orange-500 ring-2 ring-white`}
@@ -252,7 +271,7 @@ export default function NoteCard({
             <div className="relative ml-auto" ref={menuRef}>
               <button
                 type="button"
-                onClick={() => setMenuOpen(v => !v)}
+                onClick={() => setMenuOpen((v) => !v)}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
                 aria-label="Acciones"
               >
@@ -288,12 +307,14 @@ export default function NoteCard({
               <span className="text-[10px] uppercase tracking-wide">En respuesta a</span>
             </div>
             <p className="line-clamp-2">
-              {parentNote
-                ? (() => {
-                    const txt = parentNote.body || ''
-                    return txt.length > 140 ? `${txt.slice(0, 140).trimEnd()}…` : txt
-                  })()
-                : <span className="text-gray-400">Mensaje eliminado</span>}
+              {parentNote ? (
+                (() => {
+                  const txt = parentNote.body || ''
+                  return txt.length > 140 ? `${txt.slice(0, 140).trimEnd()}…` : txt
+                })()
+              ) : (
+                <span className="text-gray-400">Mensaje eliminado</span>
+              )}
             </p>
           </div>
         )}
@@ -304,14 +325,16 @@ export default function NoteCard({
             <textarea
               ref={editTextareaRef}
               value={editBody}
-              onChange={e => setEditBody(e.target.value)}
+              onChange={(e) => setEditBody(e.target.value)}
               onKeyDown={handleEditKeyDown}
               className="input text-sm resize-none w-full"
               rows={Math.max(2, Math.min(8, (editBody.match(/\n/g) || []).length + 2))}
               disabled={saving}
             />
             {error && (
-              <p className="text-[11px] text-red-600">{error.message || 'No se pudo actualizar.'}</p>
+              <p className="text-[11px] text-red-600">
+                {error.message || 'No se pudo actualizar.'}
+              </p>
             )}
             <div className="flex items-center justify-end gap-1.5">
               <button
@@ -332,7 +355,9 @@ export default function NoteCard({
                 Guardar
               </button>
             </div>
-            <p className="text-[10px] text-gray-400">Cmd/Ctrl + Enter para guardar · Esc para cancelar</p>
+            <p className="text-[10px] text-gray-400">
+              Cmd/Ctrl + Enter para guardar · Esc para cancelar
+            </p>
           </div>
         ) : (
           <p className="text-sm whitespace-pre-wrap break-words">{note.body}</p>
@@ -341,7 +366,7 @@ export default function NoteCard({
         {/* ── Tags ── */}
         {tags.length > 0 && !editing && (
           <div className={`flex flex-wrap gap-1 mt-2 ${metaAlignment}`}>
-            {tags.map(t => (
+            {tags.map((t) => (
               <button
                 key={t}
                 type="button"
@@ -367,10 +392,7 @@ export default function NoteCard({
             <Reply size={10} /> Responder
           </button>
         )}
-        <span
-          className="text-[10px] text-gray-400"
-          title={fullDate}
-        >
+        <span className="text-[10px] text-gray-400" title={fullDate}>
           {relativeTime}
           {edited && <span className="ml-1 italic">· editada</span>}
         </span>

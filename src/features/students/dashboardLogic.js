@@ -58,9 +58,7 @@ function addDays(date, n) {
 // ============================================================
 export function computeStreak(logs, today = new Date()) {
   const completedDates = new Set(
-    (logs || [])
-      .filter(l => l.completed)
-      .map(l => String(l.logged_date).slice(0, 10))
+    (logs || []).filter((l) => l.completed).map((l) => String(l.logged_date).slice(0, 10))
   )
 
   const todayD = startOfDay(today)

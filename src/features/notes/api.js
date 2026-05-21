@@ -51,7 +51,6 @@ function normalizeError(rawError, fallbackMessage = 'Error desconocido') {
     // Loggeamos el raw para diagnóstico si es desconocido
     // (no es spam: solo se invoca cuando hay error real).
     if (normalizedCode === 'UNKNOWN') {
-      // eslint-disable-next-line no-console
       console.warn('[notes.js] Error sin código mapeado:', rawError)
     }
   }
@@ -92,7 +91,8 @@ export async function getOrCreateThread(coachId, studentId) {
     p_coach_id: coachId,
     p_student_id: studentId,
   })
-  if (error) return { data: null, error: normalizeError(error, 'No se pudo obtener el hilo de notas.') }
+  if (error)
+    return { data: null, error: normalizeError(error, 'No se pudo obtener el hilo de notas.') }
   // El RPC devuelve directamente el uuid (o null en casos raros).
   return { data: data ?? null, error: null }
 }
@@ -116,10 +116,28 @@ export async function getOrCreateThread(coachId, studentId) {
 // ============================================================
 export async function getOrCreateThreadForStudent(studentId, coachId) {
   if (!studentId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta studentId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   if (!coachId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta coachId del coach logueado.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta coachId del coach logueado.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   return getOrCreateThread(coachId, studentId)
 }
@@ -134,7 +152,9 @@ export async function getStudentThread(studentId) {
   if (!studentId) return { data: null, error: null }
   const { data, error } = await supabase
     .from('note_threads')
-    .select('id, coach_id, student_id, pinned, last_message_at, unread_for_coach, unread_for_student')
+    .select(
+      'id, coach_id, student_id, pinned, last_message_at, unread_for_coach, unread_for_student'
+    )
     .eq('student_id', studentId)
     .maybeSingle()
   if (error && !isNoRowsError(error)) {
@@ -158,7 +178,9 @@ export async function listNotes(threadId, filters = {}, pagination = {}) {
 
   let q = supabase
     .from('notes')
-    .select('id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, muscle_group, block_type, parent_note_id, tags, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at')
+    .select(
+      'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, muscle_group, block_type, parent_note_id, tags, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at'
+    )
     .eq('thread_id', threadId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -205,14 +227,22 @@ export async function listNotes(threadId, filters = {}, pagination = {}) {
     // con un Promise.race contra el abort.
     const aborted = new Promise((_, reject) => {
       if (signal.aborted) reject(new DOMException('Aborted', 'AbortError'))
-      else signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+      else
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
+          once: true,
+        })
     })
     try {
       const res = await Promise.race([q, aborted])
       return buildListResult(res, limit)
     } catch (err) {
-      if (err?.name === 'AbortError') return { data: [], nextCursor: null, error: null, aborted: true }
-      return { data: [], nextCursor: null, error: normalizeError(err, 'No se pudieron cargar las notas.') }
+      if (err?.name === 'AbortError')
+        return { data: [], nextCursor: null, error: null, aborted: true }
+      return {
+        data: [],
+        nextCursor: null,
+        error: normalizeError(err, 'No se pudieron cargar las notas.'),
+      }
     }
   }
 
@@ -222,7 +252,12 @@ export async function listNotes(threadId, filters = {}, pagination = {}) {
 
 function buildListResult(res, limit) {
   const { data, error } = res || {}
-  if (error) return { data: [], nextCursor: null, error: normalizeError(error, 'No se pudieron cargar las notas.') }
+  if (error)
+    return {
+      data: [],
+      nextCursor: null,
+      error: normalizeError(error, 'No se pudieron cargar las notas.'),
+    }
   const rows = data || []
   const nextCursor =
     rows.length === limit && rows.length > 0
@@ -259,33 +294,51 @@ export async function createNote(payload) {
     authorId,
     authorRole,
     muscleGroup, // Fase B++: solo aplica cuando contextType='free'
-    noteDate,    // Fase D step 2 (v26b): fecha sobre la que habla la nota
+    noteDate, // Fase D step 2 (v26b): fecha sobre la que habla la nota
   } = payload || {}
 
   // ── Validaciones ────────────────────────────────────────
   if (!threadId || !authorId || !authorRole) {
     return {
       data: null,
-      error: { code: 'INVALID_INPUT', message: 'Faltan datos obligatorios (threadId, authorId, authorRole).', details: null, hint: null, raw: null },
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Faltan datos obligatorios (threadId, authorId, authorRole).',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
   const cleanBody = (body || '').trim()
   if (!cleanBody) {
     return {
       data: null,
-      error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null },
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'La nota no puede estar vacía.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
   if (visibility === 'coach_private' && authorRole !== 'coach') {
     return {
       data: null,
-      error: { code: 'FORBIDDEN', message: 'Solo el coach puede crear notas privadas.', details: null, hint: null, raw: null },
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Solo el coach puede crear notas privadas.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
 
   // Normalización: free ⇒ context_id NULL (no '')
   const ctxType = contextType || 'free'
-  const ctxId = ctxType === 'free' ? null : (contextId || null)
+  const ctxId = ctxType === 'free' ? null : contextId || null
 
   const insertRow = {
     thread_id: threadId,
@@ -314,11 +367,7 @@ export async function createNote(payload) {
     insertRow.note_date = noteDate
   }
 
-  const { data, error } = await supabase
-    .from('notes')
-    .insert(insertRow)
-    .select()
-    .single()
+  const { data, error } = await supabase.from('notes').insert(insertRow).select().single()
 
   if (error) return { data: null, error: normalizeError(error, 'No se pudo crear la nota.') }
   return { data, error: null }
@@ -334,7 +383,13 @@ export async function replyNote(parentNoteId, payload = {}) {
   if (!parentNoteId) {
     return {
       data: null,
-      error: { code: 'INVALID_INPUT', message: 'Falta parentNoteId para responder.', details: null, hint: null, raw: null },
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta parentNoteId para responder.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
 
@@ -344,17 +399,30 @@ export async function replyNote(parentNoteId, payload = {}) {
     .eq('id', parentNoteId)
     .maybeSingle()
 
-  if (parentError) return { data: null, error: normalizeError(parentError, 'No se pudo cargar la nota padre.') }
+  if (parentError)
+    return { data: null, error: normalizeError(parentError, 'No se pudo cargar la nota padre.') }
   if (!parent) {
     return {
       data: null,
-      error: { code: 'NOT_FOUND', message: 'La nota a la que querés responder no existe.', details: null, hint: null, raw: null },
+      error: {
+        code: 'NOT_FOUND',
+        message: 'La nota a la que querés responder no existe.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
   if (parent.deleted_at) {
     return {
       data: null,
-      error: { code: 'NOT_FOUND', message: 'No se puede responder a una nota eliminada.', details: null, hint: null, raw: null },
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No se puede responder a una nota eliminada.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
     }
   }
 
@@ -388,9 +456,10 @@ export async function markThreadRead(threadId, asRole) {
   }
   const { data, error } = await supabase.rpc('notes_mark_thread_read', {
     p_thread_id: threadId,
-    p_as_role:   asRole,
+    p_as_role: asRole,
   })
-  if (error) return { data: { marked: 0 }, error: normalizeError(error, 'No se pudo marcar como leído.') }
+  if (error)
+    return { data: { marked: 0 }, error: normalizeError(error, 'No se pudo marcar como leído.') }
   return { data: { marked: typeof data === 'number' ? data : 0 }, error: null }
 }
 
@@ -405,11 +474,29 @@ export async function markThreadRead(threadId, asRole) {
 // ============================================================
 export async function updateNote(noteId, payload = {}) {
   if (!noteId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta noteId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta noteId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (payload.body || '').trim()
   if (!cleanBody) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'La nota no puede estar vacía.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const { data, error } = await supabase
     .from('notes')
@@ -437,11 +524,29 @@ export async function updateNote(noteId, payload = {}) {
 // ============================================================
 export async function editNote(note, payload = {}) {
   if (!note?.id) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta nota.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (payload.body || '').trim()
   if (!cleanBody) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'La nota no puede estar vacía.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'La nota no puede estar vacía.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   // Round 2b: UPDATE directo de notes para todos los context_types
@@ -462,7 +567,9 @@ export async function editNote(note, payload = {}) {
     error: {
       code: 'NOT_SUPPORTED',
       message: 'Este tipo de nota no se puede editar desde el panel.',
-      details: null, hint: null, raw: null,
+      details: null,
+      hint: null,
+      raw: null,
     },
   }
 }
@@ -478,7 +585,16 @@ export async function editNote(note, payload = {}) {
 // ============================================================
 export async function deleteNote(note) {
   if (!note?.id) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta nota.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta nota.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   // Round 2b: soft-delete directo en notes para todos los context_types
@@ -499,7 +615,9 @@ export async function deleteNote(note) {
     error: {
       code: 'NOT_SUPPORTED',
       message: 'Este tipo de nota no se puede borrar desde el panel.',
-      details: null, hint: null, raw: null,
+      details: null,
+      hint: null,
+      raw: null,
     },
   }
 }
@@ -511,7 +629,16 @@ export async function deleteNote(note) {
 // ============================================================
 export async function softDeleteNote(noteId) {
   if (!noteId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta noteId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta noteId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const { data, error } = await supabase
     .from('notes')
@@ -560,10 +687,10 @@ export function subscribeThread(threadId, onChange) {
           })
         } catch (err) {
           // No tirar dentro del callback de realtime
-          // eslint-disable-next-line no-console
+
           console.error('[notes.subscribeThread] onChange error:', err)
         }
-      },
+      }
     )
     .subscribe()
 
@@ -571,14 +698,17 @@ export function subscribeThread(threadId, onChange) {
     try {
       supabase.removeChannel(channel)
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('[notes.subscribeThread] removeChannel error:', err)
     }
   }
   // El consumidor (useNotes) puede chequear estado para decidir
   // re-suscripción tras visibilitychange / disconnect.
   cleanup.getState = () => {
-    try { return channel.state || null } catch { return null }
+    try {
+      return channel.state || null
+    } catch {
+      return null
+    }
   }
   return cleanup
 }
@@ -607,17 +737,16 @@ export async function listFilterOptions(threadId) {
     p_thread_id: threadId,
   })
   if (error) {
-    // eslint-disable-next-line no-console
     console.warn('[notes.listFilterOptions] error:', error)
     return { data: EMPTY_OPTS, error: normalizeError(error, 'No se pudieron cargar los filtros.') }
   }
   // La RPC devuelve jsonb; supabase-js lo deserializa a objeto JS.
   return {
     data: {
-      exercises:     Array.isArray(data?.exercises)     ? data.exercises     : [],
+      exercises: Array.isArray(data?.exercises) ? data.exercises : [],
       muscle_groups: Array.isArray(data?.muscle_groups) ? data.muscle_groups : [],
-      block_types:   Array.isArray(data?.block_types)   ? data.block_types   : [],
-      tags:          Array.isArray(data?.tags)          ? data.tags          : [],
+      block_types: Array.isArray(data?.block_types) ? data.block_types : [],
+      tags: Array.isArray(data?.tags) ? data.tags : [],
     },
     error: null,
   }
@@ -640,7 +769,16 @@ export async function listFilterOptions(threadId) {
 // ============================================================
 export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, body }) {
   if (!studentId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta studentId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const clean = (body || '').trim()
   if (!clean) return { data: null, error: null } // sin contenido no hace nada (no-op)
@@ -648,7 +786,16 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
   if (!thread) {
-    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No hay hilo de notas inicializado para este alumno.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   const prefixedBody = dayLabel ? `[${dayLabel}] ${clean}` : clean
@@ -682,7 +829,16 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
 // ============================================================
 export async function postWorkoutLogNote({ studentId, logId, body }) {
   if (!studentId || !logId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o logId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta studentId o logId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (body || '').trim()
 
@@ -716,7 +872,16 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
   if (!thread) {
-    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No hay hilo de notas inicializado para este alumno.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   return createNote({
@@ -740,7 +905,16 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
 // ============================================================
 export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
   if (!studentId || !blockLogId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o blockLogId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta studentId o blockLogId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (body || '').trim()
 
@@ -774,7 +948,16 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
   if (!thread) {
-    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No hay hilo de notas inicializado para este alumno.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   return createNote({
@@ -797,7 +980,16 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
 // ============================================================
 export async function postEvalResultNote({ studentId, resultId, body }) {
   if (!studentId || !resultId) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta studentId o resultId.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta studentId o resultId.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (body || '').trim()
 
@@ -811,7 +1003,10 @@ export async function postEvalResultNote({ studentId, resultId, body }) {
     .maybeSingle()
 
   if (findErr && !isNoRowsError(findErr)) {
-    return { data: null, error: normalizeError(findErr, 'No se pudo buscar la nota de la evaluación.') }
+    return {
+      data: null,
+      error: normalizeError(findErr, 'No se pudo buscar la nota de la evaluación.'),
+    }
   }
 
   if (!cleanBody) {
@@ -827,7 +1022,16 @@ export async function postEvalResultNote({ studentId, resultId, body }) {
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
   if (!thread) {
-    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No hay hilo de notas inicializado para este alumno.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   return createNote({
@@ -854,14 +1058,29 @@ export async function postEvalResultNote({ studentId, resultId, body }) {
 //
 // Para role='coach' usamos public.get_coach_id() como author_id.
 // ============================================================
-export async function postEvalCommentNote({ studentId, responseId, body, role, visibility, coachId }) {
+export async function postEvalCommentNote({
+  studentId,
+  responseId,
+  body,
+  role,
+  visibility,
+  coachId,
+}) {
   if (!studentId || !responseId || !role) {
-    return { data: null, error: { code: 'INVALID_INPUT', message: 'Faltan args obligatorios (studentId, responseId, role).', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Faltan args obligatorios (studentId, responseId, role).',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
   const cleanBody = (body || '').trim()
-  const effectiveVisibility = role === 'student'
-    ? 'shared'
-    : (visibility === 'coach_private' ? 'coach_private' : 'shared')
+  const effectiveVisibility =
+    role === 'student' ? 'shared' : visibility === 'coach_private' ? 'coach_private' : 'shared'
 
   // Buscar mirror existente con el matching exacto (response_id, role, visibility)
   const { data: existing, error: findErr } = await supabase
@@ -892,7 +1111,16 @@ export async function postEvalCommentNote({ studentId, responseId, body, role, v
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
   if (!thread) {
-    return { data: null, error: { code: 'NOT_FOUND', message: 'No hay hilo de notas inicializado para este alumno.', details: null, hint: null, raw: null } }
+    return {
+      data: null,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No hay hilo de notas inicializado para este alumno.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
   }
 
   // Para coach, el author_id es el del coach logueado (multi-coach v31).
@@ -901,7 +1129,16 @@ export async function postEvalCommentNote({ studentId, responseId, body, role, v
   let authorId = studentId
   if (role === 'coach') {
     if (!coachId) {
-      return { data: null, error: { code: 'INVALID_INPUT', message: 'Falta coachId del coach logueado.', details: null, hint: null, raw: null } }
+      return {
+        data: null,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Falta coachId del coach logueado.',
+          details: null,
+          hint: null,
+          raw: null,
+        },
+      }
     }
     authorId = coachId
   }
@@ -971,7 +1208,10 @@ export async function fetchSingleMirrorBodies({ contextType, contextIds }) {
 // response (student_comment, coach_comment_public, coach_comment_private).
 // Devuelve Map<response_id, { studentComment, coachPublic, coachPrivate }>.
 export async function fetchEvalMirrorBodies(responseIds) {
-  const { data } = await fetchMirrorNotes({ contextType: 'evaluation_test', contextIds: responseIds })
+  const { data } = await fetchMirrorNotes({
+    contextType: 'evaluation_test',
+    contextIds: responseIds,
+  })
   const map = new Map()
   for (const n of data) {
     if (!map.has(n.context_id)) {
@@ -980,7 +1220,8 @@ export async function fetchEvalMirrorBodies(responseIds) {
     const slot = map.get(n.context_id)
     if (n.author_role === 'student' && n.visibility === 'shared') slot.studentComment = n.body
     else if (n.author_role === 'coach' && n.visibility === 'shared') slot.coachPublic = n.body
-    else if (n.author_role === 'coach' && n.visibility === 'coach_private') slot.coachPrivate = n.body
+    else if (n.author_role === 'coach' && n.visibility === 'coach_private')
+      slot.coachPrivate = n.body
   }
   return map
 }
@@ -1010,7 +1251,6 @@ export async function listAllActiveExercises() {
     .order('name', { ascending: true })
 
   if (error) {
-    // eslint-disable-next-line no-console
     console.warn('[notes.listAllActiveExercises] error:', error)
     return { data: [], error: normalizeError(error, 'No se pudo cargar el catálogo.') }
   }

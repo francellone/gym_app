@@ -40,16 +40,16 @@ export default function FollowUpFormsPage() {
     setLoading(false)
   }
 
-  const activeTemplates = templates.filter(t => t.is_active)
-  const archivedTemplates = templates.filter(t => !t.is_active)
+  const activeTemplates = templates.filter((t) => t.is_active)
+  const archivedTemplates = templates.filter((t) => !t.is_active)
   const canCreate = activeTemplates.length < TEMPLATE_LIMIT
 
   async function handleArchive(id) {
-    if (!confirm('¿Archivar esta plantilla? No se borrará, pero dejará de aparecer en envíos nuevos.')) return
-    await supabase
-      .from('intake_form_templates')
-      .update({ is_active: false })
-      .eq('id', id)
+    if (
+      !confirm('¿Archivar esta plantilla? No se borrará, pero dejará de aparecer en envíos nuevos.')
+    )
+      return
+    await supabase.from('intake_form_templates').update({ is_active: false }).eq('id', id)
     load()
   }
 
@@ -58,10 +58,7 @@ export default function FollowUpFormsPage() {
       alert(`Ya tenés ${TEMPLATE_LIMIT} plantillas activas. Archivá una para reactivar esta.`)
       return
     }
-    await supabase
-      .from('intake_form_templates')
-      .update({ is_active: true })
-      .eq('id', id)
+    await supabase.from('intake_form_templates').update({ is_active: true }).eq('id', id)
     load()
   }
 
@@ -80,19 +77,23 @@ export default function FollowUpFormsPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
-
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Formularios de seguimiento</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Plantillas libres para mandar durante o al cierre de un plan. {activeTemplates.length}/{TEMPLATE_LIMIT} activas.
+            Plantillas libres para mandar durante o al cierre de un plan. {activeTemplates.length}/
+            {TEMPLATE_LIMIT} activas.
           </p>
         </div>
         <button
           onClick={() => navigate('/coach/follow-up-forms/new')}
           disabled={!canCreate}
-          title={canCreate ? 'Crear nueva plantilla' : `Llegaste al límite de ${TEMPLATE_LIMIT}. Archivá alguna primero.`}
+          title={
+            canCreate
+              ? 'Crear nueva plantilla'
+              : `Llegaste al límite de ${TEMPLATE_LIMIT}. Archivá alguna primero.`
+          }
           className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Plus size={16} /> Nueva
@@ -113,8 +114,11 @@ export default function FollowUpFormsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {activeTemplates.map(tpl => (
-            <div key={tpl.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+          {activeTemplates.map((tpl) => (
+            <div
+              key={tpl.id}
+              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-gray-900 truncate">{tpl.name}</h3>
@@ -158,8 +162,11 @@ export default function FollowUpFormsPage() {
             Archivadas ({archivedTemplates.length})
           </summary>
           <div className="mt-3 space-y-2">
-            {archivedTemplates.map(tpl => (
-              <div key={tpl.id} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-100">
+            {archivedTemplates.map((tpl) => (
+              <div
+                key={tpl.id}
+                className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-100"
+              >
                 <span className="text-sm text-gray-600 truncate">{tpl.name}</span>
                 <button
                   onClick={() => handleUnarchive(tpl.id)}

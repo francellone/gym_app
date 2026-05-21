@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { EVAL_TYPES, METHODS, evalTypeColor, evalTypeLabel, evalTypeIcon } from '../helpers'
-import { ArrowLeft, Users, Calendar, ChevronDown, ChevronUp, Edit2, ExternalLink, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Users,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Edit2,
+  ExternalLink,
+  Trash2,
+} from 'lucide-react'
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -24,7 +33,7 @@ function Stat({ label, value, unit, colorClass = 'bg-gray-50' }) {
 
 function MethodBadge({ method, evalType }) {
   if (!method) return null
-  const m = (METHODS[evalType] || []).find(m => m.key === method)
+  const m = (METHODS[evalType] || []).find((m) => m.key === method)
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium">
       {m?.label || method}
@@ -38,7 +47,7 @@ function MethodBadge({ method, evalType }) {
 
 function OneRMView({ results }) {
   if (!results?.exercises?.length) return <p className="text-sm text-gray-400">Sin datos</p>
-  const hasResults = results.exercises.some(ex => ex.one_rm)
+  const hasResults = results.exercises.some((ex) => ex.one_rm)
   return (
     <div className="space-y-3">
       <MethodBadge method={results.method} evalType="one_rm" />
@@ -46,13 +55,19 @@ function OneRMView({ results }) {
         <div key={i} className="flex flex-col gap-1 bg-gray-50 rounded-xl p-3">
           <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
           <div className="flex flex-wrap gap-2">
-            {ex.weight_kg && <span className="badge bg-gray-100 text-gray-600">{ex.weight_kg} kg</span>}
+            {ex.weight_kg && (
+              <span className="badge bg-gray-100 text-gray-600">{ex.weight_kg} kg</span>
+            )}
             {ex.reps && <span className="badge bg-gray-100 text-gray-600">× {ex.reps} reps</span>}
-            {ex.one_rm && <span className="badge bg-red-100 text-red-700 font-bold">1RM: {ex.one_rm} kg</span>}
+            {ex.one_rm && (
+              <span className="badge bg-red-100 text-red-700 font-bold">1RM: {ex.one_rm} kg</span>
+            )}
           </div>
         </div>
       ))}
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
@@ -63,11 +78,19 @@ function MaxRepsView({ results }) {
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="max_reps" />
       <div className="flex flex-wrap gap-2 mt-2">
-        <span className="badge bg-orange-100 text-orange-700 font-bold text-sm">{results.reps} reps</span>
-        {results.weight_kg && <span className="badge bg-gray-100 text-gray-600">{results.weight_kg} kg</span>}
-        {results.volume && <span className="badge bg-orange-50 text-orange-600">Vol: {results.volume} kg</span>}
+        <span className="badge bg-orange-100 text-orange-700 font-bold text-sm">
+          {results.reps} reps
+        </span>
+        {results.weight_kg && (
+          <span className="badge bg-gray-100 text-gray-600">{results.weight_kg} kg</span>
+        )}
+        {results.volume && (
+          <span className="badge bg-orange-50 text-orange-600">Vol: {results.volume} kg</span>
+        )}
       </div>
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
@@ -79,9 +102,20 @@ function PowerView({ results }) {
       <MethodBadge method={results.method} evalType="power" />
       <div className="grid grid-cols-2 gap-2 mt-2">
         {results.mass_kg && <Stat label="Masa corporal" value={results.mass_kg} unit="kg" />}
-        {results.jump_cm && <Stat label="Altura de salto" value={results.jump_cm} unit="cm" colorClass="bg-yellow-50" />}
-        {results.distance_m && <Stat label="Distancia" value={results.distance_m} unit="m" colorClass="bg-yellow-50" />}
-        {results.time_sec && <Stat label="Tiempo" value={results.time_sec} unit="seg" colorClass="bg-yellow-50" />}
+        {results.jump_cm && (
+          <Stat
+            label="Altura de salto"
+            value={results.jump_cm}
+            unit="cm"
+            colorClass="bg-yellow-50"
+          />
+        )}
+        {results.distance_m && (
+          <Stat label="Distancia" value={results.distance_m} unit="m" colorClass="bg-yellow-50" />
+        )}
+        {results.time_sec && (
+          <Stat label="Tiempo" value={results.time_sec} unit="seg" colorClass="bg-yellow-50" />
+        )}
       </div>
       {/* Rendered result stored in results.result */}
       {results.result && (
@@ -95,7 +129,9 @@ function PowerView({ results }) {
           {results.result.peak_w !== undefined && (
             <div className="bg-yellow-100 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-yellow-800">{results.result.peak_w} W</p>
-              <p className="text-xs text-yellow-600">Potencia pico · Media: {results.result.mean_w} W</p>
+              <p className="text-xs text-yellow-600">
+                Potencia pico · Media: {results.result.mean_w} W
+              </p>
             </div>
           )}
           {results.result.time_sec !== undefined && (
@@ -106,7 +142,9 @@ function PowerView({ results }) {
           )}
         </div>
       )}
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
@@ -127,7 +165,9 @@ function CardioView({ results }) {
           <Stat label="PFI" value={results.vo2max} unit="pts" colorClass="bg-blue-50" />
         )}
       </div>
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
@@ -138,9 +178,7 @@ function BodyCompView({ results }) {
   return (
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="body_comp" />
-      {results.weight_kg && (
-        <Stat label="Peso corporal" value={results.weight_kg} unit="kg" />
-      )}
+      {results.weight_kg && <Stat label="Peso corporal" value={results.weight_kg} unit="kg" />}
       {r && (
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div className="bg-green-50 rounded-xl p-3 text-center">
@@ -161,10 +199,10 @@ function BodyCompView({ results }) {
           )}
         </div>
       )}
-      {r?.sum_mm && (
-        <p className="text-xs text-gray-400 text-center">Σ pliegues: {r.sum_mm} mm</p>
+      {r?.sum_mm && <p className="text-xs text-gray-400 text-center">Σ pliegues: {r.sum_mm} mm</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
       )}
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
     </div>
   )
 }
@@ -200,20 +238,30 @@ function ScoredView({ results }) {
               <div key={p.key} className="flex items-center gap-2 text-sm">
                 <span className="flex-1 text-gray-700">{p.label}</span>
                 {p.bilateral && (
-                  <span className="text-xs text-gray-400">I:{p.score_left ?? '?'} D:{p.score_right ?? '?'}</span>
+                  <span className="text-xs text-gray-400">
+                    I:{p.score_left ?? '?'} D:{p.score_right ?? '?'}
+                  </span>
                 )}
-                <span className={`badge font-bold ${SCORE_BG[sc]} ${SCORE_COLORS_TEXT[sc]}`}>{sc}</span>
+                <span className={`badge font-bold ${SCORE_BG[sc]} ${SCORE_COLORS_TEXT[sc]}`}>
+                  {sc}
+                </span>
                 {hasAsymmetry && <span className="text-xs text-orange-500">⚡ asimetría</span>}
               </div>
             )
           })}
 
           {results.result && (
-            <div className={`mt-3 rounded-xl p-3 text-center ${results.result.total >= 14 ? 'bg-green-50' : 'bg-red-50'}`}>
-              <p className={`text-2xl font-bold ${results.result.total >= 14 ? 'text-green-700' : 'text-red-600'}`}>
+            <div
+              className={`mt-3 rounded-xl p-3 text-center ${results.result.total >= 14 ? 'bg-green-50' : 'bg-red-50'}`}
+            >
+              <p
+                className={`text-2xl font-bold ${results.result.total >= 14 ? 'text-green-700' : 'text-red-600'}`}
+              >
                 {results.result.total} <span className="text-sm font-normal">/ 21</span>
               </p>
-              <p className={`text-xs mt-0.5 ${results.result.total >= 14 ? 'text-green-600' : 'text-red-500'}`}>
+              <p
+                className={`text-xs mt-0.5 ${results.result.total >= 14 ? 'text-green-600' : 'text-red-500'}`}
+              >
                 {results.result.total < 14 ? '⚠️ Riesgo de lesión (< 14)' : '✅ Score aceptable'}
               </p>
             </div>
@@ -230,8 +278,18 @@ function ScoredView({ results }) {
 
       {method === 'shoulder_mob' && results.distance_left_cm && results.distance_right_cm && (
         <div className="grid grid-cols-2 gap-2 mt-2">
-          <Stat label="Mano D arriba" value={results.distance_left_cm} unit="cm" colorClass="bg-purple-50" />
-          <Stat label="Mano I arriba" value={results.distance_right_cm} unit="cm" colorClass="bg-purple-50" />
+          <Stat
+            label="Mano D arriba"
+            value={results.distance_left_cm}
+            unit="cm"
+            colorClass="bg-purple-50"
+          />
+          <Stat
+            label="Mano I arriba"
+            value={results.distance_right_cm}
+            unit="cm"
+            colorClass="bg-purple-50"
+          />
         </div>
       )}
 
@@ -241,19 +299,30 @@ function ScoredView({ results }) {
             ['reach_anterior', 'Anterior'],
             ['reach_posteromedial', 'Posteromedial'],
             ['reach_posterolateral', 'Posterolateral'],
-          ].map(([field, label]) => (
-            (results[`${field}_l`] || results[`${field}_r`]) && (
-              <div key={field} className="flex items-center gap-2">
-                <span className="text-gray-600 flex-1">{label}</span>
-                {results[`${field}_l`] && <span className="badge bg-purple-50 text-purple-600">I: {results[`${field}_l`]} cm</span>}
-                {results[`${field}_r`] && <span className="badge bg-purple-50 text-purple-600">D: {results[`${field}_r`]} cm</span>}
-              </div>
-            )
-          ))}
+          ].map(
+            ([field, label]) =>
+              (results[`${field}_l`] || results[`${field}_r`]) && (
+                <div key={field} className="flex items-center gap-2">
+                  <span className="text-gray-600 flex-1">{label}</span>
+                  {results[`${field}_l`] && (
+                    <span className="badge bg-purple-50 text-purple-600">
+                      I: {results[`${field}_l`]} cm
+                    </span>
+                  )}
+                  {results[`${field}_r`] && (
+                    <span className="badge bg-purple-50 text-purple-600">
+                      D: {results[`${field}_r`]} cm
+                    </span>
+                  )}
+                </div>
+              )
+          )}
         </div>
       )}
 
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
@@ -262,27 +331,46 @@ function CustomView({ results }) {
   if (!results?.fields?.length) return <p className="text-sm text-gray-400">Sin datos</p>
   return (
     <div className="space-y-1.5">
-      {results.fields.filter(f => f.label || f.value).map((f, i) => (
-        <div key={i} className="flex items-center gap-2 text-sm">
-          <span className="text-gray-600 flex-1">{f.label || `Campo ${i + 1}`}</span>
-          <span className="font-semibold text-gray-900">{f.value}{f.unit ? ` ${f.unit}` : ''}</span>
-        </div>
-      ))}
-      {results.notes && <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>}
+      {results.fields
+        .filter((f) => f.label || f.value)
+        .map((f, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="text-gray-600 flex-1">{f.label || `Campo ${i + 1}`}</span>
+            <span className="font-semibold text-gray-900">
+              {f.value}
+              {f.unit ? ` ${f.unit}` : ''}
+            </span>
+          </div>
+        ))}
+      {results.notes && (
+        <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
+      )}
     </div>
   )
 }
 
 function ResultViewer({ evalType, results }) {
   switch (evalType) {
-    case 'one_rm':    return <OneRMView results={results} />
-    case 'max_reps':  return <MaxRepsView results={results} />
-    case 'power':     return <PowerView results={results} />
-    case 'cardio':    return <CardioView results={results} />
-    case 'body_comp': return <BodyCompView results={results} />
-    case 'scored':    return <ScoredView results={results} />
-    case 'custom':    return <CustomView results={results} />
-    default:          return <pre className="text-xs text-gray-500 overflow-auto">{JSON.stringify(results, null, 2)}</pre>
+    case 'one_rm':
+      return <OneRMView results={results} />
+    case 'max_reps':
+      return <MaxRepsView results={results} />
+    case 'power':
+      return <PowerView results={results} />
+    case 'cardio':
+      return <CardioView results={results} />
+    case 'body_comp':
+      return <BodyCompView results={results} />
+    case 'scored':
+      return <ScoredView results={results} />
+    case 'custom':
+      return <CustomView results={results} />
+    default:
+      return (
+        <pre className="text-xs text-gray-500 overflow-auto">
+          {JSON.stringify(results, null, 2)}
+        </pre>
+      )
   }
 }
 
@@ -292,7 +380,7 @@ function ResultViewer({ evalType, results }) {
 function StudentResultCard({ assignment, allResults, evalType }) {
   const [expanded, setExpanded] = useState(false)
   const studentResults = allResults
-    .filter(r => r.student_id === assignment.student_id)
+    .filter((r) => r.student_id === assignment.student_id)
     .sort((a, b) => new Date(b.eval_date) - new Date(a.eval_date))
   const latest = studentResults[0]
 
@@ -317,32 +405,35 @@ function StudentResultCard({ assignment, allResults, evalType }) {
         </div>
         <Link
           to={`/coach/students/${assignment.student_id}`}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           className="p-1.5 text-gray-400 hover:text-gray-600"
         >
           <ExternalLink size={14} />
         </Link>
-        {studentResults.length > 0 && (
-          expanded
-            ? <ChevronUp size={16} className="text-gray-400" />
-            : <ChevronDown size={16} className="text-gray-400" />
-        )}
+        {studentResults.length > 0 &&
+          (expanded ? (
+            <ChevronUp size={16} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={16} className="text-gray-400" />
+          ))}
       </button>
 
       {expanded && studentResults.length > 0 && (
         <div className="border-t border-gray-200 px-3 pb-3 pt-2 space-y-5">
-          {studentResults.map(res => (
+          {studentResults.map((res) => (
             <div key={res.id}>
               <p className="text-xs font-semibold text-gray-400 mb-2">
-                📅 {new Date(res.eval_date).toLocaleDateString('es-AR', {
-                  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                📅{' '}
+                {new Date(res.eval_date).toLocaleDateString('es-AR', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
                 })}
               </p>
               <ResultViewer evalType={evalType} results={res.results} />
               {res.notes && (
-                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">
-                  💬 {res.notes}
-                </p>
+                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">💬 {res.notes}</p>
               )}
             </div>
           ))}
@@ -364,17 +455,21 @@ export default function EvaluationDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  useEffect(() => { fetchData() }, [id])
+  useEffect(() => {
+    fetchData()
+  }, [id])
 
   async function fetchData() {
     try {
       const [planRes, assignmentsRes, resultsRes] = await Promise.all([
         supabase.from('plans').select('*').eq('id', id).single(),
-        supabase.from('plan_assignments')
+        supabase
+          .from('plan_assignments')
           .select('*, student:profiles!student_id(id, name)')
           .eq('plan_id', id)
           .eq('active', true),
-        supabase.from('evaluation_results')
+        supabase
+          .from('evaluation_results')
           .select('*')
           .eq('plan_id', id)
           .order('eval_date', { ascending: false }),
@@ -389,9 +484,12 @@ export default function EvaluationDetailPage() {
       // viewers legacy que leen `results.notes` muestren la versión
       // del panel.
       const rawResults = resultsRes.data || []
-      const resultIds = rawResults.map(r => r.id)
-      const panelBodies = await fetchSingleMirrorBodies({ contextType: 'evaluation_result', contextIds: resultIds })
-      const resultsWithPanel = rawResults.map(r => {
+      const resultIds = rawResults.map((r) => r.id)
+      const panelBodies = await fetchSingleMirrorBodies({
+        contextType: 'evaluation_result',
+        contextIds: resultIds,
+      })
+      const resultsWithPanel = rawResults.map((r) => {
         const panelBody = panelBodies.get(r.id)
         if (panelBody == null) return r
         return {
@@ -414,15 +512,16 @@ export default function EvaluationDetailPage() {
     navigate('/coach/evaluations')
   }
 
-  if (loading) return (
-    <div className="flex justify-center py-12">
-      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
 
   if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
 
-  const typeInfo = EVAL_TYPES.find(e => e.key === plan.eval_type)
+  const typeInfo = EVAL_TYPES.find((e) => e.key === plan.eval_type)
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -450,7 +549,10 @@ export default function EvaluationDetailPage() {
           >
             <Trash2 size={16} />
           </button>
-          <Link to={`/coach/plans/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-sm">
+          <Link
+            to={`/coach/plans/${id}/edit`}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
+          >
             <Edit2 size={14} />
             Editar
           </Link>
@@ -480,7 +582,10 @@ export default function EvaluationDetailPage() {
         <div className="card text-center">
           <p className="text-xl font-bold text-gray-900">
             {results.length > 0
-              ? new Date(results[0]?.eval_date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+              ? new Date(results[0]?.eval_date).toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                })
               : '—'}
           </p>
           <p className="text-xs text-gray-500">Última</p>
@@ -496,8 +601,11 @@ export default function EvaluationDetailPage() {
               <p className="font-semibold text-gray-900">{typeInfo.label}</p>
               <p className="text-sm text-gray-500">{typeInfo.description}</p>
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {(METHODS[plan.eval_type] || []).map(m => (
-                  <span key={m.key} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">
+                {(METHODS[plan.eval_type] || []).map((m) => (
+                  <span
+                    key={m.key}
+                    className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg"
+                  >
                     {m.label}
                   </span>
                 ))}
@@ -524,7 +632,7 @@ export default function EvaluationDetailPage() {
           </p>
         ) : (
           <div className="space-y-2">
-            {assignments.map(a => (
+            {assignments.map((a) => (
               <StudentResultCard
                 key={a.id}
                 assignment={a}

@@ -69,14 +69,19 @@
   flex-shrink: 0;
   margin-top: 3px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 .plan-hero-back:hover {
   background: #f9fafb;
   color: #111827;
 }
 
-.plan-hero-info { flex: 1; min-width: 0; }
+.plan-hero-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .plan-hero-title {
   font-size: 19px;
@@ -134,7 +139,9 @@
   padding: 13px 0;
   border-right: 1px solid #f3f4f6;
 }
-.plan-stat:last-child { border-right: none; }
+.plan-stat:last-child {
+  border-right: none;
+}
 
 .plan-stat-val {
   font-size: 22px;
@@ -163,7 +170,9 @@
   padding: 4px 10px 4px 5px;
   transition: border-color 0.12s;
 }
-.plan-student-chip:hover { border-color: #d1d5db; }
+.plan-student-chip:hover {
+  border-color: #d1d5db;
+}
 
 .plan-chip-avatar {
   width: 20px;
@@ -191,7 +200,9 @@
   border: 1.5px dashed #d1d5db;
   background: transparent;
   cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
 }
 .plan-add-student-chip:hover {
   color: #f97316;
@@ -223,10 +234,15 @@
   cursor: pointer;
   border: none;
   background: transparent;
-  transition: color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    background 0.12s;
   white-space: nowrap;
 }
-.plan-tab:hover { color: #6b7280; background: #f9fafb; }
+.plan-tab:hover {
+  color: #6b7280;
+  background: #f9fafb;
+}
 .plan-tab--active {
   background: #f9fafb;
   color: var(--tab-color, #f97316);
@@ -247,7 +263,9 @@
   border-radius: 20px;
   background: #f3f4f6;
   color: #9ca3af;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -282,7 +300,9 @@
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
-.plan-ex-col-h--center { text-align: center; }
+.plan-ex-col-h--center {
+  text-align: center;
+}
 
 .plan-ex-row {
   display: grid;
@@ -293,9 +313,16 @@
   transition: background 0.1s;
   cursor: default;
 }
-.plan-ex-row:last-child { border-bottom: none; }
-.plan-ex-row:hover { background: #fafafa; }
-.plan-ex-row--open { background: #fafafa; border-bottom: none; }
+.plan-ex-row:last-child {
+  border-bottom: none;
+}
+.plan-ex-row:hover {
+  background: #fafafa;
+}
+.plan-ex-row--open {
+  background: #fafafa;
+  border-bottom: none;
+}
 
 /* Cells */
 .plan-ex-block {
@@ -334,7 +361,9 @@
   opacity: 0;
   transition: opacity 0.1s;
 }
-.plan-ex-row:hover .plan-ex-name-actions { opacity: 1; }
+.plan-ex-row:hover .plan-ex-name-actions {
+  opacity: 1;
+}
 
 .plan-ex-note-btn {
   width: 18px;
@@ -363,14 +392,19 @@
   color: #60a5fa;
   transition: color 0.1s;
 }
-.plan-ex-video-btn:hover { color: #2563eb; }
+.plan-ex-video-btn:hover {
+  color: #2563eb;
+}
 
 .plan-ex-cell {
   font-size: 12.5px;
   color: #374151;
   padding-left: 2px;
 }
-.plan-ex-cell--center { text-align: center; padding-left: 0; }
+.plan-ex-cell--center {
+  text-align: center;
+  padding-left: 0;
+}
 
 .plan-ex-mono {
   font-size: 13px;
@@ -412,7 +446,9 @@
   border: none;
   cursor: pointer;
   margin-left: auto;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 .plan-ex-menu-btn:hover {
   background: #f3f4f6;
@@ -425,7 +461,9 @@
   border-bottom: 1px solid #f9fafb;
   animation: plan-fadein 0.15s ease;
 }
-.plan-ex-notes-row:last-child { border-bottom: none; }
+.plan-ex-notes-row:last-child {
+  border-bottom: none;
+}
 
 .plan-ex-notes-inner {
   background: #f9fafb;
@@ -447,6 +485,12 @@
 }
 
 @keyframes plan-fadein {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

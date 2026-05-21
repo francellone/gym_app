@@ -226,7 +226,12 @@ export const DEFAULT_MODULES = [
         id: 'trabajo_tipo',
         type: QUESTION_TYPES.SELECT,
         label: '¿Cómo es tu trabajo/actividad diaria?',
-        options: ['Sedentario (oficina/casa)', 'Leve actividad física', 'Moderada actividad física', 'Intensa actividad física'],
+        options: [
+          'Sedentario (oficina/casa)',
+          'Leve actividad física',
+          'Moderada actividad física',
+          'Intensa actividad física',
+        ],
         required: false,
         editable: true,
         removable: true,
@@ -259,7 +264,12 @@ export const DEFAULT_MODULES = [
         id: 'experiencia_nivel',
         type: QUESTION_TYPES.SELECT,
         label: '¿Cuál es tu nivel de experiencia entrenando?',
-        options: ['Principiante (nunca entrené)', 'Básico (menos de 1 año)', 'Intermedio (1-3 años)', 'Avanzado (más de 3 años)'],
+        options: [
+          'Principiante (nunca entrené)',
+          'Básico (menos de 1 año)',
+          'Intermedio (1-3 años)',
+          'Avanzado (más de 3 años)',
+        ],
         required: true,
         editable: true,
         removable: false,
@@ -394,7 +404,12 @@ export const DEFAULT_MODULES = [
         id: 'embarazo_semanas',
         type: QUESTION_TYPES.SELECT,
         label: '¿En qué etapa estás?',
-        options: ['Primer trimestre (1-12 sem)', 'Segundo trimestre (13-26 sem)', 'Tercer trimestre (27-40 sem)', 'Período de lactancia'],
+        options: [
+          'Primer trimestre (1-12 sem)',
+          'Segundo trimestre (13-26 sem)',
+          'Tercer trimestre (27-40 sem)',
+          'Período de lactancia',
+        ],
         required: false,
         editable: true,
         removable: true,
@@ -419,11 +434,19 @@ export const DEFAULT_MODULES = [
         id: 'lugar_entrenamiento',
         type: QUESTION_TYPES.SELECT,
         label: '¿Dónde vas a entrenar?',
-        options: ['Gimnasio con equipamiento completo', 'Casa (sin equipamiento)', 'Casa (con equipamiento)', 'Al aire libre', 'Mixto'],
+        options: [
+          'Gimnasio con equipamiento completo',
+          'Casa (sin equipamiento)',
+          'Casa (con equipamiento)',
+          'Al aire libre',
+          'Mixto',
+        ],
         required: true,
         editable: true,
         removable: false,
-        conditionalTrigger: { showIfValue: { value: 'Casa (con equipamiento)', show: 'equipamiento_detalle' } },
+        conditionalTrigger: {
+          showIfValue: { value: 'Casa (con equipamiento)', show: 'equipamiento_detalle' },
+        },
       },
       {
         id: 'equipamiento_detalle',
@@ -448,7 +471,15 @@ export const DEFAULT_MODULES = [
         id: 'tipo_entrenamiento_preferido',
         type: QUESTION_TYPES.MULTISELECT,
         label: '¿Qué tipo de entrenamiento preferís?',
-        options: ['Pesas / fuerza', 'Cardio', 'HIIT', 'Funcional', 'Pilates / movilidad', 'Deportivo', 'Sin preferencia'],
+        options: [
+          'Pesas / fuerza',
+          'Cardio',
+          'HIIT',
+          'Funcional',
+          'Pilates / movilidad',
+          'Deportivo',
+          'Sin preferencia',
+        ],
         required: false,
         editable: true,
         removable: true,
@@ -526,14 +557,15 @@ export const CONSENT_MODULE = {
   title: 'Consentimiento',
   emoji: '📋',
   enabled: true,
-  editable: false,   // contenido no editable (solo el texto configurable)
-  removable: false,  // obligatorio
-  order: 999,        // siempre al final
+  editable: false, // contenido no editable (solo el texto configurable)
+  removable: false, // obligatorio
+  order: 999, // siempre al final
   questions: [
     {
       id: 'consentimiento_datos',
       type: QUESTION_TYPES.BOOLEAN,
-      label: 'Declaro que toda la información proporcionada es correcta y comprendo que debo consultar con un profesional de la salud ante cualquier condición médica antes de iniciar un programa de entrenamiento.',
+      label:
+        'Declaro que toda la información proporcionada es correcta y comprendo que debo consultar con un profesional de la salud ante cualquier condición médica antes de iniciar un programa de entrenamiento.',
       required: true,
       editable: false,
       removable: false,
@@ -541,7 +573,8 @@ export const CONSENT_MODULE = {
     {
       id: 'consentimiento_privacidad',
       type: QUESTION_TYPES.BOOLEAN,
-      label: 'Acepto que mis datos sean utilizados por el coach para diseñar mi plan de entrenamiento personalizado.',
+      label:
+        'Acepto que mis datos sean utilizados por el coach para diseñar mi plan de entrenamiento personalizado.',
       required: true,
       editable: false,
       removable: false,
@@ -559,19 +592,32 @@ export const DEFAULT_TEMPLATES = [
     template_id: 'tpl_general',
     template_name: 'Fitness General',
     description: 'Formulario completo para clientes de fitness general',
-    modules: DEFAULT_MODULES.map(m => m.id), // todos activos
+    modules: DEFAULT_MODULES.map((m) => m.id), // todos activos
   },
   {
     template_id: 'tpl_rehabilitacion',
     template_name: 'Rehabilitación',
     description: 'Énfasis en salud, lesiones y condiciones médicas',
-    modules: ['modulo_datos_personales', 'modulo_objetivos', 'modulo_salud', 'modulo_preferencias', 'modulo_adicional'],
+    modules: [
+      'modulo_datos_personales',
+      'modulo_objetivos',
+      'modulo_salud',
+      'modulo_preferencias',
+      'modulo_adicional',
+    ],
   },
   {
     template_id: 'tpl_alto_rendimiento',
     template_name: 'Alto Rendimiento',
     description: 'Para atletas con experiencia y objetivos competitivos',
-    modules: ['modulo_datos_personales', 'modulo_objetivos', 'modulo_estilo_vida', 'modulo_entrenamiento', 'modulo_salud', 'modulo_preferencias'],
+    modules: [
+      'modulo_datos_personales',
+      'modulo_objetivos',
+      'modulo_estilo_vida',
+      'modulo_entrenamiento',
+      'modulo_salud',
+      'modulo_preferencias',
+    ],
   },
   {
     template_id: 'tpl_minimalista',
@@ -633,9 +679,10 @@ export const FOLLOW_UP_BLANK_MODULE = {
 export function buildFollowUpFormConfig({ intro, modules } = {}) {
   return {
     intro: intro || FOLLOW_UP_INTRO,
-    modules: (modules && modules.length > 0
-      ? [...modules].sort((a, b) => a.order - b.order)
-      : [FOLLOW_UP_BLANK_MODULE]),
+    modules:
+      modules && modules.length > 0
+        ? [...modules].sort((a, b) => a.order - b.order)
+        : [FOLLOW_UP_BLANK_MODULE],
     // sin consent — los formularios de seguimiento no requieren consentimiento
     kind: 'follow_up',
     version: 1,

@@ -46,9 +46,10 @@ export function shouldShowQuestion(question, responses) {
   // Caso: showWhen es booleano
   if (typeof showWhen === 'boolean') {
     // El valor puede llegar como boolean o como string 'true'/'false'
-    const normalizedValue = typeof currentValue === 'boolean'
-      ? currentValue
-      : currentValue === 'true' || currentValue === true
+    const normalizedValue =
+      typeof currentValue === 'boolean'
+        ? currentValue
+        : currentValue === 'true' || currentValue === true
 
     return normalizedValue === showWhen
   }
@@ -56,7 +57,7 @@ export function shouldShowQuestion(question, responses) {
   // Caso: showWhen es un array (cualquiera de los valores)
   if (Array.isArray(showWhen)) {
     if (Array.isArray(currentValue)) {
-      return showWhen.some(v => currentValue.includes(v))
+      return showWhen.some((v) => currentValue.includes(v))
     }
     return showWhen.includes(currentValue)
   }
@@ -81,7 +82,7 @@ export function shouldShowQuestion(question, responses) {
  * @returns {object[]} Preguntas visibles
  */
 export function getVisibleQuestions(questions, responses) {
-  return questions.filter(q => shouldShowQuestion(q, responses))
+  return questions.filter((q) => shouldShowQuestion(q, responses))
 }
 
 /**
@@ -93,7 +94,7 @@ export function getVisibleQuestions(questions, responses) {
  * @returns {object} Respuestas limpias
  */
 export function cleanHiddenResponses(questions, responses) {
-  const visibleIds = new Set(getVisibleQuestions(questions, responses).map(q => q.id))
+  const visibleIds = new Set(getVisibleQuestions(questions, responses).map((q) => q.id))
   const cleaned = {}
 
   for (const [key, value] of Object.entries(responses)) {
@@ -138,7 +139,7 @@ export function isQuestionRequired(question, responses) {
     if (Array.isArray(otherValue)) {
       if (otherValue.length === 0) return true
       // Todos los valores presentes están dentro del set "vacío/no-marca"
-      return otherValue.every(v => rule.isEmptyOrOnly.includes(v))
+      return otherValue.every((v) => rule.isEmptyOrOnly.includes(v))
     }
     if (typeof otherValue === 'string' && otherValue.trim() === '') return true
     return false
@@ -162,15 +163,15 @@ export function isQuestionRequired(question, responses) {
 export function validateModule(questions, responses) {
   const visible = getVisibleQuestions(questions, responses)
   const missing = visible
-    .filter(q => isQuestionRequired(q, responses))
-    .filter(q => {
+    .filter((q) => isQuestionRequired(q, responses))
+    .filter((q) => {
       const val = responses[q.id]
       if (val === undefined || val === null) return true
       if (typeof val === 'string' && val.trim() === '') return true
       if (Array.isArray(val) && val.length === 0) return true
       return false
     })
-    .map(q => q.id)
+    .map((q) => q.id)
 
   return { valid: missing.length === 0, missing }
 }

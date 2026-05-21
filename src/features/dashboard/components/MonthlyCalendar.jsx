@@ -33,9 +33,21 @@ const MAX_COMPARISON = 3
 // Paleta para el modo comparación. Se asigna por orden de selección.
 // Se evita rojo puro: coral si llegamos al 3er alumno.
 const COMPARISON_PALETTE = [
-  { dotClass: 'bg-blue-500',   ringClass: 'ring-blue-300',   chipClass: 'bg-blue-100   text-blue-700   border-blue-300' },
-  { dotClass: 'bg-purple-500', ringClass: 'ring-purple-300', chipClass: 'bg-purple-100 text-purple-700 border-purple-300' },
-  { dotClass: 'bg-teal-500',   ringClass: 'ring-teal-300',   chipClass: 'bg-teal-100   text-teal-700   border-teal-300' },
+  {
+    dotClass: 'bg-blue-500',
+    ringClass: 'ring-blue-300',
+    chipClass: 'bg-blue-100   text-blue-700   border-blue-300',
+  },
+  {
+    dotClass: 'bg-purple-500',
+    ringClass: 'ring-purple-300',
+    chipClass: 'bg-purple-100 text-purple-700 border-purple-300',
+  },
+  {
+    dotClass: 'bg-teal-500',
+    ringClass: 'ring-teal-300',
+    chipClass: 'bg-teal-100   text-teal-700   border-teal-300',
+  },
 ]
 
 function startOfDay(date) {
@@ -67,14 +79,8 @@ export default function MonthlyCalendar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const {
-    loading,
-    students,
-    selectedStudents,
-    eventsByDate,
-    perStudentDays,
-    window,
-  } = useCoachCalendarData(monthAnchor, selectedIds)
+  const { loading, students, selectedStudents, eventsByDate, perStudentDays, window } =
+    useCoachCalendarData(monthAnchor, selectedIds)
 
   // Mapa rápido id → color asignado en el modo comparación
   const studentColors = useMemo(() => {
@@ -85,19 +91,31 @@ export default function MonthlyCalendar() {
     return map
   }, [selectedIds])
 
-  const mode = selectedIds.length === 0
-    ? 'aggregate'
-    : selectedIds.length === 1
-      ? 'individual'
-      : 'comparison'
+  const mode =
+    selectedIds.length === 0 ? 'aggregate' : selectedIds.length === 1 ? 'individual' : 'comparison'
 
-  function goPrev() { setMonthAnchor(d => { const x = new Date(d); x.setMonth(x.getMonth() - 1); return x }) }
-  function goNext() { setMonthAnchor(d => { const x = new Date(d); x.setMonth(x.getMonth() + 1); return x }) }
-  function goToday() { setMonthAnchor(today); setOpenDay(toYMD(today)) }
+  function goPrev() {
+    setMonthAnchor((d) => {
+      const x = new Date(d)
+      x.setMonth(x.getMonth() - 1)
+      return x
+    })
+  }
+  function goNext() {
+    setMonthAnchor((d) => {
+      const x = new Date(d)
+      x.setMonth(x.getMonth() + 1)
+      return x
+    })
+  }
+  function goToday() {
+    setMonthAnchor(today)
+    setOpenDay(toYMD(today))
+  }
 
   function toggleStudent(id) {
-    setSelectedIds(curr => {
-      if (curr.includes(id)) return curr.filter(x => x !== id)
+    setSelectedIds((curr) => {
+      if (curr.includes(id)) return curr.filter((x) => x !== id)
       if (curr.length >= MAX_COMPARISON) return curr
       return [...curr, id]
     })
@@ -108,7 +126,7 @@ export default function MonthlyCalendar() {
   const filteredStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return students
-    return students.filter(s => (s.name || '').toLowerCase().includes(q))
+    return students.filter((s) => (s.name || '').toLowerCase().includes(q))
   }, [students, searchTerm])
 
   // Estructura del grid: 6 filas x 7 columnas a partir del lunes inicial.
@@ -161,7 +179,7 @@ export default function MonthlyCalendar() {
             <ChevronLeft size={18} />
           </button>
           <h3 className="font-semibold text-gray-900 capitalize text-sm sm:text-base min-w-[110px] text-center">
-            {format(monthAnchor, "LLLL yyyy", { locale: es })}
+            {format(monthAnchor, 'LLLL yyyy', { locale: es })}
           </h3>
           <button
             onClick={goNext}
@@ -180,7 +198,7 @@ export default function MonthlyCalendar() {
           </button>
           {selectedIds.length < MAX_COMPARISON && (
             <button
-              onClick={() => setSearchOpen(v => !v)}
+              onClick={() => setSearchOpen((v) => !v)}
               className={[
                 'inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg transition-colors',
                 searchOpen
@@ -204,7 +222,7 @@ export default function MonthlyCalendar() {
         <div className="space-y-2">
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              {selectedStudents.map(s => {
+              {selectedStudents.map((s) => {
                 const color = studentColors.get(s.id) || COMPARISON_PALETTE[0]
                 return (
                   <button
@@ -228,11 +246,14 @@ export default function MonthlyCalendar() {
 
           {searchOpen && (
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar alumno por nombre…"
                 className="input pl-8 pr-8 text-sm"
                 autoFocus
@@ -252,7 +273,7 @@ export default function MonthlyCalendar() {
                   (no exige tipear). Si el coach escribe, se filtra. */}
               {filteredStudents.length > 0 && (
                 <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-auto">
-                  {filteredStudents.slice(0, 12).map(s => {
+                  {filteredStudents.slice(0, 12).map((s) => {
                     const isSel = selectedIds.includes(s.id)
                     const isMax = !isSel && selectedIds.length >= MAX_COMPARISON
                     return (
@@ -298,14 +319,16 @@ export default function MonthlyCalendar() {
 
       {/* ── Encabezado de días ───────────────────────────────── */}
       <div className="grid grid-cols-7 gap-1 text-[10px] text-gray-400 font-medium uppercase">
-        {[1, 2, 3, 4, 5, 6, 0].map(d => (
-          <div key={d} className="text-center">{DAYS_OF_WEEK[d].short}</div>
+        {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+          <div key={d} className="text-center">
+            {DAYS_OF_WEEK[d].short}
+          </div>
         ))}
       </div>
 
       {/* ── Grid del calendario ──────────────────────────────── */}
       <div className="grid grid-cols-7 gap-1">
-        {weeks.flat().map(day => {
+        {weeks.flat().map((day) => {
           const ymd = toYMD(day)
           const inMonth = day.getMonth() === monthAnchor.getMonth()
           const isToday = sameYMD(day, today)
@@ -326,7 +349,7 @@ export default function MonthlyCalendar() {
               perStudentDays={perStudentDays}
               selectedIds={selectedIds}
               studentColors={studentColors}
-              onClick={() => setOpenDay(prev => prev === ymd ? null : ymd)}
+              onClick={() => setOpenDay((prev) => (prev === ymd ? null : ymd))}
             />
           )
         })}
@@ -356,11 +379,14 @@ export default function MonthlyCalendar() {
       {/* ── Empty state cuando no hay nada que mostrar ─────────── */}
       {loading ? (
         <p className="text-xs text-gray-400 text-center py-2">Cargando…</p>
-      ) : eventsByDate.size === 0 && mode === 'aggregate' && (
-        <div className="text-center py-3 text-gray-400">
-          <CalendarDays size={20} className="mx-auto mb-1 opacity-60" />
-          <p className="text-xs">Sin eventos este mes</p>
-        </div>
+      ) : (
+        eventsByDate.size === 0 &&
+        mode === 'aggregate' && (
+          <div className="text-center py-3 text-gray-400">
+            <CalendarDays size={20} className="mx-auto mb-1 opacity-60" />
+            <p className="text-xs">Sin eventos este mes</p>
+          </div>
+        )
       )}
 
       {/* ── Leyenda según el modo ─────────────────────────────── */}
@@ -377,8 +403,18 @@ export default function MonthlyCalendar() {
 // DayCell
 // ─────────────────────────────────────────────────────────────
 function DayCell({
-  day, ymd, inMonth, isToday, isOpen, events, mode,
-  today, perStudentDays, selectedIds, studentColors, onClick,
+  day,
+  ymd,
+  inMonth,
+  isToday,
+  isOpen,
+  events,
+  mode,
+  today,
+  perStudentDays,
+  selectedIds,
+  studentColors,
+  onClick,
 }) {
   // Estado del día por modo
   let bgClass = 'bg-white hover:bg-gray-50'
@@ -395,7 +431,7 @@ function DayCell({
         flexibleOverflowSet: data.flexibleOverflow,
       })
       const style = STUDENT_DAY_STYLE[status]
-      if (status === 'planned_done')   bgClass = 'bg-emerald-50 hover:bg-emerald-100'
+      if (status === 'planned_done') bgClass = 'bg-emerald-50 hover:bg-emerald-100'
       else if (status === 'planned_missed') bgClass = 'bg-rose-50 hover:bg-rose-100'
       else if (status === 'planned_future') bgClass = 'bg-slate-50 hover:bg-slate-100'
       else if (status === 'unplanned_done') bgClass = 'bg-blue-50 hover:bg-blue-100'
@@ -418,58 +454,79 @@ function DayCell({
     >
       {/* Banda izquierda (modo individual) */}
       {leftRingClass && (
-        <span className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full ${leftRingClass}`} />
+        <span
+          className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full ${leftRingClass}`}
+        />
       )}
 
       {/* Número del día (con resaltado de hoy) */}
       <div className="flex items-start justify-between">
-        <span className={[
-          'text-[11px] sm:text-xs font-semibold leading-none',
-          textClass,
-          isToday ? 'bg-primary-600 text-white rounded-full w-5 h-5 flex items-center justify-center' : '',
-        ].join(' ')}>
+        <span
+          className={[
+            'text-[11px] sm:text-xs font-semibold leading-none',
+            textClass,
+            isToday
+              ? 'bg-primary-600 text-white rounded-full w-5 h-5 flex items-center justify-center'
+              : '',
+          ].join(' ')}
+        >
           {day.getDate()}
         </span>
 
         {/* Modo individual: ícono de status arriba a la derecha */}
-        {mode === 'individual' && inMonth && (() => {
-          const sid = selectedIds[0]
-          const data = perStudentDays.get(sid)
-          if (!data) return null
-          const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
-            scheduleMode: data.scheduleMode,
-            flexibleOverflowSet: data.flexibleOverflow,
-          })
-          if (status === 'rest') return null
-          const style = STUDENT_DAY_STYLE[status]
-          return (
-            <span className={`text-[10px] leading-none font-bold ${
-              status === 'planned_done' ? 'text-emerald-700' :
-              status === 'planned_missed' ? 'text-rose-700' :
-              status === 'unplanned_done' ? 'text-blue-700' : 'text-slate-500'
-            }`}>
-              {style.icon}
-            </span>
-          )
-        })()}
+        {mode === 'individual' &&
+          inMonth &&
+          (() => {
+            const sid = selectedIds[0]
+            const data = perStudentDays.get(sid)
+            if (!data) return null
+            const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
+              scheduleMode: data.scheduleMode,
+              flexibleOverflowSet: data.flexibleOverflow,
+            })
+            if (status === 'rest') return null
+            const style = STUDENT_DAY_STYLE[status]
+            return (
+              <span
+                className={`text-[10px] leading-none font-bold ${
+                  status === 'planned_done'
+                    ? 'text-emerald-700'
+                    : status === 'planned_missed'
+                      ? 'text-rose-700'
+                      : status === 'unplanned_done'
+                        ? 'text-blue-700'
+                        : 'text-slate-500'
+                }`}
+              >
+                {style.icon}
+              </span>
+            )
+          })()}
       </div>
 
       {/* Comparación: dots por alumno que entrenó */}
       {mode === 'comparison' && inMonth && (
         <div className="absolute bottom-1 left-1 right-1 flex gap-0.5 flex-wrap">
-          {selectedIds.map(sid => {
+          {selectedIds.map((sid) => {
             const data = perStudentDays.get(sid)
             const trained = data?.completed?.has(ymd)
             if (!trained) return null
             const c = studentColors.get(sid)
-            return <span key={sid} className={`w-1.5 h-1.5 rounded-full ${c?.dotClass || 'bg-gray-400'}`} />
+            return (
+              <span
+                key={sid}
+                className={`w-1.5 h-1.5 rounded-full ${c?.dotClass || 'bg-gray-400'}`}
+              />
+            )
           })}
         </div>
       )}
 
       {/* Eventos del coach: dots a la derecha del número o abajo */}
       {events.length > 0 && (
-        <div className={`absolute ${mode === 'comparison' ? 'top-5' : 'bottom-1'} left-1 right-1 flex gap-0.5 flex-wrap`}>
+        <div
+          className={`absolute ${mode === 'comparison' ? 'top-5' : 'bottom-1'} left-1 right-1 flex gap-0.5 flex-wrap`}
+        >
           {events.slice(0, 4).map((ev, i) => (
             <span
               key={i}
@@ -490,7 +547,14 @@ function DayCell({
 // DayDetail
 // ─────────────────────────────────────────────────────────────
 function DayDetail({
-  ymd, events, mode, selectedStudents, studentColors, perStudentDays, today, onClose,
+  ymd,
+  events,
+  mode,
+  selectedStudents,
+  studentColors,
+  perStudentDays,
+  today,
+  onClose,
 }) {
   const date = (() => {
     const [y, m, d] = ymd.split('-').map(Number)
@@ -525,16 +589,24 @@ function DayDetail({
             const cfg = COACH_EVENT_KIND[type]
             return (
               <div key={type} className="flex items-start gap-2">
-                <span className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${cfg?.dotClass || 'bg-gray-300'}`} />
+                <span
+                  className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${cfg?.dotClass || 'bg-gray-300'}`}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-[11px] font-medium uppercase tracking-wide ${cfg?.textClass || 'text-gray-500'}`}>
+                  <p
+                    className={`text-[11px] font-medium uppercase tracking-wide ${cfg?.textClass || 'text-gray-500'}`}
+                  >
                     {cfg?.label || type}
                   </p>
                   <ul className="text-xs text-gray-700 mt-0.5 space-y-0.5">
                     {arr.map((ev, i) => (
                       <li key={i} className="truncate">
-                        {ev.studentName ? <span className="font-medium">{ev.studentName}</span> : null}
-                        {ev.studentName && ev.planTitle ? <span className="text-gray-500"> · {ev.planTitle}</span> : null}
+                        {ev.studentName ? (
+                          <span className="font-medium">{ev.studentName}</span>
+                        ) : null}
+                        {ev.studentName && ev.planTitle ? (
+                          <span className="text-gray-500"> · {ev.planTitle}</span>
+                        ) : null}
                         {!ev.studentName ? ev.title : null}
                       </li>
                     ))}
@@ -552,7 +624,7 @@ function DayDetail({
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
             Entrenamiento del día
           </p>
-          {selectedStudents.map(s => {
+          {selectedStudents.map((s) => {
             const data = perStudentDays.get(s.id)
             const status = data
               ? computeStudentDayStatus(ymd, data.expected, data.completed, today, {
@@ -564,15 +636,23 @@ function DayDetail({
             const color = studentColors.get(s.id)
             return (
               <div key={s.id} className="flex items-center gap-2 text-xs">
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color?.dotClass || 'bg-gray-300'}`} />
+                <span
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${color?.dotClass || 'bg-gray-300'}`}
+                />
                 <span className="font-medium text-gray-700 truncate">{s.name}</span>
-                <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                  status === 'planned_done' ? 'bg-emerald-100 text-emerald-700' :
-                  status === 'planned_missed' ? 'bg-rose-100 text-rose-700' :
-                  status === 'planned_future' ? 'bg-slate-100 text-slate-600' :
-                  status === 'unplanned_done' ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-400'
-                }`}>
+                <span
+                  className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                    status === 'planned_done'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : status === 'planned_missed'
+                        ? 'bg-rose-100 text-rose-700'
+                        : status === 'planned_future'
+                          ? 'bg-slate-100 text-slate-600'
+                          : status === 'unplanned_done'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
                   {style.label}
                 </span>
               </div>
@@ -606,10 +686,10 @@ function Legend({ mode, eventsByDate, presentIndividualStatuses }) {
   // efectivamente aparecen este mes. Esto evita mostrar "No asistió"
   // a alumnos en modo flexible (donde el status no aplica) y "Día
   // extra" cuando no hay ninguno.
-  const showCumplido    = mode === 'individual' && presentIndividualStatuses?.has('planned_done')
-  const showNoAsistio   = mode === 'individual' && presentIndividualStatuses?.has('planned_missed')
-  const showDiaExtra    = mode === 'individual' && presentIndividualStatuses?.has('unplanned_done')
-  const showProximo     = mode === 'individual' && presentIndividualStatuses?.has('planned_future')
+  const showCumplido = mode === 'individual' && presentIndividualStatuses?.has('planned_done')
+  const showNoAsistio = mode === 'individual' && presentIndividualStatuses?.has('planned_missed')
+  const showDiaExtra = mode === 'individual' && presentIndividualStatuses?.has('unplanned_done')
+  const showProximo = mode === 'individual' && presentIndividualStatuses?.has('planned_future')
 
   const hasIndividualChips = showCumplido || showNoAsistio || showDiaExtra || showProximo
 
@@ -617,7 +697,7 @@ function Legend({ mode, eventsByDate, presentIndividualStatuses }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-gray-500 pt-1 border-t border-gray-100">
-      {presentTypes.map(type => {
+      {presentTypes.map((type) => {
         const cfg = COACH_EVENT_KIND[type]
         if (!cfg) return null
         return (

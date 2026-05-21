@@ -73,16 +73,26 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={
-        user ? <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace /> : <LoginPage />
-      } />
+      <Route
+        path="/login"
+        element={
+          user ? (
+            <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
 
       {/* Coach routes */}
-      <Route path="/coach" element={
-        <PrivateRoute requiredRole="coach">
-          <CoachLayout />
-        </PrivateRoute>
-      }>
+      <Route
+        path="/coach"
+        element={
+          <PrivateRoute requiredRole="coach">
+            <CoachLayout />
+          </PrivateRoute>
+        }
+      >
         <Route index element={<CoachDashboard />} />
         <Route path="students" element={<StudentsPage />} />
         <Route path="students/new" element={<CreateStudentPage />} />
@@ -100,11 +110,14 @@ function AppRoutes() {
       </Route>
 
       {/* Student routes */}
-      <Route path="/student" element={
-        <PrivateRoute requiredRole="student">
-          <StudentLayout />
-        </PrivateRoute>
-      }>
+      <Route
+        path="/student"
+        element={
+          <PrivateRoute requiredRole="student">
+            <StudentLayout />
+          </PrivateRoute>
+        }
+      >
         <Route index element={<StudentDashboard />} />
         <Route path="workout" element={<TodayWorkoutPage />} />
         <Route path="eval/:planId" element={<EvalWorkoutPage />} />
@@ -116,25 +129,36 @@ function AppRoutes() {
       </Route>
 
       {/* Intake form — fuera del StudentLayout para evitar conflicto de navbars */}
-      <Route path="/student/intake" element={
-        <PrivateRoute requiredRole="student">
-          <IntakeFormPage />
-        </PrivateRoute>
-      } />
+      <Route
+        path="/student/intake"
+        element={
+          <PrivateRoute requiredRole="student">
+            <IntakeFormPage />
+          </PrivateRoute>
+        }
+      />
 
       {/* Follow-up form individual */}
-      <Route path="/student/form/:assignmentId" element={
-        <PrivateRoute requiredRole="student">
-          <FollowUpFormPage />
-        </PrivateRoute>
-      } />
+      <Route
+        path="/student/form/:assignmentId"
+        element={
+          <PrivateRoute requiredRole="student">
+            <FollowUpFormPage />
+          </PrivateRoute>
+        }
+      />
 
       {/* Default redirect */}
-      <Route path="/" element={
-        user
-          ? <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
-          : <Navigate to="/login" replace />
-      } />
+      <Route
+        path="/"
+        element={
+          user ? (
+            <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

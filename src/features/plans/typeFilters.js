@@ -33,7 +33,7 @@
 //                                       sin denormalizar)
 // ============================================================
 export function filterTrainingLogs(rows) {
-  return (rows || []).filter(r => {
+  return (rows || []).filter((r) => {
     const pt = r?.plan?.plan_type
     return !pt || pt === 'training'
   })

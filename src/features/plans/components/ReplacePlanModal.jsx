@@ -53,7 +53,9 @@ export default function ReplacePlanModal({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget && !submitting) onCancel() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onCancel()
+      }}
     >
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         {/* Header */}
@@ -123,7 +125,9 @@ export default function ReplacePlanModal({
                   className="mt-1"
                 />
                 <div className="flex-1">
-                  <p className={`text-sm font-semibold ${outgoingTransition === 'replaced' ? 'text-primary-700' : 'text-gray-700'}`}>
+                  <p
+                    className={`text-sm font-semibold ${outgoingTransition === 'replaced' ? 'text-primary-700' : 'text-gray-700'}`}
+                  >
                     Reemplazar
                   </p>
                   <p className="text-xs text-gray-500">
@@ -148,7 +152,9 @@ export default function ReplacePlanModal({
                   className="mt-1"
                 />
                 <div className="flex-1">
-                  <p className={`text-sm font-semibold ${outgoingTransition === 'paused' ? 'text-amber-700' : 'text-gray-700'}`}>
+                  <p
+                    className={`text-sm font-semibold ${outgoingTransition === 'paused' ? 'text-amber-700' : 'text-gray-700'}`}
+                  >
                     Pausar
                   </p>
                   <p className="text-xs text-gray-500">
@@ -166,7 +172,7 @@ export default function ReplacePlanModal({
               className="input"
               placeholder="Ej: Pasó a fuerza máxima, lesión, etc."
               value={reason}
-              onChange={e => setReason(e.target.value)}
+              onChange={(e) => setReason(e.target.value)}
             />
           </div>
 
@@ -177,7 +183,8 @@ export default function ReplacePlanModal({
                 <Copy size={12} /> Atajo
               </p>
               <p className="text-xs text-blue-700 mt-1">
-                ¿Querés usar el plan actual como base del nuevo? Te abre el duplicador con los mismos ejercicios, lo editás y volvés acá a asignarlo.
+                ¿Querés usar el plan actual como base del nuevo? Te abre el duplicador con los
+                mismos ejercicios, lo editás y volvés acá a asignarlo.
               </p>
               <button
                 onClick={onDuplicateOutgoing}
@@ -194,7 +201,8 @@ export default function ReplacePlanModal({
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-xs text-purple-800">
               <p className="font-semibold">Evaluaciones vinculadas</p>
               <p className="mt-1">
-                El plan saliente tiene {evalCount} evaluación{evalCount > 1 ? 'es' : ''} vinculada{evalCount > 1 ? 's' : ''}. {' '}
+                El plan saliente tiene {evalCount} evaluación{evalCount > 1 ? 'es' : ''} vinculada
+                {evalCount > 1 ? 's' : ''}.{' '}
                 {outgoingTransition === 'replaced'
                   ? 'Quedan como historial en la pestaña Evaluaciones (no se borran).'
                   : 'Las podés seguir viendo en la pestaña Evaluaciones.'}
@@ -204,11 +212,7 @@ export default function ReplacePlanModal({
 
           {/* Acciones */}
           <div className="flex gap-3 pt-1">
-            <button
-              onClick={onCancel}
-              disabled={submitting}
-              className="btn-secondary flex-1"
-            >
+            <button onClick={onCancel} disabled={submitting} className="btn-secondary flex-1">
               Cancelar
             </button>
             <button
@@ -216,10 +220,11 @@ export default function ReplacePlanModal({
               disabled={submitting}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              {submitting
-                ? <Loader size={16} className="animate-spin" />
-                : <>Confirmar reemplazo</>
-              }
+              {submitting ? (
+                <Loader size={16} className="animate-spin" />
+              ) : (
+                <>Confirmar reemplazo</>
+              )}
             </button>
           </div>
         </div>

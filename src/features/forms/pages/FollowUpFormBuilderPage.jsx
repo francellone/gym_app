@@ -43,7 +43,7 @@ export default function FollowUpFormBuilderPage() {
       .eq('coach_id', profile.id)
       .eq('form_kind', 'follow_up')
       .eq('is_active', true)
-    setOtherTemplates(tpls?.filter(t => t.id !== id) || [])
+    setOtherTemplates(tpls?.filter((t) => t.id !== id) || [])
 
     if (isNew) {
       setConfig(buildFollowUpFormConfig())
@@ -100,9 +100,11 @@ export default function FollowUpFormBuilderPage() {
 
         if (error) {
           // El trigger DB lanza si hay >10
-          setSaveStatus(error.message?.includes('Límite alcanzado')
-            ? 'Llegaste al límite de 10 plantillas activas. Archivá una antes de crear otra.'
-            : 'error')
+          setSaveStatus(
+            error.message?.includes('Límite alcanzado')
+              ? 'Llegaste al límite de 10 plantillas activas. Archivá una antes de crear otra.'
+              : 'error'
+          )
           return
         }
 
@@ -179,7 +181,7 @@ export default function FollowUpFormBuilderPage() {
             <input
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Check-in mitad de plan"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -189,7 +191,7 @@ export default function FollowUpFormBuilderPage() {
             <input
               type="text"
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Breve descripción para vos"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

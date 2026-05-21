@@ -20,10 +20,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  listNotes,
-  subscribeThread,
-} from '../api'
+import { listNotes, subscribeThread } from '../api'
 
 // Tiempo mínimo en background para forzar reload al volver
 const VISIBILITY_RELOAD_THRESHOLD_MS = 30_000
@@ -37,26 +34,31 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
   const [nextCursor, setNextCursor] = useState(null)
 
   // Refs auxiliares
-  const abortRef = useRef(null)            // AbortController del fetch en vuelo
-  const unsubscribeRef = useRef(null)      // función cleanup del canal realtime
-  const lastHiddenAtRef = useRef(null)     // timestamp cuando la pestaña se ocultó
+  const abortRef = useRef(null) // AbortController del fetch en vuelo
+  const unsubscribeRef = useRef(null) // función cleanup del canal realtime
+  const lastHiddenAtRef = useRef(null) // timestamp cuando la pestaña se ocultó
   const channelCheckTimerRef = useRef(null) // setTimeout para re-sub
   // Callback ref para que el effect de subscripción no se re-monte cuando
   // el caller pasa una función inline; se llama con la nota recién insertada.
   const onNoteCreatedRef = useRef(onNoteCreated)
-  useEffect(() => { onNoteCreatedRef.current = onNoteCreated }, [onNoteCreated])
+  useEffect(() => {
+    onNoteCreatedRef.current = onNoteCreated
+  }, [onNoteCreated])
 
   // Serializamos filtros como string para usar de dep en useEffect
   const filtersKey = JSON.stringify(filters || {})
 
   // ── Filtro cliente: alumno no ve coach_private (red de seguridad) ──
-  const filterForViewer = useCallback((rows) => {
-    if (!Array.isArray(rows)) return []
-    if (viewerRole === 'student') {
-      return rows.filter(n => n.visibility !== 'coach_private')
-    }
-    return rows
-  }, [viewerRole])
+  const filterForViewer = useCallback(
+    (rows) => {
+      if (!Array.isArray(rows)) return []
+      if (viewerRole === 'student') {
+        return rows.filter((n) => n.visibility !== 'coach_private')
+      }
+      return rows
+    },
+    [viewerRole]
+  )
 
   // ── Carga inicial (o tras cambio de filtros / threadId) ───────
   const loadFirstPage = useCallback(async () => {
@@ -73,11 +75,12 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
     setLoading(true)
     setError(null)
 
-    const { data, nextCursor: cursor, error: err, aborted } = await listNotes(
-      threadId,
-      filters,
-      { signal: ac.signal },
-    )
+    const {
+      data,
+      nextCursor: cursor,
+      error: err,
+      aborted,
+    } = await listNotes(threadId, filters, { signal: ac.signal })
     if (aborted) return
     if (err) {
       setError(err)
@@ -93,19 +96,19 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
   const loadMore = useCallback(async () => {
     if (!threadId || !nextCursor || loading) return
     setLoading(true)
-    const { data, nextCursor: cursor, error: err } = await listNotes(
-      threadId,
-      filters,
-      { cursor: nextCursor },
-    )
+    const {
+      data,
+      nextCursor: cursor,
+      error: err,
+    } = await listNotes(threadId, filters, { cursor: nextCursor })
     if (err) {
       setError(err)
       setLoading(false)
       return
     }
-    setNotes(prev => {
+    setNotes((prev) => {
       // Mergear evitando duplicados (por id)
-      const existingIds = new Set(prev.map(n => n.id))
+      const existingIds = new Set(prev.map((n) => n.id))
       const merged = [...prev]
       for (const row of filterForViewer(data)) {
         if (!existingIds.has(row.id)) merged.push(row)
@@ -133,13 +136,13 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
     unsubscribeRef.current = subscribeThread(threadId, ({ event, new: newRow, old: oldRow }) => {
       // ── DELETE físico (no debería pasar, no hay policy) ──
       if (event === 'DELETE') {
-        if (oldRow?.id) setNotes(prev => prev.filter(n => n.id !== oldRow.id))
+        if (oldRow?.id) setNotes((prev) => prev.filter((n) => n.id !== oldRow.id))
         return
       }
 
       // ── Soft-delete: deleted_at != null ⇒ remove ──
       if (newRow?.deleted_at) {
-        setNotes(prev => prev.filter(n => n.id !== newRow.id))
+        setNotes((prev) => prev.filter((n) => n.id !== newRow.id))
         return
       }
 
@@ -149,7 +152,7 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
       // de la lista local — no basta con `return`, porque la nota
       // anterior podría estar mostrada.
       if (viewerRole === 'student' && newRow?.visibility === 'coach_private') {
-        setNotes(prev => prev.filter(n => n.id !== newRow.id))
+        setNotes((prev) => prev.filter((n) => n.id !== newRow.id))
         return
       }
 
@@ -161,8 +164,8 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
       if (!matchesFilters(newRow, filters)) return
 
       let wasInsert = false
-      setNotes(prev => {
-        const idx = prev.findIndex(n => n.id === newRow.id)
+      setNotes((prev) => {
+        const idx = prev.findIndex((n) => n.id === newRow.id)
         if (idx >= 0) {
           // UPDATE: reemplazar in-place
           const next = [...prev]
@@ -175,7 +178,11 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
       })
       // Notificar al consumidor para que pueda refrescar filtros etc.
       if (wasInsert && onNoteCreatedRef.current) {
-        try { onNoteCreatedRef.current(newRow) } catch { /* ignore */ }
+        try {
+          onNoteCreatedRef.current(newRow)
+        } catch {
+          /* ignore */
+        }
       }
     })
 
@@ -240,7 +247,9 @@ export function useNotes({ threadId, filters = {}, viewerRole = 'coach', onNoteC
 
   // ── Auth logout: limpiar todo ─────────────────────────────────
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         if (abortRef.current) abortRef.current.abort()
         if (unsubscribeRef.current) {

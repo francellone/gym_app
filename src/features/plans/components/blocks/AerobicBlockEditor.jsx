@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Tag } from 'lucide-react'
 import {
-  AEROBIC_FORMATS, AEROBIC_INTERVAL_FORMATS, INTENSITY_LEVELS, AEROBIC_ZONES,
+  AEROBIC_FORMATS,
+  AEROBIC_INTERVAL_FORMATS,
+  INTENSITY_LEVELS,
+  AEROBIC_ZONES,
 } from '../../helpers'
 
 /**
@@ -24,8 +27,8 @@ export default function AerobicBlockEditor({
   const currentExerciseId = block.exercises?.[0]?.exercise_id || ''
 
   const filtered = tagFilter
-    ? exercises.filter(e =>
-        tagAssignments.some(ta => ta.exercise_id === e.id && ta.tag_id === tagFilter)
+    ? exercises.filter((e) =>
+        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
       )
     : exercises
 
@@ -54,11 +57,13 @@ export default function AerobicBlockEditor({
             <select
               className="input text-xs py-1.5"
               value={tagFilter}
-              onChange={e => setTagFilter(e.target.value)}
+              onChange={(e) => setTagFilter(e.target.value)}
             >
               <option value="">Todos los ejercicios</option>
-              {exerciseTags.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {exerciseTags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
               ))}
             </select>
           </div>
@@ -68,11 +73,13 @@ export default function AerobicBlockEditor({
           <select
             className="input text-sm"
             value={currentExerciseId}
-            onChange={e => handleExerciseChange(e.target.value)}
+            onChange={(e) => handleExerciseChange(e.target.value)}
           >
             <option value="">Sin ejercicio específico</option>
-            {filtered.map(e => (
-              <option key={e.id} value={e.id}>{e.name}</option>
+            {filtered.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
             ))}
           </select>
         </div>
@@ -82,7 +89,7 @@ export default function AerobicBlockEditor({
       <div>
         <label className="text-xs text-gray-500 mb-1 block">Formato</label>
         <div className="grid grid-cols-2 gap-1.5">
-          {AEROBIC_FORMATS.map(f => (
+          {AEROBIC_FORMATS.map((f) => (
             <button
               key={f.key}
               type="button"
@@ -93,7 +100,9 @@ export default function AerobicBlockEditor({
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <p className={`text-xs font-semibold ${block.aerobic_format === f.key ? 'text-sky-700' : 'text-gray-700'}`}>
+              <p
+                className={`text-xs font-semibold ${block.aerobic_format === f.key ? 'text-sky-700' : 'text-gray-700'}`}
+              >
                 {f.label}
               </p>
               <p className="text-[10px] text-gray-400 leading-tight">{f.description}</p>
@@ -112,7 +121,7 @@ export default function AerobicBlockEditor({
             className="input text-sm"
             placeholder="Ej: 25"
             value={block.aerobic_total_minutes || ''}
-            onChange={e => onUpdate({ aerobic_total_minutes: e.target.value })}
+            onChange={(e) => onUpdate({ aerobic_total_minutes: e.target.value })}
           />
         </div>
         <div>
@@ -120,10 +129,12 @@ export default function AerobicBlockEditor({
           <select
             className="input text-sm"
             value={block.aerobic_intensity || 'moderate'}
-            onChange={e => onUpdate({ aerobic_intensity: e.target.value })}
+            onChange={(e) => onUpdate({ aerobic_intensity: e.target.value })}
           >
-            {INTENSITY_LEVELS.map(i => (
-              <option key={i.key} value={i.key}>{i.label}</option>
+            {INTENSITY_LEVELS.map((i) => (
+              <option key={i.key} value={i.key}>
+                {i.label}
+              </option>
             ))}
           </select>
         </div>
@@ -135,7 +146,7 @@ export default function AerobicBlockEditor({
           Zona objetivo <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-5 gap-1.5">
-          {AEROBIC_ZONES.map(z => {
+          {AEROBIC_ZONES.map((z) => {
             const selected = (block.aerobic_zone || 'Z2') === z.key
             return (
               <button
@@ -143,27 +154,25 @@ export default function AerobicBlockEditor({
                 type="button"
                 onClick={() => onUpdate({ aerobic_zone: z.key })}
                 className={`rounded-xl border-2 p-2 text-center transition-all ${
-                  selected
-                    ? 'border-sky-500 bg-sky-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                  selected ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
                 title={`${z.range} · ${z.short}`}
               >
                 <p className={`text-sm font-bold ${selected ? 'text-sky-700' : 'text-gray-700'}`}>
                   {z.label}
                 </p>
-                <p className="text-[9px] text-gray-400 leading-tight mt-0.5">
-                  {z.range}
-                </p>
+                <p className="text-[9px] text-gray-400 leading-tight mt-0.5">{z.range}</p>
               </button>
             )
           })}
         </div>
         {(() => {
-          const z = AEROBIC_ZONES.find(zz => zz.key === (block.aerobic_zone || 'Z2'))
+          const z = AEROBIC_ZONES.find((zz) => zz.key === (block.aerobic_zone || 'Z2'))
           if (!z) return null
           return (
-            <div className={`mt-1.5 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center gap-2 border ${z.color}`}>
+            <div
+              className={`mt-1.5 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center gap-2 border ${z.color}`}
+            >
               <span className="font-bold flex-shrink-0">{z.label}</span>
               <span className="leading-tight">
                 <strong>{z.short}</strong>
@@ -188,7 +197,7 @@ export default function AerobicBlockEditor({
                 className="input text-sm"
                 placeholder="30"
                 value={block.aerobic_work_seconds || ''}
-                onChange={e => onUpdate({ aerobic_work_seconds: e.target.value })}
+                onChange={(e) => onUpdate({ aerobic_work_seconds: e.target.value })}
               />
             </div>
             <div>
@@ -199,7 +208,7 @@ export default function AerobicBlockEditor({
                 className="input text-sm"
                 placeholder="30"
                 value={block.aerobic_rest_seconds || ''}
-                onChange={e => onUpdate({ aerobic_rest_seconds: e.target.value })}
+                onChange={(e) => onUpdate({ aerobic_rest_seconds: e.target.value })}
               />
             </div>
             <div>
@@ -210,7 +219,7 @@ export default function AerobicBlockEditor({
                 className="input text-sm"
                 placeholder="8"
                 value={block.aerobic_rounds || ''}
-                onChange={e => onUpdate({ aerobic_rounds: e.target.value })}
+                onChange={(e) => onUpdate({ aerobic_rounds: e.target.value })}
               />
             </div>
           </div>
@@ -226,10 +235,11 @@ export default function AerobicBlockEditor({
           className="input text-sm"
           placeholder="Ej: por lesión, ir más suave de lo habitual..."
           value={block.aerobic_expected_sensation || ''}
-          onChange={e => onUpdate({ aerobic_expected_sensation: e.target.value })}
+          onChange={(e) => onUpdate({ aerobic_expected_sensation: e.target.value })}
         />
         <p className="text-[10px] text-gray-400 mt-0.5">
-          Sólo para casos puntuales (lesiones, indicaciones específicas). La zona ya describe la sensación general.
+          Sólo para casos puntuales (lesiones, indicaciones específicas). La zona ya describe la
+          sensación general.
         </p>
       </div>
     </div>

@@ -17,7 +17,6 @@ export default function QuestionField({ question, value, onChange, error }) {
   const handleChange = (val) => onChange(question.id, val)
 
   switch (question.type) {
-
     // ── Texto corto ─────────────────────────────────────────
     case QUESTION_TYPES.TEXT:
     case QUESTION_TYPES.EMAIL:
@@ -25,11 +24,14 @@ export default function QuestionField({ question, value, onChange, error }) {
       return (
         <input
           type={
-            question.type === QUESTION_TYPES.EMAIL ? 'email' :
-            question.type === QUESTION_TYPES.PHONE ? 'tel' : 'text'
+            question.type === QUESTION_TYPES.EMAIL
+              ? 'email'
+              : question.type === QUESTION_TYPES.PHONE
+                ? 'tel'
+                : 'text'
           }
           value={value || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder={question.placeholder || ''}
           autoComplete={question.autoComplete || 'off'}
           className={baseInput}
@@ -41,7 +43,7 @@ export default function QuestionField({ question, value, onChange, error }) {
       return (
         <textarea
           value={value || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder={question.placeholder || ''}
           rows={3}
           className={`${baseInput} resize-none`}
@@ -55,7 +57,7 @@ export default function QuestionField({ question, value, onChange, error }) {
           type="number"
           inputMode="numeric"
           value={value || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder={question.placeholder || ''}
           min={question.min}
           max={question.max}
@@ -69,7 +71,7 @@ export default function QuestionField({ question, value, onChange, error }) {
         <input
           type="date"
           value={value || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           className={baseInput}
         />
       )
@@ -78,7 +80,7 @@ export default function QuestionField({ question, value, onChange, error }) {
     case QUESTION_TYPES.SELECT:
       return (
         <div className="space-y-2">
-          {(question.options || []).map(option => (
+          {(question.options || []).map((option) => (
             <label
               key={option}
               onClick={() => handleChange(option)}
@@ -88,9 +90,11 @@ export default function QuestionField({ question, value, onChange, error }) {
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
               }`}
             >
-              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                value === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-              }`}>
+              <div
+                className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                  value === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                }`}
+              >
                 {value === option && <div className="w-2 h-2 bg-white rounded-full" />}
               </div>
               <span className="text-sm text-gray-700">{option}</span>
@@ -104,13 +108,13 @@ export default function QuestionField({ question, value, onChange, error }) {
       const selected = Array.isArray(value) ? value : []
       const toggle = (option) => {
         const newSelected = selected.includes(option)
-          ? selected.filter(v => v !== option)
+          ? selected.filter((v) => v !== option)
           : [...selected, option]
         handleChange(newSelected)
       }
       return (
         <div className="space-y-2">
-          {(question.options || []).map(option => {
+          {(question.options || []).map((option) => {
             const isSelected = selected.includes(option)
             return (
               <label
@@ -122,9 +126,11 @@ export default function QuestionField({ question, value, onChange, error }) {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${
-                  isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                }`}>
+                <div
+                  className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${
+                    isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                  }`}
+                >
                   {isSelected && <span className="text-white text-xs leading-none">✓</span>}
                 </div>
                 <span className="text-sm text-gray-700">{option}</span>
@@ -167,7 +173,7 @@ export default function QuestionField({ question, value, onChange, error }) {
       return (
         <div>
           <div className="flex gap-1 justify-between mb-2">
-            {steps.map(n => (
+            {steps.map((n) => (
               <button
                 key={n}
                 type="button"
@@ -195,7 +201,7 @@ export default function QuestionField({ question, value, onChange, error }) {
         <input
           type="text"
           value={value || ''}
-          onChange={e => handleChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           className={baseInput}
         />
       )

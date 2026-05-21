@@ -48,7 +48,7 @@ export function isRecoverableError(error) {
   const code = error.code || error.status
   if (NON_RECOVERABLE_CODES.has(String(code))) return false
   const msg = (error.message || '') + ' ' + (error.details || '')
-  if (NON_RECOVERABLE_PATTERNS.some(re => re.test(msg))) return false
+  if (NON_RECOVERABLE_PATTERNS.some((re) => re.test(msg))) return false
   // Network / timeout / auth / 5xx → tratamos como recuperables
   return true
 }
@@ -84,10 +84,16 @@ export function getFriendlyErrorMessage(error) {
     if (/workout_logs_reps_unit_check/i.test(haystack)) {
       return 'Unidad de reps inválida. Recargá la página.'
     }
-    if (/profiles_lesiones_requires_detail/i.test(haystack) || /profiles_lesiones_/i.test(haystack)) {
+    if (
+      /profiles_lesiones_requires_detail/i.test(haystack) ||
+      /profiles_lesiones_/i.test(haystack)
+    ) {
       return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
     }
-    if (/sessions_finished_requires_started/i.test(haystack) || /sessions_finished_after_started/i.test(haystack)) {
+    if (
+      /sessions_finished_requires_started/i.test(haystack) ||
+      /sessions_finished_after_started/i.test(haystack)
+    ) {
       return 'Error interno de sesión. Avisá al coach.'
     }
     if (/apunta a una plantilla/i.test(haystack)) {
@@ -100,8 +106,10 @@ export function getFriendlyErrorMessage(error) {
   // 23503 — FK violation (no recuperable)
   // ────────────────────────────────────────────────────────────
   if (code === '23503') {
-    if (/Plan .* no existe/i.test(haystack)) return 'El plan no existe o fue eliminado. Recargá la página.'
-    if (/Alumno .* no existe/i.test(haystack)) return 'El alumno no existe o no es válido. Recargá la página.'
+    if (/Plan .* no existe/i.test(haystack))
+      return 'El plan no existe o fue eliminado. Recargá la página.'
+    if (/Alumno .* no existe/i.test(haystack))
+      return 'El alumno no existe o no es válido. Recargá la página.'
     return 'Recurso no encontrado. Recargá la página.'
   }
 

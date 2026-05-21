@@ -6,32 +6,92 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 // Z1: 1–2 | Z2: 3–4 | Z3: 5–6 | Z4: 7 | Z5: 8–10
 // ============================================================
 export const RPE_CARDIO = [
-  { n: 1,  zone: 'Z1', pct: '50–55%', short: 'muy suave',     desc: 'nasal · podés cantar · activación mínima' },
-  { n: 2,  zone: 'Z1', pct: '55–60%', short: 'suave',         desc: 'respiración tranquila · hablás sin pausas' },
-  { n: 3,  zone: 'Z2', pct: '60–65%', short: 'leve',          desc: 'resp. más profunda · frases completas · cómodo' },
-  { n: 4,  zone: 'Z2', pct: '65–70%', short: 'moderado bajo', desc: 'resp. estable · conversación fluida · ritmo constante' },
-  { n: 5,  zone: 'Z3', pct: '70–75%', short: 'moderado',      desc: 'resp. evidente · frases con pausas · sostenido' },
-  { n: 6,  zone: 'Z3', pct: '75–80%', short: 'moderado-alto', desc: 'resp. profunda · frases cortas · incomodidad controlada' },
-  { n: 7,  zone: 'Z4', pct: '80–85%', short: 'alto',          desc: 'resp. fuerte · 2–3 palabras · foco mental' },
-  { n: 8,  zone: 'Z5', pct: '85–90%', short: 'muy alto',      desc: 'resp. agitada · palabras sueltas · fatiga clara' },
-  { n: 9,  zone: 'Z5', pct: '90–95%', short: 'casi máximo',   desc: 'resp. desbordada · no podés hablar · al límite' },
-  { n: 10, zone: 'Z5', pct: '95–100%', short: 'máximo',       desc: 'resp. caótica · sin habla · segundos' },
+  {
+    n: 1,
+    zone: 'Z1',
+    pct: '50–55%',
+    short: 'muy suave',
+    desc: 'nasal · podés cantar · activación mínima',
+  },
+  {
+    n: 2,
+    zone: 'Z1',
+    pct: '55–60%',
+    short: 'suave',
+    desc: 'respiración tranquila · hablás sin pausas',
+  },
+  {
+    n: 3,
+    zone: 'Z2',
+    pct: '60–65%',
+    short: 'leve',
+    desc: 'resp. más profunda · frases completas · cómodo',
+  },
+  {
+    n: 4,
+    zone: 'Z2',
+    pct: '65–70%',
+    short: 'moderado bajo',
+    desc: 'resp. estable · conversación fluida · ritmo constante',
+  },
+  {
+    n: 5,
+    zone: 'Z3',
+    pct: '70–75%',
+    short: 'moderado',
+    desc: 'resp. evidente · frases con pausas · sostenido',
+  },
+  {
+    n: 6,
+    zone: 'Z3',
+    pct: '75–80%',
+    short: 'moderado-alto',
+    desc: 'resp. profunda · frases cortas · incomodidad controlada',
+  },
+  {
+    n: 7,
+    zone: 'Z4',
+    pct: '80–85%',
+    short: 'alto',
+    desc: 'resp. fuerte · 2–3 palabras · foco mental',
+  },
+  {
+    n: 8,
+    zone: 'Z5',
+    pct: '85–90%',
+    short: 'muy alto',
+    desc: 'resp. agitada · palabras sueltas · fatiga clara',
+  },
+  {
+    n: 9,
+    zone: 'Z5',
+    pct: '90–95%',
+    short: 'casi máximo',
+    desc: 'resp. desbordada · no podés hablar · al límite',
+  },
+  {
+    n: 10,
+    zone: 'Z5',
+    pct: '95–100%',
+    short: 'máximo',
+    desc: 'resp. caótica · sin habla · segundos',
+  },
 ]
 
 // ============================================================
 // Escala RPE Circuito — sensación global (1–10 con descriptores cortos)
 // ============================================================
 export const RPE_CIRCUIT = [
-  { n: 1,  short: 'muy suave',          desc: 'calentamiento' },
-  { n: 2,  short: 'muy suave',          desc: 'calentamiento' },
-  { n: 3,  short: 'muy suave',          desc: 'calentamiento' },
-  { n: 4,  short: 'podrías seguir más', desc: 'bastante margen' },
-  { n: 5,  short: 'podrías seguir más', desc: 'bastante margen' },
-  { n: 6,  short: 'desafiante',         desc: 'controlado' },
-  { n: 7,  short: 'desafiante',         desc: 'controlado' },
-  { n: 8,  short: 'muy exigente',       desc: 'cuesta sostener' },
-  { n: 9,  short: 'muy exigente',       desc: 'cuesta sostener' },
-  { n: 10, short: 'al límite',          desc: 'no podés más' },
+  { n: 1, short: 'muy suave', desc: 'calentamiento' },
+  { n: 2, short: 'muy suave', desc: 'calentamiento' },
+  { n: 3, short: 'muy suave', desc: 'calentamiento' },
+  { n: 4, short: 'podrías seguir más', desc: 'bastante margen' },
+  { n: 5, short: 'podrías seguir más', desc: 'bastante margen' },
+  { n: 6, short: 'desafiante', desc: 'controlado' },
+  { n: 7, short: 'desafiante', desc: 'controlado' },
+  { n: 8, short: 'muy exigente', desc: 'cuesta sostener' },
+  { n: 9, short: 'muy exigente', desc: 'cuesta sostener' },
+  { n: 10, short: 'al límite', desc: 'no podés más' },
 ]
 
 // Color del botón según el número (común a las dos escalas)
@@ -45,12 +105,18 @@ function rpeColor(n, selected) {
 // Color de la zona Z1–Z5 (sólo para escala cardio)
 function zoneColor(zone) {
   switch (zone) {
-    case 'Z1': return 'bg-green-100 text-green-700 border-green-200'
-    case 'Z2': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    case 'Z3': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-    case 'Z4': return 'bg-orange-100 text-orange-700 border-orange-200'
-    case 'Z5': return 'bg-red-100 text-red-700 border-red-200'
-    default:   return 'bg-gray-100 text-gray-600 border-gray-200'
+    case 'Z1':
+      return 'bg-green-100 text-green-700 border-green-200'
+    case 'Z2':
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    case 'Z3':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    case 'Z4':
+      return 'bg-orange-100 text-orange-700 border-orange-200'
+    case 'Z5':
+      return 'bg-red-100 text-red-700 border-red-200'
+    default:
+      return 'bg-gray-100 text-gray-600 border-gray-200'
   }
 }
 
@@ -78,7 +144,7 @@ export default function RPEScale({
   const helpOpen = helpOpenProp != null ? helpOpenProp : helpOpenLocal
   const toggleHelp = () => {
     if (onToggleHelp) onToggleHelp(!helpOpen)
-    else setHelpOpenLocal(o => !o)
+    else setHelpOpenLocal((o) => !o)
   }
 
   const selected = value
@@ -86,7 +152,7 @@ export default function RPEScale({
   const showDescriptors = variant === 'cardio' || variant === 'circuit'
   const scale = variant === 'cardio' ? RPE_CARDIO : variant === 'circuit' ? RPE_CIRCUIT : null
 
-  const selectedItem = scale?.find(s => s.n === selected) || null
+  const selectedItem = scale?.find((s) => s.n === selected) || null
 
   return (
     <div className="space-y-2">
@@ -106,9 +172,9 @@ export default function RPEScale({
 
       {/* Botones 1–10 */}
       <div className="flex gap-1.5 flex-wrap">
-        {[1,2,3,4,5,6,7,8,9,10].map(n => {
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
           const isSelected = selected === n
-          const item = scale?.find(s => s.n === n)
+          const item = scale?.find((s) => s.n === n)
           return (
             <button
               key={n}
@@ -119,7 +185,9 @@ export default function RPEScale({
             >
               {n}
               {showZones && item && (
-                <span className={`absolute -top-1 -right-1 text-[8px] font-bold rounded-full px-1 leading-tight border ${zoneColor(item.zone)}`}>
+                <span
+                  className={`absolute -top-1 -right-1 text-[8px] font-bold rounded-full px-1 leading-tight border ${zoneColor(item.zone)}`}
+                >
                   {item.zone}
                 </span>
               )}
@@ -130,18 +198,26 @@ export default function RPEScale({
 
       {/* Descriptor del valor seleccionado (compacto, visible siempre que haya valor) */}
       {selected && selectedItem && showDescriptors && (
-        <div className={`rounded-lg px-2.5 py-1.5 text-xs flex items-start gap-2 ${
-          selected >= 8 ? 'bg-red-50 text-red-800'
-            : selected >= 5 ? 'bg-orange-50 text-orange-800'
-            : 'bg-green-50 text-green-800'
-        }`}>
+        <div
+          className={`rounded-lg px-2.5 py-1.5 text-xs flex items-start gap-2 ${
+            selected >= 8
+              ? 'bg-red-50 text-red-800'
+              : selected >= 5
+                ? 'bg-orange-50 text-orange-800'
+                : 'bg-green-50 text-green-800'
+          }`}
+        >
           {showZones && (
-            <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 border flex-shrink-0 ${zoneColor(selectedItem.zone)}`}>
+            <span
+              className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 border flex-shrink-0 ${zoneColor(selectedItem.zone)}`}
+            >
               {selectedItem.zone}
             </span>
           )}
           <span className="leading-snug">
-            <strong>{selected} — {selectedItem.short}</strong>
+            <strong>
+              {selected} — {selectedItem.short}
+            </strong>
             <span className="opacity-80"> · {selectedItem.desc}</span>
           </span>
         </div>
@@ -160,11 +236,13 @@ export default function RPEScale({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {RPE_CARDIO.map(r => (
+                {RPE_CARDIO.map((r) => (
                   <tr key={r.n} className={selected === r.n ? 'bg-gray-50 font-semibold' : ''}>
                     <td className="text-center py-1.5 px-1.5 font-mono">{r.n}</td>
                     <td className="text-center py-1.5 px-1.5">
-                      <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 border ${zoneColor(r.zone)}`}>
+                      <span
+                        className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 border ${zoneColor(r.zone)}`}
+                      >
                         {r.zone}
                       </span>
                     </td>
@@ -188,12 +266,12 @@ export default function RPEScale({
               <tbody className="divide-y divide-gray-100">
                 {/* Para circuito agrupamos visualmente: 1–3, 4–5, 6–7, 8–9, 10 */}
                 {[
-                  { range: '1–3',  short: 'muy suave',          desc: 'calentamiento' },
-                  { range: '4–5',  short: 'podrías seguir más', desc: 'bastante margen' },
-                  { range: '6–7',  short: 'desafiante',         desc: 'controlado' },
-                  { range: '8–9',  short: 'muy exigente',       desc: 'cuesta sostener' },
-                  { range: '10',   short: 'al límite',          desc: 'no podés más' },
-                ].map(r => (
+                  { range: '1–3', short: 'muy suave', desc: 'calentamiento' },
+                  { range: '4–5', short: 'podrías seguir más', desc: 'bastante margen' },
+                  { range: '6–7', short: 'desafiante', desc: 'controlado' },
+                  { range: '8–9', short: 'muy exigente', desc: 'cuesta sostener' },
+                  { range: '10', short: 'al límite', desc: 'no podés más' },
+                ].map((r) => (
                   <tr key={r.range}>
                     <td className="text-center py-1.5 px-1.5 font-mono font-semibold text-gray-600">
                       {r.range}

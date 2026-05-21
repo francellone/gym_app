@@ -28,7 +28,7 @@ export function getPaymentStatus(student) {
  */
 export function getPlanStatus(planAssignments) {
   if (!planAssignments || planAssignments.length === 0) return 'no_plan'
-  const hasActiveTraining = planAssignments.some(a => {
+  const hasActiveTraining = planAssignments.some((a) => {
     const planType = a.plan_type || a.plan?.plan_type || 'training'
     if (planType !== 'training') return false
     if (a.status) return a.status === 'active'

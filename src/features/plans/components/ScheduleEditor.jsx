@@ -24,12 +24,7 @@ import DayOfWeekSelector from './DayOfWeekSelector'
 //   sessionsPerWeek number opcional, para hint de mismatch en el selector
 //   disabled        boolean
 // ─────────────────────────────────────────────────────────────
-export function ScheduleEditorInline({
-  value,
-  onChange,
-  sessionsPerWeek,
-  disabled = false,
-}) {
+export function ScheduleEditorInline({ value, onChange, sessionsPerWeek, disabled = false }) {
   const mode = value?.schedule_mode === 'fixed' ? 'fixed' : 'flexible'
   const days = normalizePreferredDays(value?.preferred_days)
 
@@ -59,7 +54,7 @@ export function ScheduleEditorInline({
         aria-label="Modo de horario"
         className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl"
       >
-        {(['flexible', 'fixed']).map(key => {
+        {['flexible', 'fixed'].map((key) => {
           const cfg = SCHEDULE_MODES[key]
           const isOn = mode === key
           return (
@@ -72,9 +67,7 @@ export function ScheduleEditorInline({
               disabled={disabled}
               className={[
                 'py-2 rounded-lg text-sm font-semibold transition-all',
-                isOn
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700',
+                isOn ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
                 disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
               ].join(' ')}
             >
@@ -84,9 +77,7 @@ export function ScheduleEditorInline({
         })}
       </div>
 
-      <p className="text-[11px] text-gray-500 leading-snug">
-        {SCHEDULE_MODES[mode].description}
-      </p>
+      <p className="text-[11px] text-gray-500 leading-snug">{SCHEDULE_MODES[mode].description}</p>
 
       {mode === 'fixed' && (
         <DayOfWeekSelector
@@ -135,12 +126,10 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
   const dayCount = (draft.preferred_days || []).length
   const canSave =
     !saving &&
-    (
-      // flexible: siempre se puede guardar
-      !isFixed ||
+    // flexible: siempre se puede guardar
+    (!isFixed ||
       // fixed: requiere al menos 1 día
-      dayCount >= 1
-    )
+      dayCount >= 1)
 
   async function handleSave() {
     setSaving(true)
@@ -177,7 +166,9 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose()
+      }}
     >
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         {/* Header */}
@@ -190,9 +181,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
               <h2 className="font-bold text-gray-900">Horario de entrenamiento</h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 {assignment?.plan?.title || 'Asignación'}
-                {sessionsPerWeek
-                  ? ` · ${sessionsPerWeek} ses/sem sugeridas`
-                  : ''}
+                {sessionsPerWeek ? ` · ${sessionsPerWeek} ses/sem sugeridas` : ''}
               </p>
             </div>
           </div>
@@ -239,10 +228,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
             disabled={!canSave}
             className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
           >
-            {saving
-              ? <Loader size={14} className="animate-spin" />
-              : 'Guardar'
-            }
+            {saving ? <Loader size={14} className="animate-spin" /> : 'Guardar'}
           </button>
         </div>
       </div>

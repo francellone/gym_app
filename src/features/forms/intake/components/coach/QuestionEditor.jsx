@@ -25,9 +25,7 @@ export default function QuestionEditor({
   onMoveDown,
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [optionsText, setOptionsText] = useState(
-    (question.options || []).join('\n')
-  )
+  const [optionsText, setOptionsText] = useState((question.options || []).join('\n'))
 
   const meta = QUESTION_TYPE_META[question.type] || {}
 
@@ -47,15 +45,16 @@ export default function QuestionEditor({
   const handleOptionsBlur = () => {
     const options = optionsText
       .split('\n')
-      .map(o => o.trim())
+      .map((o) => o.trim())
       .filter(Boolean)
     onChange({ ...question, options })
   }
 
   // Preguntas que pueden ser "padre" para condicionales
-  const possibleParents = allQuestions.filter(q =>
-    q.id !== question.id &&
-    [QUESTION_TYPES.BOOLEAN, QUESTION_TYPES.SELECT, QUESTION_TYPES.MULTISELECT].includes(q.type)
+  const possibleParents = allQuestions.filter(
+    (q) =>
+      q.id !== question.id &&
+      [QUESTION_TYPES.BOOLEAN, QUESTION_TYPES.SELECT, QUESTION_TYPES.MULTISELECT].includes(q.type)
   )
 
   const handleConditionalParentChange = (e) => {
@@ -71,7 +70,8 @@ export default function QuestionEditor({
   }
 
   const handleConditionalValueChange = (e) => {
-    const val = e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value
+    const val =
+      e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value
     onChange({
       ...question,
       conditional: { ...question.conditional, showWhen: val },
@@ -79,14 +79,15 @@ export default function QuestionEditor({
   }
 
   const parentQuestion = question.conditional
-    ? allQuestions.find(q => q.id === question.conditional.dependsOn)
+    ? allQuestions.find((q) => q.id === question.conditional.dependsOn)
     : null
 
   return (
-    <div className={`bg-white rounded-lg border ${
-      question.required ? 'border-blue-200' : 'border-gray-200'
-    } overflow-hidden`}>
-
+    <div
+      className={`bg-white rounded-lg border ${
+        question.required ? 'border-blue-200' : 'border-gray-200'
+      } overflow-hidden`}
+    >
       {/* Fila principal */}
       <div className="flex items-start gap-2 p-3">
         {/* Tipo de pregunta (badge) */}
@@ -109,24 +110,30 @@ export default function QuestionEditor({
 
           {/* Indicadores */}
           <div className="flex gap-2 mt-1">
-            {question.required && (
-              <span className="text-xs text-blue-500">● Obligatoria</span>
-            )}
+            {question.required && <span className="text-xs text-blue-500">● Obligatoria</span>}
             {question.conditional && (
               <span className="text-xs text-purple-500">🔀 Condicional</span>
             )}
-            {!question.removable && (
-              <span className="text-xs text-gray-400">🔒 Fija</span>
-            )}
+            {!question.removable && <span className="text-xs text-gray-400">🔒 Fija</span>}
           </div>
         </div>
 
         {/* Controles */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onMoveUp} disabled={isFirst}
-            className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs">▲</button>
-          <button onClick={onMoveDown} disabled={isLast}
-            className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs">▼</button>
+          <button
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs"
+          >
+            ▲
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs"
+          >
+            ▼
+          </button>
 
           {question.editable && (
             <button
@@ -138,9 +145,14 @@ export default function QuestionEditor({
           )}
 
           {onRemove && (
-            <button onClick={() => {
-              if (confirm('¿Eliminar esta pregunta?')) onRemove()
-            }} className="p-1 text-red-300 hover:text-red-500 text-xs">✕</button>
+            <button
+              onClick={() => {
+                if (confirm('¿Eliminar esta pregunta?')) onRemove()
+              }}
+              className="p-1 text-red-300 hover:text-red-500 text-xs"
+            >
+              ✕
+            </button>
           )}
         </div>
       </div>
@@ -148,10 +160,11 @@ export default function QuestionEditor({
       {/* Panel de configuración expandido */}
       {expanded && question.editable && (
         <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-3">
-
           {/* Tipo */}
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Tipo de respuesta</label>
+            <label className="text-xs font-medium text-gray-600 block mb-1">
+              Tipo de respuesta
+            </label>
             <select
               value={question.type}
               onChange={handleTypeChange}
@@ -166,13 +179,17 @@ export default function QuestionEditor({
           </div>
 
           {/* Placeholder (para text/textarea) */}
-          {[QUESTION_TYPES.TEXT, QUESTION_TYPES.TEXTAREA, QUESTION_TYPES.PHONE].includes(question.type) && (
+          {[QUESTION_TYPES.TEXT, QUESTION_TYPES.TEXTAREA, QUESTION_TYPES.PHONE].includes(
+            question.type
+          ) && (
             <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Placeholder (opcional)</label>
+              <label className="text-xs font-medium text-gray-600 block mb-1">
+                Placeholder (opcional)
+              </label>
               <input
                 type="text"
                 value={question.placeholder || ''}
-                onChange={e => onChange({ ...question, placeholder: e.target.value })}
+                onChange={(e) => onChange({ ...question, placeholder: e.target.value })}
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                 placeholder="Texto de ayuda dentro del campo..."
               />
@@ -187,7 +204,7 @@ export default function QuestionEditor({
               </label>
               <textarea
                 value={optionsText}
-                onChange={e => setOptionsText(e.target.value)}
+                onChange={(e) => setOptionsText(e.target.value)}
                 onBlur={handleOptionsBlur}
                 rows={4}
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
@@ -201,15 +218,19 @@ export default function QuestionEditor({
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="text-xs font-medium text-gray-600 block mb-1">Mín</label>
-                <input type="number" value={question.min || 1}
-                  onChange={e => onChange({ ...question, min: +e.target.value })}
+                <input
+                  type="number"
+                  value={question.min || 1}
+                  onChange={(e) => onChange({ ...question, min: +e.target.value })}
                   className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
               <div className="flex-1">
                 <label className="text-xs font-medium text-gray-600 block mb-1">Máx</label>
-                <input type="number" value={question.max || 10}
-                  onChange={e => onChange({ ...question, max: +e.target.value })}
+                <input
+                  type="number"
+                  value={question.max || 10}
+                  onChange={(e) => onChange({ ...question, max: +e.target.value })}
                   className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
@@ -224,9 +245,11 @@ export default function QuestionEditor({
                 question.required ? 'bg-blue-500' : 'bg-gray-300'
               }`}
             >
-              <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
-                question.required ? 'translate-x-4' : 'translate-x-0.5'
-              }`} />
+              <span
+                className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                  question.required ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
             </button>
             <span className="text-xs text-gray-600">Respuesta obligatoria</span>
           </div>
@@ -243,7 +266,7 @@ export default function QuestionEditor({
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 mb-2"
               >
                 <option value="">Siempre visible</option>
-                {possibleParents.map(pq => (
+                {possibleParents.map((pq) => (
                   <option key={pq.id} value={pq.id}>
                     {pq.label.length > 50 ? pq.label.slice(0, 50) + '...' : pq.label}
                   </option>
@@ -252,7 +275,9 @@ export default function QuestionEditor({
 
               {question.conditional && parentQuestion && (
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Valor que activa esta pregunta:</label>
+                  <label className="text-xs text-gray-500 block mb-1">
+                    Valor que activa esta pregunta:
+                  </label>
                   {parentQuestion.type === QUESTION_TYPES.BOOLEAN ? (
                     <select
                       value={String(question.conditional.showWhen)}
@@ -268,8 +293,10 @@ export default function QuestionEditor({
                       onChange={handleConditionalValueChange}
                       className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                     >
-                      {parentQuestion.options.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
+                      {parentQuestion.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
                       ))}
                     </select>
                   ) : null}

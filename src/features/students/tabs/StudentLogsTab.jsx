@@ -18,7 +18,7 @@ export default function StudentLogsTab({ logs }) {
 
   return (
     <div className="space-y-2">
-      {logs.map(log => (
+      {logs.map((log) => (
         <div key={log.id} className="card">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -27,20 +27,25 @@ export default function StudentLogsTab({ logs }) {
                   {log.plan_exercise?.exercise?.name || 'Ejercicio'}
                 </p>
                 {log.logged_late && (
-                  <span className="badge bg-orange-100 text-orange-600 text-xs">Registrado tarde</span>
+                  <span className="badge bg-orange-100 text-orange-600 text-xs">
+                    Registrado tarde
+                  </span>
                 )}
               </div>
               {(() => {
-                const reps = readLogReps(log).filter(r => r != null && r !== '')
-                const weights = readLogWeights(log).filter(w => w != null && w !== '')
-                const repsDisplay = reps.length > 0
-                  ? `${reps.join(',')} ${log.reps_unit && log.reps_unit !== 'reps' ? log.reps_unit : 'reps'}${log.unilateral ? '/lado' : ''}`
-                  : null
+                const reps = readLogReps(log).filter((r) => r != null && r !== '')
+                const weights = readLogWeights(log).filter((w) => w != null && w !== '')
+                const repsDisplay =
+                  reps.length > 0
+                    ? `${reps.join(',')} ${log.reps_unit && log.reps_unit !== 'reps' ? log.reps_unit : 'reps'}${log.unilateral ? '/lado' : ''}`
+                    : null
                 const wDisplay = weights.length > 0 ? `${weights.join(',')}kg` : null
                 const modeDisplay =
-                  log.weight_mode === 'bodyweight' ? 'sin peso'
-                  : log.weight_mode === 'barbell_only' ? 'solo barra'
-                  : null
+                  log.weight_mode === 'bodyweight'
+                    ? 'sin peso'
+                    : log.weight_mode === 'barbell_only'
+                      ? 'solo barra'
+                      : null
                 return (
                   <p className="text-xs text-gray-500 mt-0.5">
                     {[
@@ -48,7 +53,9 @@ export default function StudentLogsTab({ logs }) {
                       repsDisplay,
                       wDisplay,
                       !wDisplay && modeDisplay,
-                    ].filter(Boolean).join(' · ')}
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 )
               })()}
@@ -61,11 +68,15 @@ export default function StudentLogsTab({ logs }) {
                 {format(parseISO(log.logged_date), 'dd/MM/yy')}
               </p>
               {log.perceived_difficulty && (
-                <span className={`badge mt-1 ${
-                  log.perceived_difficulty >= 8 ? 'bg-red-100 text-red-700' :
-                  log.perceived_difficulty >= 5 ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-green-100 text-green-700'
-                }`}>
+                <span
+                  className={`badge mt-1 ${
+                    log.perceived_difficulty >= 8
+                      ? 'bg-red-100 text-red-700'
+                      : log.perceived_difficulty >= 5
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-green-100 text-green-700'
+                  }`}
+                >
                   PSE {log.perceived_difficulty}
                 </span>
               )}

@@ -31,7 +31,7 @@ export default function FormRenderer({
   studentId,
   onSubmit,
   onSaveDraft,
-  onFinish,   // fn() opcional → botón "Ir al inicio" en pantalla de éxito
+  onFinish, // fn() opcional → botón "Ir al inicio" en pantalla de éxito
 }) {
   const config = assignment?.form_snapshot
   const isFollowUp = assignment?.form_kind === 'follow_up' || config?.kind === 'follow_up'
@@ -39,7 +39,7 @@ export default function FormRenderer({
   const allModules = useMemo(() => {
     if (!config) return []
     return [
-      ...(config.modules || []).filter(m => m.enabled).sort((a, b) => a.order - b.order),
+      ...(config.modules || []).filter((m) => m.enabled).sort((a, b) => a.order - b.order),
       config.consent,
     ].filter(Boolean)
   }, [config])
@@ -60,9 +60,9 @@ export default function FormRenderer({
   // ──────────────────────────────────────────────────────────
 
   const handleAnswer = useCallback((questionId, value) => {
-    setResponses(prev => ({ ...prev, [questionId]: value }))
+    setResponses((prev) => ({ ...prev, [questionId]: value }))
     // Limpiar error de esa pregunta al responder
-    setErrors(prev => {
+    setErrors((prev) => {
       const next = { ...prev }
       delete next[questionId]
       return next
@@ -80,8 +80,8 @@ export default function FormRenderer({
 
     if (!valid) {
       const newErrors = {}
-      missing.forEach(id => {
-        const q = visible.find(qq => qq.id === id)
+      missing.forEach((id) => {
+        const q = visible.find((qq) => qq.id === id)
         newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
       })
       setErrors(newErrors)
@@ -100,14 +100,14 @@ export default function FormRenderer({
       return
     }
     if (currentStep < totalSteps - 1) {
-      setCurrentStep(s => s + 1)
+      setCurrentStep((s) => s + 1)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
   const handleBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(s => s - 1)
+      setCurrentStep((s) => s - 1)
       setErrors({})
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -115,7 +115,7 @@ export default function FormRenderer({
 
   const handleSaveDraft = async () => {
     const cleaned = cleanHiddenResponses(
-      allModules.flatMap(m => m.questions),
+      allModules.flatMap((m) => m.questions),
       responses
     )
     await onSaveDraft?.(cleaned)
@@ -130,13 +130,13 @@ export default function FormRenderer({
     const { valid, errorsByModule } = validateForm(allModules, responses)
     if (!valid) {
       // Ir al primer módulo con errores
-      const firstErrorModuleIdx = allModules.findIndex(m => errorsByModule[m.id])
+      const firstErrorModuleIdx = allModules.findIndex((m) => errorsByModule[m.id])
       if (firstErrorModuleIdx >= 0) {
         const errorModule = allModules[firstErrorModuleIdx]
         setCurrentStep(firstErrorModuleIdx + 1)
         const newErrors = {}
-        errorsByModule[errorModule.id].forEach(id => {
-          const q = (errorModule.questions || []).find(qq => qq.id === id)
+        errorsByModule[errorModule.id].forEach((id) => {
+          const q = (errorModule.questions || []).find((qq) => qq.id === id)
           newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
         })
         setErrors(newErrors)
@@ -147,7 +147,7 @@ export default function FormRenderer({
     setSubmitting(true)
     try {
       const cleaned = cleanHiddenResponses(
-        allModules.flatMap(m => m.questions),
+        allModules.flatMap((m) => m.questions),
         responses
       )
       // Backward-compat: assignments viejos generados antes de 2026-05-15
@@ -235,14 +235,15 @@ export default function FormRenderer({
 
       {/* Contenido */}
       <div className="max-w-xl mx-auto px-4 pt-16 pb-32">
-
         {/* ── INTRO ─────────────────────────────────────── */}
         {isIntro && (
           <div className="py-8 space-y-6">
             <div className="text-center space-y-2">
               <div className="text-5xl">{isFollowUp ? '📝' : '📋'}</div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {isFollowUp ? (assignment?.template_name || 'Formulario de seguimiento') : 'Formulario de ingreso'}
+                {isFollowUp
+                  ? assignment?.template_name || 'Formulario de seguimiento'
+                  : 'Formulario de ingreso'}
               </h1>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -269,21 +270,21 @@ export default function FormRenderer({
             </div>
 
             <div className="space-y-6">
-              {visibleQuestions.map(question => (
+              {visibleQuestions.map((question) => (
                 <div
                   key={question.id}
                   data-error={!!errors[question.id]}
                   className={`bg-white rounded-xl border p-4 space-y-3 transition-all ${
-                    errors[question.id]
-                      ? 'border-red-300 shadow-sm'
-                      : 'border-gray-100 shadow-sm'
+                    errors[question.id] ? 'border-red-300 shadow-sm' : 'border-gray-100 shadow-sm'
                   }`}
                 >
                   <label className="block">
                     <span className="text-sm font-medium text-gray-800 leading-snug">
                       {question.label}
                       {isQuestionRequired(question, responses) && (
-                        <span className="text-red-500 ml-1" title="Obligatorio">*</span>
+                        <span className="text-red-500 ml-1" title="Obligatorio">
+                          *
+                        </span>
                       )}
                     </span>
                   </label>
@@ -309,9 +310,11 @@ export default function FormRenderer({
 
       {/* ── NAVEGACIÓN FIJA (solo para módulos, no para intro) ── */}
       {!isIntro && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div
+          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
-
             {currentStep > 0 && (
               <button
                 onClick={handleBack}

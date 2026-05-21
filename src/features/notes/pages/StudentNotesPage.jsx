@@ -48,7 +48,9 @@ export default function NotesPage() {
       }
     }
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [profile?.id])
 
   return (
@@ -60,9 +62,7 @@ export default function NotesPage() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-gray-900 leading-tight">Notas con tu coach</h1>
-          <p className="text-xs text-gray-500">
-            Mensajes, observaciones y respuestas
-          </p>
+          <p className="text-xs text-gray-500">Mensajes, observaciones y respuestas</p>
         </div>
       </div>
 

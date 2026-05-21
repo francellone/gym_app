@@ -19,12 +19,16 @@ import {
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
 // ─────────────────────────────────────────────────────────────
 
-function maxWeightOf(log) { return maxWeightOfLog(log) }
-function avgWeightOf(log) { return avgWeightOfLog(log) }
+function maxWeightOf(log) {
+  return maxWeightOfLog(log)
+}
+function avgWeightOf(log) {
+  return avgWeightOfLog(log)
+}
 
 function displayWeight(ex) {
   if (ex.suggested_weights) {
-    const arr = parseReps(ex.suggested_weights).filter(w => w !== '' && w != null)
+    const arr = parseReps(ex.suggested_weights).filter((w) => w !== '' && w != null)
     if (arr.length > 0) {
       const unique = [...new Set(arr)]
       return unique.length === 1 ? `${unique[0]}kg` : `${arr.join('/')}kg`
@@ -40,10 +44,12 @@ function displayWeight(ex) {
 function displayActualWeight(log) {
   if (!log) return '—'
   const weightMode = getEffectiveWeightMode({
-    log, planExercise: log.plan_exercise, exercise: log.plan_exercise?.exercise,
+    log,
+    planExercise: log.plan_exercise,
+    exercise: log.plan_exercise?.exercise,
   })
   if (weightMode === 'bodyweight') return 'BW'
-  const arr = readLogWeights(log).filter(w => w !== '' && w != null)
+  const arr = readLogWeights(log).filter((w) => w !== '' && w != null)
   if (arr.length === 0) return '—'
   const unique = [...new Set(arr.map(String))]
   return unique.length === 1 ? `${unique[0]}kg` : `${arr.join('/')}kg`
@@ -51,7 +57,7 @@ function displayActualWeight(log) {
 
 function displayActualReps(log) {
   if (!log) return '—'
-  const arr = readLogReps(log).filter(r => r !== '' && r != null)
+  const arr = readLogReps(log).filter((r) => r !== '' && r != null)
   if (arr.length === 0) return '—'
   const unique = [...new Set(arr.map(String))]
   const base = unique.length === 1 ? unique[0] : arr.join('/')
@@ -61,15 +67,19 @@ function displayActualReps(log) {
 // Mini sparkline SVG para la columna Progreso
 function Sparkline({ values, color = '#6366f1' }) {
   if (!values || values.length < 2) return null
-  const w = 48, h = 18, pad = 2
+  const w = 48,
+    h = 18,
+    pad = 2
   const min = Math.min(...values)
   const max = Math.max(...values)
   const range = max - min || 1
-  const pts = values.map((v, i) => {
-    const x = pad + (i / (values.length - 1)) * (w - 2 * pad)
-    const y = h - pad - ((v - min) / range) * (h - 2 * pad)
-    return `${x},${y}`
-  }).join(' ')
+  const pts = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (w - 2 * pad)
+      const y = h - pad - ((v - min) / range) * (h - 2 * pad)
+      return `${x},${y}`
+    })
+    .join(' ')
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="inline-block opacity-80">
       <polyline
@@ -88,53 +98,53 @@ function Sparkline({ values, color = '#6366f1' }) {
 // Definición de columnas estáticas disponibles
 // ─────────────────────────────────────────────────────────────
 const COLUMN_DEFS = [
-  { id: 'block',       label: 'Bloque',            group: 'plan',     defaultVisible: true  },
-  { id: 'plan_sets',   label: 'Series sugeridas',  group: 'plan',     defaultVisible: false },
-  { id: 'plan_reps',   label: 'Reps sugeridas',    group: 'plan',     defaultVisible: false },
-  { id: 'plan_weight', label: 'Peso sugerido',     group: 'plan',     defaultVisible: true  },
-  { id: 'plan_pse',    label: 'PSE sugerida',      group: 'plan',     defaultVisible: false },
-  { id: 'last_date',   label: 'Fecha última',      group: 'last',     defaultVisible: false },
-  { id: 'last_sets',   label: 'Series reales',     group: 'last',     defaultVisible: false },
-  { id: 'last_reps',   label: 'Reps reales',       group: 'last',     defaultVisible: false },
-  { id: 'last_weight', label: 'Peso real',         group: 'last',     defaultVisible: false },
-  { id: 'last_pse',    label: 'PSE real',          group: 'last',     defaultVisible: false },
-  { id: 'last_notes',  label: 'Notas última',      group: 'last',     defaultVisible: false },
-  { id: 'max_weight',  label: 'Peso máx.',         group: 'progress', defaultVisible: true  },
-  { id: 'progress',    label: 'Progreso',          group: 'progress', defaultVisible: true  },
-  { id: 'trend',       label: 'Tendencia',         group: 'progress', defaultVisible: true  },
-  { id: 'count',       label: 'Veces',             group: 'volume',   defaultVisible: true  },
-  { id: 'volume',      label: 'Volumen total',     group: 'volume',   defaultVisible: false },
-  { id: 'avg_pse',     label: 'PSE promedio',      group: 'volume',   defaultVisible: false },
+  { id: 'block', label: 'Bloque', group: 'plan', defaultVisible: true },
+  { id: 'plan_sets', label: 'Series sugeridas', group: 'plan', defaultVisible: false },
+  { id: 'plan_reps', label: 'Reps sugeridas', group: 'plan', defaultVisible: false },
+  { id: 'plan_weight', label: 'Peso sugerido', group: 'plan', defaultVisible: true },
+  { id: 'plan_pse', label: 'PSE sugerida', group: 'plan', defaultVisible: false },
+  { id: 'last_date', label: 'Fecha última', group: 'last', defaultVisible: false },
+  { id: 'last_sets', label: 'Series reales', group: 'last', defaultVisible: false },
+  { id: 'last_reps', label: 'Reps reales', group: 'last', defaultVisible: false },
+  { id: 'last_weight', label: 'Peso real', group: 'last', defaultVisible: false },
+  { id: 'last_pse', label: 'PSE real', group: 'last', defaultVisible: false },
+  { id: 'last_notes', label: 'Notas última', group: 'last', defaultVisible: false },
+  { id: 'max_weight', label: 'Peso máx.', group: 'progress', defaultVisible: true },
+  { id: 'progress', label: 'Progreso', group: 'progress', defaultVisible: true },
+  { id: 'trend', label: 'Tendencia', group: 'progress', defaultVisible: true },
+  { id: 'count', label: 'Veces', group: 'volume', defaultVisible: true },
+  { id: 'volume', label: 'Volumen total', group: 'volume', defaultVisible: false },
+  { id: 'avg_pse', label: 'PSE promedio', group: 'volume', defaultVisible: false },
 ]
 
 const COLUMN_GROUPS = [
-  { id: 'plan',     label: 'Plan'               },
-  { id: 'last',     label: 'Último registro'    },
-  { id: 'progress', label: 'Progresión'         },
-  { id: 'volume',   label: 'Volumen / frecuencia' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'last', label: 'Último registro' },
+  { id: 'progress', label: 'Progresión' },
+  { id: 'volume', label: 'Volumen / frecuencia' },
 ]
 
 const defaultVisibleCols = () =>
-  new Set(COLUMN_DEFS.filter(c => c.defaultVisible).map(c => c.id))
+  new Set(COLUMN_DEFS.filter((c) => c.defaultVisible).map((c) => c.id))
 
 // ─────────────────────────────────────────────────────────────
 // Sesiones (columnas dinámicas por fecha real)
 // ─────────────────────────────────────────────────────────────
 const SESSIONS_COUNT_OPTIONS = [
-  { value: 3,     label: '3'     },
-  { value: 5,     label: '5'     },
-  { value: 10,    label: '10'    },
+  { value: 3, label: '3' },
+  { value: 5, label: '5' },
+  { value: 10, label: '10' },
   { value: 'all', label: 'Todas' },
 ]
 
 // Campos disponibles a mostrar dentro de cada celda de sesión
 const SESSION_FIELDS = [
-  { id: 'date',      label: 'Fecha'         },
-  { id: 'weight',    label: 'Peso'          },
+  { id: 'date', label: 'Fecha' },
+  { id: 'weight', label: 'Peso' },
   { id: 'sets_reps', label: 'Series × Reps' },
-  { id: 'pse',       label: 'PSE'           },
-  { id: 'status',    label: 'Estado ⬆️😊⬇️'  },
-  { id: 'notes',     label: 'Notas 💬'      },
+  { id: 'pse', label: 'PSE' },
+  { id: 'status', label: 'Estado ⬆️😊⬇️' },
+  { id: 'notes', label: 'Notas 💬' },
 ]
 
 const defaultSessionFields = () => new Set(['date', 'weight', 'pse'])
@@ -181,22 +191,27 @@ export default function StudentProgressTableView({
           .select('plan:plans!plan_id(id, title, sessions_per_week, has_activation)')
           .eq('student_id', studentId)
           .eq('active', true)
-        const plans = (assigns || []).map(a => a.plan).filter(Boolean)
+        const plans = (assigns || []).map((a) => a.plan).filter(Boolean)
         if (cancelled) return
         setActivePlans(plans)
 
-        if (plans.length === 0) { setPlanExercises([]); return }
+        if (plans.length === 0) {
+          setPlanExercises([])
+          return
+        }
 
-        const planIds = plans.map(p => p.id)
+        const planIds = plans.map((p) => p.id)
         const { data: pex } = await supabase
           .from('plan_exercises')
-          .select(`
+          .select(
+            `
             id, plan_id, section, block_label, order_index,
             suggested_sets, suggested_reps, suggested_weight, suggested_weights,
             suggested_pse, rest_time, extra_notes,
             weight_mode, unilateral,
             exercise:exercises!exercise_id(id, name, muscle_group, default_weight_mode, default_unilateral)
-          `)
+          `
+          )
           .in('plan_id', planIds)
           .order('order_index', { ascending: true })
         if (cancelled) return
@@ -208,7 +223,9 @@ export default function StudentProgressTableView({
       }
     }
     loadPlanData()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [studentId])
 
   // ── Índices de logs ────────────────────────────────────────
@@ -266,8 +283,7 @@ export default function StudentProgressTableView({
       const exId = log.plan_exercise?.exercise?.id
       if (!exId || !log.logged_date) continue
       if (!map.has(exId)) map.set(exId, new Map())
-      if (!map.get(exId).has(log.logged_date))
-        map.get(exId).set(log.logged_date, log)
+      if (!map.get(exId).has(log.logged_date)) map.get(exId).set(log.logged_date, log)
     }
     return map
   }, [logs])
@@ -286,7 +302,7 @@ export default function StudentProgressTableView({
 
   // ── Fechas de sesión únicas, ordenadas asc, limitadas a N ──
   const allSessionDates = useMemo(() => {
-    const dates = new Set(logs.map(l => l.logged_date).filter(Boolean))
+    const dates = new Set(logs.map((l) => l.logged_date).filter(Boolean))
     const sorted = [...dates].sort() // ascendente: más viejo primero → izquierda
     if (sessionsCount === 'all') return sorted
     return sorted.slice(-Number(sessionsCount)) // N más recientes
@@ -294,7 +310,7 @@ export default function StudentProgressTableView({
 
   // ── Filas: una por plan_exercise ───────────────────────────
   const rows = useMemo(() => {
-    return planExercises.map(pex => {
+    return planExercises.map((pex) => {
       const exerciseId = pex.exercise?.id
       const exLogs =
         logsByPlanExercise.get(pex.id) ||
@@ -324,10 +340,14 @@ export default function StudentProgressTableView({
         // suelen venir con menos joins). Heredamos del pex actual de la fila.
         const planEx = l.plan_exercise || pex
         const weightMode = getEffectiveWeightMode({
-          log: l, planExercise: planEx, exercise: planEx?.exercise || pex.exercise,
+          log: l,
+          planExercise: planEx,
+          exercise: planEx?.exercise || pex.exercise,
         })
         const unilateral = getEffectiveUnilateral({
-          log: l, planExercise: planEx, exercise: planEx?.exercise || pex.exercise,
+          log: l,
+          planExercise: planEx,
+          exercise: planEx?.exercise || pex.exercise,
         })
         // Bodyweight con peso corporal lo dejamos fuera de esta tabla
         // (la tabla no recibe weight_kg del alumno; el detalle BW va al
@@ -338,13 +358,14 @@ export default function StudentProgressTableView({
       }
 
       // PSE promedio
-      const pseVals = exLogs.map(l => l.perceived_difficulty).filter(v => v != null)
-      const avgPse = pseVals.length > 0
-        ? Math.round((pseVals.reduce((a, b) => a + b, 0) / pseVals.length) * 10) / 10
-        : null
+      const pseVals = exLogs.map((l) => l.perceived_difficulty).filter((v) => v != null)
+      const avgPse =
+        pseVals.length > 0
+          ? Math.round((pseVals.reduce((a, b) => a + b, 0) / pseVals.length) * 10) / 10
+          : null
 
       // Progreso %: primer log vs último log (peso o reps)
-      const weightValues = exLogs.map(l => maxWeightOf(l)).filter(w => w > 0)
+      const weightValues = exLogs.map((l) => maxWeightOf(l)).filter((w) => w > 0)
       let progressPct = null
       let progressColor = 'text-gray-400'
       let progressMetric = 'Peso'
@@ -352,30 +373,35 @@ export default function StudentProgressTableView({
       // Helper local: máximo de reps del log (acepta jsonb o legacy).
       // En unilateral, el valor sigue siendo "por lado" — para la sparkline
       // representa cantidad de reps, no volumen, así que está OK.
-      const repsMaxOf = l => {
-        const arr = readLogReps(l).map(r => parseFloat(r)).filter(n => !isNaN(n))
+      const repsMaxOf = (l) => {
+        const arr = readLogReps(l)
+          .map((r) => parseFloat(r))
+          .filter((n) => !isNaN(n))
         return arr.length > 0 ? Math.max(...arr) : 0
       }
 
       if (weightValues.length >= 2) {
-        const pct = Math.round(((weightValues[weightValues.length - 1] - weightValues[0]) / weightValues[0]) * 100)
+        const pct = Math.round(
+          ((weightValues[weightValues.length - 1] - weightValues[0]) / weightValues[0]) * 100
+        )
         progressPct = pct
         progressColor = pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-500' : 'text-gray-500'
         progressMetric = 'Peso'
       } else {
         // Fallback: reps
-        const repValues = exLogs.map(repsMaxOf).filter(r => r > 0)
+        const repValues = exLogs.map(repsMaxOf).filter((r) => r > 0)
         if (repValues.length >= 2) {
-          const pct = Math.round(((repValues[repValues.length - 1] - repValues[0]) / repValues[0]) * 100)
+          const pct = Math.round(
+            ((repValues[repValues.length - 1] - repValues[0]) / repValues[0]) * 100
+          )
           progressPct = pct
           progressColor = pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-500' : 'text-gray-500'
           progressMetric = 'Reps'
         }
       }
 
-      const sparklineValues = weightValues.length >= 2
-        ? weightValues
-        : exLogs.map(repsMaxOf).filter(r => r > 0)
+      const sparklineValues =
+        weightValues.length >= 2 ? weightValues : exLogs.map(repsMaxOf).filter((r) => r > 0)
 
       const recentLogs = [...exLogs].reverse() // más reciente primero
 
@@ -409,11 +435,12 @@ export default function StudentProgressTableView({
   // ── Filtro "solo con logs" + filtro por etiqueta ──────────
   const filteredRows = useMemo(() => {
     let result = rows
-    if (showOnlyWithLogs) result = result.filter(r => r.hasLogs)
+    if (showOnlyWithLogs) result = result.filter((r) => r.hasLogs)
     if (selectedTag) {
-      result = result.filter(r =>
-        r.exerciseId &&
-        tagAssignments.some(ta => ta.exercise_id === r.exerciseId && ta.tag_id === selectedTag)
+      result = result.filter(
+        (r) =>
+          r.exerciseId &&
+          tagAssignments.some((ta) => ta.exercise_id === r.exerciseId && ta.tag_id === selectedTag)
       )
     }
     return result
@@ -426,50 +453,56 @@ export default function StudentProgressTableView({
     for (const plan of activePlans) {
       const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
       for (const s of sections) {
-        const rowsInSection = filteredRows.filter(
-          r => r.planId === plan.id && r.section === s.id
-        )
+        const rowsInSection = filteredRows.filter((r) => r.planId === plan.id && r.section === s.id)
         if (rowsInSection.length === 0) continue
-        groups.push({ key: `${plan.id}:${s.id}`, planTitle: plan.title, sectionLabel: s.label, rows: rowsInSection })
+        groups.push({
+          key: `${plan.id}:${s.id}`,
+          planTitle: plan.title,
+          sectionLabel: s.label,
+          rows: rowsInSection,
+        })
       }
     }
     const known = new Set()
     for (const g of groups) for (const r of g.rows) known.add(r.id)
-    const orphans = filteredRows.filter(r => !known.has(r.id))
+    const orphans = filteredRows.filter((r) => !known.has(r.id))
     if (orphans.length > 0)
       groups.push({ key: 'orphans', planTitle: '', sectionLabel: 'Otros', rows: orphans })
     return groups
   }, [filteredRows, activePlans, groupBySection])
 
-  const toggleCol = colId => setVisibleCols(prev => {
-    const next = new Set(prev)
-    if (next.has(colId)) next.delete(colId)
-    else next.add(colId)
-    return next
-  })
+  const toggleCol = (colId) =>
+    setVisibleCols((prev) => {
+      const next = new Set(prev)
+      if (next.has(colId)) next.delete(colId)
+      else next.add(colId)
+      return next
+    })
 
-  const toggleSection = key => setCollapsedSections(prev => {
-    const next = new Set(prev)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
-    return next
-  })
+  const toggleSection = (key) =>
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
-  const isCol = id => visibleCols.has(id)
-  const isField = id => sessionFields.has(id)
+  const isCol = (id) => visibleCols.has(id)
+  const isField = (id) => sessionFields.has(id)
 
   // Lookup de log por fila + fecha
-  const getLogForDate = useCallback((row, date) =>
-    logsByExAndDate.get(row.id)?.get(date)
-    ?? logsByExerciseAndDate.get(row.exerciseId)?.get(date)
-    ?? null,
+  const getLogForDate = useCallback(
+    (row, date) =>
+      logsByExAndDate.get(row.id)?.get(date) ??
+      logsByExerciseAndDate.get(row.exerciseId)?.get(date) ??
+      null,
     [logsByExAndDate, logsByExerciseAndDate]
   )
 
   // Abrir/cerrar modal de nota
   const handleNoteClick = (e, key, text) => {
     e.stopPropagation()
-    setActiveNote(prev => prev?.key === key ? null : { key, text })
+    setActiveNote((prev) => (prev?.key === key ? null : { key, text }))
   }
 
   // Emoji de estado comparando log actual con el anterior
@@ -482,8 +515,10 @@ export default function StudentProgressTableView({
       if (curr < prev) return { emoji: '⬇️', color: 'text-red-500' }
       return { emoji: '😊', color: 'text-gray-400' }
     }
-    const repsMaxOfLog = l => {
-      const arr = readLogReps(l).map(r => parseFloat(r)).filter(n => !isNaN(n))
+    const repsMaxOfLog = (l) => {
+      const arr = readLogReps(l)
+        .map((r) => parseFloat(r))
+        .filter((n) => !isNaN(n))
       return arr.length > 0 ? Math.max(...arr) : 0
     }
     const currR = repsMaxOfLog(log)
@@ -495,9 +530,7 @@ export default function StudentProgressTableView({
 
   // ── Conteo de columnas (para colSpan) ─────────────────────
   const visibleColCount =
-    1 /* ejercicio */ +
-    COLUMN_DEFS.filter(c => isCol(c.id)).length +
-    allSessionDates.length
+    1 /* ejercicio */ + COLUMN_DEFS.filter((c) => isCol(c.id)).length + allSessionDates.length
 
   // ── Header de la tabla ─────────────────────────────────────
   const renderHeader = () => (
@@ -505,17 +538,19 @@ export default function StudentProgressTableView({
       <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[140px]">
         Ejercicio
       </th>
-      {isCol('block')       && <th className="text-left font-semibold px-2 py-2">Bloque</th>}
-      {isCol('plan_sets')   && <th className="text-right font-semibold px-2 py-2">Series</th>}
-      {isCol('plan_reps')   && <th className="text-right font-semibold px-2 py-2">Reps</th>}
+      {isCol('block') && <th className="text-left font-semibold px-2 py-2">Bloque</th>}
+      {isCol('plan_sets') && <th className="text-right font-semibold px-2 py-2">Series</th>}
+      {isCol('plan_reps') && <th className="text-right font-semibold px-2 py-2">Reps</th>}
       {isCol('plan_weight') && <th className="text-right font-semibold px-2 py-2">Peso sug.</th>}
-      {isCol('plan_pse')    && <th className="text-right font-semibold px-2 py-2">PSE sug.</th>}
-      {isCol('last_date')   && <th className="text-center font-semibold px-2 py-2">Fecha últ.</th>}
-      {isCol('last_sets')   && <th className="text-right font-semibold px-2 py-2">Series real.</th>}
-      {isCol('last_reps')   && <th className="text-right font-semibold px-2 py-2">Reps real.</th>}
+      {isCol('plan_pse') && <th className="text-right font-semibold px-2 py-2">PSE sug.</th>}
+      {isCol('last_date') && <th className="text-center font-semibold px-2 py-2">Fecha últ.</th>}
+      {isCol('last_sets') && <th className="text-right font-semibold px-2 py-2">Series real.</th>}
+      {isCol('last_reps') && <th className="text-right font-semibold px-2 py-2">Reps real.</th>}
       {isCol('last_weight') && <th className="text-right font-semibold px-2 py-2">Peso real</th>}
-      {isCol('last_pse')    && <th className="text-right font-semibold px-2 py-2">PSE real</th>}
-      {isCol('last_notes')  && <th className="text-left font-semibold px-2 py-2 min-w-[140px]">Notas últ.</th>}
+      {isCol('last_pse') && <th className="text-right font-semibold px-2 py-2">PSE real</th>}
+      {isCol('last_notes') && (
+        <th className="text-left font-semibold px-2 py-2 min-w-[140px]">Notas últ.</th>
+      )}
 
       {/* Columnas dinámicas: una por fecha real de sesión */}
       {allSessionDates.map((date, i) => {
@@ -531,7 +566,9 @@ export default function StudentProgressTableView({
             <div className="flex flex-col items-center leading-none gap-[3px]">
               <span>{format(parseISO(date), 'dd/MM')}</span>
               {blockLabel && (
-                <span className={`text-[9px] font-normal tracking-wide ${isLatest ? 'text-primary-400' : 'text-gray-400'}`}>
+                <span
+                  className={`text-[9px] font-normal tracking-wide ${isLatest ? 'text-primary-400' : 'text-gray-400'}`}
+                >
                   {blockLabel}
                 </span>
               )}
@@ -541,29 +578,32 @@ export default function StudentProgressTableView({
       })}
 
       {isCol('max_weight') && <th className="text-right font-semibold px-2 py-2">Peso máx.</th>}
-      {isCol('progress')   && <th className="text-right font-semibold px-2 py-2 min-w-[96px]">Progreso</th>}
-      {isCol('trend')      && <th className="text-center font-semibold px-2 py-2">Tend.</th>}
-      {isCol('count')      && <th className="text-right font-semibold px-2 py-2">Veces</th>}
-      {isCol('volume')     && <th className="text-right font-semibold px-2 py-2">Volumen</th>}
-      {isCol('avg_pse')    && <th className="text-right font-semibold px-2 py-2">PSE prom.</th>}
+      {isCol('progress') && (
+        <th className="text-right font-semibold px-2 py-2 min-w-[96px]">Progreso</th>
+      )}
+      {isCol('trend') && <th className="text-center font-semibold px-2 py-2">Tend.</th>}
+      {isCol('count') && <th className="text-right font-semibold px-2 py-2">Veces</th>}
+      {isCol('volume') && <th className="text-right font-semibold px-2 py-2">Volumen</th>}
+      {isCol('avg_pse') && <th className="text-right font-semibold px-2 py-2">PSE prom.</th>}
     </tr>
   )
 
   // Badge de PSE con color según nivel
-  const pseBadge = v =>
-    v == null ? null :
-    v >= 8 ? <span className="badge bg-red-100 text-red-700">{v}</span> :
-    v >= 5 ? <span className="badge bg-yellow-100 text-yellow-700">{v}</span> :
-    <span className="badge bg-green-100 text-green-700">{v}</span>
+  const pseBadge = (v) =>
+    v == null ? null : v >= 8 ? (
+      <span className="badge bg-red-100 text-red-700">{v}</span>
+    ) : v >= 5 ? (
+      <span className="badge bg-yellow-100 text-yellow-700">{v}</span>
+    ) : (
+      <span className="badge bg-green-100 text-green-700">{v}</span>
+    )
 
   // Celda de sesión
   const renderSessionCell = (log, prevLog, highlight, noteKey) => {
     const bg = highlight ? 'bg-primary-50/40' : ''
     if (!log) {
       return (
-        <td className={`px-2 py-2 text-center text-gray-300 border-l border-gray-100 ${bg}`}>
-          —
-        </td>
+        <td className={`px-2 py-2 text-center text-gray-300 border-l border-gray-100 ${bg}`}>—</td>
       )
     }
     const hasNotes = !!(log.notes && log.notes.trim())
@@ -578,25 +618,24 @@ export default function StudentProgressTableView({
             </span>
           )}
           {isField('weight') && (
-            <span className="text-sm font-semibold text-gray-900">
-              {displayActualWeight(log)}
-            </span>
+            <span className="text-sm font-semibold text-gray-900">{displayActualWeight(log)}</span>
           )}
           {isField('sets_reps') && (
             <span className="text-[11px] text-gray-600">
               {log.actual_sets ?? '—'}×{displayActualReps(log)}
             </span>
           )}
-          {isField('pse') && (
-            log.perceived_difficulty != null
-              ? pseBadge(log.perceived_difficulty)
-              : <span className="text-[10px] text-gray-300">PSE —</span>
-          )}
+          {isField('pse') &&
+            (log.perceived_difficulty != null ? (
+              pseBadge(log.perceived_difficulty)
+            ) : (
+              <span className="text-[10px] text-gray-300">PSE —</span>
+            ))}
           {isField('status') && status && (
             <span className={`text-[11px] leading-none ${status.color}`}>{status.emoji}</span>
           )}
-          {isField('notes') && (
-            hasNotes ? (
+          {isField('notes') &&
+            (hasNotes ? (
               <button
                 className={`text-[13px] leading-none cursor-pointer transition-opacity ${
                   activeNote?.key === noteKey ? 'opacity-100' : 'opacity-50 hover:opacity-100'
@@ -609,18 +648,21 @@ export default function StudentProgressTableView({
               </button>
             ) : (
               <span className="text-[10px] text-gray-200">—</span>
-            )
-          )}
+            ))}
         </div>
       </td>
     )
   }
 
-  const renderRow = r => {
+  const renderRow = (r) => {
     const trendColor =
-      r.trend === '↑' ? 'text-green-600' :
-      r.trend === '↓' ? 'text-red-600' :
-      r.trend === '=' ? 'text-gray-500' : 'text-gray-400'
+      r.trend === '↑'
+        ? 'text-green-600'
+        : r.trend === '↓'
+          ? 'text-red-600'
+          : r.trend === '='
+            ? 'text-gray-500'
+            : 'text-gray-400'
 
     return (
       <tr key={r.id} className="border-t border-gray-100 text-sm hover:bg-gray-50">
@@ -635,26 +677,36 @@ export default function StudentProgressTableView({
         {/* Columnas estáticas del plan */}
         {isCol('block') && (
           <td className="px-2 py-2">
-            {r.block_label
-              ? <span className="badge bg-primary-100 text-primary-700">{r.block_label}</span>
-              : <span className="text-gray-300">—</span>}
+            {r.block_label ? (
+              <span className="badge bg-primary-100 text-primary-700">{r.block_label}</span>
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
           </td>
         )}
-        {isCol('plan_sets')   && <td className="px-2 py-2 text-right text-gray-700">{r.suggested_sets ?? '—'}</td>}
-        {isCol('plan_reps')   && (
+        {isCol('plan_sets') && (
+          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_sets ?? '—'}</td>
+        )}
+        {isCol('plan_reps') && (
           <td className="px-2 py-2 text-right text-gray-700">
             {r.suggested_reps ? displayReps(r.suggested_reps) : '—'}
           </td>
         )}
-        {isCol('plan_weight') && <td className="px-2 py-2 text-right text-gray-700">{r.suggested_weightStr}</td>}
-        {isCol('plan_pse')    && <td className="px-2 py-2 text-right text-gray-700">{r.suggested_pse || '—'}</td>}
+        {isCol('plan_weight') && (
+          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_weightStr}</td>
+        )}
+        {isCol('plan_pse') && (
+          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_pse || '—'}</td>
+        )}
 
         {/* Último registro */}
         {isCol('last_date') && (
           <td className="px-2 py-2 text-center text-gray-700">
-            {r.recentLogs[0]?.logged_date
-              ? format(parseISO(r.recentLogs[0].logged_date), 'dd/MM/yy')
-              : <span className="text-gray-300">—</span>}
+            {r.recentLogs[0]?.logged_date ? (
+              format(parseISO(r.recentLogs[0].logged_date), 'dd/MM/yy')
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
           </td>
         )}
         {isCol('last_sets') && (
@@ -664,35 +716,43 @@ export default function StudentProgressTableView({
         )}
         {isCol('last_reps') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0]
-              ? displayActualReps(r.recentLogs[0])
-              : <span className="text-gray-300">—</span>}
+            {r.recentLogs[0] ? (
+              displayActualReps(r.recentLogs[0])
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
           </td>
         )}
         {isCol('last_weight') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0] ? displayActualWeight(r.recentLogs[0]) : <span className="text-gray-300">—</span>}
+            {r.recentLogs[0] ? (
+              displayActualWeight(r.recentLogs[0])
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
           </td>
         )}
         {isCol('last_pse') && (
           <td className="px-2 py-2 text-right">
-            {r.recentLogs[0]?.perceived_difficulty != null
-              ? pseBadge(r.recentLogs[0].perceived_difficulty)
-              : <span className="text-gray-300">—</span>}
+            {r.recentLogs[0]?.perceived_difficulty != null ? (
+              pseBadge(r.recentLogs[0].perceived_difficulty)
+            ) : (
+              <span className="text-gray-300">—</span>
+            )}
           </td>
         )}
         {isCol('last_notes') && (
           <td className="px-2 py-2 text-left max-w-[200px]">
-            {r.recentLogs[0]?.notes
-              ? (
-                <button
-                  className="text-left text-xs italic text-gray-600 hover:text-primary-600 transition-colors cursor-pointer w-full"
-                  onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0].notes)}
-                >
-                  <span className="line-clamp-2">💬 {r.recentLogs[0].notes}</span>
-                </button>
-              )
-              : <span className="text-gray-300 text-xs not-italic">—</span>}
+            {r.recentLogs[0]?.notes ? (
+              <button
+                className="text-left text-xs italic text-gray-600 hover:text-primary-600 transition-colors cursor-pointer w-full"
+                onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0].notes)}
+              >
+                <span className="line-clamp-2">💬 {r.recentLogs[0].notes}</span>
+              </button>
+            ) : (
+              <span className="text-gray-300 text-xs not-italic">—</span>
+            )}
           </td>
         )}
 
@@ -701,9 +761,13 @@ export default function StudentProgressTableView({
           const log = getLogForDate(r, date)
           const isLatest = i === allSessionDates.length - 1
           // Log previo: la fecha anterior en la que este ejercicio fue entrenado
-          const prevDate = i > 0
-            ? allSessionDates.slice(0, i).reverse().find(d => getLogForDate(r, d) != null)
-            : null
+          const prevDate =
+            i > 0
+              ? allSessionDates
+                  .slice(0, i)
+                  .reverse()
+                  .find((d) => getLogForDate(r, d) != null)
+              : null
           const prevLog = prevDate ? getLogForDate(r, prevDate) : null
           const noteKey = `${r.id}-${date}`
           return (
@@ -716,7 +780,11 @@ export default function StudentProgressTableView({
         {/* Peso máx */}
         {isCol('max_weight') && (
           <td className="px-2 py-2 text-right text-primary-600 font-semibold">
-            {r.maxWeight != null ? `${r.maxWeight}kg` : <span className="text-gray-300 font-normal">—</span>}
+            {r.maxWeight != null ? (
+              `${r.maxWeight}kg`
+            ) : (
+              <span className="text-gray-300 font-normal">—</span>
+            )}
           </td>
         )}
 
@@ -726,8 +794,11 @@ export default function StudentProgressTableView({
             {r.progressPct != null ? (
               <div className="flex flex-col items-end gap-0.5">
                 <span className={`text-sm font-semibold ${r.progressColor}`}>
-                  {r.progressPct > 0 ? '+' : ''}{r.progressPct}%
-                  <span className="text-[9px] font-normal text-gray-400 ml-0.5">{r.progressMetric}</span>
+                  {r.progressPct > 0 ? '+' : ''}
+                  {r.progressPct}%
+                  <span className="text-[9px] font-normal text-gray-400 ml-0.5">
+                    {r.progressMetric}
+                  </span>
                 </span>
                 <Sparkline
                   values={r.sparklineValues}
@@ -743,17 +814,13 @@ export default function StudentProgressTableView({
         {isCol('trend') && (
           <td className={`px-2 py-2 text-center font-bold ${trendColor}`}>{r.trend}</td>
         )}
-        {isCol('count') && (
-          <td className="px-2 py-2 text-right text-gray-700">{r.count}</td>
-        )}
+        {isCol('count') && <td className="px-2 py-2 text-right text-gray-700">{r.count}</td>}
         {isCol('volume') && (
           <td className="px-2 py-2 text-right text-gray-700">
             {r.volume > 0 ? r.volume.toLocaleString('es-AR') : '—'}
           </td>
         )}
-        {isCol('avg_pse') && (
-          <td className="px-2 py-2 text-right">{pseBadge(r.avgPse) || '—'}</td>
-        )}
+        {isCol('avg_pse') && <td className="px-2 py-2 text-right">{pseBadge(r.avgPse) || '—'}</td>}
       </tr>
     )
   }
@@ -783,7 +850,6 @@ export default function StudentProgressTableView({
   // ── Render ─────────────────────────────────────────────────
   return (
     <div className="space-y-3">
-
       {/* ── Modal de nota completa ── */}
       {activeNote && (
         <div
@@ -793,7 +859,7 @@ export default function StudentProgressTableView({
           <div className="absolute inset-0 bg-black/20" />
           <div
             className="relative bg-white shadow-2xl rounded-2xl p-4 max-w-sm w-full border border-gray-100"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
               <span className="text-xl flex-shrink-0 mt-0.5">💬</span>
@@ -816,7 +882,7 @@ export default function StudentProgressTableView({
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-500 font-medium">Sesiones:</span>
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-          {SESSIONS_COUNT_OPTIONS.map(opt => (
+          {SESSIONS_COUNT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setSessionsCount(opt.value)}
@@ -831,7 +897,7 @@ export default function StudentProgressTableView({
           ))}
         </div>
         <button
-          onClick={() => setShowFieldsPicker(v => !v)}
+          onClick={() => setShowFieldsPicker((v) => !v)}
           className="btn-secondary flex items-center gap-1.5 text-xs py-1 px-2.5"
         >
           Mostrar por sesión ({sessionFields.size})
@@ -852,7 +918,7 @@ export default function StudentProgressTableView({
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {SESSION_FIELDS.map(f => {
+            {SESSION_FIELDS.map((f) => {
               const active = isField(f.id)
               return (
                 <label
@@ -867,12 +933,14 @@ export default function StudentProgressTableView({
                     type="checkbox"
                     className="sr-only"
                     checked={active}
-                    onChange={() => setSessionFields(prev => {
-                      const next = new Set(prev)
-                      if (next.has(f.id)) next.delete(f.id)
-                      else next.add(f.id)
-                      return next
-                    })}
+                    onChange={() =>
+                      setSessionFields((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(f.id)) next.delete(f.id)
+                        else next.add(f.id)
+                        return next
+                      })
+                    }
                   />
                   {f.label}
                 </label>
@@ -885,7 +953,7 @@ export default function StudentProgressTableView({
       {/* ── Controles generales de tabla ── */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => setShowColumnPicker(v => !v)}
+          onClick={() => setShowColumnPicker((v) => !v)}
           className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
         >
           <Columns3 size={13} />
@@ -895,7 +963,7 @@ export default function StudentProgressTableView({
           <input
             type="checkbox"
             checked={showOnlyWithLogs}
-            onChange={e => setShowOnlyWithLogs(e.target.checked)}
+            onChange={(e) => setShowOnlyWithLogs(e.target.checked)}
             className="rounded"
           />
           Solo con registros
@@ -904,7 +972,7 @@ export default function StudentProgressTableView({
           <input
             type="checkbox"
             checked={groupBySection}
-            onChange={e => setGroupBySection(e.target.checked)}
+            onChange={(e) => setGroupBySection(e.target.checked)}
             className="rounded"
           />
           Agrupar por sección
@@ -914,7 +982,7 @@ export default function StudentProgressTableView({
           {filteredRows.length} ejercicio{filteredRows.length !== 1 ? 's' : ''}
           {selectedTag && (
             <span className="ml-1 text-primary-500 font-medium">
-              · {exerciseTags.find(t => t.id === selectedTag)?.name}
+              · {exerciseTags.find((t) => t.id === selectedTag)?.name}
             </span>
           )}
         </div>
@@ -926,24 +994,36 @@ export default function StudentProgressTableView({
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-900">Columnas visibles</p>
             <div className="flex gap-1">
-              <button className="text-xs text-primary-600 hover:underline"
-                onClick={() => setVisibleCols(new Set(COLUMN_DEFS.map(c => c.id)))}>Todas</button>
+              <button
+                className="text-xs text-primary-600 hover:underline"
+                onClick={() => setVisibleCols(new Set(COLUMN_DEFS.map((c) => c.id)))}
+              >
+                Todas
+              </button>
               <span className="text-gray-300">·</span>
-              <button className="text-xs text-primary-600 hover:underline"
-                onClick={() => setVisibleCols(defaultVisibleCols())}>Por defecto</button>
+              <button
+                className="text-xs text-primary-600 hover:underline"
+                onClick={() => setVisibleCols(defaultVisibleCols())}
+              >
+                Por defecto
+              </button>
               <span className="text-gray-300">·</span>
-              <button className="text-xs text-gray-500 hover:underline"
-                onClick={() => setVisibleCols(new Set())}>Ninguna</button>
+              <button
+                className="text-xs text-gray-500 hover:underline"
+                onClick={() => setVisibleCols(new Set())}
+              >
+                Ninguna
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {COLUMN_GROUPS.map(group => (
+            {COLUMN_GROUPS.map((group) => (
               <div key={group.id}>
                 <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
                   {group.label}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {COLUMN_DEFS.filter(c => c.group === group.id).map(c => (
+                  {COLUMN_DEFS.filter((c) => c.group === group.id).map((c) => (
                     <label
                       key={c.id}
                       className={`text-xs px-2 py-1 rounded-lg cursor-pointer border transition-colors ${
@@ -952,7 +1032,12 @@ export default function StudentProgressTableView({
                           : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                       }`}
                     >
-                      <input type="checkbox" className="sr-only" checked={isCol(c.id)} onChange={() => toggleCol(c.id)} />
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={isCol(c.id)}
+                        onChange={() => toggleCol(c.id)}
+                      />
                       {c.label}
                     </label>
                   ))}
@@ -976,32 +1061,42 @@ export default function StudentProgressTableView({
                   </td>
                 </tr>
               )}
-              {groupBySection && groupedRows ? (
-                groupedRows.map(group => {
-                  const isCollapsed = collapsedSections.has(group.key)
-                  return (
-                    <Fragment key={group.key}>
-                      <tr className="bg-gray-100 cursor-pointer" onClick={() => toggleSection(group.key)}>
-                        <td colSpan={visibleColCount} className="px-2 py-1.5 text-xs font-semibold text-gray-700">
-                          <div className="flex items-center gap-2">
-                            {isCollapsed
-                              ? <ChevronDown size={14} className="text-gray-400" />
-                              : <ChevronUp size={14} className="text-gray-400" />}
-                            <span>{group.sectionLabel}</span>
-                            {group.planTitle && activePlans.length > 1 && (
-                              <span className="text-gray-400 font-normal">· {group.planTitle}</span>
-                            )}
-                            <span className="ml-auto text-gray-400 font-normal">{group.rows.length}</span>
-                          </div>
-                        </td>
-                      </tr>
-                      {!isCollapsed && group.rows.map(renderRow)}
-                    </Fragment>
-                  )
-                })
-              ) : (
-                filteredRows.map(renderRow)
-              )}
+              {groupBySection && groupedRows
+                ? groupedRows.map((group) => {
+                    const isCollapsed = collapsedSections.has(group.key)
+                    return (
+                      <Fragment key={group.key}>
+                        <tr
+                          className="bg-gray-100 cursor-pointer"
+                          onClick={() => toggleSection(group.key)}
+                        >
+                          <td
+                            colSpan={visibleColCount}
+                            className="px-2 py-1.5 text-xs font-semibold text-gray-700"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isCollapsed ? (
+                                <ChevronDown size={14} className="text-gray-400" />
+                              ) : (
+                                <ChevronUp size={14} className="text-gray-400" />
+                              )}
+                              <span>{group.sectionLabel}</span>
+                              {group.planTitle && activePlans.length > 1 && (
+                                <span className="text-gray-400 font-normal">
+                                  · {group.planTitle}
+                                </span>
+                              )}
+                              <span className="ml-auto text-gray-400 font-normal">
+                                {group.rows.length}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {!isCollapsed && group.rows.map(renderRow)}
+                      </Fragment>
+                    )
+                  })
+                : filteredRows.map(renderRow)}
             </tbody>
           </table>
         </div>
@@ -1010,10 +1105,18 @@ export default function StudentProgressTableView({
       {/* ── Leyenda tendencia ── */}
       {isCol('trend') && (
         <div className="flex items-center gap-3 text-[11px] text-gray-400 justify-end">
-          <span><span className="text-green-600 font-bold">↑</span> mejora</span>
-          <span><span className="text-red-600 font-bold">↓</span> baja</span>
-          <span><span className="text-gray-500 font-bold">=</span> igual</span>
-          <span><span className="font-bold">·</span> sin previo</span>
+          <span>
+            <span className="text-green-600 font-bold">↑</span> mejora
+          </span>
+          <span>
+            <span className="text-red-600 font-bold">↓</span> baja
+          </span>
+          <span>
+            <span className="text-gray-500 font-bold">=</span> igual
+          </span>
+          <span>
+            <span className="font-bold">·</span> sin previo
+          </span>
         </div>
       )}
     </div>

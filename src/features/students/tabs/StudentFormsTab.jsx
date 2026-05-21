@@ -41,31 +41,33 @@ export default function StudentFormsTab({ studentId }) {
 
     setAssignments(aRes.data || [])
     const subMap = {}
-    ;(sRes.data || []).forEach(s => { subMap[s.assignment_id] = s })
+    ;(sRes.data || []).forEach((s) => {
+      subMap[s.assignment_id] = s
+    })
     setSubmissions(subMap)
     setLoading(false)
   }
 
   function statusBadge(status) {
     const map = {
-      scheduled:   { label: 'Programado',  cls: 'bg-blue-100 text-blue-800',     Icon: Calendar },
-      pending:     { label: 'Pendiente',   cls: 'bg-amber-100 text-amber-800',   Icon: AlertCircle },
+      scheduled: { label: 'Programado', cls: 'bg-blue-100 text-blue-800', Icon: Calendar },
+      pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-800', Icon: AlertCircle },
       in_progress: { label: 'En progreso', cls: 'bg-yellow-100 text-yellow-800', Icon: Clock },
-      completed:   { label: 'Respondido',  cls: 'bg-green-100 text-green-800',   Icon: CheckCircle },
+      completed: { label: 'Respondido', cls: 'bg-green-100 text-green-800', Icon: CheckCircle },
     }
     const info = map[status] || map.pending
     const Icon = info.Icon
     return (
-      <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${info.cls}`}>
+      <span
+        className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${info.cls}`}
+      >
         <Icon size={11} /> {info.label}
       </span>
     )
   }
 
   function nameOf(a) {
-    return a.intake_form_templates?.name
-      || a.form_snapshot?.name
-      || 'Formulario de seguimiento'
+    return a.intake_form_templates?.name || a.form_snapshot?.name || 'Formulario de seguimiento'
   }
 
   function triggerLabel(a) {
@@ -88,22 +90,26 @@ export default function StudentFormsTab({ studentId }) {
       <div className="card text-center py-10 text-gray-400">
         <FileText size={32} className="mx-auto mb-3 text-gray-300" />
         <p className="text-sm">Todavía no le enviaste formularios de seguimiento.</p>
-        <p className="text-xs mt-1">Andá a "Seguimiento" en el menú lateral para crear y enviar uno.</p>
+        <p className="text-xs mt-1">
+          Andá a "Seguimiento" en el menú lateral para crear y enviar uno.
+        </p>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
-      {assignments.map(a => {
+      {assignments.map((a) => {
         const sub = submissions[a.id]
         return (
           <button
             key={a.id}
-            onClick={() => sub ? setViewing({ assignment: a, submission: sub }) : null}
+            onClick={() => (sub ? setViewing({ assignment: a, submission: sub }) : null)}
             disabled={!sub}
             className={`w-full text-left bg-white border border-gray-200 rounded-xl p-4 transition-all ${
-              sub ? 'hover:border-blue-300 hover:shadow-sm cursor-pointer' : 'opacity-75 cursor-default'
+              sub
+                ? 'hover:border-blue-300 hover:shadow-sm cursor-pointer'
+                : 'opacity-75 cursor-default'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -115,9 +121,7 @@ export default function StudentFormsTab({ studentId }) {
                   {a.scheduled_for && a.status === 'scheduled' && (
                     <span>· {new Date(a.scheduled_for).toLocaleDateString()}</span>
                   )}
-                  {a.completed_at && (
-                    <span>· {new Date(a.completed_at).toLocaleDateString()}</span>
-                  )}
+                  {a.completed_at && <span>· {new Date(a.completed_at).toLocaleDateString()}</span>}
                 </div>
               </div>
             </div>
@@ -145,8 +149,9 @@ function ResponsesModal({ assignment, submission, onClose }) {
   const responses = submission.responses || {}
 
   // Aplanar todas las preguntas para mostrar pregunta + respuesta
-  const allQuestions = (config?.modules || [])
-    .flatMap(m => (m.questions || []).map(q => ({ ...q, moduleTitle: m.title })))
+  const allQuestions = (config?.modules || []).flatMap((m) =>
+    (m.questions || []).map((q) => ({ ...q, moduleTitle: m.title }))
+  )
 
   function renderValue(q, value) {
     if (value === undefined || value === null || value === '') {
@@ -164,7 +169,9 @@ function ResponsesModal({ assignment, submission, onClose }) {
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -176,16 +183,21 @@ function ResponsesModal({ assignment, submission, onClose }) {
               Respondido el {new Date(submission.submitted_at).toLocaleString()}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
             <X size={18} className="text-gray-500" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {allQuestions.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Este formulario no tiene preguntas.</p>
+            <p className="text-sm text-gray-400 text-center py-8">
+              Este formulario no tiene preguntas.
+            </p>
           ) : (
-            allQuestions.map(q => (
+            allQuestions.map((q) => (
               <div key={q.id} className="border-b border-gray-100 pb-3 last:border-0">
                 <p className="text-xs text-gray-400 mb-1">{q.moduleTitle}</p>
                 <p className="text-sm font-medium text-gray-800 mb-1.5">{q.label}</p>

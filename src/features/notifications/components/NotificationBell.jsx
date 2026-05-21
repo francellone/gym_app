@@ -18,9 +18,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNotifications } from '../hooks/useNotifications'
 import {
-  Bell, BellDot, CheckCheck, Dumbbell, Calendar,
-  AlertTriangle, UserCheck, TrendingUp, MessageSquare, X,
-  ClipboardCheck, RefreshCw
+  Bell,
+  BellDot,
+  CheckCheck,
+  Dumbbell,
+  Calendar,
+  AlertTriangle,
+  UserCheck,
+  TrendingUp,
+  MessageSquare,
+  X,
+  ClipboardCheck,
+  RefreshCw,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -28,59 +37,59 @@ import { es } from 'date-fns/locale'
 // ── Ícono y color por tipo de notificación ────────────────────
 const TYPE_CONFIG = {
   plan_assigned: {
-    Icon:  Dumbbell,
+    Icon: Dumbbell,
     color: 'text-blue-500',
-    bg:    'bg-blue-50',
+    bg: 'bg-blue-50',
   },
   activity_update: {
-    Icon:  UserCheck,
+    Icon: UserCheck,
     color: 'text-green-500',
-    bg:    'bg-green-50',
+    bg: 'bg-green-50',
   },
   session_completed: {
-    Icon:  CheckCheck,
+    Icon: CheckCheck,
     color: 'text-emerald-500',
-    bg:    'bg-emerald-50',
+    bg: 'bg-emerald-50',
   },
   plan_expiring: {
-    Icon:  Calendar,
+    Icon: Calendar,
     color: 'text-amber-500',
-    bg:    'bg-amber-50',
+    bg: 'bg-amber-50',
   },
   stagnation_alert: {
-    Icon:  AlertTriangle,
+    Icon: AlertTriangle,
     color: 'text-red-500',
-    bg:    'bg-red-50',
+    bg: 'bg-red-50',
   },
   coach_comment: {
-    Icon:  MessageSquare,
+    Icon: MessageSquare,
     color: 'text-purple-500',
-    bg:    'bg-purple-50',
+    bg: 'bg-purple-50',
   },
   student_note: {
-    Icon:  MessageSquare,
+    Icon: MessageSquare,
     color: 'text-orange-500',
-    bg:    'bg-orange-50',
+    bg: 'bg-orange-50',
   },
   weekly_summary: {
-    Icon:  TrendingUp,
+    Icon: TrendingUp,
     color: 'text-indigo-500',
-    bg:    'bg-indigo-50',
+    bg: 'bg-indigo-50',
   },
   form_submitted: {
-    Icon:  ClipboardCheck,
+    Icon: ClipboardCheck,
     color: 'text-teal-500',
-    bg:    'bg-teal-50',
+    bg: 'bg-teal-50',
   },
   plan_updated: {
-    Icon:  RefreshCw,
+    Icon: RefreshCw,
     color: 'text-sky-500',
-    bg:    'bg-sky-50',
+    bg: 'bg-sky-50',
   },
 }
 
 function NotificationItem({ notification, onRead, highlightAsUnread }) {
-  const cfg   = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.activity_update
+  const cfg = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.activity_update
   const { Icon, color, bg } = cfg
 
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
@@ -99,13 +108,17 @@ function NotificationItem({ notification, onRead, highlightAsUnread }) {
         hover:bg-gray-50 ${showAsUnread ? 'bg-blue-50/30' : ''}`}
     >
       {/* Ícono */}
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}>
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}
+      >
         <Icon size={15} className={color} />
       </div>
 
       {/* Contenido */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${showAsUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
+        <p
+          className={`text-sm leading-snug ${showAsUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}
+        >
           {notification.title}
         </p>
         {notification.body && (
@@ -117,9 +130,7 @@ function NotificationItem({ notification, onRead, highlightAsUnread }) {
       </div>
 
       {/* Punto de no leída */}
-      {showAsUnread && (
-        <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />
-      )}
+      {showAsUnread && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />}
     </button>
   )
 }
@@ -130,23 +141,20 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
   // Sirve para mantener el destacado visual mientras el panel está abierto,
   // aunque markAllAsRead las haya marcado como leídas en BD.
   const [wasUnreadAtOpen, setWasUnreadAtOpen] = useState(() => new Set())
-  const panelRef        = useRef(null)
-  const buttonRef       = useRef(null)
+  const panelRef = useRef(null)
+  const buttonRef = useRef(null)
 
-  const {
-    notifications,
-    unreadCount,
-    loading,
-    markAsRead,
-    markAllAsRead,
-  } = useNotifications(userId)
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
+    useNotifications(userId)
 
   // Cerrar al hacer click afuera
   useEffect(() => {
     function handleClickOutside(e) {
       if (
-        panelRef.current  && !panelRef.current.contains(e.target) &&
-        buttonRef.current && !buttonRef.current.contains(e.target)
+        panelRef.current &&
+        !panelRef.current.contains(e.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target)
       ) {
         setOpen(false)
       }
@@ -158,13 +166,11 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
   // Al abrir el panel: snapshot de unread + marcar todas como leídas.
   // Deps deliberadamente solo [open] para que dispare exactamente una vez por
   // apertura (no quiero re-correr cuando cambian notifications/unreadCount/markAllAsRead).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (open) {
       // Capturar IDs unread ANTES de marcar, para mantener el highlight visual
-      const unreadIds = new Set(
-        notifications.filter(n => !n.read).map(n => n.id)
-      )
+      const unreadIds = new Set(notifications.filter((n) => !n.read).map((n) => n.id))
       setWasUnreadAtOpen(unreadIds)
       if (unreadCount > 0) markAllAsRead()
     } else {
@@ -174,21 +180,23 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
   }, [open])
 
   // Estilos según tema
-  const btnBase = theme === 'dark'
-    ? 'text-slate-400 hover:bg-white/8 hover:text-slate-200'
-    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+  const btnBase =
+    theme === 'dark'
+      ? 'text-slate-400 hover:bg-white/8 hover:text-slate-200'
+      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
 
   // Posicionamiento del panel según placement
-  const panelPosition = placement === 'right'
-    ? 'left-full ml-3 bottom-0'   // a la derecha del botón, alineado abajo (sidebar coach)
-    : 'right-0 mt-2'              // default: debajo del botón, alineado a la derecha
+  const panelPosition =
+    placement === 'right'
+      ? 'left-full ml-3 bottom-0' // a la derecha del botón, alineado abajo (sidebar coach)
+      : 'right-0 mt-2' // default: debajo del botón, alineado a la derecha
 
   return (
     <div className="relative">
       {/* Botón campana */}
       <button
         ref={buttonRef}
-        onClick={() => setOpen(prev => !prev)}
+        onClick={() => setOpen((prev) => !prev)}
         className={`relative p-2 rounded-lg transition-colors ${btnBase}`}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} nuevas)` : ''}`}
       >
@@ -196,9 +204,11 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
 
         {/* Badge contador */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
                            bg-red-500 text-white text-[10px] font-bold rounded-full
-                           flex items-center justify-center leading-none">
+                           flex items-center justify-center leading-none"
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -255,12 +265,10 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                   <Bell size={20} className="text-gray-400" />
                 </div>
                 <p className="text-sm font-medium text-gray-600">Sin notificaciones</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Acá vas a ver la actividad importante
-                </p>
+                <p className="text-xs text-gray-400 mt-1">Acá vas a ver la actividad importante</p>
               </div>
             ) : (
-              notifications.map(n => (
+              notifications.map((n) => (
                 <NotificationItem
                   key={n.id}
                   notification={n}

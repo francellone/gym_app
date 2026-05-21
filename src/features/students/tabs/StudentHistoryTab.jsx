@@ -29,7 +29,7 @@ export default function StudentHistoryTab({ editHistory }) {
         <h3 className="font-semibold text-gray-900">Historial de modificaciones</h3>
       </div>
       <div className="space-y-2">
-        {editHistory.map(h => (
+        {editHistory.map((h) => (
           <div key={h.id} className="card">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">

@@ -1,21 +1,37 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { evalTypeIcon, evalTypeLabel, evalTypeColor, pruebaTypeInfo } from '../helpers'
 import {
-  evalTypeIcon, evalTypeLabel, evalTypeColor,
-  pruebaTypeInfo,
-} from '../helpers'
-import {
-  ClipboardList, ChevronDown, ChevronUp, Plus, MessageSquare,
-  Lock, Eye, TrendingUp, TrendingDown, Minus, Clock, Check,
-  AlertCircle, Save, BarChart2, Link2,
+  ClipboardList,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  MessageSquare,
+  Lock,
+  Eye,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Clock,
+  Check,
+  AlertCircle,
+  Save,
+  BarChart2,
+  Link2,
 } from 'lucide-react'
 import { format, parseISO, differenceInYears } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  groupEvaluationAssignments, statusConfig, getAssignmentStatus,
+  groupEvaluationAssignments,
+  statusConfig,
+  getAssignmentStatus,
   assignTemplateToStudent,
 } from '@/features/plans/assignmentHelpers'
-import { fetchEvalMirrorBodies, postEvalCommentNote, fetchSingleMirrorBodies } from '@/features/notes/api'
+import {
+  fetchEvalMirrorBodies,
+  postEvalCommentNote,
+  fetchSingleMirrorBodies,
+} from '@/features/notes/api'
 import { useAuth } from '@/features/auth/AuthContext'
 
 // ─────────────────────────────────────────────────────────────
@@ -27,25 +43,22 @@ import { useAuth } from '@/features/auth/AuthContext'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
-  const { profile } = useAuth()  // multi-coach v31: necesitamos profile.id como coachId
+  const { profile } = useAuth() // multi-coach v31: necesitamos profile.id como coachId
 
   // Solo evaluaciones asignadas (incluye históricas — el agrupador las separa).
-  const evalAssignments = (assignments || []).filter(a => {
+  const evalAssignments = (assignments || []).filter((a) => {
     const t = a.plan_type || a.plan?.plan_type
     return t === 'evaluation'
   })
 
   // Asignaciones de training del alumno (para dropdown de asociación).
-  const trainingAssignments = (assignments || []).filter(a => {
+  const trainingAssignments = (assignments || []).filter((a) => {
     const t = a.plan_type || a.plan?.plan_type || 'training'
     return t === 'training'
   })
 
   // Agrupado: del plan vigente, independientes, históricas.
-  const grouped = useMemo(
-    () => groupEvaluationAssignments(assignments || []),
-    [assignments]
-  )
+  const grouped = useMemo(() => groupEvaluationAssignments(assignments || []), [assignments])
 
   // Estado para asignar nueva evaluación
   const [assigning, setAssigning] = useState(false)
@@ -58,15 +71,18 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
   // si la asignación matching está vigente (active o paused) — no tiene
   // sentido linkear a un plan ya reemplazado/completado/archivado.
   useEffect(() => {
-    if (!selectedPlanId) { setLinkedAssignmentId(''); return }
-    const evalPlan = allPlans.find(p => p.id === selectedPlanId)
+    if (!selectedPlanId) {
+      setLinkedAssignmentId('')
+      return
+    }
+    const evalPlan = allPlans.find((p) => p.id === selectedPlanId)
     if (!evalPlan?.parent_plan_id) {
       setLinkedAssignmentId('')
       return
     }
     const matching = trainingAssignments
-      .filter(a => a.plan_id === evalPlan.parent_plan_id)
-      .filter(a => {
+      .filter((a) => a.plan_id === evalPlan.parent_plan_id)
+      .filter((a) => {
         const s = getAssignmentStatus(a)
         return s === 'active' || s === 'paused'
       })
@@ -133,7 +149,11 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
           linkedAssignmentId={linkedAssignmentId}
           onLinkedAssignmentChange={setLinkedAssignmentId}
           loading={assignLoading}
-          onCancel={() => { setAssigning(false); setSelectedPlanId(''); setLinkedAssignmentId('') }}
+          onCancel={() => {
+            setAssigning(false)
+            setSelectedPlanId('')
+            setLinkedAssignmentId('')
+          }}
           onConfirm={handleAssign}
         />
       )}
@@ -143,8 +163,10 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
         <div className="card text-center py-8">
           <ClipboardList size={32} className="text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-500">No hay evaluaciones asignadas aún.</p>
-          <button onClick={() => setAssigning(true)}
-            className="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium">
+          <button
+            onClick={() => setAssigning(true)}
+            className="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
+          >
             Asignar primera evaluación
           </button>
         </div>
@@ -156,8 +178,13 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
           title={`Del plan actual: ${grouped.activeTraining?.plan?.title || ''}`}
           accent="purple"
         >
-          {grouped.ofCurrentPlan.map(a => (
-            <EvaluationCard key={a.id} assignment={a} studentId={studentId} linkedTo={grouped.activeTraining} />
+          {grouped.ofCurrentPlan.map((a) => (
+            <EvaluationCard
+              key={a.id}
+              assignment={a}
+              studentId={studentId}
+              linkedTo={grouped.activeTraining}
+            />
           ))}
         </EvalGroup>
       )}
@@ -165,7 +192,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       {/* Sección 2: independientes */}
       {grouped.independent.length > 0 && (
         <EvalGroup title="Evaluaciones independientes" accent="gray">
-          {grouped.independent.map(a => (
+          {grouped.independent.map((a) => (
             <EvaluationCard key={a.id} assignment={a} studentId={studentId} />
           ))}
         </EvalGroup>
@@ -179,12 +206,12 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
           subtle
           subtitle="El plan al que estaban vinculadas ya no es el vigente."
         >
-          {grouped.historical.map(a => (
+          {grouped.historical.map((a) => (
             <EvaluationCard
               key={a.id}
               assignment={a}
               studentId={studentId}
-              linkedTo={trainingAssignments.find(t => t.id === a.linked_assignment_id) || null}
+              linkedTo={trainingAssignments.find((t) => t.id === a.linked_assignment_id) || null}
               historical
             />
           ))}
@@ -200,7 +227,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
 function EvalGroup({ title, subtitle, accent = 'gray', subtle = false, children }) {
   const accentMap = {
     purple: { dot: 'bg-purple-500', text: 'text-purple-700' },
-    gray:   { dot: 'bg-gray-400',   text: subtle ? 'text-gray-400' : 'text-gray-600' },
+    gray: { dot: 'bg-gray-400', text: subtle ? 'text-gray-400' : 'text-gray-600' },
   }
   const a = accentMap[accent] || accentMap.gray
   return (
@@ -219,17 +246,22 @@ function EvalGroup({ title, subtitle, accent = 'gray', subtle = false, children 
 // AssignEvaluationForm — form inline reutilizado
 // ─────────────────────────────────────────────────────────────
 function AssignEvaluationForm({
-  allPlans, trainingAssignments,
-  selectedPlanId, onSelectedPlanChange,
-  linkedAssignmentId, onLinkedAssignmentChange,
-  loading, onCancel, onConfirm,
+  allPlans,
+  trainingAssignments,
+  selectedPlanId,
+  onSelectedPlanChange,
+  linkedAssignmentId,
+  onLinkedAssignmentChange,
+  loading,
+  onCancel,
+  onConfirm,
 }) {
   // Solo plantillas de evaluación se pueden asignar — las instancias
   // clonadas son personales y no deben aparecer en la biblioteca.
   const evalPlanOptions = (allPlans || []).filter(
-    p => p.plan_type === 'evaluation' && p.is_template !== false
+    (p) => p.plan_type === 'evaluation' && p.is_template !== false
   )
-  const selectedEvalPlan = evalPlanOptions.find(p => p.id === selectedPlanId) || null
+  const selectedEvalPlan = evalPlanOptions.find((p) => p.id === selectedPlanId) || null
   const suggestedFromTemplate = !!selectedEvalPlan?.parent_plan_id
 
   return (
@@ -241,11 +273,13 @@ function AssignEvaluationForm({
         <select
           className="input text-sm"
           value={selectedPlanId}
-          onChange={e => onSelectedPlanChange(e.target.value)}
+          onChange={(e) => onSelectedPlanChange(e.target.value)}
         >
           <option value="">— Seleccionar evaluación —</option>
-          {evalPlanOptions.map(p => (
-            <option key={p.id} value={p.id}>{p.title}</option>
+          {evalPlanOptions.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
           ))}
         </select>
       </div>
@@ -260,10 +294,10 @@ function AssignEvaluationForm({
           <select
             className="input text-sm"
             value={linkedAssignmentId || ''}
-            onChange={e => onLinkedAssignmentChange(e.target.value || '')}
+            onChange={(e) => onLinkedAssignmentChange(e.target.value || '')}
           >
             <option value="">Independiente</option>
-            {trainingAssignments.map(a => {
+            {trainingAssignments.map((a) => {
               const status = getAssignmentStatus(a)
               const cfg = statusConfig(status)
               return (
@@ -287,16 +321,21 @@ function AssignEvaluationForm({
       )}
 
       <div className="flex gap-2">
-        <button onClick={onCancel} className="btn-secondary flex-1 text-sm">Cancelar</button>
+        <button onClick={onCancel} className="btn-secondary flex-1 text-sm">
+          Cancelar
+        </button>
         <button
           onClick={onConfirm}
           disabled={!selectedPlanId || loading}
           className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
         >
-          {loading
-            ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : <><Check size={14} /> Asignar</>
-          }
+          {loading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Check size={14} /> Asignar
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -312,7 +351,7 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
   const [view, setView] = useState('ultimo') // 'ultimo' | 'historial'
 
   // Datos cargados al expandir
-  const [pruebas, setPruebas] = useState([])      // evaluation_tests
+  const [pruebas, setPruebas] = useState([]) // evaluation_tests
   const [resultados, setResultados] = useState([]) // evaluation_results con responses
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -349,7 +388,7 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
       // context_type='evaluation_result'. Mergemos el body del mirror
       // sobre `notes` (y `results.notes` para JSX legacy que la usa).
       if (results.length > 0) {
-        const resultIds = results.map(r => r.id)
+        const resultIds = results.map((r) => r.id)
         const resultMirrors = await fetchSingleMirrorBodies({
           contextType: 'evaluation_result',
           contextIds: resultIds,
@@ -365,7 +404,7 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
 
       // Si hay pruebas custom, cargar responses para cada resultado
       if (isCustom && results.length > 0) {
-        const resultIds = results.map(r => r.id)
+        const resultIds = results.map((r) => r.id)
         const { data: responsesData } = await supabase
           .from('evaluation_test_responses')
           .select('*')
@@ -374,11 +413,11 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
         // Round 2a: merge body de notas mirror eval (context_id=etr.id)
         // sobre cada respuesta. Las 3 columnas legacy se preservan como
         // fallback hasta que se dropeen en round 2b.
-        const respIds = (responsesData || []).map(r => r.id)
+        const respIds = (responsesData || []).map((r) => r.id)
         const evalMirrors = await fetchEvalMirrorBodies(respIds)
 
         const responsesByResult = {}
-        for (const r of (responsesData || [])) {
+        for (const r of responsesData || []) {
           const mirror = evalMirrors.get(r.id) || {}
           const enriched = {
             ...r,
@@ -391,7 +430,9 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
           }
           responsesByResult[r.evaluation_result_id].push(enriched)
         }
-        results.forEach(r => { r._responses = responsesByResult[r.id] || [] })
+        results.forEach((r) => {
+          r._responses = responsesByResult[r.id] || []
+        })
       }
 
       setResultados(results)
@@ -423,8 +464,10 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
           <p className="font-semibold text-gray-900 truncate">{plan?.title}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className={`badge text-xs ${colorClass}`}>{evalTypeLabel(plan?.eval_type)}</span>
-            {tags.map(t => (
-              <span key={t} className="badge text-xs bg-purple-100 text-purple-700">{t}</span>
+            {tags.map((t) => (
+              <span key={t} className="badge text-xs bg-purple-100 text-purple-700">
+                {t}
+              </span>
             ))}
             {linkedTo && (
               <span className="badge text-xs bg-blue-50 text-blue-700 border border-blue-100 inline-flex items-center gap-1">
@@ -433,7 +476,10 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
             )}
             {latestResult && (
               <span className="text-xs text-gray-400">
-                Última: {format(parseISO(latestResult.eval_date + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
+                Última:{' '}
+                {format(parseISO(latestResult.eval_date + 'T12:00:00'), 'd MMM yyyy', {
+                  locale: es,
+                })}
               </span>
             )}
             {!latestResult && loaded && (
@@ -447,7 +493,11 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
               {resultados.length} {resultados.length === 1 ? 'registro' : 'registros'}
             </span>
           )}
-          {expanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+          {expanded ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
         </div>
       </button>
 
@@ -464,16 +514,24 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
             <>
               {/* Sub-navegación */}
               <div className="flex gap-1 bg-gray-50 p-2 border-b border-gray-100">
-                <button onClick={() => setView('ultimo')}
+                <button
+                  onClick={() => setView('ultimo')}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                    view === 'ultimo' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                  }`}>
+                    view === 'ultimo'
+                      ? 'bg-white shadow-sm text-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
                   Último registro
                 </button>
-                <button onClick={() => setView('historial')}
+                <button
+                  onClick={() => setView('historial')}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                    view === 'historial' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                  }`}>
+                    view === 'historial'
+                      ? 'bg-white shadow-sm text-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
                   Historial y comparativa
                 </button>
               </div>
@@ -484,23 +542,21 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
                   resultado={latestResult}
                   planId={plan.id}
                   studentId={studentId}
-                  onSaved={() => { setLoaded(false); fetchData() }}
+                  onSaved={() => {
+                    setLoaded(false)
+                    fetchData()
+                  }}
                 />
               )}
 
               {view === 'historial' && (
-                <HistorialComparativo
-                  pruebas={pruebas}
-                  resultados={resultados}
-                />
+                <HistorialComparativo pruebas={pruebas} resultados={resultados} />
               )}
             </>
           )}
 
           {/* Para tipos científicos: vista simple de resultados */}
-          {!loading && !isCustom && (
-            <ResultadosCientificos resultados={resultados} plan={plan} />
-          )}
+          {!loading && !isCustom && <ResultadosCientificos resultados={resultados} plan={plan} />}
         </div>
       )}
     </div>
@@ -511,21 +567,28 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
 // UltimoRegistro — tabla con último resultado + comentarios coach
 // ─────────────────────────────────────────────────────────────
 function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
+  // multi-coach v31: necesitamos profile.id como coachId al postear comentarios.
+  // Antes de 2026-05-21 esto faltaba acá (sólo estaba en el componente padre
+  // StudentEvaluationsTab) y `profile?.id` era ReferenceError en saveComments.
+  const { profile } = useAuth()
   // Map de test_id → response
   const [responses, setResponses] = useState({})
   const [savingComment, setSavingComment] = useState(null) // test_id que se está guardando
   const [editingComments, setEditingComments] = useState({}) // test_id → { public, private }
 
   useEffect(() => {
-    if (!resultado) { setResponses({}); return }
+    if (!resultado) {
+      setResponses({})
+      return
+    }
     const map = {}
-    for (const r of (resultado._responses || [])) {
+    for (const r of resultado._responses || []) {
       map[r.test_id] = r
     }
     setResponses(map)
     // Inicializar edición de comentarios
     const initial = {}
-    for (const r of (resultado._responses || [])) {
+    for (const r of resultado._responses || []) {
       initial[r.test_id] = {
         public: r.coach_comment_public || '',
         private: r.coach_comment_private || '',
@@ -539,7 +602,7 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
   }
 
   function updateComment(testId, field, value) {
-    setEditingComments(prev => ({
+    setEditingComments((prev) => ({
       ...prev,
       [testId]: { ...(prev[testId] || { public: '', private: '' }), [field]: value },
     }))
@@ -609,7 +672,9 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
     )
   }
 
-  const fechaStr = format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", { locale: es })
+  const fechaStr = format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", {
+    locale: es,
+  })
 
   return (
     <div className="p-4 space-y-4">
@@ -618,15 +683,19 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
           <Clock size={13} /> {fechaStr}
         </p>
         {resultado.notes && (
-          <span className="text-xs text-gray-400 italic truncate max-w-48">"{resultado.notes}"</span>
+          <span className="text-xs text-gray-400 italic truncate max-w-48">
+            "{resultado.notes}"
+          </span>
         )}
       </div>
 
       {pruebas.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-4">Esta evaluación no tiene pruebas definidas.</p>
+        <p className="text-sm text-gray-400 text-center py-4">
+          Esta evaluación no tiene pruebas definidas.
+        </p>
       )}
 
-      {pruebas.map(prueba => {
+      {pruebas.map((prueba) => {
         const resp = responses[prueba.id]
         const typeInfo = pruebaTypeInfo(prueba.test_type)
         const comment = getComment(prueba.id)
@@ -643,10 +712,13 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
                 )}
               </div>
               <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
-                {typeInfo.label}{typeInfo.unit ? ` (${typeInfo.unit})` : ''}
+                {typeInfo.label}
+                {typeInfo.unit ? ` (${typeInfo.unit})` : ''}
               </span>
               {prueba.mandatory && (
-                <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Oblig.</span>
+                <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                  Oblig.
+                </span>
               )}
             </div>
 
@@ -663,8 +735,12 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
                     </p>
                   </div>
                 )}
-                <div className={`rounded-xl p-2.5 text-center ${resp?.student_response ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  <p className={`text-xs font-medium mb-0.5 ${resp?.student_response ? 'text-green-500' : 'text-gray-400'}`}>
+                <div
+                  className={`rounded-xl p-2.5 text-center ${resp?.student_response ? 'bg-green-50' : 'bg-gray-50'}`}
+                >
+                  <p
+                    className={`text-xs font-medium mb-0.5 ${resp?.student_response ? 'text-green-500' : 'text-gray-400'}`}
+                  >
                     Resultado
                   </p>
                   {resp?.student_response ? (
@@ -679,13 +755,15 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
               </div>
 
               {/* Indicador mejoró/igual/bajó (si hay expected) */}
-              {resp?.student_response && prueba.expected_value && !isNaN(parseFloat(resp.student_response.value)) && (
-                <ComparisonBadge
-                  actual={parseFloat(resp.student_response.value)}
-                  expected={parseFloat(prueba.expected_value)}
-                  testType={prueba.test_type}
-                />
-              )}
+              {resp?.student_response &&
+                prueba.expected_value &&
+                !isNaN(parseFloat(resp.student_response.value)) && (
+                  <ComparisonBadge
+                    actual={parseFloat(resp.student_response.value)}
+                    expected={parseFloat(prueba.expected_value)}
+                    testType={prueba.test_type}
+                  />
+                )}
 
               {/* Comentario del alumno */}
               {resp?.student_comment && (
@@ -702,8 +780,8 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
                 testId={prueba.id}
                 publicComment={comment.public}
                 privateComment={comment.private}
-                onUpdatePublic={v => updateComment(prueba.id, 'public', v)}
-                onUpdatePrivate={v => updateComment(prueba.id, 'private', v)}
+                onUpdatePublic={(v) => updateComment(prueba.id, 'public', v)}
+                onUpdatePrivate={(v) => updateComment(prueba.id, 'private', v)}
                 onSave={() => saveComments(prueba.id)}
                 saving={savingComment === prueba.id}
               />
@@ -718,14 +796,22 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
 // ─────────────────────────────────────────────────────────────
 // CoachCommentEditor
 // ─────────────────────────────────────────────────────────────
-function CoachCommentEditor({ testId, publicComment, privateComment, onUpdatePublic, onUpdatePrivate, onSave, saving }) {
+function CoachCommentEditor({
+  testId,
+  publicComment,
+  privateComment,
+  onUpdatePublic,
+  onUpdatePrivate,
+  onSave,
+  saving,
+}) {
   const [open, setOpen] = useState(false)
   const hasContent = publicComment?.trim() || privateComment?.trim()
 
   return (
     <div className="space-y-2">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className={`w-full flex items-center gap-2 text-xs font-medium py-1.5 px-2 rounded-lg transition-colors ${
           hasContent
             ? 'text-purple-700 bg-purple-50 hover:bg-purple-100'
@@ -734,7 +820,11 @@ function CoachCommentEditor({ testId, publicComment, privateComment, onUpdatePub
       >
         <MessageSquare size={13} />
         {hasContent ? 'Ver / editar comentarios del coach' : 'Agregar comentario del coach'}
-        {open ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
+        {open ? (
+          <ChevronUp size={13} className="ml-auto" />
+        ) : (
+          <ChevronDown size={13} className="ml-auto" />
+        )}
       </button>
 
       {open && (
@@ -749,7 +839,7 @@ function CoachCommentEditor({ testId, publicComment, privateComment, onUpdatePub
               rows={2}
               placeholder="Retroalimentación que verá el alumno..."
               value={publicComment}
-              onChange={e => onUpdatePublic(e.target.value)}
+              onChange={(e) => onUpdatePublic(e.target.value)}
             />
           </div>
 
@@ -763,7 +853,7 @@ function CoachCommentEditor({ testId, publicComment, privateComment, onUpdatePub
               rows={2}
               placeholder="Nota interna solo para el coach..."
               value={privateComment}
-              onChange={e => onUpdatePrivate(e.target.value)}
+              onChange={(e) => onUpdatePrivate(e.target.value)}
             />
           </div>
 
@@ -772,10 +862,13 @@ function CoachCommentEditor({ testId, publicComment, privateComment, onUpdatePub
             disabled={saving}
             className="btn-primary text-xs w-full flex items-center justify-center gap-1.5 py-2"
           >
-            {saving
-              ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <><Save size={12} /> Guardar comentarios</>
-            }
+            {saving ? (
+              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <Save size={12} /> Guardar comentarios
+              </>
+            )}
           </button>
         </div>
       )}
@@ -828,12 +921,12 @@ function HistorialComparativo({ pruebas, resultados }) {
     )
   }
 
-  const selectedTest = pruebas.find(p => p.id === selectedTestId)
+  const selectedTest = pruebas.find((p) => p.id === selectedTestId)
 
   // Datos históricos para la prueba seleccionada
   const historico = resultados
-    .map(resultado => {
-      const resp = (resultado._responses || []).find(r => r.test_id === selectedTestId)
+    .map((resultado) => {
+      const resp = (resultado._responses || []).find((r) => r.test_id === selectedTestId)
       return {
         fecha: resultado.eval_date,
         value: resp?.student_response?.value ?? null,
@@ -841,7 +934,7 @@ function HistorialComparativo({ pruebas, resultados }) {
         resultadoId: resultado.id,
       }
     })
-    .filter(h => h.value !== null)
+    .filter((h) => h.value !== null)
     .reverse() // cronológico
 
   return (
@@ -850,9 +943,12 @@ function HistorialComparativo({ pruebas, resultados }) {
       {pruebas.length > 1 && (
         <div>
           <label className="label text-xs">Ver evolución de</label>
-          <select className="input text-sm" value={selectedTestId || ''}
-            onChange={e => setSelectedTestId(e.target.value)}>
-            {pruebas.map(p => (
+          <select
+            className="input text-sm"
+            value={selectedTestId || ''}
+            onChange={(e) => setSelectedTestId(e.target.value)}
+          >
+            {pruebas.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.exercise_name || 'Prueba sin nombre'} — {pruebaTypeInfo(p.test_type).label}
               </option>
@@ -885,7 +981,10 @@ function HistorialComparativo({ pruebas, resultados }) {
             }
 
             return (
-              <div key={h.resultadoId} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+              <div
+                key={h.resultadoId}
+                className="flex items-center gap-3 p-3 rounded-xl bg-gray-50"
+              >
                 <div className="text-xs text-gray-400 w-20 flex-shrink-0">
                   {format(parseISO(h.fecha + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
                 </div>
@@ -917,10 +1016,15 @@ function HistorialComparativo({ pruebas, resultados }) {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           Todos los registros
         </p>
-        {resultados.map(resultado => (
-          <div key={resultado.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+        {resultados.map((resultado) => (
+          <div
+            key={resultado.id}
+            className="flex items-center justify-between p-3 rounded-xl border border-gray-100"
+          >
             <span className="text-xs text-gray-600">
-              {format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", { locale: es })}
+              {format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", {
+                locale: es,
+              })}
             </span>
             <span className="text-xs text-gray-400">
               {(resultado._responses || []).length} pruebas completadas
@@ -947,16 +1051,14 @@ function ResultadosCientificos({ resultados, plan }) {
 
   return (
     <div className="p-4 space-y-3">
-      {resultados.map(r => (
+      {resultados.map((r) => (
         <div key={r.id} className="border border-gray-200 rounded-xl p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-700">
               {format(parseISO(r.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", { locale: es })}
             </span>
           </div>
-          {r.notes && (
-            <p className="text-xs text-gray-500 italic">"{r.notes}"</p>
-          )}
+          {r.notes && <p className="text-xs text-gray-500 italic">"{r.notes}"</p>}
           <ResultadoResumen results={r.results} evalType={plan?.eval_type} />
         </div>
       ))}
@@ -988,9 +1090,7 @@ function ResultadoResumen({ results, evalType }) {
           {results.vo2max && (
             <span className="font-semibold text-blue-700">VO₂max: {results.vo2max} ml/kg/min</span>
           )}
-          {results.distance_m && (
-            <span className="ml-2 text-gray-600">{results.distance_m}m</span>
-          )}
+          {results.distance_m && <span className="ml-2 text-gray-600">{results.distance_m}m</span>}
         </div>
       )
     case 'body_comp':

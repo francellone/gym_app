@@ -72,7 +72,7 @@ export default [
       'react-hooks/gating': 'off',
 
       // Tolerancias para JS sin TS
-      'react/prop-types': 'off',          // sin TS, propTypes es ruido
+      'react/prop-types': 'off', // sin TS, propTypes es ruido
       'react/no-unescaped-entities': 'off', // tipear ' " < > en texto JSX no es bug
       'react/display-name': 'off',
 
@@ -80,12 +80,15 @@ export default [
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
       // Buen olfato pero no estricto
-      'no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        ignoreRestSiblings: true,
-      }],
-      'no-console': 'off',  // hay 2 console.log en src/, no es crítico
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
+      'no-console': 'off', // hay 2 console.log en src/, no es crítico
       'no-empty': ['warn', { allowEmptyCatch: true }],
     },
   },

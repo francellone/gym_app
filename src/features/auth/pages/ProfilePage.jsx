@@ -69,9 +69,12 @@ export default function ProfilePage() {
   async function saveWeight() {
     setSaving(true)
     try {
-      await supabase.from('profiles').update({
-        weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
-      }).eq('id', profile.id)
+      await supabase
+        .from('profiles')
+        .update({
+          weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
+        })
+        .eq('id', profile.id)
       await refreshProfile()
       setEditing(false)
     } catch (err) {
@@ -97,7 +100,10 @@ export default function ProfilePage() {
       if (error) throw error
       setPwSuccess(true)
       setPasswordForm({ current: '', new: '', confirm: '' })
-      setTimeout(() => { setPwSuccess(false); setChangingPassword(false) }, 2000)
+      setTimeout(() => {
+        setPwSuccess(false)
+        setChangingPassword(false)
+      }, 2000)
     } catch (err) {
       setPwError(err.message)
     } finally {
@@ -105,7 +111,12 @@ export default function ProfilePage() {
     }
   }
 
-  const initials = profile?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  const initials = profile?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
   return (
     <div className="max-w-lg mx-auto">
@@ -118,7 +129,11 @@ export default function ProfilePage() {
         <p className="text-primary-200 text-sm mt-0.5">{profile?.email}</p>
         {profile?.level && (
           <span className="inline-block mt-2 badge bg-white/20 text-white capitalize">
-            {profile.level === 'beginner' ? 'Principiante' : profile.level === 'intermediate' ? 'Intermedio' : 'Avanzado'}
+            {profile.level === 'beginner'
+              ? 'Principiante'
+              : profile.level === 'intermediate'
+                ? 'Intermedio'
+                : 'Avanzado'}
           </span>
         )}
       </div>
@@ -129,8 +144,11 @@ export default function ProfilePage() {
           {[
             { label: 'Altura', value: profile?.height_cm ? `${profile.height_cm}cm` : '—' },
             { label: 'Peso', value: profile?.weight_kg ? `${profile.weight_kg}kg` : '—' },
-            { label: 'Objetivo', value: profile?.target_weight_kg ? `${profile.target_weight_kg}kg` : '—' },
-          ].map(item => (
+            {
+              label: 'Objetivo',
+              value: profile?.target_weight_kg ? `${profile.target_weight_kg}kg` : '—',
+            },
+          ].map((item) => (
             <div key={item.label} className="card text-center">
               <p className="text-lg font-bold text-gray-900">{item.value}</p>
               <p className="text-xs text-gray-500">{item.label}</p>
@@ -143,7 +161,10 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-900">Actualizar peso</h3>
             {!editing && (
-              <button onClick={() => setEditing(true)} className="text-primary-600 text-sm font-medium">
+              <button
+                onClick={() => setEditing(true)}
+                className="text-primary-600 text-sm font-medium"
+              >
                 Editar
               </button>
             )}
@@ -157,7 +178,7 @@ export default function ProfilePage() {
                   step="0.1"
                   className="input"
                   value={form.weight_kg}
-                  onChange={e => setForm(p => ({ ...p, weight_kg: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
                   placeholder="70.5"
                 />
               </div>
@@ -165,8 +186,19 @@ export default function ProfilePage() {
                 <button onClick={() => setEditing(false)} className="btn-secondary text-sm py-2.5">
                   Cancelar
                 </button>
-                <button onClick={saveWeight} disabled={saving} className="btn-primary text-sm py-2.5 flex items-center gap-1.5">
-                  {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Save size={14} />Guardar</>}
+                <button
+                  onClick={saveWeight}
+                  disabled={saving}
+                  className="btn-primary text-sm py-2.5 flex items-center gap-1.5"
+                >
+                  {saving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Save size={14} />
+                      Guardar
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -191,7 +223,9 @@ export default function ProfilePage() {
               {profile.weekly_frequency && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Frecuencia</span>
-                  <span className="text-gray-900 font-medium">{profile.weekly_frequency} días/semana</span>
+                  <span className="text-gray-900 font-medium">
+                    {profile.weekly_frequency} días/semana
+                  </span>
                 </div>
               )}
             </div>
@@ -237,18 +271,25 @@ export default function ProfilePage() {
             {formSubmission && (
               <div className="space-y-4">
                 <p className="text-xs text-gray-400">
-                  Enviado el {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", { locale: es })}
+                  Enviado el{' '}
+                  {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", {
+                    locale: es,
+                  })}
                 </p>
 
                 {(formSubmission.form_snapshot?.modules || [])
-                  .filter(m => m.enabled)
+                  .filter((m) => m.enabled)
                   .sort((a, b) => a.order - b.order)
-                  .map(module => {
-                    const answered = (module.questions || []).filter(q => {
+                  .map((module) => {
+                    const answered = (module.questions || []).filter((q) => {
                       if (q.id?.startsWith('consentimiento')) return false
                       const val = formSubmission.responses?.[q.id]
-                      return val !== undefined && val !== null && val !== '' &&
+                      return (
+                        val !== undefined &&
+                        val !== null &&
+                        val !== '' &&
                         !(Array.isArray(val) && val.length === 0)
+                      )
                     })
                     if (!answered.length) return null
                     return (
@@ -257,7 +298,7 @@ export default function ProfilePage() {
                           {module.emoji} {module.title}
                         </p>
                         <div className="space-y-2">
-                          {answered.map(q => (
+                          {answered.map((q) => (
                             <div key={q.id} className="flex gap-3 text-xs leading-relaxed">
                               <span className="text-gray-500 w-2/5 flex-shrink-0">{q.label}</span>
                               <span className="text-gray-900 font-medium flex-1 text-right">
@@ -268,8 +309,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     )
-                  })
-                }
+                  })}
               </div>
             )}
           </div>
@@ -285,7 +325,10 @@ export default function ProfilePage() {
               <Lock size={16} className="text-gray-500" />
               <span className="text-sm font-medium text-gray-900">Cambiar contraseña</span>
             </div>
-            <ChevronRight size={16} className={`text-gray-400 transition-transform ${changingPassword ? 'rotate-90' : ''}`} />
+            <ChevronRight
+              size={16}
+              className={`text-gray-400 transition-transform ${changingPassword ? 'rotate-90' : ''}`}
+            />
           </button>
 
           {changingPassword && (
@@ -296,7 +339,7 @@ export default function ProfilePage() {
                   type="password"
                   className="input"
                   value={passwordForm.new}
-                  onChange={e => setPasswordForm(p => ({ ...p, new: e.target.value }))}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, new: e.target.value }))}
                   placeholder="Mínimo 6 caracteres"
                 />
               </div>
@@ -306,14 +349,22 @@ export default function ProfilePage() {
                   type="password"
                   className="input"
                   value={passwordForm.confirm}
-                  onChange={e => setPasswordForm(p => ({ ...p, confirm: e.target.value }))}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))}
                   placeholder="Repetir contraseña"
                 />
               </div>
               {pwError && <p className="text-xs text-red-600">{pwError}</p>}
               {pwSuccess && <p className="text-xs text-green-600">✓ Contraseña actualizada</p>}
-              <button onClick={changePassword} disabled={saving} className="btn-primary w-full text-sm flex items-center justify-center gap-1.5">
-                {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Actualizar contraseña'}
+              <button
+                onClick={changePassword}
+                disabled={saving}
+                className="btn-primary w-full text-sm flex items-center justify-center gap-1.5"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Actualizar contraseña'
+                )}
               </button>
             </div>
           )}

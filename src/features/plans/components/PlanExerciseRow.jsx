@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { Trash2, Tag } from 'lucide-react'
 import {
-  BLOCK_LETTERS, BLOCK_NUMBERS, PSE_OPTIONS,
-  WEIGHT_MODES, WEIGHT_MODE_BY_KEY,
-  getEffectiveWeightMode, getEffectiveUnilateral,
+  BLOCK_LETTERS,
+  BLOCK_NUMBERS,
+  PSE_OPTIONS,
+  WEIGHT_MODES,
+  WEIGHT_MODE_BY_KEY,
+  getEffectiveWeightMode,
+  getEffectiveUnilateral,
 } from '../helpers'
 
 // Devuelve true si el array tiene más de un valor único no vacío
 // → indica que el ejercicio fue cargado en modo "diferencial por serie".
 function hasVariation(arr) {
   if (!arr || arr.length <= 1) return false
-  const unique = new Set(arr.filter(v => v !== '' && v !== null && v !== undefined))
+  const unique = new Set(arr.filter((v) => v !== '' && v !== null && v !== undefined))
   return unique.size > 1
 }
 
@@ -26,7 +30,11 @@ function hasVariation(arr) {
  *  - onRemove(index)
  */
 export default function PlanExerciseRow({
-  ex, index, onUpdate, onUpdateMulti, onRemove,
+  ex,
+  index,
+  onUpdate,
+  onUpdateMulti,
+  onRemove,
   exercises = [],
   exerciseTags = [],
   tagAssignments = [],
@@ -35,9 +43,7 @@ export default function PlanExerciseRow({
   const setsCount = parseInt(ex.suggested_sets) || 0
 
   // Ejercicio del catálogo seleccionado (para conocer sus defaults)
-  const selectedExercise = ex.exercise_id
-    ? exercises.find(e => e.id === ex.exercise_id)
-    : null
+  const selectedExercise = ex.exercise_id ? exercises.find((e) => e.id === ex.exercise_id) : null
   const effectiveWeightMode = getEffectiveWeightMode({
     planExercise: ex,
     exercise: selectedExercise,
@@ -52,14 +58,14 @@ export default function PlanExerciseRow({
   // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
   // Por defecto OFF (simple: 1 valor para todas las series).
   // Si al cargar el ejercicio hay variación entre series, lo activamos.
-  const [differential, setDifferential] = useState(() =>
-    hasVariation(ex.suggested_reps_array) || hasVariation(ex.suggested_weights_array)
+  const [differential, setDifferential] = useState(
+    () => hasVariation(ex.suggested_reps_array) || hasVariation(ex.suggested_weights_array)
   )
 
   // Filtrar ejercicios según tag seleccionado
   const filteredExercises = tagFilter
-    ? exercises.filter(e =>
-        tagAssignments.some(ta => ta.exercise_id === e.id && ta.tag_id === tagFilter)
+    ? exercises.filter((e) =>
+        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
       )
     : exercises
 
@@ -186,8 +192,8 @@ export default function PlanExerciseRow({
   // Tag del ejercicio seleccionado (para mostrarlo)
   const selectedExTags = ex.exercise_id
     ? tagAssignments
-        .filter(ta => ta.exercise_id === ex.exercise_id)
-        .map(ta => exerciseTags.find(t => t.id === ta.tag_id))
+        .filter((ta) => ta.exercise_id === ex.exercise_id)
+        .map((ta) => exerciseTags.find((t) => t.id === ta.tag_id))
         .filter(Boolean)
     : []
 
@@ -195,7 +201,6 @@ export default function PlanExerciseRow({
     <div className="bg-gray-50 rounded-xl p-3 space-y-3">
       <div className="flex items-start gap-2">
         <div className="flex-1 space-y-3">
-
           {/* Filtro de etiqueta + selector de ejercicio + bloque */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="sm:col-span-2 space-y-2">
@@ -206,17 +211,17 @@ export default function PlanExerciseRow({
                   <select
                     className="input text-xs py-1.5"
                     value={tagFilter}
-                    onChange={e => setTagFilter(e.target.value)}
+                    onChange={(e) => setTagFilter(e.target.value)}
                   >
                     <option value="">Todos los ejercicios</option>
-                    {exerciseTags.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                    {exerciseTags.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
                     ))}
                   </select>
                   {tagFilter && (
-                    <span className="text-xs text-gray-400">
-                      {filteredExercises.length} ej.
-                    </span>
+                    <span className="text-xs text-gray-400">{filteredExercises.length} ej.</span>
                   )}
                 </div>
               )}
@@ -227,18 +232,20 @@ export default function PlanExerciseRow({
                 <select
                   className="input text-sm"
                   value={ex.exercise_id}
-                  onChange={e => onUpdate(index, 'exercise_id', e.target.value)}
+                  onChange={(e) => onUpdate(index, 'exercise_id', e.target.value)}
                 >
                   <option value="">Seleccionar...</option>
-                  {filteredExercises.map(e => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
+                  {filteredExercises.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
                   ))}
                 </select>
 
                 {/* Tags del ejercicio elegido */}
                 {selectedExTags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedExTags.map(t => (
+                    {selectedExTags.map((t) => (
                       <span
                         key={t.id}
                         className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -259,10 +266,14 @@ export default function PlanExerciseRow({
                 <select
                   className="input text-sm"
                   value={ex.block_letter}
-                  onChange={e => onUpdate(index, 'block_letter', e.target.value)}
+                  onChange={(e) => onUpdate(index, 'block_letter', e.target.value)}
                 >
                   <option value="">—</option>
-                  {BLOCK_LETTERS.map(l => <option key={l} value={l}>{l}</option>)}
+                  {BLOCK_LETTERS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -270,11 +281,15 @@ export default function PlanExerciseRow({
                 <select
                   className="input text-sm"
                   value={ex.block_number}
-                  onChange={e => onUpdate(index, 'block_number', e.target.value)}
+                  onChange={(e) => onUpdate(index, 'block_number', e.target.value)}
                   disabled={!ex.block_letter}
                 >
                   <option value="">—</option>
-                  {BLOCK_NUMBERS.map(n => <option key={n} value={n}>{n}</option>)}
+                  {BLOCK_NUMBERS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -287,7 +302,7 @@ export default function PlanExerciseRow({
               <select
                 className="input text-sm"
                 value={ex.weight_mode ?? ''}
-                onChange={e => onUpdate(index, 'weight_mode', e.target.value || null)}
+                onChange={(e) => onUpdate(index, 'weight_mode', e.target.value || null)}
               >
                 <option value="">
                   Heredar
@@ -295,8 +310,10 @@ export default function PlanExerciseRow({
                     ? ` (${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode || 'with_weight']?.short || 'Con peso'})`
                     : ''}
                 </option>
-                {WEIGHT_MODES.map(m => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
+                {WEIGHT_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -306,11 +323,9 @@ export default function PlanExerciseRow({
                   type="checkbox"
                   className="h-4 w-4 accent-primary-600"
                   checked={
-                    ex.unilateral != null
-                      ? !!ex.unilateral
-                      : !!(selectedExercise?.default_unilateral)
+                    ex.unilateral != null ? !!ex.unilateral : !!selectedExercise?.default_unilateral
                   }
-                  onChange={e => onUpdate(index, 'unilateral', e.target.checked)}
+                  onChange={(e) => onUpdate(index, 'unilateral', e.target.checked)}
                 />
                 <span>
                   Unilateral
@@ -347,7 +362,7 @@ export default function PlanExerciseRow({
                 className="input text-sm"
                 placeholder="3"
                 value={ex.suggested_sets}
-                onChange={e => handleSetsChange(e.target.value)}
+                onChange={(e) => handleSetsChange(e.target.value)}
               />
             </div>
             <div>
@@ -356,7 +371,7 @@ export default function PlanExerciseRow({
                 className="input text-sm"
                 placeholder="1m 30s"
                 value={ex.rest_time}
-                onChange={e => onUpdate(index, 'rest_time', e.target.value)}
+                onChange={(e) => onUpdate(index, 'rest_time', e.target.value)}
               />
             </div>
             <div>
@@ -364,10 +379,14 @@ export default function PlanExerciseRow({
               <select
                 className="input text-sm"
                 value={ex.suggested_pse}
-                onChange={e => onUpdate(index, 'suggested_pse', e.target.value)}
+                onChange={(e) => onUpdate(index, 'suggested_pse', e.target.value)}
               >
                 <option value="">Sin especificar</option>
-                {PSE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                {PSE_OPTIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -378,8 +397,12 @@ export default function PlanExerciseRow({
               <div className="flex items-center justify-between mb-2 gap-2">
                 <label className="text-xs text-gray-500 font-medium">
                   {differential
-                    ? (showWeightInputs ? 'Repeticiones y peso por serie' : 'Repeticiones por serie')
-                    : (showWeightInputs ? 'Repeticiones y peso' : 'Repeticiones')}
+                    ? showWeightInputs
+                      ? 'Repeticiones y peso por serie'
+                      : 'Repeticiones por serie'
+                    : showWeightInputs
+                      ? 'Repeticiones y peso'
+                      : 'Repeticiones'}
                   {effectiveUnilateral && (
                     <span className="ml-1 text-[10px] text-violet-600 font-bold">· POR LADO</span>
                   )}
@@ -389,7 +412,7 @@ export default function PlanExerciseRow({
                     type="checkbox"
                     className="h-3.5 w-3.5 accent-blue-600"
                     checked={differential}
-                    onChange={e => handleToggleDifferential(e.target.checked)}
+                    onChange={(e) => handleToggleDifferential(e.target.checked)}
                   />
                   Diferencial por serie
                 </label>
@@ -406,7 +429,7 @@ export default function PlanExerciseRow({
                       className="input text-sm text-center"
                       placeholder="10"
                       value={(ex.suggested_reps_array || [])[0] || ''}
-                      onChange={e => handleSimpleRepChange(e.target.value)}
+                      onChange={(e) => handleSimpleRepChange(e.target.value)}
                     />
                   </div>
                   {showWeightInputs && (
@@ -421,7 +444,7 @@ export default function PlanExerciseRow({
                         className="input text-sm text-center"
                         placeholder="kg"
                         value={(ex.suggested_weights_array || [])[0] || ''}
-                        onChange={e => handleSimpleWeightChange(e.target.value)}
+                        onChange={(e) => handleSimpleWeightChange(e.target.value)}
                       />
                     </div>
                   )}
@@ -429,7 +452,9 @@ export default function PlanExerciseRow({
               ) : (
                 <>
                   {/* Encabezados de columna */}
-                  <div className={`grid gap-1.5 mb-1 px-0.5 ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
+                  <div
+                    className={`grid gap-1.5 mb-1 px-0.5 ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}
+                  >
                     <div />
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
                       {repsLabel}
@@ -442,13 +467,16 @@ export default function PlanExerciseRow({
                   </div>
                   {/* Fila por serie */}
                   {Array.from({ length: setsCount }, (_, i) => (
-                    <div key={i} className={`grid gap-1.5 mb-1.5 items-center ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}>
+                    <div
+                      key={i}
+                      className={`grid gap-1.5 mb-1.5 items-center ${showWeightInputs ? 'grid-cols-[2rem_1fr_1fr]' : 'grid-cols-[2rem_1fr]'}`}
+                    >
                       <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
                       <input
                         className="input text-sm text-center"
                         placeholder="10"
                         value={(ex.suggested_reps_array || [])[i] || ''}
-                        onChange={e => handleRepChange(i, e.target.value)}
+                        onChange={(e) => handleRepChange(i, e.target.value)}
                       />
                       {showWeightInputs && (
                         <input
@@ -458,7 +486,7 @@ export default function PlanExerciseRow({
                           className="input text-sm text-center"
                           placeholder="kg"
                           value={(ex.suggested_weights_array || [])[i] || ''}
-                          onChange={e => handleWeightChange(i, e.target.value)}
+                          onChange={(e) => handleWeightChange(i, e.target.value)}
                         />
                       )}
                     </div>
@@ -485,7 +513,7 @@ export default function PlanExerciseRow({
               rows={2}
               placeholder="Indicaciones técnicas del ejercicio..."
               value={ex.extra_notes}
-              onChange={e => onUpdate(index, 'extra_notes', e.target.value)}
+              onChange={(e) => onUpdate(index, 'extra_notes', e.target.value)}
             />
           </div>
         </div>

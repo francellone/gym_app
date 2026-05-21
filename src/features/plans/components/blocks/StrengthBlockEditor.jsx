@@ -22,14 +22,14 @@ export default function StrengthBlockEditor({
   }
 
   function updateExercise(index, field, value) {
-    const next = list.map((ex, i) => i === index ? { ...ex, [field]: value } : ex)
+    const next = list.map((ex, i) => (i === index ? { ...ex, [field]: value } : ex))
     onUpdateExercises(next)
   }
 
   // Versión multi-campo: aplica varios campos a la vez en un solo render,
   // evitando que llamadas sucesivas lean un `list` desactualizado del closure.
   function updateExerciseMulti(index, patches) {
-    const next = list.map((ex, i) => i === index ? { ...ex, ...patches } : ex)
+    const next = list.map((ex, i) => (i === index ? { ...ex, ...patches } : ex))
     onUpdateExercises(next)
   }
 

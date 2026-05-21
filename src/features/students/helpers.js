@@ -70,7 +70,7 @@ export function validateLesionesConsistency({ tiene_lesiones, descripcion_lesion
   const desc = (descripcion_lesiones || '').trim()
   if (desc) return null
   const pats = Array.isArray(patologias) ? patologias : []
-  const hasRealPat = pats.length > 0 && pats.some(p => p !== 'Ninguna')
+  const hasRealPat = pats.length > 0 && pats.some((p) => p !== 'Ninguna')
   if (hasRealPat) return null
   return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
 }

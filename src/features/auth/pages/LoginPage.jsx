@@ -45,7 +45,7 @@ export default function LoginPage() {
                 className="input"
                 placeholder="tu@email.com"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
@@ -59,7 +59,7 @@ export default function LoginPage() {
                   className="input pr-10"
                   placeholder="••••••••"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
                 />
@@ -87,7 +87,9 @@ export default function LoginPage() {
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : 'Ingresar'}
+              ) : (
+                'Ingresar'
+              )}
             </button>
           </form>
         </div>

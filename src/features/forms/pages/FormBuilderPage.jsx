@@ -15,13 +15,13 @@ import SendToStudentModal from '@/components/SendToStudentModal'
 
 export default function FormBuilderPage() {
   const { profile } = useAuth()
-  const [formConfig, setFormConfig]       = useState(null)
-  const [templateId, setTemplateId]       = useState(null)  // id del template default guardado
-  const [templates, setTemplates]         = useState([])
-  const [loading, setLoading]             = useState(true)
-  const [saveStatus, setSaveStatus]       = useState(null)  // 'saved' | 'error'
+  const [formConfig, setFormConfig] = useState(null)
+  const [templateId, setTemplateId] = useState(null) // id del template default guardado
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saveStatus, setSaveStatus] = useState(null) // 'saved' | 'error'
   const [showSendModal, setShowSendModal] = useState(false)
-  const [pendingConfig, setPendingConfig] = useState(null)  // config al momento de abrir el modal
+  const [pendingConfig, setPendingConfig] = useState(null) // config al momento de abrir el modal
 
   // ── Cargar config y plantillas del coach ─────────────────
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function FormBuilderPage() {
       .select()
       .single()
 
-    if (data) setTemplates(prev => [data, ...prev])
+    if (data) setTemplates((prev) => [data, ...prev])
   }
 
   if (loading) {

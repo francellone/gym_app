@@ -1,10 +1,6 @@
 import { useState } from 'react'
-import {
-  ChevronDown, ChevronUp, Trash2, ArrowUp, ArrowDown,
-} from 'lucide-react'
-import {
-  BLOCK_TYPES, blockDisplayTitle, blockTypeIcon,
-} from '../../helpers'
+import { ChevronDown, ChevronUp, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { BLOCK_TYPES, blockDisplayTitle, blockTypeIcon } from '../../helpers'
 
 import StrengthBlockEditor from './StrengthBlockEditor'
 import AerobicBlockEditor from './AerobicBlockEditor'
@@ -16,12 +12,12 @@ import CircuitBlockEditor from './CircuitBlockEditor'
  */
 export default function BlockCard({
   block,
-  blockIndexInSection,    // orden dentro de la sección (para default open del primero)
+  blockIndexInSection, // orden dentro de la sección (para default open del primero)
   strengthIndexInSection, // índice cuántico entre bloques de fuerza en la sección
-  onUpdate,               // (patch) => void
-  onUpdateExercises,      // (nextExercises) => void
-  onRemove,               // () => void
-  onMove,                 // (direction: -1 | 1) => void
+  onUpdate, // (patch) => void
+  onUpdateExercises, // (nextExercises) => void
+  onRemove, // () => void
+  onMove, // (direction: -1 | 1) => void
   canMoveUp,
   canMoveDown,
   exercises = [],
@@ -40,23 +36,22 @@ export default function BlockCard({
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border-b border-gray-100">
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           className="flex-1 flex items-center gap-2 text-left"
         >
           <span className="text-lg flex-shrink-0">{blockTypeIcon(block.block_type)}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {title}
-            </p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
             <p className="text-[11px] text-gray-400">
               {meta.label}
               {exCount > 0 && ` · ${exCount} ejercicio${exCount !== 1 ? 's' : ''}`}
             </p>
           </div>
-          {open
-            ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" />
-            : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
-          }
+          {open ? (
+            <ChevronUp size={16} className="text-gray-400 flex-shrink-0" />
+          ) : (
+            <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+          )}
         </button>
 
         {/* Reorder */}
@@ -97,7 +92,7 @@ export default function BlockCard({
               className="input text-sm"
               placeholder={`Ej: ${meta.label} principal`}
               value={block.title || ''}
-              onChange={e => onUpdate({ title: e.target.value })}
+              onChange={(e) => onUpdate({ title: e.target.value })}
             />
           </div>
 
@@ -142,7 +137,7 @@ export default function BlockCard({
               rows={2}
               placeholder="Observaciones para el alumno..."
               value={block.notes || ''}
-              onChange={e => onUpdate({ notes: e.target.value })}
+              onChange={(e) => onUpdate({ notes: e.target.value })}
             />
           </div>
         </div>

@@ -39,7 +39,9 @@ export default function DeletePlanModal({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
         {/* Header */}
@@ -62,8 +64,7 @@ export default function DeletePlanModal({
         {/* Body */}
         <div className="p-5 space-y-4">
           <p className="text-sm text-gray-700">
-            ¿Seguro que querés eliminar{' '}
-            <span className="font-semibold">"{plan.title}"</span>?
+            ¿Seguro que querés eliminar <span className="font-semibold">"{plan.title}"</span>?
           </p>
 
           {/* Advertencia: alumnos activos */}
@@ -71,9 +72,11 @@ export default function DeletePlanModal({
             <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 leading-relaxed">
-                <strong>{activeStudents} alumno{activeStudents > 1 ? 's' : ''}</strong>{' '}
-                tiene{activeStudents > 1 ? 'n' : ''} este plan asignado. Al eliminar
-                serán desasignados, pero sus registros de entrenamiento se conservarán.
+                <strong>
+                  {activeStudents} alumno{activeStudents > 1 ? 's' : ''}
+                </strong>{' '}
+                tiene{activeStudents > 1 ? 'n' : ''} este plan asignado. Al eliminar serán
+                desasignados, pero sus registros de entrenamiento se conservarán.
               </p>
             </div>
           )}
@@ -83,9 +86,12 @@ export default function DeletePlanModal({
             <div className="flex gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-3">
               <AlertTriangle size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-800 leading-relaxed">
-                Hay <strong>{resultCount} resultado{resultCount > 1 ? 's' : ''}</strong>{' '}
-                de alumnos vinculados a este protocolo. Los datos de los alumnos
-                se conservarán aunque se elimine el protocolo.
+                Hay{' '}
+                <strong>
+                  {resultCount} resultado{resultCount > 1 ? 's' : ''}
+                </strong>{' '}
+                de alumnos vinculados a este protocolo. Los datos de los alumnos se conservarán
+                aunque se elimine el protocolo.
               </p>
             </div>
           )}
@@ -96,17 +102,11 @@ export default function DeletePlanModal({
           )}
 
           {/* Error */}
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>}
 
           {/* Botones */}
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={loading}
-              className="btn-secondary flex-1 text-sm"
-            >
+            <button onClick={onClose} disabled={loading} className="btn-secondary flex-1 text-sm">
               Cancelar
             </button>
             <button

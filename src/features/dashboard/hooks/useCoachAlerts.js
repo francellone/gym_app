@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  computeAllAlerts,
-  ALERT_THRESHOLDS,
-} from '../alerts'
+import { computeAllAlerts, ALERT_THRESHOLDS } from '../alerts'
 
 // ============================================================
 // useCoachAlerts
@@ -55,13 +52,15 @@ export default function useCoachAlerts() {
         const [studentsRes, logsRes] = await Promise.all([
           supabase
             .from('profiles')
-            .select(`
+            .select(
+              `
               id, name, next_payment_due,
               plan_assignments:plan_assignments!student_id(
                 id, active, status, plan_type, end_date,
                 plan:plans!plan_id(plan_type, title)
               )
-            `)
+            `
+            )
             .eq('role', 'student')
             .eq('active', true),
           supabase
@@ -87,7 +86,9 @@ export default function useCoachAlerts() {
     }
 
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [refreshTick])
 
   // Pre-computamos last log date por alumno (solo se rehace si cambian
@@ -104,17 +105,18 @@ export default function useCoachAlerts() {
   }, [logs])
 
   const alerts = useMemo(
-    () => computeAllAlerts({
-      students,
-      lastLogDateByStudent,
-      recentLogs: logs,
-      today: new Date(),
-    }),
+    () =>
+      computeAllAlerts({
+        students,
+        lastLogDateByStudent,
+        recentLogs: logs,
+        today: new Date(),
+      }),
     [students, lastLogDateByStudent, logs]
   )
 
   function refresh() {
-    setRefreshTick(t => t + 1)
+    setRefreshTick((t) => t + 1)
   }
 
   return { loading, error, alerts, refresh }

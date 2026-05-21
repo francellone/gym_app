@@ -1,11 +1,22 @@
 import { useState } from 'react'
 import {
-  CheckCircle2, Circle, ChevronDown, ChevronUp, Info, Clock, Flame, Trash2,
+  CheckCircle2,
+  Circle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Clock,
+  Flame,
+  Trash2,
 } from 'lucide-react'
 import {
-  CIRCUIT_TYPES, INTENSITY_LEVELS, blockDisplayTitle,
-  getEffectiveWeightMode, getEffectiveUnilateral,
-  readLogReps, readLogWeights,
+  CIRCUIT_TYPES,
+  INTENSITY_LEVELS,
+  blockDisplayTitle,
+  getEffectiveWeightMode,
+  getEffectiveUnilateral,
+  readLogReps,
+  readLogWeights,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
 
@@ -14,7 +25,12 @@ import RPEScale from './RPEScale'
  * Registra: duración real + rondas + detalle por ejercicio + RPE del bloque.
  */
 export default function CircuitBlockRunCard({
-  block, blockLog, exerciseLogs = {}, onSaveBlockLog, onSaveExerciseLog, onDeleteBlockLog,
+  block,
+  blockLog,
+  exerciseLogs = {},
+  onSaveBlockLog,
+  onSaveExerciseLog,
+  onDeleteBlockLog,
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -22,23 +38,33 @@ export default function CircuitBlockRunCard({
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const completed = !!blockLog?.completed
-  const circuitType = CIRCUIT_TYPES.find(t => t.key === block.circuit_type)
-  const intensity = INTENSITY_LEVELS.find(i => i.key === block.circuit_intensity)
+  const circuitType = CIRCUIT_TYPES.find((t) => t.key === block.circuit_type)
+  const intensity = INTENSITY_LEVELS.find((i) => i.key === block.circuit_intensity)
 
-  const suggestedMinutes = block.circuit_total_minutes || (
-    block.circuit_type === 'hiit' && block.circuit_rounds && block.circuit_work_seconds
-      ? Math.ceil(((block.circuit_work_seconds + (block.circuit_rest_seconds || 0)) * block.circuit_rounds) / 60)
-      : ''
-  )
+  const suggestedMinutes =
+    block.circuit_total_minutes ||
+    (block.circuit_type === 'hiit' && block.circuit_rounds && block.circuit_work_seconds
+      ? Math.ceil(
+          ((block.circuit_work_seconds + (block.circuit_rest_seconds || 0)) *
+            block.circuit_rounds) /
+            60
+        )
+      : '')
 
   // Estado del form del bloque
   const [form, setForm] = useState({
-    actual_minutes: blockLog?.actual_minutes != null
-      ? String(blockLog.actual_minutes)
-      : (suggestedMinutes ? String(suggestedMinutes) : ''),
-    actual_rounds: blockLog?.actual_rounds != null
-      ? String(blockLog.actual_rounds)
-      : (block.circuit_rounds ? String(block.circuit_rounds) : ''),
+    actual_minutes:
+      blockLog?.actual_minutes != null
+        ? String(blockLog.actual_minutes)
+        : suggestedMinutes
+          ? String(suggestedMinutes)
+          : '',
+    actual_rounds:
+      blockLog?.actual_rounds != null
+        ? String(blockLog.actual_rounds)
+        : block.circuit_rounds
+          ? String(block.circuit_rounds)
+          : '',
     perceived_difficulty: blockLog?.perceived_difficulty ?? null,
     notes: blockLog?.notes || '',
   })
@@ -48,7 +74,7 @@ export default function CircuitBlockRunCard({
   // pero al guardar lo convertimos a jsonb array [n] para la RPC.
   const [exForm, setExForm] = useState(() => {
     const init = {}
-    for (const ex of (block.plan_exercises || [])) {
+    for (const ex of block.plan_exercises || []) {
       const log = exerciseLogs[ex.id]
       // Leer del jsonb si está, sino del legacy
       const repsArr = log ? readLogReps(log) : []
@@ -56,7 +82,7 @@ export default function CircuitBlockRunCard({
       init[ex.id] = {
         actual_reps: repsArr.length > 0 ? String(repsArr[0]) : '',
         actual_weight: wArr.length > 0 && wArr[0] != null ? String(wArr[0]) : '',
-        actual_time: log?.notes_runtime ?? '',  // placeholder
+        actual_time: log?.notes_runtime ?? '', // placeholder
       }
     }
     return init
@@ -77,23 +103,26 @@ export default function CircuitBlockRunCard({
       // Guardar logs de ejercicios del circuito (si hay detalle cargado).
       // Construimos el payload con el formato de la RPC save_workout_log:
       // p_reps / p_weights como jsonb array, p_weight_mode resuelto efectivo.
-      for (const ex of (block.plan_exercises || [])) {
+      for (const ex of block.plan_exercises || []) {
         const data = exForm[ex.id]
         if (!data) continue
         const isTime = ex.exercise_mode === 'time'
-        const hasData = isTime ? !!data.actual_time : (!!data.actual_reps || !!data.actual_weight)
+        const hasData = isTime ? !!data.actual_time : !!data.actual_reps || !!data.actual_weight
         if (!hasData) continue
 
         const weightMode = getEffectiveWeightMode({
-          planExercise: ex, exercise: ex.exercise,
+          planExercise: ex,
+          exercise: ex.exercise,
         })
         const unilateral = getEffectiveUnilateral({
-          planExercise: ex, exercise: ex.exercise,
+          planExercise: ex,
+          exercise: ex.exercise,
         })
-        const repsNum = data.actual_reps !== '' && data.actual_reps != null
-          ? parseFloat(data.actual_reps) : null
+        const repsNum =
+          data.actual_reps !== '' && data.actual_reps != null ? parseFloat(data.actual_reps) : null
         const weightNum = !isNaN(parseFloat(data.actual_weight))
-          ? parseFloat(data.actual_weight) : null
+          ? parseFloat(data.actual_weight)
+          : null
 
         // Round 2b (handoff m26→m27): la columna workout_logs.notes se dropeó.
         // No mandar `p_notes` a la RPC: el body del alumno (acá "Tiempo: 45s"
@@ -101,9 +130,7 @@ export default function CircuitBlockRunCard({
         // _noteBody y saveLog del padre lo redirige a postWorkoutLogNote.
         await onSaveExerciseLog(ex.id, {
           p_reps: repsNum != null ? [repsNum] : [],
-          p_weights: weightMode === 'bodyweight'
-            ? null
-            : (weightNum != null ? [weightNum] : [null]),
+          p_weights: weightMode === 'bodyweight' ? null : weightNum != null ? [weightNum] : [null],
           p_weight_mode: weightMode,
           p_unilateral: unilateral,
           p_reps_unit: null,
@@ -138,7 +165,10 @@ export default function CircuitBlockRunCard({
             <p className="font-semibold text-gray-900">¿Desmarcar circuito?</p>
             <p className="text-sm text-gray-600">Se borrará tu registro del bloque completo.</p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1 text-sm">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="btn-secondary flex-1 text-sm"
+              >
                 Cancelar
               </button>
               <button
@@ -152,27 +182,36 @@ export default function CircuitBlockRunCard({
         </div>
       )}
 
-      <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
-        completed ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'
-      }`}>
+      <div
+        className={`rounded-2xl border-2 transition-all overflow-hidden ${
+          completed ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'
+        }`}
+      >
         {/* Header */}
         <div
           className="flex items-center gap-3 p-4 cursor-pointer"
           onClick={() => setExpanded(!expanded)}
         >
           <button
-            onClick={e => { e.stopPropagation(); if (!completed) setEditing(true) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!completed) setEditing(true)
+            }}
             className="flex-shrink-0"
           >
-            {completed
-              ? <CheckCircle2 size={24} className="text-orange-500" />
-              : <Circle size={24} className="text-gray-300" />}
+            {completed ? (
+              <CheckCircle2 size={24} className="text-orange-500" />
+            ) : (
+              <Circle size={24} className="text-gray-300" />
+            )}
           </button>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-base">🔥</span>
-              <p className={`font-semibold text-sm truncate ${completed ? 'text-orange-800' : 'text-gray-900'}`}>
+              <p
+                className={`font-semibold text-sm truncate ${completed ? 'text-orange-800' : 'text-gray-900'}`}
+              >
                 {title}
               </p>
               {circuitType && (
@@ -183,26 +222,34 @@ export default function CircuitBlockRunCard({
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {[
-                (block.plan_exercises?.length || 0) > 0 && `${block.plan_exercises.length} ejercicios`,
+                (block.plan_exercises?.length || 0) > 0 &&
+                  `${block.plan_exercises.length} ejercicios`,
                 block.circuit_rounds && `${block.circuit_rounds} rondas`,
                 block.circuit_total_minutes && `${block.circuit_total_minutes} min`,
                 intensity?.label,
-              ].filter(Boolean).join(' · ')}
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
             {blockLog && !expanded && (
               <p className="text-xs text-orange-600 mt-0.5 font-medium">
-                ✓ {[
+                ✓{' '}
+                {[
                   blockLog.actual_minutes && `${blockLog.actual_minutes} min`,
                   blockLog.actual_rounds != null && `${blockLog.actual_rounds} rondas`,
                   blockLog.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
-                ].filter(Boolean).join(' · ')}
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
             )}
           </div>
 
-          {expanded
-            ? <ChevronUp size={18} className="text-gray-400" />
-            : <ChevronDown size={18} className="text-gray-400" />}
+          {expanded ? (
+            <ChevronUp size={18} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={18} className="text-gray-400" />
+          )}
         </div>
 
         {/* Expanded */}
@@ -216,15 +263,17 @@ export default function CircuitBlockRunCard({
               </div>
               {block.circuit_type === 'hiit' && (
                 <div className="text-xs text-orange-700">
-                  {block.circuit_rounds || '—'}× ({block.circuit_work_seconds || '—'}s trabajo / {block.circuit_rest_seconds || '—'}s descanso)
+                  {block.circuit_rounds || '—'}× ({block.circuit_work_seconds || '—'}s trabajo /{' '}
+                  {block.circuit_rest_seconds || '—'}s descanso)
                 </div>
               )}
-              {(block.circuit_type === 'amrap' || block.circuit_type === 'emom') && block.circuit_total_minutes && (
-                <div className="flex items-center gap-1 text-xs text-orange-700">
-                  <Clock size={12} />
-                  {block.circuit_total_minutes} minutos
-                </div>
-              )}
+              {(block.circuit_type === 'amrap' || block.circuit_type === 'emom') &&
+                block.circuit_total_minutes && (
+                  <div className="flex items-center gap-1 text-xs text-orange-700">
+                    <Clock size={12} />
+                    {block.circuit_total_minutes} minutos
+                  </div>
+                )}
             </div>
 
             {/* Notas técnicas del coach */}
@@ -241,86 +290,110 @@ export default function CircuitBlockRunCard({
                 <p className="text-xs font-semibold text-gray-700">Ejercicios</p>
                 {(block.plan_exercises || []).map((ex, i) => {
                   const exWeightMode = getEffectiveWeightMode({
-                    planExercise: ex, exercise: ex.exercise,
+                    planExercise: ex,
+                    exercise: ex.exercise,
                   })
                   const exUnilateral = getEffectiveUnilateral({
-                    planExercise: ex, exercise: ex.exercise,
+                    planExercise: ex,
+                    exercise: ex.exercise,
                   })
                   const showWeight = exWeightMode !== 'bodyweight'
                   const repsLabel = exUnilateral ? 'Reps × lado' : 'Reps reales'
                   return (
-                  <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {i + 1}. {ex.exercise?.name || '—'}
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          {ex.exercise_mode === 'time'
-                            ? `${ex.duration_seconds || '—'} seg`
-                            : `${(ex.suggested_reps || '—')} ${exUnilateral ? 'reps × lado' : 'reps'}`}
-                          {exWeightMode === 'bodyweight' && ' · sin peso'}
-                          {exWeightMode === 'barbell_only' && ' · solo barra'}
-                        </p>
+                    <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {i + 1}. {ex.exercise?.name || '—'}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {ex.exercise_mode === 'time'
+                              ? `${ex.duration_seconds || '—'} seg`
+                              : `${ex.suggested_reps || '—'} ${exUnilateral ? 'reps × lado' : 'reps'}`}
+                            {exWeightMode === 'bodyweight' && ' · sin peso'}
+                            {exWeightMode === 'barbell_only' && ' · solo barra'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Detalle editable */}
-                    {(!completed || editing) && (
-                      <div className={`grid gap-2 mt-2 ${showWeight && ex.exercise_mode !== 'time' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                        {ex.exercise_mode === 'time' ? (
-                          <div>
-                            <label className="text-[10px] text-gray-500 mb-0.5 block">Tiempo real (s)</label>
-                            <input
-                              type="number" min="0" className="input text-sm"
-                              placeholder={String(ex.duration_seconds || '')}
-                              value={exForm[ex.id]?.actual_time || ''}
-                              onChange={e => setExForm(p => ({
-                                ...p,
-                                [ex.id]: { ...(p[ex.id] || {}), actual_time: e.target.value },
-                              }))}
-                            />
-                          </div>
-                        ) : (
-                          <>
+                      {/* Detalle editable */}
+                      {(!completed || editing) && (
+                        <div
+                          className={`grid gap-2 mt-2 ${showWeight && ex.exercise_mode !== 'time' ? 'grid-cols-2' : 'grid-cols-1'}`}
+                        >
+                          {ex.exercise_mode === 'time' ? (
                             <div>
-                              <label className="text-[10px] text-gray-500 mb-0.5 block">{repsLabel}</label>
+                              <label className="text-[10px] text-gray-500 mb-0.5 block">
+                                Tiempo real (s)
+                              </label>
                               <input
+                                type="number"
+                                min="0"
                                 className="input text-sm"
-                                placeholder={ex.suggested_reps || ''}
-                                value={exForm[ex.id]?.actual_reps || ''}
-                                onChange={e => setExForm(p => ({
-                                  ...p,
-                                  [ex.id]: { ...(p[ex.id] || {}), actual_reps: e.target.value },
-                                }))}
+                                placeholder={String(ex.duration_seconds || '')}
+                                value={exForm[ex.id]?.actual_time || ''}
+                                onChange={(e) =>
+                                  setExForm((p) => ({
+                                    ...p,
+                                    [ex.id]: { ...(p[ex.id] || {}), actual_time: e.target.value },
+                                  }))
+                                }
                               />
                             </div>
-                            {showWeight && (
+                          ) : (
+                            <>
                               <div>
-                                <label className="text-[10px] text-gray-500 mb-0.5 block">Peso (kg)</label>
+                                <label className="text-[10px] text-gray-500 mb-0.5 block">
+                                  {repsLabel}
+                                </label>
                                 <input
-                                  type="number" step="0.5" min="0" className="input text-sm"
-                                  placeholder={ex.suggested_weight || ''}
-                                  value={exForm[ex.id]?.actual_weight || ''}
-                                  onChange={e => setExForm(p => ({
-                                    ...p,
-                                    [ex.id]: { ...(p[ex.id] || {}), actual_weight: e.target.value },
-                                  }))}
+                                  className="input text-sm"
+                                  placeholder={ex.suggested_reps || ''}
+                                  value={exForm[ex.id]?.actual_reps || ''}
+                                  onChange={(e) =>
+                                    setExForm((p) => ({
+                                      ...p,
+                                      [ex.id]: { ...(p[ex.id] || {}), actual_reps: e.target.value },
+                                    }))
+                                  }
                                 />
                               </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                              {showWeight && (
+                                <div>
+                                  <label className="text-[10px] text-gray-500 mb-0.5 block">
+                                    Peso (kg)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    className="input text-sm"
+                                    placeholder={ex.suggested_weight || ''}
+                                    value={exForm[ex.id]?.actual_weight || ''}
+                                    onChange={(e) =>
+                                      setExForm((p) => ({
+                                        ...p,
+                                        [ex.id]: {
+                                          ...(p[ex.id] || {}),
+                                          actual_weight: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
             )}
 
             {/* Form del bloque */}
-            {(!completed || editing) ? (
+            {!completed || editing ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">Cierre del bloque</p>
 
@@ -328,19 +401,24 @@ export default function CircuitBlockRunCard({
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">Duración real (min)</label>
                     <input
-                      type="number" min="0" step="0.5" className="input text-sm"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className="input text-sm"
                       placeholder={String(suggestedMinutes || '')}
                       value={form.actual_minutes}
-                      onChange={e => setForm(p => ({ ...p, actual_minutes: e.target.value }))}
+                      onChange={(e) => setForm((p) => ({ ...p, actual_minutes: e.target.value }))}
                     />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">Rondas completadas</label>
                     <input
-                      type="number" min="0" className="input text-sm"
+                      type="number"
+                      min="0"
+                      className="input text-sm"
                       placeholder={String(block.circuit_rounds || '')}
                       value={form.actual_rounds}
-                      onChange={e => setForm(p => ({ ...p, actual_rounds: e.target.value }))}
+                      onChange={(e) => setForm((p) => ({ ...p, actual_rounds: e.target.value }))}
                     />
                   </div>
                 </div>
@@ -349,7 +427,7 @@ export default function CircuitBlockRunCard({
                   variant="circuit"
                   label="PSE del bloque"
                   value={form.perceived_difficulty}
-                  onChange={n => setForm(p => ({ ...p, perceived_difficulty: n }))}
+                  onChange={(n) => setForm((p) => ({ ...p, perceived_difficulty: n }))}
                 />
 
                 <div>
@@ -359,7 +437,7 @@ export default function CircuitBlockRunCard({
                     rows={2}
                     placeholder="¿Cómo fue el circuito?"
                     value={form.notes}
-                    onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   />
                 </div>
 
@@ -368,10 +446,13 @@ export default function CircuitBlockRunCard({
                   disabled={saving}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                 >
-                  {saving
-                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <><CheckCircle2 size={16} /> Marcar bloque completado</>
-                  }
+                  {saving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} /> Marcar bloque completado
+                    </>
+                  )}
                 </button>
               </div>
             ) : (
@@ -382,11 +463,18 @@ export default function CircuitBlockRunCard({
                     blockLog?.actual_minutes && `${blockLog.actual_minutes} min`,
                     blockLog?.actual_rounds != null && `${blockLog.actual_rounds} rondas`,
                     blockLog?.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
-                  ].filter(Boolean).join(' · ')}
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
-                {blockLog?.notes && <p className="text-xs text-orange-700 italic">"{blockLog.notes}"</p>}
+                {blockLog?.notes && (
+                  <p className="text-xs text-orange-700 italic">"{blockLog.notes}"</p>
+                )}
                 <div className="flex items-center gap-3 pt-0.5">
-                  <button onClick={() => setEditing(true)} className="text-xs text-orange-700 underline">
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="text-xs text-orange-700 underline"
+                  >
                     Editar
                   </button>
                   <span className="text-orange-300 text-xs">·</span>

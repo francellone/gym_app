@@ -45,8 +45,8 @@ export default function FormsListPage() {
       .order('sent_at', { ascending: false })
 
     const all = data || []
-    setPending(all.filter(a => a.status === 'pending' || a.status === 'in_progress'))
-    setCompleted(all.filter(a => a.status === 'completed').slice(0, 10))
+    setPending(all.filter((a) => a.status === 'pending' || a.status === 'in_progress'))
+    setCompleted(all.filter((a) => a.status === 'completed').slice(0, 10))
     setLoading(false)
   }
 
@@ -60,14 +60,22 @@ export default function FormsListPage() {
 
   function badgeFor(assignment) {
     if (assignment.form_kind === 'intake') {
-      return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Alta</span>
+      return (
+        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Alta</span>
+      )
     }
-    return <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">Seguimiento</span>
+    return (
+      <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+        Seguimiento
+      </span>
+    )
   }
 
   function templateNameOf(assignment) {
-    return assignment.intake_form_templates?.name
-      || (assignment.form_kind === 'intake' ? 'Formulario de ingreso' : 'Formulario de seguimiento')
+    return (
+      assignment.intake_form_templates?.name ||
+      (assignment.form_kind === 'intake' ? 'Formulario de ingreso' : 'Formulario de seguimiento')
+    )
   }
 
   if (loading) {
@@ -92,7 +100,7 @@ export default function FormsListPage() {
       {/* Pendientes */}
       {pending.length > 0 && (
         <div className="space-y-2">
-          {pending.map(a => (
+          {pending.map((a) => (
             <button
               key={a.id}
               onClick={() => openForm(a)}
@@ -108,7 +116,9 @@ export default function FormsListPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                   {a.status === 'in_progress' ? (
-                    <><Clock size={11} /> En progreso</>
+                    <>
+                      <Clock size={11} /> En progreso
+                    </>
                   ) : (
                     'Pendiente de respuesta'
                   )}
@@ -125,7 +135,7 @@ export default function FormsListPage() {
         <div>
           <h2 className="text-sm font-medium text-gray-500 mb-2">Completados</h2>
           <div className="space-y-1.5">
-            {completed.map(a => (
+            {completed.map((a) => (
               <div key={a.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
                 <CheckCircle size={14} className="text-green-600 flex-shrink-0" />
                 <span className="text-sm text-gray-700 truncate flex-1">{templateNameOf(a)}</span>
@@ -144,7 +154,9 @@ export default function FormsListPage() {
       {pending.length === 0 && completed.length === 0 && (
         <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400">
           <FileText size={32} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm">No tenés formularios todavía. Cuando tu coach te envíe alguno, aparecerá acá.</p>
+          <p className="text-sm">
+            No tenés formularios todavía. Cuando tu coach te envíe alguno, aparecerá acá.
+          </p>
         </div>
       )}
     </div>

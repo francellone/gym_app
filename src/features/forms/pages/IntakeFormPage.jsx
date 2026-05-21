@@ -19,7 +19,10 @@ import { getFriendlyErrorMessage } from '@/utils/errorHelpers'
 // un nuevo CHECK, se mapea allá una sola vez y queda traducido en todos lados.
 function intakeFriendlyError(err) {
   if (!err) return null
-  return getFriendlyErrorMessage(err) || 'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
+  return (
+    getFriendlyErrorMessage(err) ||
+    'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
+  )
 }
 
 export default function IntakeFormPage() {
@@ -68,15 +71,16 @@ export default function IntakeFormPage() {
       .eq('id', assignment.id)
 
     // Guardar respuestas parciales en una submission temporal
-    await supabase
-      .from('intake_form_submissions')
-      .upsert({
+    await supabase.from('intake_form_submissions').upsert(
+      {
         assignment_id: assignment.id,
         student_id: profile.id,
         coach_id: assignment.coach_id,
         form_snapshot: assignment.form_snapshot,
         responses,
-      }, { onConflict: 'assignment_id' })
+      },
+      { onConflict: 'assignment_id' }
+    )
   }
 
   // ── Envío final ──────────────────────────────────────────
@@ -87,14 +91,17 @@ export default function IntakeFormPage() {
     // Guardar submission final
     const { data: submission, error: submissionError } = await supabase
       .from('intake_form_submissions')
-      .upsert({
-        assignment_id: assignment.id,
-        student_id: profile.id,
-        coach_id: assignment.coach_id,
-        form_snapshot: assignment.form_snapshot,
-        responses,
-        submitted_at: new Date().toISOString(),
-      }, { onConflict: 'assignment_id' })
+      .upsert(
+        {
+          assignment_id: assignment.id,
+          student_id: profile.id,
+          coach_id: assignment.coach_id,
+          form_snapshot: assignment.form_snapshot,
+          responses,
+          submitted_at: new Date().toISOString(),
+        },
+        { onConflict: 'assignment_id' }
+      )
       .select()
       .single()
 
@@ -168,9 +175,7 @@ export default function IntakeFormPage() {
       {submitError && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-1.5rem)] bg-rose-50 border-2 border-rose-200 rounded-xl p-3 shadow-lg flex items-start gap-2">
           <span className="text-rose-500 text-lg leading-none">⚠</span>
-          <p className="text-xs text-rose-800 flex-1 leading-relaxed">
-            {submitError}
-          </p>
+          <p className="text-xs text-rose-800 flex-1 leading-relaxed">{submitError}</p>
           <button
             onClick={() => setSubmitError(null)}
             className="text-rose-500 hover:text-rose-700 flex-shrink-0"

@@ -7,16 +7,16 @@
  */
 
 export const QUESTION_TYPES = {
-  TEXT: 'text',           // Texto libre
-  TEXTAREA: 'textarea',   // Texto largo
-  SELECT: 'select',       // Una opción de una lista
+  TEXT: 'text', // Texto libre
+  TEXTAREA: 'textarea', // Texto largo
+  SELECT: 'select', // Una opción de una lista
   MULTISELECT: 'multiselect', // Múltiples opciones
-  BOOLEAN: 'boolean',     // Sí / No
-  SCALE: 'scale',         // Escala numérica (ej: 1-10)
-  EMAIL: 'email',         // Email con validación
-  PHONE: 'phone',         // Teléfono
-  NUMBER: 'number',       // Número
-  DATE: 'date',           // Fecha
+  BOOLEAN: 'boolean', // Sí / No
+  SCALE: 'scale', // Escala numérica (ej: 1-10)
+  EMAIL: 'email', // Email con validación
+  PHONE: 'phone', // Teléfono
+  NUMBER: 'number', // Número
+  DATE: 'date', // Fecha
 }
 
 /**

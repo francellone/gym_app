@@ -20,15 +20,15 @@ import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
 const TABS = [
-  { id: 'info',          label: 'Info'         },
-  { id: 'notas',         label: 'Notas'        },
-  { id: 'plans',         label: 'Planes'       },
-  { id: 'evaluaciones',  label: 'Evaluaciones' },
-  { id: 'formularios',   label: 'Formularios'  },
-  { id: 'wellbeing',     label: 'Wellbeing'    },
-  { id: 'progress',      label: 'Progreso'     },
-  { id: 'logs',          label: 'Logs'         },
-  { id: 'history',       label: 'Historial'    },
+  { id: 'info', label: 'Info' },
+  { id: 'notas', label: 'Notas' },
+  { id: 'plans', label: 'Planes' },
+  { id: 'evaluaciones', label: 'Evaluaciones' },
+  { id: 'formularios', label: 'Formularios' },
+  { id: 'wellbeing', label: 'Wellbeing' },
+  { id: 'progress', label: 'Progreso' },
+  { id: 'logs', label: 'Logs' },
+  { id: 'history', label: 'Historial' },
 ]
 
 // ─────────────────────────────────────────────────────────────
@@ -57,30 +57,41 @@ export default function StudentDetailPage() {
   // Badge de no-leídas para el tab "Notas" (coach side)
   const { count: notesUnread } = useNoteThreadUnread(id, 'coach')
 
-  useEffect(() => { fetchStudentData() }, [id])
+  useEffect(() => {
+    fetchStudentData()
+  }, [id])
 
   async function fetchStudentData() {
     try {
       const [
-        studentRes, assignmentsRes, logsRes, plansRes,
-        historyRes, formAssignmentRes, formSubmissionRes,
+        studentRes,
+        assignmentsRes,
+        logsRes,
+        plansRes,
+        historyRes,
+        formAssignmentRes,
+        formSubmissionRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         // Traemos status, plan_type denormalizado, linked_assignment_id
         // y replaced_by_assignment_id para que las pestañas Planes y
         // Evaluaciones puedan mostrar estados, vínculos y reemplazos.
-        supabase.from('plan_assignments')
+        supabase
+          .from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
           .eq('student_id', id)
           .order('created_at', { ascending: false }),
-        supabase.from('workout_logs')
-          .select(`
+        supabase
+          .from('workout_logs')
+          .select(
+            `
             *,
             plan_exercise:plan_exercises!plan_exercise_id(
               block_label, section,
               exercise:exercises!exercise_id(name, muscle_group)
             )
-          `)
+          `
+          )
           .eq('student_id', id)
           .order('logged_date', { ascending: false })
           .limit(50),
@@ -88,19 +99,25 @@ export default function StudentDetailPage() {
         // puedan filtrar la biblioteca: el back rechaza asignar plan instancias
         // como plantillas, y al revés. Solo se asignan plantillas vía RPC
         // assign_template_to_student (ver assignmentHelpers.assignTemplateToStudent).
-        supabase.from('plans').select('id, title, plan_type, parent_plan_id, is_template').order('title'),
-        supabase.from('student_edit_history')
+        supabase
+          .from('plans')
+          .select('id, title, plan_type, parent_plan_id, is_template')
+          .order('title'),
+        supabase
+          .from('student_edit_history')
           .select('*')
           .eq('student_id', id)
           .order('changed_at', { ascending: false })
           .limit(100),
-        supabase.from('intake_form_assignments')
+        supabase
+          .from('intake_form_assignments')
           .select('*')
           .eq('student_id', id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase.from('intake_form_submissions')
+        supabase
+          .from('intake_form_submissions')
           .select('*')
           .eq('student_id', id)
           .order('submitted_at', { ascending: false })
@@ -116,9 +133,15 @@ export default function StudentDetailPage() {
       // sigan funcionando cuando dropeemos workout_logs.notes en round 2b.
       // Mientras tanto, prefer mirror.body sobre log.notes si existe.
       const rawLogs = logsRes.data || []
-      const logIds = rawLogs.map(l => l.id)
-      const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
-      const logsWithMirror = rawLogs.map(l => ({ ...l, notes: bodiesMap.get(l.id) ?? l.notes ?? null }))
+      const logIds = rawLogs.map((l) => l.id)
+      const bodiesMap = await fetchSingleMirrorBodies({
+        contextType: 'workout_log',
+        contextIds: logIds,
+      })
+      const logsWithMirror = rawLogs.map((l) => ({
+        ...l,
+        notes: bodiesMap.get(l.id) ?? l.notes ?? null,
+      }))
       setLogs(logsWithMirror)
       setAllPlans(plansRes.data || [])
       setEditHistory(historyRes.data || [])
@@ -149,7 +172,12 @@ export default function StudentDetailPage() {
   }
 
   // ── Datos derivados para el header ──────────────────────
-  const initials = student.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  const initials = student.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
   const paymentStatus = getPaymentStatus(student)
   const planStatus = getPlanStatus(assignments)
   const paymentConfig = PAYMENT_STATUS[paymentStatus]
@@ -182,7 +210,9 @@ export default function StudentDetailPage() {
                 </span>
               )}
               {student.goal && (
-                <span className="badge bg-gray-100 text-gray-600 truncate max-w-40">{student.goal}</span>
+                <span className="badge bg-gray-100 text-gray-600 truncate max-w-40">
+                  {student.goal}
+                </span>
               )}
             </div>
           </div>
@@ -219,7 +249,7 @@ export default function StudentDetailPage() {
 
       {/* Tabs de navegación */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-        {TABS.map(tab => (
+        {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -259,9 +289,7 @@ export default function StudentDetailPage() {
         />
       )}
 
-      {activeTab === 'notas' && (
-        <StudentNotesTab studentId={id} />
-      )}
+      {activeTab === 'notas' && <StudentNotesTab studentId={id} />}
 
       {activeTab === 'plans' && (
         <StudentPlansTab
@@ -281,25 +309,15 @@ export default function StudentDetailPage() {
         />
       )}
 
-      {activeTab === 'formularios' && (
-        <StudentFormsTab studentId={id} />
-      )}
+      {activeTab === 'formularios' && <StudentFormsTab studentId={id} />}
 
-      {activeTab === 'wellbeing' && (
-        <StudentWellbeingTab studentId={id} />
-      )}
+      {activeTab === 'wellbeing' && <StudentWellbeingTab studentId={id} />}
 
-      {activeTab === 'progress' && (
-        <StudentProgressTab studentId={id} />
-      )}
+      {activeTab === 'progress' && <StudentProgressTab studentId={id} />}
 
-      {activeTab === 'logs' && (
-        <StudentLogsTab logs={logs} />
-      )}
+      {activeTab === 'logs' && <StudentLogsTab logs={logs} />}
 
-      {activeTab === 'history' && (
-        <StudentHistoryTab editHistory={editHistory} />
-      )}
+      {activeTab === 'history' && <StudentHistoryTab editHistory={editHistory} />}
     </div>
   )
 }

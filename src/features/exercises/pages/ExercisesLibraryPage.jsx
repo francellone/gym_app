@@ -1,13 +1,32 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Dumbbell, Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Tag, Settings } from 'lucide-react'
+import {
+  Dumbbell,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  X,
+  Save,
+  AlertCircle,
+  Tag,
+  Settings,
+} from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
-  '#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316',
-  '#eab308','#22c55e','#14b8a6','#3b82f6','#64748b',
+  '#6366f1',
+  '#8b5cf6',
+  '#ec4899',
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#14b8a6',
+  '#3b82f6',
+  '#64748b',
 ]
 
 // ============================================================
@@ -50,7 +69,9 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">Gestionar etiquetas</h2>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X size={18} /></button>
+          <button onClick={onClose} className="btn-ghost p-1.5">
+            <X size={18} />
+          </button>
         </div>
 
         <div className="p-4 space-y-4">
@@ -62,8 +83,8 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
                 className="input flex-1"
                 placeholder="Nombre (ej: Cuádriceps, Cadena posterior...)"
                 value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && createTag()}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && createTag()}
               />
               <button
                 onClick={createTag}
@@ -76,7 +97,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 
             {/* Selector de color */}
             <div className="flex gap-2 flex-wrap">
-              {PRESET_COLORS.map(c => (
+              {PRESET_COLORS.map((c) => (
                 <button
                   key={c}
                   onClick={() => setNewColor(c)}
@@ -99,9 +120,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
             )}
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</div>
-          )}
+          {error && <div className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</div>}
 
           {/* Lista de etiquetas existentes */}
           <div className="space-y-2">
@@ -110,8 +129,12 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
               <p className="text-sm text-gray-400 text-center py-4">Aún no creaste etiquetas</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {tags.map(tag => (
-                  <div key={tag.id} className="flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-medium text-white" style={{ backgroundColor: tag.color }}>
+                {tags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    className="flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-medium text-white"
+                    style={{ backgroundColor: tag.color }}
+                  >
                     {tag.name}
                     <button
                       onClick={() => deleteTag(tag.id)}
@@ -135,11 +158,16 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 // ============================================================
 function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
   const { profile } = useAuth()
-  const [form, setForm] = useState(exercise || {
-    name: '', description: '', video_url: '', technique_notes: '',
-    default_weight_mode: 'with_weight',
-    default_unilateral: false,
-  })
+  const [form, setForm] = useState(
+    exercise || {
+      name: '',
+      description: '',
+      video_url: '',
+      technique_notes: '',
+      default_weight_mode: 'with_weight',
+      default_unilateral: false,
+    }
+  )
   const [selectedTags, setSelectedTags] = useState([])
   const [loading, setLoading] = useState(false)
   const [loadingTags, setLoadingTags] = useState(!!exercise?.id)
@@ -152,20 +180,23 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
         .select('tag_id')
         .eq('exercise_id', exercise.id)
         .then(({ data }) => {
-          setSelectedTags(data?.map(d => d.tag_id) || [])
+          setSelectedTags(data?.map((d) => d.tag_id) || [])
           setLoadingTags(false)
         })
     }
   }, [exercise?.id])
 
   function toggleTag(tagId) {
-    setSelectedTags(prev =>
-      prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
     )
   }
 
   async function handleSave() {
-    if (!form.name.trim()) { setError('El nombre es obligatorio'); return }
+    if (!form.name.trim()) {
+      setError('El nombre es obligatorio')
+      return
+    }
     setLoading(true)
     try {
       const data = {
@@ -193,9 +224,9 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
         // Borrar asignaciones actuales y reinsertar
         await supabase.from('exercise_tag_assignments').delete().eq('exercise_id', exerciseId)
         if (selectedTags.length > 0) {
-          await supabase.from('exercise_tag_assignments').insert(
-            selectedTags.map(tagId => ({ exercise_id: exerciseId, tag_id: tagId }))
-          )
+          await supabase
+            .from('exercise_tag_assignments')
+            .insert(selectedTags.map((tagId) => ({ exercise_id: exerciseId, tag_id: tagId })))
         }
       }
 
@@ -211,8 +242,12 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">{form.id ? 'Editar ejercicio' : 'Nuevo ejercicio'}</h2>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X size={18} /></button>
+          <h2 className="font-bold text-gray-900">
+            {form.id ? 'Editar ejercicio' : 'Nuevo ejercicio'}
+          </h2>
+          <button onClick={onClose} className="btn-ghost p-1.5">
+            <X size={18} />
+          </button>
         </div>
 
         <div className="p-4 space-y-3">
@@ -221,7 +256,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
             <input
               className="input"
               value={form.name}
-              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
               placeholder="Sentadilla con barra"
             />
           </div>
@@ -236,10 +271,12 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
               <select
                 className="input text-sm"
                 value={form.default_weight_mode || 'with_weight'}
-                onChange={e => setForm(p => ({ ...p, default_weight_mode: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, default_weight_mode: e.target.value }))}
               >
-                {WEIGHT_MODES.map(m => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
+                {WEIGHT_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
               <p className="text-[11px] text-gray-500 mt-1">
@@ -251,7 +288,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-primary-600"
                 checked={!!form.default_unilateral}
-                onChange={e => setForm(p => ({ ...p, default_unilateral: e.target.checked }))}
+                onChange={(e) => setForm((p) => ({ ...p, default_unilateral: e.target.checked }))}
               />
               <span className="text-sm text-gray-700">
                 Unilateral (cada lado)
@@ -271,7 +308,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
               </p>
             ) : (
               <div className="flex flex-wrap gap-2 mt-1">
-                {tags.map(tag => (
+                {tags.map((tag) => (
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.id)}
@@ -280,7 +317,11 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
                         ? 'text-white border-transparent'
                         : 'bg-white border-gray-200 text-gray-500'
                     }`}
-                    style={selectedTags.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color } : {}}
+                    style={
+                      selectedTags.includes(tag.id)
+                        ? { backgroundColor: tag.color, borderColor: tag.color }
+                        : {}
+                    }
                   >
                     {tag.name}
                   </button>
@@ -294,7 +335,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
             <input
               className="input"
               value={form.video_url || ''}
-              onChange={e => setForm(p => ({ ...p, video_url: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, video_url: e.target.value }))}
               placeholder="https://youtube.com/..."
             />
           </div>
@@ -305,7 +346,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
               className="input resize-none"
               rows={2}
               value={form.description || ''}
-              onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
               placeholder="Descripción breve..."
             />
           </div>
@@ -316,7 +357,7 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
               className="input resize-none"
               rows={3}
               value={form.technique_notes || ''}
-              onChange={e => setForm(p => ({ ...p, technique_notes: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, technique_notes: e.target.value }))}
               placeholder="Descripción técnica del ejercicio..."
             />
           </div>
@@ -329,16 +370,22 @@ function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
           )}
 
           <div className="flex gap-2 pt-1">
-            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancelar</button>
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">
+              Cancelar
+            </button>
             <button
               onClick={handleSave}
               disabled={loading || loadingTags}
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
             >
-              {loading
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : <><Save size={14} />Guardar</>
-              }
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save size={14} />
+                  Guardar
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -358,18 +405,22 @@ export default function ExercisesLibraryPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
-  const [filterMode, setFilterMode] = useState('')   // '' | 'with_weight' | 'barbell_only' | 'bodyweight'
+  const [filterMode, setFilterMode] = useState('') // '' | 'with_weight' | 'barbell_only' | 'bodyweight'
   const [modalExercise, setModalExercise] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchAll()
+  }, [])
 
   async function fetchAll() {
     const [exRes, tagRes, assignRes] = await Promise.all([
       supabase.from('exercises').select('*').order('name'),
       supabase.from('exercise_tags').select('*').order('name'),
-      supabase.from('exercise_tag_assignments').select('exercise_id, tag_id, tag:exercise_tags!tag_id(id, name, color)'),
+      supabase
+        .from('exercise_tag_assignments')
+        .select('exercise_id, tag_id, tag:exercise_tags!tag_id(id, name, color)'),
     ])
 
     setExercises(exRes.data || [])
@@ -377,7 +428,7 @@ export default function ExercisesLibraryPage() {
 
     // Build map exerciseId → tags[]
     const map = {}
-    ;(assignRes.data || []).forEach(a => {
+    ;(assignRes.data || []).forEach((a) => {
       if (!map[a.exercise_id]) map[a.exercise_id] = []
       if (a.tag) map[a.exercise_id].push(a.tag)
     })
@@ -388,13 +439,13 @@ export default function ExercisesLibraryPage() {
   async function deleteExercise(id) {
     if (!confirm('¿Eliminar este ejercicio?')) return
     await supabase.from('exercises').delete().eq('id', id)
-    setExercises(prev => prev.filter(e => e.id !== id))
+    setExercises((prev) => prev.filter((e) => e.id !== id))
   }
 
   function handleSaved(exercise) {
-    setExercises(prev => {
-      const idx = prev.findIndex(e => e.id === exercise.id)
-      if (idx >= 0) return prev.map((e, i) => i === idx ? exercise : e)
+    setExercises((prev) => {
+      const idx = prev.findIndex((e) => e.id === exercise.id)
+      if (idx >= 0) return prev.map((e, i) => (i === idx ? exercise : e))
       return [...prev, exercise].sort((a, b) => a.name.localeCompare(b.name))
     })
     setShowModal(false)
@@ -403,11 +454,12 @@ export default function ExercisesLibraryPage() {
   }
 
   // Filtrar ejercicios por texto, etiqueta o modo de peso
-  const filtered = exercises.filter(e => {
-    const matchSearch = !search ||
+  const filtered = exercises.filter((e) => {
+    const matchSearch =
+      !search ||
       e.name?.toLowerCase().includes(search.toLowerCase()) ||
-      (exerciseTagMap[e.id] || []).some(t => t.name?.toLowerCase().includes(search.toLowerCase()))
-    const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some(t => t.id === filterTag)
+      (exerciseTagMap[e.id] || []).some((t) => t.name?.toLowerCase().includes(search.toLowerCase()))
+    const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some((t) => t.id === filterTag)
     const exMode = e.default_weight_mode || 'with_weight'
     const matchMode = !filterMode || exMode === filterMode
     return matchSearch && matchTag && matchMode
@@ -429,7 +481,10 @@ export default function ExercisesLibraryPage() {
             <span className="hidden sm:inline">Etiquetas</span>
           </button>
           <button
-            onClick={() => { setModalExercise(null); setShowModal(true) }}
+            onClick={() => {
+              setModalExercise(null)
+              setShowModal(true)
+            }}
             className="btn-primary flex items-center gap-2"
           >
             <Plus size={18} />
@@ -446,46 +501,57 @@ export default function ExercisesLibraryPage() {
             className="input pl-9"
             placeholder="Buscar por nombre o etiqueta..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         {tags.length > 0 && (
           <select
             className="input w-auto min-w-36"
             value={filterTag}
-            onChange={e => setFilterTag(e.target.value)}
+            onChange={(e) => setFilterTag(e.target.value)}
           >
             <option value="">Todas las etiquetas</option>
-            {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {tags.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
           </select>
         )}
         <select
           className="input w-auto min-w-32"
           value={filterMode}
-          onChange={e => setFilterMode(e.target.value)}
+          onChange={(e) => setFilterMode(e.target.value)}
         >
           <option value="">Todos los modos</option>
-          {WEIGHT_MODES.map(m => (
-            <option key={m.key} value={m.key}>{m.label}</option>
+          {WEIGHT_MODES.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.label}
+            </option>
           ))}
         </select>
       </div>
 
       {loading ? (
         <div className="space-y-2">
-          {[1,2,3,4].map(i => <div key={i} className="card animate-pulse h-16" />)}
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card animate-pulse h-16" />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
           <Dumbbell className="w-10 h-10 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500">No hay ejercicios</p>
-          <button onClick={() => setShowModal(true)} className="btn-primary inline-flex items-center gap-2 mt-3">
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary inline-flex items-center gap-2 mt-3"
+          >
             <Plus size={16} /> Crear ejercicio
           </button>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(ex => {
+          {filtered.map((ex) => {
             const exTags = exerciseTagMap[ex.id] || []
             return (
               <div key={ex.id} className="card flex items-center gap-3">
@@ -498,22 +564,33 @@ export default function ExercisesLibraryPage() {
                     {(() => {
                       const mode = ex.default_weight_mode || 'with_weight'
                       if (mode === 'bodyweight') {
-                        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">BW</span>
+                        return (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                            BW
+                          </span>
+                        )
                       }
                       if (mode === 'barbell_only') {
-                        return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Barra</span>
+                        return (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            Barra
+                          </span>
+                        )
                       }
                       return null
                     })()}
                     {ex.default_unilateral && (
-                      <span title="Unilateral (cada lado)" className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                      <span
+                        title="Unilateral (cada lado)"
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700"
+                      >
                         Unilat.
                       </span>
                     )}
                   </div>
                   {exTags.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {exTags.map(tag => (
+                      {exTags.map((tag) => (
                         <span
                           key={tag.id}
                           className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
@@ -529,7 +606,10 @@ export default function ExercisesLibraryPage() {
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
-                    onClick={() => { setModalExercise(ex); setShowModal(true) }}
+                    onClick={() => {
+                      setModalExercise(ex)
+                      setShowModal(true)
+                    }}
                     className="btn-ghost p-2"
                   >
                     <Edit2 size={15} className="text-gray-500" />

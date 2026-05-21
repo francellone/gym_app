@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Users, Plus, Search, ChevronRight, AlertCircle } from 'lucide-react'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
-import { pickPrimaryTrainingAssignment, getAssignmentStatus, statusConfig } from '@/features/plans/assignmentHelpers'
+import {
+  pickPrimaryTrainingAssignment,
+  getAssignmentStatus,
+  statusConfig,
+} from '@/features/plans/assignmentHelpers'
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([])
@@ -31,13 +35,15 @@ export default function StudentsPage() {
         return
       }
 
-      const studentIds = profilesData.map(s => s.id)
+      const studentIds = profilesData.map((s) => s.id)
       // Traemos status, plan_type y created_at para poder elegir
       // determinísticamente la asignación más reciente y filtrar
       // evaluaciones del badge "plan vigente". Ver pickPrimaryTrainingAssignment.
       const { data: assignmentsData } = await supabase
         .from('plan_assignments')
-        .select('student_id, id, active, status, plan_type, created_at, plan:plans(title, plan_type)')
+        .select(
+          'student_id, id, active, status, plan_type, created_at, plan:plans(title, plan_type)'
+        )
         .in('student_id', studentIds)
         .order('created_at', { ascending: false })
 
@@ -49,7 +55,7 @@ export default function StudentsPage() {
         assignmentsByStudent[a.student_id].push(a)
       }
 
-      const enriched = profilesData.map(s => ({
+      const enriched = profilesData.map((s) => ({
         ...s,
         plan_assignments: assignmentsByStudent[s.id] || [],
       }))
@@ -82,8 +88,9 @@ export default function StudentsPage() {
     { id: 'no_plan', label: 'Sin plan' },
   ]
 
-  const filtered = students.filter(s => {
-    const matchSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
+  const filtered = students.filter((s) => {
+    const matchSearch =
+      s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase())
 
     if (!matchSearch) return false
@@ -96,9 +103,9 @@ export default function StudentsPage() {
   })
 
   // Contadores de alertas
-  const overdueCount = students.filter(s => getPaymentStatus(s) === 'overdue').length
-  const dueSoonCount = students.filter(s => getPaymentStatus(s) === 'due_soon').length
-  const noPlanCount = students.filter(s => getPlanStatus(s.plan_assignments) === 'no_plan').length
+  const overdueCount = students.filter((s) => getPaymentStatus(s) === 'overdue').length
+  const dueSoonCount = students.filter((s) => getPaymentStatus(s) === 'due_soon').length
+  const noPlanCount = students.filter((s) => getPlanStatus(s.plan_assignments) === 'no_plan').length
 
   return (
     <div className="space-y-5">
@@ -126,7 +133,8 @@ export default function StudentsPage() {
                   : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
               }`}
             >
-              🔴 {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido{overdueCount !== 1 ? 's' : ''}
+              🔴 {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
+              {overdueCount !== 1 ? 's' : ''}
             </button>
           )}
           {dueSoonCount > 0 && (
@@ -164,7 +172,7 @@ export default function StudentsPage() {
           className="input pl-9"
           placeholder="Buscar alumno..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
@@ -179,7 +187,7 @@ export default function StudentsPage() {
       {/* Lista */}
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="card animate-pulse">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gray-200 rounded-full" />
@@ -201,22 +209,22 @@ export default function StudentsPage() {
               : 'Creá tu primer alumno'}
           </p>
           {!search && filterStatus === 'all' && (
-            <Link to="/coach/students/new" className="btn-primary inline-flex items-center gap-2 mt-4">
+            <Link
+              to="/coach/students/new"
+              className="btn-primary inline-flex items-center gap-2 mt-4"
+            >
               <Plus size={16} /> Agregar alumno
             </Link>
           )}
           {filterStatus !== 'all' && (
-            <button
-              onClick={() => setFilterStatus('all')}
-              className="btn-secondary text-sm mt-3"
-            >
+            <button onClick={() => setFilterStatus('all')} className="btn-secondary text-sm mt-3">
               Ver todos
             </button>
           )}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(student => {
+          {filtered.map((student) => {
             // Plan "primario" para mostrar en el badge: el training activo
             // más reciente; si no hay activo, el pausado; si no hay nada, null.
             // pickPrimaryTrainingAssignment ignora evaluaciones a propósito
@@ -224,7 +232,12 @@ export default function StudentsPage() {
             const primaryAssignment = pickPrimaryTrainingAssignment(student.plan_assignments)
             const primaryStatus = getAssignmentStatus(primaryAssignment)
             const primaryStatusCfg = primaryStatus ? statusConfig(primaryStatus) : null
-            const initials = student.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+            const initials = student.name
+              ?.split(' ')
+              .map((n) => n[0])
+              .slice(0, 2)
+              .join('')
+              .toUpperCase()
             const payStatus = getPaymentStatus(student)
             const payConfig = PAYMENT_STATUS[payStatus]
             const planStatus = getPlanStatus(student.plan_assignments)
@@ -242,7 +255,9 @@ export default function StudentsPage() {
                     <span className="text-white font-semibold text-sm">{initials}</span>
                   </div>
                   {(payStatus === 'overdue' || payStatus === 'due_soon') && (
-                    <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${payConfig.dotClass}`} />
+                    <span
+                      className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${payConfig.dotClass}`}
+                    />
                   )}
                 </div>
 
@@ -258,15 +273,21 @@ export default function StudentsPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {primaryAssignment ? (
-                      <span className={`badge text-xs flex items-center gap-1 ${primaryStatusCfg.badgeClass}`}>
+                      <span
+                        className={`badge text-xs flex items-center gap-1 ${primaryStatusCfg.badgeClass}`}
+                      >
                         <span className={`w-1.5 h-1.5 rounded-full ${primaryStatusCfg.dotClass}`} />
                         {primaryAssignment.plan?.title}
                         {primaryStatus !== 'active' && (
-                          <span className="ml-1 text-[10px] opacity-75">· {primaryStatusCfg.shortLabel}</span>
+                          <span className="ml-1 text-[10px] opacity-75">
+                            · {primaryStatusCfg.shortLabel}
+                          </span>
                         )}
                       </span>
                     ) : (
-                      <span className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}>
+                      <span
+                        className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}
+                      >
                         <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
                         {planConfig.label}
                       </span>

@@ -22,13 +22,13 @@ export default function TemplateManager({
   const [tab, setTab] = useState('load') // 'load' | 'save'
 
   const allTemplates = [
-    ...DEFAULT_TEMPLATES.map(t => ({
+    ...DEFAULT_TEMPLATES.map((t) => ({
       id: t.template_id,
       name: t.template_name,
       description: t.description,
       isPredefined: true,
     })),
-    ...templates.map(t => ({
+    ...templates.map((t) => ({
       id: t.id,
       name: t.name,
       description: t.description || '',
@@ -51,11 +51,12 @@ export default function TemplateManager({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">📋 Plantillas de formulario</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">
+            ✕
+          </button>
         </div>
 
         {/* Tabs */}
@@ -63,7 +64,7 @@ export default function TemplateManager({
           {[
             { id: 'load', label: '📂 Cargar plantilla' },
             { id: 'save', label: '💾 Guardar actual' },
-          ].map(t => (
+          ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -81,7 +82,7 @@ export default function TemplateManager({
         <div className="p-5">
           {tab === 'load' && (
             <div className="space-y-3">
-              {allTemplates.map(tpl => (
+              {allTemplates.map((tpl) => (
                 <div
                   key={tpl.id}
                   className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors group"
@@ -125,8 +126,8 @@ export default function TemplateManager({
                 <input
                   type="text"
                   value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                   placeholder="Ej: Fitness femenino avanzado"
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />

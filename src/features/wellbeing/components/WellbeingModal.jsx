@@ -7,12 +7,54 @@ import { supabase } from '@/lib/supabase'
 // positive: false → 10 es crítico (estrés, fatiga muscular)
 // ─────────────────────────────────────────────────────────────
 export const WELLBEING_METRICS = [
-  { key: 'sleep_quality',      label: 'Calidad de sueño',       emoji: '😴', positive: true,  lowLabel: 'Muy malo',      highLabel: 'Excelente'     },
-  { key: 'nutrition_quality',  label: 'Calidad de alimentación', emoji: '🥗', positive: true,  lowLabel: 'Muy mala',      highLabel: 'Excelente'     },
-  { key: 'hydration_quality',  label: 'Hidratación',             emoji: '💧', positive: true,  lowLabel: 'Muy poca',      highLabel: 'Perfecta'      },
-  { key: 'energy_level',       label: 'Nivel de energía',        emoji: '⚡', positive: true,  lowLabel: 'Sin energía',   highLabel: 'Muy energizado'},
-  { key: 'stress_level',       label: 'Nivel de estrés',         emoji: '😓', positive: false, lowLabel: 'Sin estrés',    highLabel: 'Muy estresado' },
-  { key: 'muscle_fatigue',     label: 'Dolor / fatiga muscular', emoji: '🦵', positive: false, lowLabel: 'Sin fatiga',    highLabel: 'Muy fatigado'  },
+  {
+    key: 'sleep_quality',
+    label: 'Calidad de sueño',
+    emoji: '😴',
+    positive: true,
+    lowLabel: 'Muy malo',
+    highLabel: 'Excelente',
+  },
+  {
+    key: 'nutrition_quality',
+    label: 'Calidad de alimentación',
+    emoji: '🥗',
+    positive: true,
+    lowLabel: 'Muy mala',
+    highLabel: 'Excelente',
+  },
+  {
+    key: 'hydration_quality',
+    label: 'Hidratación',
+    emoji: '💧',
+    positive: true,
+    lowLabel: 'Muy poca',
+    highLabel: 'Perfecta',
+  },
+  {
+    key: 'energy_level',
+    label: 'Nivel de energía',
+    emoji: '⚡',
+    positive: true,
+    lowLabel: 'Sin energía',
+    highLabel: 'Muy energizado',
+  },
+  {
+    key: 'stress_level',
+    label: 'Nivel de estrés',
+    emoji: '😓',
+    positive: false,
+    lowLabel: 'Sin estrés',
+    highLabel: 'Muy estresado',
+  },
+  {
+    key: 'muscle_fatigue',
+    label: 'Dolor / fatiga muscular',
+    emoji: '🦵',
+    positive: false,
+    lowLabel: 'Sin fatiga',
+    highLabel: 'Muy fatigado',
+  },
 ]
 
 // Devuelve clases de color según valor y tipo de métrica
@@ -58,11 +100,11 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  const filledCount = WELLBEING_METRICS.filter(m => values[m.key] !== undefined).length
+  const filledCount = WELLBEING_METRICS.filter((m) => values[m.key] !== undefined).length
   const allFilled = filledCount === WELLBEING_METRICS.length
 
   function toggle(key, n) {
-    setValues(prev => ({ ...prev, [key]: prev[key] === n ? undefined : n }))
+    setValues((prev) => ({ ...prev, [key]: prev[key] === n ? undefined : n }))
   }
 
   async function handleSave() {
@@ -94,15 +136,12 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col">
-
         {/* Header fijo */}
         <div className="p-5 pb-3 border-b border-gray-100 flex-shrink-0">
           <div className="text-center">
             <div className="text-3xl mb-1">🌟</div>
             <h2 className="font-bold text-gray-900 text-lg">¿Cómo llegás hoy?</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Contanos cómo estás antes de entrenar
-            </p>
+            <p className="text-sm text-gray-500 mt-1">Contanos cómo estás antes de entrenar</p>
           </div>
           {/* Barra de progreso */}
           <div className="mt-3">
@@ -129,7 +168,9 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
                   <span className="text-lg leading-none">{emoji}</span>
                   <span className="text-sm font-semibold text-gray-800 flex-1">{label}</span>
                   {val !== undefined && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${wellbeingColor(val, positive)}`}>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${wellbeingColor(val, positive)}`}
+                    >
                       {val}
                     </span>
                   )}
@@ -137,7 +178,7 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
 
                 {/* Selector 1–10 */}
                 <div className="grid grid-cols-10 gap-1">
-                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                     <button
                       key={n}
                       onClick={() => toggle(key, n)}
@@ -171,21 +212,16 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
               rows={2}
               placeholder="¿Algo que quieras agregar sobre cómo te sentís hoy?"
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 
-          {error && (
-            <p className="text-xs text-red-500 text-center">{error}</p>
-          )}
+          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
         </div>
 
         {/* Botones fijos abajo */}
         <div className="p-5 pt-3 border-t border-gray-100 flex gap-2 flex-shrink-0">
-          <button
-            onClick={onSkip}
-            className="btn-secondary flex-1 text-sm"
-          >
+          <button onClick={onSkip} className="btn-secondary flex-1 text-sm">
             Omitir
           </button>
           <button
@@ -193,13 +229,13 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
             disabled={!allFilled || saving}
             className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
-            {saving
-              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : 'Guardar wellbeing'
-            }
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              'Guardar wellbeing'
+            )}
           </button>
         </div>
-
       </div>
     </div>
   )

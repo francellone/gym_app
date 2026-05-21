@@ -50,20 +50,20 @@ export default function ModuleCard({
   const handleUpdateQuestion = (qId, updated) => {
     onUpdate({
       ...module,
-      questions: module.questions.map(q => q.id === qId ? updated : q),
+      questions: module.questions.map((q) => (q.id === qId ? updated : q)),
     })
   }
 
   const handleRemoveQuestion = (qId) => {
     onUpdate({
       ...module,
-      questions: module.questions.filter(q => q.id !== qId),
+      questions: module.questions.filter((q) => q.id !== qId),
     })
   }
 
   const handleMoveQuestion = (qId, direction) => {
     const questions = [...module.questions]
-    const idx = questions.findIndex(q => q.id === qId)
+    const idx = questions.findIndex((q) => q.id === qId)
     const newIdx = direction === 'up' ? idx - 1 : idx + 1
     if (newIdx < 0 || newIdx >= questions.length) return
     const temp = questions[idx]
@@ -73,15 +73,13 @@ export default function ModuleCard({
   }
 
   return (
-    <div className={`rounded-xl border shadow-sm overflow-hidden transition-all duration-200 ${
-      isDisabled
-        ? 'border-gray-200 bg-gray-50 opacity-60'
-        : 'border-gray-200 bg-white'
-    }`}>
-
+    <div
+      className={`rounded-xl border shadow-sm overflow-hidden transition-all duration-200 ${
+        isDisabled ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 bg-white'
+      }`}
+    >
       {/* Header del módulo */}
       <div className="flex items-center gap-3 px-4 py-3">
-
         {/* Toggle habilitado/deshabilitado */}
         {isRemovable && (
           <button
@@ -91,9 +89,11 @@ export default function ModuleCard({
               module.enabled ? 'bg-blue-500' : 'bg-gray-300'
             }`}
           >
-            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-              module.enabled ? 'translate-x-5' : 'translate-x-0.5'
-            }`} />
+            <span
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                module.enabled ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
           </button>
         )}
 
@@ -105,9 +105,9 @@ export default function ModuleCard({
             <input
               autoFocus
               value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
+              onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={handleTitleSave}
-              onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
+              onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
               className="text-sm font-medium border-b border-blue-400 bg-transparent focus:outline-none"
             />
           ) : (
@@ -174,7 +174,9 @@ export default function ModuleCard({
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-3">
           {module.questions.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-2 italic">Sin preguntas. Agregá una.</p>
+            <p className="text-xs text-gray-400 text-center py-2 italic">
+              Sin preguntas. Agregá una.
+            </p>
           )}
 
           {module.questions.map((question, idx) => (

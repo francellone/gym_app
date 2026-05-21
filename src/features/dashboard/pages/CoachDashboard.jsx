@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Users, ClipboardList, TrendingUp, Activity, ChevronRight, Calendar, AlertTriangle } from 'lucide-react'
+import {
+  Users,
+  ClipboardList,
+  TrendingUp,
+  Activity,
+  ChevronRight,
+  Calendar,
+  AlertTriangle,
+} from 'lucide-react'
 import { readLogWeights } from '@/features/plans/helpers'
 import { format, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -35,18 +43,26 @@ export default function CoachDashboard() {
       // evaluaciones inflaban los counts (~7 filas legacy ya borradas
       // por migration_v23, pero blindamos a futuro).
       const [studentsRes, plansRes, logsTodayRes, logsWeekRes, recentRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student').eq('active', true),
+        supabase
+          .from('profiles')
+          .select('id', { count: 'exact' })
+          .eq('role', 'student')
+          .eq('active', true),
         supabase.from('plans').select('id', { count: 'exact' }),
-        supabase.from('workout_logs')
+        supabase
+          .from('workout_logs')
           .select('id, plans!inner(plan_type)', { count: 'exact' })
           .eq('plans.plan_type', 'training')
           .eq('logged_date', today),
-        supabase.from('workout_logs')
+        supabase
+          .from('workout_logs')
           .select('id, plans!inner(plan_type)', { count: 'exact' })
           .eq('plans.plan_type', 'training')
           .gte('logged_date', weekAgo),
-        supabase.from('workout_logs')
-          .select(`
+        supabase
+          .from('workout_logs')
+          .select(
+            `
             id, logged_date, actual_weight, actual_weights, actual_weights_jsonb,
             weight_mode, perceived_difficulty, completed,
             student:profiles!student_id(name),
@@ -54,7 +70,8 @@ export default function CoachDashboard() {
             plan_exercise:plan_exercises!plan_exercise_id(
               exercise:exercises!exercise_id(name)
             )
-          `)
+          `
+          )
           .eq('plans.plan_type', 'training')
           .order('created_at', { ascending: false })
           .limit(10),
@@ -78,17 +95,22 @@ export default function CoachDashboard() {
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
 
   // Lista de alertas a renderizar, ya filtradas por las que tienen items.
-  const alertsToShow = ALERT_RENDER_ORDER
-    .map(kind => ({ kind, items: alerts?.[kind] || [] }))
-    .filter(g => g.items.length > 0)
+  const alertsToShow = ALERT_RENDER_ORDER.map((kind) => ({
+    kind,
+    items: alerts?.[kind] || [],
+  })).filter((g) => g.items.length > 0)
   const hasAlerts = alertsToShow.length > 0
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{saludo}, {profile?.name?.split(' ')[0]} 👋</h1>
-        <p className="text-gray-500 text-sm mt-1">{format(new Date(), "EEEE d 'de' MMMM", { locale: es })}</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {saludo}, {profile?.name?.split(' ')[0]} 👋
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+        </p>
       </div>
 
       {/* Stats grid */}
@@ -176,7 +198,7 @@ export default function CoachDashboard() {
 
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <div key={i} className="card animate-pulse">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-200 rounded-xl" />
@@ -195,28 +217,36 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {recentLogs.map(log => (
+            {recentLogs.map((log) => (
               <div key={log.id} className="card">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    log.completed ? 'bg-green-100' : 'bg-gray-100'
-                  }`}>
-                    <Activity size={18} className={log.completed ? 'text-green-600' : 'text-gray-400'} />
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      log.completed ? 'bg-green-100' : 'bg-gray-100'
+                    }`}
+                  >
+                    <Activity
+                      size={18}
+                      className={log.completed ? 'text-green-600' : 'text-gray-400'}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
                       {log.student?.name}
                     </p>
                     {(() => {
-                      const ws = readLogWeights(log).filter(w => w != null && w !== '')
+                      const ws = readLogWeights(log).filter((w) => w != null && w !== '')
                       const wDisplay = ws.length > 0 ? `${ws[0]}kg` : null
-                      const modeDisplay = log.weight_mode === 'bodyweight'
-                        ? 'BW'
-                        : log.weight_mode === 'barbell_only' ? 'solo barra' : null
+                      const modeDisplay =
+                        log.weight_mode === 'bodyweight'
+                          ? 'BW'
+                          : log.weight_mode === 'barbell_only'
+                            ? 'solo barra'
+                            : null
                       return (
                         <p className="text-xs text-gray-500 truncate">
                           {log.plan_exercise?.exercise?.name}
-                          {wDisplay ? ` · ${wDisplay}` : (modeDisplay ? ` · ${modeDisplay}` : '')}
+                          {wDisplay ? ` · ${wDisplay}` : modeDisplay ? ` · ${modeDisplay}` : ''}
                           {log.perceived_difficulty ? ` · PSE ${log.perceived_difficulty}` : ''}
                         </p>
                       )
@@ -252,9 +282,7 @@ function AlertCard({ kind, items }) {
           <p className="text-sm font-semibold text-gray-900">
             {cfg.icon} {buildAlertTitle(kind, count)}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5 truncate">
-            {buildAlertSubtitle(kind, items)}
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{buildAlertSubtitle(kind, items)}</p>
         </div>
         <Link
           to="/coach/students"
@@ -295,29 +323,29 @@ function buildAlertSubtitle(kind, items) {
   const rest = items.length - top.length
 
   if (kind === 'inactiveStudents') {
-    const detail = top.map(s => {
-      const d = s.daysSinceLastLog
-      const days = d === Infinity ? '∞' : d
-      return `${s.name} (${days}d)`
-    }).join(', ')
+    const detail = top
+      .map((s) => {
+        const d = s.daysSinceLastLog
+        const days = d === Infinity ? '∞' : d
+        return `${s.name} (${days}d)`
+      })
+      .join(', ')
     return rest > 0 ? `${detail} y ${rest} más` : detail
   }
 
   if (kind === 'highRpeStudents') {
-    const detail = top.map(s =>
-      `${s.name} (${s.highRpeCount}× · pico ${s.peakRpe})`
-    ).join(', ')
+    const detail = top.map((s) => `${s.name} (${s.highRpeCount}× · pico ${s.peakRpe})`).join(', ')
     return rest > 0 ? `${detail} y ${rest} más` : detail
   }
 
   if (kind === 'planExpiringSoon') {
-    const detail = top.map(s =>
-      `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`})`
-    ).join(', ')
+    const detail = top
+      .map((s) => `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`})`)
+      .join(', ')
     return rest > 0 ? `${detail} y ${rest} más` : detail
   }
 
   // Por defecto: solo nombres
-  const names = top.map(s => s.name).join(', ')
+  const names = top.map((s) => s.name).join(', ')
   return rest > 0 ? `${names} y ${rest} más` : names
 }

@@ -36,15 +36,15 @@ function isoEndOfToday() {
 }
 
 const TIME_PRESETS = [
-  { key: 'today', label: 'Hoy',   from: () => isoStartOfDay(0),  to: () => isoEndOfToday() },
-  { key: '7d',    label: '7 días', from: () => isoStartOfDay(7),  to: () => isoEndOfToday() },
-  { key: '30d',   label: '30 días',from: () => isoStartOfDay(30), to: () => isoEndOfToday() },
+  { key: 'today', label: 'Hoy', from: () => isoStartOfDay(0), to: () => isoEndOfToday() },
+  { key: '7d', label: '7 días', from: () => isoStartOfDay(7), to: () => isoEndOfToday() },
+  { key: '30d', label: '30 días', from: () => isoStartOfDay(30), to: () => isoEndOfToday() },
 ]
 
 const BLOCK_TYPE_PRESETS = [
   { key: 'strength', label: 'Fuerza' },
-  { key: 'aerobic',  label: 'Aeróbico' },
-  { key: 'circuit',  label: 'Circuito' },
+  { key: 'aerobic', label: 'Aeróbico' },
+  { key: 'circuit', label: 'Circuito' },
 ]
 
 // Comparar por YYYY-MM-DD evita drift de milisegundos entre el momento
@@ -59,8 +59,7 @@ function dateKey(iso) {
 function detectTimePreset(filters) {
   if (!filters.from && !filters.to) return null
   for (const p of TIME_PRESETS) {
-    if (dateKey(filters.from) === dateKey(p.from()) &&
-        dateKey(filters.to)   === dateKey(p.to())) {
+    if (dateKey(filters.from) === dateKey(p.from()) && dateKey(filters.to) === dateKey(p.to())) {
       return p.key
     }
   }
@@ -73,7 +72,7 @@ export default function NotesFilters({
   exercises = [],
   availableTags = [],
   availableMuscleGroups = null, // si viene null, se deriva de exercises
-  availableBlockTypes = null,   // si viene null, se muestran los 3 presets
+  availableBlockTypes = null, // si viene null, se muestran los 3 presets
 }) {
   const [customOpen, setCustomOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -111,7 +110,7 @@ export default function NotesFilters({
   const blockTypesToShow = useMemo(() => {
     if (Array.isArray(availableBlockTypes)) {
       const set = new Set(availableBlockTypes)
-      return BLOCK_TYPE_PRESETS.filter(p => set.has(p.key))
+      return BLOCK_TYPE_PRESETS.filter((p) => set.has(p.key))
     }
     return BLOCK_TYPE_PRESETS
   }, [availableBlockTypes])
@@ -120,7 +119,7 @@ export default function NotesFilters({
   // mostramos solo los ejercicios de ese grupo. ──
   const exercisesToShow = useMemo(() => {
     if (!value.muscleGroup) return exercises
-    return exercises.filter(ex => ex.muscle_group === value.muscleGroup)
+    return exercises.filter((ex) => ex.muscle_group === value.muscleGroup)
   }, [exercises, value.muscleGroup])
 
   // Si cambia el grupo muscular y el ejercicio actual ya no pertenece
@@ -128,7 +127,7 @@ export default function NotesFilters({
   // colgado un filtro que no devuelve nada.
   useEffect(() => {
     if (!value.exerciseId) return
-    const stillValid = exercisesToShow.some(ex => ex.id === value.exerciseId)
+    const stillValid = exercisesToShow.some((ex) => ex.id === value.exerciseId)
     if (!stillValid) {
       patch({ exerciseId: undefined })
     }
@@ -141,7 +140,7 @@ export default function NotesFilters({
     const q = tagInput.trim().toLowerCase()
     if (!q) return []
     return availableTags
-      .filter(t => !currentTags.includes(t) && t.toLowerCase().includes(q))
+      .filter((t) => !currentTags.includes(t) && t.toLowerCase().includes(q))
       .slice(0, 6)
   }, [tagInput, availableTags, currentTags])
 
@@ -158,7 +157,7 @@ export default function NotesFilters({
       setCustomOpen(true)
       return
     }
-    const preset = TIME_PRESETS.find(p => p.key === key)
+    const preset = TIME_PRESETS.find((p) => p.key === key)
     if (!preset) return
     setActiveTimeKey(key)
     patch({ from: preset.from(), to: preset.to() })
@@ -187,7 +186,7 @@ export default function NotesFilters({
   }
 
   function removeTag(tag) {
-    patch({ tags: currentTags.filter(x => x !== tag) })
+    patch({ tags: currentTags.filter((x) => x !== tag) })
   }
 
   function clearAll() {
@@ -198,8 +197,14 @@ export default function NotesFilters({
   }
 
   const hasActiveFilters =
-    !!value.from || !!value.to || !!value.exerciseId || !!value.muscleGroup ||
-    !!value.blockType || !!value.contextType || (currentTags.length > 0) || !!value.search
+    !!value.from ||
+    !!value.to ||
+    !!value.exerciseId ||
+    !!value.muscleGroup ||
+    !!value.blockType ||
+    !!value.contextType ||
+    currentTags.length > 0 ||
+    !!value.search
 
   // ── Render ───────────────────────────────────────────────────
   return (
@@ -229,7 +234,7 @@ export default function NotesFilters({
           className="input pl-9 text-sm"
           placeholder="Buscar en el texto…"
           value={value.search || ''}
-          onChange={e => patch({ search: e.target.value || undefined })}
+          onChange={(e) => patch({ search: e.target.value || undefined })}
         />
         {value.search && (
           <button
@@ -245,9 +250,11 @@ export default function NotesFilters({
 
       {/* ── Chips temporales ── */}
       <div>
-        <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Fecha</p>
+        <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
+          Fecha
+        </p>
         <div className="flex flex-wrap gap-1.5">
-          {TIME_PRESETS.map(p => (
+          {TIME_PRESETS.map((p) => (
             <button
               key={p.key}
               type="button"
@@ -281,7 +288,7 @@ export default function NotesFilters({
               <input
                 type="date"
                 className="input text-xs"
-                onChange={e => applyCustomDate('from', e.target.value)}
+                onChange={(e) => applyCustomDate('from', e.target.value)}
               />
             </div>
             <div>
@@ -289,7 +296,7 @@ export default function NotesFilters({
               <input
                 type="date"
                 className="input text-xs"
-                onChange={e => applyCustomDate('to', e.target.value)}
+                onChange={(e) => applyCustomDate('to', e.target.value)}
               />
             </div>
           </div>
@@ -316,16 +323,16 @@ export default function NotesFilters({
                 placeholder="Buscar ejercicio…"
                 defaultValue={
                   value.exerciseId
-                    ? (exercisesToShow.find(e => e.id === value.exerciseId)?.name || '')
+                    ? exercisesToShow.find((e) => e.id === value.exerciseId)?.name || ''
                     : ''
                 }
-                onChange={e => {
-                  const match = exercisesToShow.find(ex => ex.name === e.target.value)
+                onChange={(e) => {
+                  const match = exercisesToShow.find((ex) => ex.name === e.target.value)
                   patch({ exerciseId: match?.id || undefined })
                 }}
               />
               <datalist id="notes-exercises-datalist">
-                {exercisesToShow.map(ex => (
+                {exercisesToShow.map((ex) => (
                   <option key={ex.id} value={ex.name} />
                 ))}
               </datalist>
@@ -334,12 +341,14 @@ export default function NotesFilters({
             <select
               className="input text-xs"
               value={value.exerciseId || ''}
-              onChange={e => patch({ exerciseId: e.target.value || undefined })}
+              onChange={(e) => patch({ exerciseId: e.target.value || undefined })}
               disabled={exercisesToShow.length === 0}
             >
               <option value="">Todos</option>
-              {exercisesToShow.map(ex => (
-                <option key={ex.id} value={ex.id}>{ex.name}</option>
+              {exercisesToShow.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.name}
+                </option>
               ))}
             </select>
           )}
@@ -350,11 +359,13 @@ export default function NotesFilters({
           <select
             className="input text-xs"
             value={value.muscleGroup || ''}
-            onChange={e => patch({ muscleGroup: e.target.value || undefined })}
+            onChange={(e) => patch({ muscleGroup: e.target.value || undefined })}
           >
             <option value="">Todos</option>
-            {muscleGroups.map(mg => (
-              <option key={mg} value={mg}>{mg}</option>
+            {muscleGroups.map((mg) => (
+              <option key={mg} value={mg}>
+                {mg}
+              </option>
             ))}
           </select>
         </div>
@@ -363,15 +374,15 @@ export default function NotesFilters({
       {/* ── BlockType chips (solo los presentes en el thread) ── */}
       {blockTypesToShow.length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Tipo de bloque</p>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
+            Tipo de bloque
+          </p>
           <div className="flex flex-wrap gap-1.5">
-            {blockTypesToShow.map(b => (
+            {blockTypesToShow.map((b) => (
               <button
                 key={b.key}
                 type="button"
-                onClick={() =>
-                  patch({ blockType: value.blockType === b.key ? undefined : b.key })
-                }
+                onClick={() => patch({ blockType: value.blockType === b.key ? undefined : b.key })}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                   value.blockType === b.key
                     ? 'bg-primary-100 text-primary-700 border-primary-200'
@@ -393,7 +404,7 @@ export default function NotesFilters({
 
         {currentTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-1.5">
-            {currentTags.map(t => (
+            {currentTags.map((t) => (
               <span
                 key={t}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs font-medium"
@@ -418,8 +429,8 @@ export default function NotesFilters({
             className="input text-xs"
             placeholder="Agregar tag…"
             value={tagInput}
-            onChange={e => setTagInput(e.target.value)}
-            onKeyDown={e => {
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
                 addTag(tagInput)
@@ -428,7 +439,7 @@ export default function NotesFilters({
           />
           {tagSuggestions.length > 0 && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-md max-h-40 overflow-y-auto">
-              {tagSuggestions.map(s => (
+              {tagSuggestions.map((s) => (
                 <button
                   type="button"
                   key={s}

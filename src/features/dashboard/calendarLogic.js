@@ -10,9 +10,7 @@
 // mantener compatibilidad con quien las importa desde ahí.
 // ============================================================
 
-import {
-  startOfWeekMonday,
-} from '@/features/plans/assignmentHelpers'
+import { startOfWeekMonday } from '@/features/plans/assignmentHelpers'
 
 // ── Constantes locales ───────────────────────────────────────
 const SCHED_FIXED = 'fixed'
@@ -50,21 +48,61 @@ function parseYMD(s) {
 // COACH_EVENT_KIND — paleta de eventos del coach
 // ============================================================
 export const COACH_EVENT_KIND = {
-  plan_start: { label: 'Inicio de plan', icon: '▸', dotClass: 'bg-emerald-500',  textClass: 'text-emerald-700' },
-  plan_end:   { label: 'Fin de plan',    icon: '◂', dotClass: 'bg-slate-400',    textClass: 'text-slate-600' },
-  payment_due:{ label: 'Vencimiento de pago', icon: '$', dotClass: 'bg-amber-500',    textClass: 'text-amber-700' },
-  birthday:   { label: 'Cumpleaños',     icon: '🎂', dotClass: 'bg-pink-400',     textClass: 'text-pink-600' },
+  plan_start: {
+    label: 'Inicio de plan',
+    icon: '▸',
+    dotClass: 'bg-emerald-500',
+    textClass: 'text-emerald-700',
+  },
+  plan_end: {
+    label: 'Fin de plan',
+    icon: '◂',
+    dotClass: 'bg-slate-400',
+    textClass: 'text-slate-600',
+  },
+  payment_due: {
+    label: 'Vencimiento de pago',
+    icon: '$',
+    dotClass: 'bg-amber-500',
+    textClass: 'text-amber-700',
+  },
+  birthday: {
+    label: 'Cumpleaños',
+    icon: '🎂',
+    dotClass: 'bg-pink-400',
+    textClass: 'text-pink-600',
+  },
 }
 
 // ============================================================
 // STUDENT_DAY_STYLE — paleta de estados de día por alumno
 // ============================================================
 export const STUDENT_DAY_STYLE = {
-  planned_done:    { label: 'Cumplido',          icon: '✓', dotClass: 'bg-emerald-500',  ringClass: 'ring-emerald-300' },
-  planned_missed:  { label: 'No asistió',        icon: '✗', dotClass: 'bg-rose-500',     ringClass: 'ring-rose-300' },
-  planned_future:  { label: 'Próximo',           icon: '○', dotClass: 'bg-slate-300',    ringClass: 'ring-slate-200' },
-  unplanned_done:  { label: 'Día extra',         icon: '+', dotClass: 'bg-blue-400',     ringClass: 'ring-blue-300' },
-  rest:            { label: 'Descanso',          icon: '·', dotClass: 'bg-transparent',  ringClass: '' },
+  planned_done: {
+    label: 'Cumplido',
+    icon: '✓',
+    dotClass: 'bg-emerald-500',
+    ringClass: 'ring-emerald-300',
+  },
+  planned_missed: {
+    label: 'No asistió',
+    icon: '✗',
+    dotClass: 'bg-rose-500',
+    ringClass: 'ring-rose-300',
+  },
+  planned_future: {
+    label: 'Próximo',
+    icon: '○',
+    dotClass: 'bg-slate-300',
+    ringClass: 'ring-slate-200',
+  },
+  unplanned_done: {
+    label: 'Día extra',
+    icon: '+',
+    dotClass: 'bg-blue-400',
+    ringClass: 'ring-blue-300',
+  },
+  rest: { label: 'Descanso', icon: '·', dotClass: 'bg-transparent', ringClass: '' },
 }
 
 // ============================================================
@@ -121,7 +159,7 @@ export function computeCalendarEvents(students, assignments, window) {
 
   // ── Plan starts / ends ──────────────────────────────────────
   for (const a of assignments || []) {
-    const student = (students || []).find(s => s.id === a.student_id)
+    const student = (students || []).find((s) => s.id === a.student_id)
     const studentName = student?.name || '—'
     const planTitle = a.plan?.title || 'Plan'
 
@@ -213,13 +251,7 @@ export function computeCalendarEvents(students, assignments, window) {
 // Output: 'planned_done' | 'planned_missed' | 'planned_future'
 //       | 'unplanned_done' | 'rest'
 // ============================================================
-export function computeStudentDayStatus(
-  ymd,
-  expectedSet,
-  completedSet,
-  today,
-  opts = {}
-) {
+export function computeStudentDayStatus(ymd, expectedSet, completedSet, today, opts = {}) {
   const scheduleMode = opts.scheduleMode === SCHED_FLEXIBLE ? SCHED_FLEXIBLE : SCHED_FIXED
   const isDone = completedSet.has(ymd)
 

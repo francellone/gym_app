@@ -65,7 +65,9 @@ export default function StudentNotesTab({ studentId }) {
       }
     }
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [profile?.id, profile?.role, studentId])
 
   // ── Loading ────────────────────────────────────────────────
@@ -85,9 +87,7 @@ export default function StudentNotesTab({ studentId }) {
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-medium">No pudimos abrir las notas</p>
-            <p className="text-xs text-red-600 mt-0.5">
-              {error || 'Hilo no disponible.'}
-            </p>
+            <p className="text-xs text-red-600 mt-0.5">{error || 'Hilo no disponible.'}</p>
           </div>
         </div>
       </div>
@@ -95,11 +95,5 @@ export default function StudentNotesTab({ studentId }) {
   }
 
   // ── Panel ──────────────────────────────────────────────────
-  return (
-    <NotesPanel
-      threadId={threadId}
-      viewerRole="coach"
-      authorId={profile?.id}
-    />
-  )
+  return <NotesPanel threadId={threadId} viewerRole="coach" authorId={profile?.id} />
 }

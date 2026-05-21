@@ -57,30 +57,32 @@ export default function FollowUpFormPage() {
       .update({ status: 'in_progress' })
       .eq('id', assignment.id)
 
-    await supabase
-      .from('intake_form_submissions')
-      .upsert({
+    await supabase.from('intake_form_submissions').upsert(
+      {
         assignment_id: assignment.id,
         student_id: profile.id,
         coach_id: assignment.coach_id,
         form_snapshot: assignment.form_snapshot,
         responses,
-      }, { onConflict: 'assignment_id' })
+      },
+      { onConflict: 'assignment_id' }
+    )
   }
 
   async function handleSubmit(responses) {
     if (!assignment) return
 
-    await supabase
-      .from('intake_form_submissions')
-      .upsert({
+    await supabase.from('intake_form_submissions').upsert(
+      {
         assignment_id: assignment.id,
         student_id: profile.id,
         coach_id: assignment.coach_id,
         form_snapshot: assignment.form_snapshot,
         responses,
         submitted_at: new Date().toISOString(),
-      }, { onConflict: 'assignment_id' })
+      },
+      { onConflict: 'assignment_id' }
+    )
 
     await supabase
       .from('intake_form_assignments')

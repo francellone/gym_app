@@ -15,9 +15,9 @@ const PAGE_SIZE = 30
 
 export function useNotifications(userId) {
   const [notifications, setNotifications] = useState([])
-  const [unreadCount, setUnreadCount]     = useState(0)
-  const [loading, setLoading]             = useState(true)
-  const channelRef                        = useRef(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const channelRef = useRef(null)
 
   // ── Cargar notificaciones ──────────────────────────────────
   const load = useCallback(async () => {
@@ -32,38 +32,41 @@ export function useNotifications(userId) {
 
     if (!error && data) {
       setNotifications(data)
-      setUnreadCount(data.filter(n => !n.read).length)
+      setUnreadCount(data.filter((n) => !n.read).length)
     }
     setLoading(false)
   }, [userId])
 
   // ── Marcar una como leída ─────────────────────────────────
-  const markAsRead = useCallback(async (notificationId) => {
-    // Guardar snapshot previo para poder revertir si falla el UPDATE
-    let prevNotifications
-    let prevUnread
-    setNotifications(prev => {
-      prevNotifications = prev
-      return prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    })
-    setUnreadCount(prev => {
-      prevUnread = prev
-      return Math.max(0, prev - 1)
-    })
+  const markAsRead = useCallback(
+    async (notificationId) => {
+      // Guardar snapshot previo para poder revertir si falla el UPDATE
+      let prevNotifications
+      let prevUnread
+      setNotifications((prev) => {
+        prevNotifications = prev
+        return prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      })
+      setUnreadCount((prev) => {
+        prevUnread = prev
+        return Math.max(0, prev - 1)
+      })
 
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', notificationId)
-      .eq('user_id', userId)
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId)
+        .eq('user_id', userId)
 
-    if (error) {
-      console.error('[useNotifications] markAsRead failed:', error)
-      // Revertir
-      setNotifications(prevNotifications)
-      setUnreadCount(prevUnread)
-    }
-  }, [userId])
+      if (error) {
+        console.error('[useNotifications] markAsRead failed:', error)
+        // Revertir
+        setNotifications(prevNotifications)
+        setUnreadCount(prevUnread)
+      }
+    },
+    [userId]
+  )
 
   // ── Marcar todas como leídas ──────────────────────────────
   // No-op si no hay unread (evita UPDATE innecesario). No devuelve nada.
@@ -73,11 +76,11 @@ export function useNotifications(userId) {
     // Guardar snapshot previo (array entero) para poder revertir
     let prevNotifications
     let prevUnread
-    setNotifications(prev => {
+    setNotifications((prev) => {
       prevNotifications = prev
-      return prev.map(n => ({ ...n, read: true }))
+      return prev.map((n) => ({ ...n, read: true }))
     })
-    setUnreadCount(prev => {
+    setUnreadCount((prev) => {
       prevUnread = prev
       return 0
     })
@@ -116,8 +119,8 @@ export function useNotifications(userId) {
         },
         (payload) => {
           const newNotif = payload.new
-          setNotifications(prev => [newNotif, ...prev].slice(0, PAGE_SIZE))
-          setUnreadCount(prev => prev + 1)
+          setNotifications((prev) => [newNotif, ...prev].slice(0, PAGE_SIZE))
+          setUnreadCount((prev) => prev + 1)
 
           // Mostrar notificación nativa del browser si la pestaña no está activa
           if (
@@ -126,8 +129,8 @@ export function useNotifications(userId) {
             Notification.permission === 'granted'
           ) {
             new Notification(newNotif.title, {
-              body:  newNotif.body || '',
-              icon:  '/favicon.svg',
+              body: newNotif.body || '',
+              icon: '/favicon.svg',
               badge: '/favicon.svg',
             })
           }
@@ -143,12 +146,10 @@ export function useNotifications(userId) {
         },
         (payload) => {
           const updated = payload.new
-          setNotifications(prev => {
-            const next = prev.map(n =>
-              n.id === updated.id ? { ...n, ...updated } : n
-            )
+          setNotifications((prev) => {
+            const next = prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n))
             // Recontar unread desde el state nuevo (más robusto que ±1)
-            setUnreadCount(next.filter(n => !n.read).length)
+            setUnreadCount(next.filter((n) => !n.read).length)
             return next
           })
         }

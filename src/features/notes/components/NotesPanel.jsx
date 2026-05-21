@@ -45,7 +45,9 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     listAllActiveExercises().then(({ data }) => {
       if (alive) setCatalogExercises(data || [])
     })
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [])
 
   // ── fetchOpts en ref para invocarlo desde realtime sin re-armar useEffect ──
@@ -54,8 +56,10 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     let alive = true
     fetchOptsRef.current = async () => {
       if (!threadId) {
-        setExercises([]); setAvailableMuscleGroups([])
-        setAvailableBlockTypes([]); setAvailableTags([])
+        setExercises([])
+        setAvailableMuscleGroups([])
+        setAvailableBlockTypes([])
+        setAvailableTags([])
         return
       }
       const { data } = await listFilterOptions(threadId)
@@ -67,7 +71,9 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
     }
     // primera carga
     fetchOptsRef.current()
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [threadId])
 
   // ── D4: cuando llega un INSERT por realtime, re-fetch debounced de las
@@ -144,7 +150,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
 
   // Callback: click en tag agrega al filtro
   const handleTagClick = useCallback((tag) => {
-    setFilters(prev => {
+    setFilters((prev) => {
       const current = Array.isArray(prev.tags) ? prev.tags : []
       if (current.includes(tag)) return prev
       return { ...prev, tags: [...current, tag] }
@@ -224,7 +230,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
           </div>
         )}
 
-        {notes.map(note => (
+        {notes.map((note) => (
           <NoteCard
             key={note.id}
             note={note}
@@ -246,9 +252,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
               disabled={loading}
               className="btn-secondary text-xs flex items-center gap-1.5"
             >
-              {loading
-                ? <Loader2 size={12} className="animate-spin" />
-                : null}
+              {loading ? <Loader2 size={12} className="animate-spin" /> : null}
               Cargar más
             </button>
           </div>

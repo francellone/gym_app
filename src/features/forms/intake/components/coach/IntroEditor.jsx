@@ -11,10 +11,7 @@ export default function IntroEditor({ value, onChange }) {
 
   const handleChange = (e) => {
     const newContent = e.target.value
-    onChange(typeof value === 'string'
-      ? newContent
-      : { ...value, content: newContent }
-    )
+    onChange(typeof value === 'string' ? newContent : { ...value, content: newContent })
   }
 
   return (
@@ -28,7 +25,8 @@ Podés usar emojis 💪 y saltos de línea."
         className="w-full text-sm border border-gray-300 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <p className="text-xs text-gray-400">
-        💡 Tip: Usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la info, y cualquier instrucción especial.
+        💡 Tip: Usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la
+        info, y cualquier instrucción especial.
       </p>
     </div>
   )

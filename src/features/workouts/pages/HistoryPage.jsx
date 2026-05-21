@@ -9,7 +9,7 @@ import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
 function SessionGroup({ date, logs, session }) {
   const [expanded, setExpanded] = useState(false)
-  const completedCount = logs.filter(l => l.completed).length
+  const completedCount = logs.filter((l) => l.completed).length
 
   const sessionDuration = (() => {
     if (!session?.started_at || !session?.finished_at) return null
@@ -19,16 +19,15 @@ function SessionGroup({ date, logs, session }) {
 
   return (
     <div className="card overflow-hidden">
-      <button
-        className="w-full flex items-center gap-3"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <button className="w-full flex items-center gap-3" onClick={() => setExpanded(!expanded)}>
         <div className="flex-1 text-left">
           <p className="font-semibold text-sm text-gray-900 capitalize">
             {format(parseISO(date), "EEEE d 'de' MMMM", { locale: es })}
           </p>
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
-            <span>{completedCount}/{logs.length} ejercicios completados</span>
+            <span>
+              {completedCount}/{logs.length} ejercicios completados
+            </span>
             {sessionDuration !== null && (
               <>
                 <span className="text-gray-300">·</span>
@@ -56,7 +55,11 @@ function SessionGroup({ date, logs, session }) {
               </div>
             )}
           </div>
-          {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          {expanded ? (
+            <ChevronUp size={16} className="text-gray-400" />
+          ) : (
+            <ChevronDown size={16} className="text-gray-400" />
+          )}
         </div>
       </button>
 
@@ -66,32 +69,35 @@ function SessionGroup({ date, logs, session }) {
             <div className="flex items-center gap-3 text-xs text-gray-400 pb-2 border-b border-gray-50">
               <span className="flex items-center gap-1">
                 <Clock size={11} />
-                {format(new Date(session.started_at), 'HH:mm')} → {format(new Date(session.finished_at), 'HH:mm')}
+                {format(new Date(session.started_at), 'HH:mm')} →{' '}
+                {format(new Date(session.finished_at), 'HH:mm')}
               </span>
               <span className="font-medium text-primary-500">{sessionDuration} min</span>
             </div>
           )}
-          {logs.map(log => (
+          {logs.map((log) => (
             <div key={log.id} className="flex items-start gap-2.5">
-              {log.completed
-                ? <CheckCircle2 size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
-                : <Circle size={16} className="text-gray-300 flex-shrink-0 mt-0.5" />
-              }
+              {log.completed ? (
+                <CheckCircle2 size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Circle size={16} className="text-gray-300 flex-shrink-0 mt-0.5" />
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {log.plan_exercise?.exercise?.name || 'Ejercicio'}
                 </p>
                 {(() => {
-                  const reps = readLogReps(log).filter(r => r != null && r !== '')
-                  const weights = readLogWeights(log).filter(w => w != null && w !== '')
-                  const repsDisplay = reps.length > 0
-                    ? `× ${reps.join(',')}${log.unilateral ? '/lado' : ''}`
-                    : null
+                  const reps = readLogReps(log).filter((r) => r != null && r !== '')
+                  const weights = readLogWeights(log).filter((w) => w != null && w !== '')
+                  const repsDisplay =
+                    reps.length > 0 ? `× ${reps.join(',')}${log.unilateral ? '/lado' : ''}` : null
                   const wDisplay = weights.length > 0 ? `${weights.join(',')}kg` : null
                   const modeDisplay =
-                    log.weight_mode === 'bodyweight' ? 'BW'
-                    : log.weight_mode === 'barbell_only' ? 'solo barra'
-                    : null
+                    log.weight_mode === 'bodyweight'
+                      ? 'BW'
+                      : log.weight_mode === 'barbell_only'
+                        ? 'solo barra'
+                        : null
                   return (
                     <p className="text-xs text-gray-500">
                       {[
@@ -100,7 +106,9 @@ function SessionGroup({ date, logs, session }) {
                         wDisplay,
                         !wDisplay && modeDisplay,
                         log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
-                      ].filter(Boolean).join(' · ')}
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                   )
                 })()}
@@ -136,13 +144,15 @@ export default function HistoryPage() {
   async function fetchLogs() {
     const { data, error } = await supabase
       .from('workout_logs')
-      .select(`
+      .select(
+        `
         *,
         plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section,
           exercise:exercises!exercise_id(name)
         )
-      `)
+      `
+      )
       .eq('student_id', profile.id)
       .order('logged_date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -152,15 +162,21 @@ export default function HistoryPage() {
       // Round 2a: traer body de notas mirror (context_type='workout_log')
       // y reemplazar log.notes con el panel. La columna workout_logs.notes
       // sigue viva como compat; en round 2b se dropea.
-      const logIds = data.map(l => l.id)
-      const bodiesMap = await fetchSingleMirrorBodies({ contextType: 'workout_log', contextIds: logIds })
-      const dataWithMirror = data.map(l => ({ ...l, notes: bodiesMap.get(l.id) ?? l.notes ?? null }))
+      const logIds = data.map((l) => l.id)
+      const bodiesMap = await fetchSingleMirrorBodies({
+        contextType: 'workout_log',
+        contextIds: logIds,
+      })
+      const dataWithMirror = data.map((l) => ({
+        ...l,
+        notes: bodiesMap.get(l.id) ?? l.notes ?? null,
+      }))
 
       const newLogs = page === 0 ? dataWithMirror : [...logs, ...dataWithMirror]
       setLogs(newLogs)
 
       // Fetch workout_sessions for the dates visible in this page
-      const dates = [...new Set(data.map(l => l.logged_date))]
+      const dates = [...new Set(data.map((l) => l.logged_date))]
       if (dates.length > 0) {
         const { data: sessData } = await supabase
           .from('workout_sessions')
@@ -171,7 +187,7 @@ export default function HistoryPage() {
         if (sessData) {
           // Index by date; if multiple sessions per date, prefer the one with finished_at
           const sessMap = { ...sessions }
-          sessData.forEach(s => {
+          sessData.forEach((s) => {
             if (!sessMap[s.logged_date] || s.finished_at) {
               sessMap[s.logged_date] = s
             }
@@ -185,7 +201,7 @@ export default function HistoryPage() {
 
   // Group logs by date
   const groupedLogs = {}
-  logs.forEach(log => {
+  logs.forEach((log) => {
     const date = log.logged_date
     if (!groupedLogs[date]) groupedLogs[date] = []
     groupedLogs[date].push(log)
@@ -223,7 +239,7 @@ export default function HistoryPage() {
 
             {logs.length >= (page + 1) * PAGE_SIZE && (
               <button
-                onClick={() => setPage(p => p + 1)}
+                onClick={() => setPage((p) => p + 1)}
                 className="btn-secondary w-full text-sm"
               >
                 Cargar más

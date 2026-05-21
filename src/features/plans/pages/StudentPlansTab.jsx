@@ -2,23 +2,29 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
-  ClipboardList, Plus, ChevronRight, MoreVertical, AlertTriangle,
+  ClipboardList,
+  Plus,
+  ChevronRight,
+  MoreVertical,
+  AlertTriangle,
   Loader,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  ASSIGNMENT_STATUS, statusConfig, getAssignmentStatus,
-  actionsForStatus, pickPrimaryTrainingAssignment,
-  getScheduleMode, getPreferredDays, formatPreferredDays,
+  ASSIGNMENT_STATUS,
+  statusConfig,
+  getAssignmentStatus,
+  actionsForStatus,
+  pickPrimaryTrainingAssignment,
+  getScheduleMode,
+  getPreferredDays,
+  formatPreferredDays,
   assignTemplateToStudent,
 } from '../assignmentHelpers'
 import ReplacePlanModal from '../components/ReplacePlanModal'
 import DuplicatePlanModal from '../components/DuplicatePlanModal'
-import {
-  ScheduleEditorInline,
-  ScheduleEditorModal,
-} from '../components/ScheduleEditor'
+import { ScheduleEditorInline, ScheduleEditorModal } from '../components/ScheduleEditor'
 
 // ─────────────────────────────────────────────────────────────
 // StudentPlansTab
@@ -37,10 +43,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
 
   // Solo asignaciones de training. Las evaluaciones no aparecen acá.
   const trainingAssignments = useMemo(
-    () => (assignments || []).filter(a => {
-      const t = a.plan_type || a.plan?.plan_type || 'training'
-      return t === 'training'
-    }),
+    () =>
+      (assignments || []).filter((a) => {
+        const t = a.plan_type || a.plan?.plan_type || 'training'
+        return t === 'training'
+      }),
     [assignments]
   )
 
@@ -50,9 +57,10 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
   // plantillas. Las instancias clonadas viven asociadas a un único alumno
   // y no deben aparecer en la biblioteca para asignar a otros.
   const trainingPlans = useMemo(
-    () => (allPlans || []).filter(p =>
-      (!p.plan_type || p.plan_type === 'training') && p.is_template !== false
-    ),
+    () =>
+      (allPlans || []).filter(
+        (p) => (!p.plan_type || p.plan_type === 'training') && p.is_template !== false
+      ),
     [allPlans]
   )
 
@@ -80,14 +88,14 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
   const [linkedEvalsLoading, setLinkedEvalsLoading] = useState(false)
 
   const incomingPlan = useMemo(
-    () => trainingPlans.find(p => p.id === replaceModal?.incomingPlanId) || null,
+    () => trainingPlans.find((p) => p.id === replaceModal?.incomingPlanId) || null,
     [trainingPlans, replaceModal]
   )
   const currentPrimary = useMemo(
     () => pickPrimaryTrainingAssignment(trainingAssignments),
     [trainingAssignments]
   )
-  const currentActive = trainingAssignments.find(a => getAssignmentStatus(a) === 'active') || null
+  const currentActive = trainingAssignments.find((a) => getAssignmentStatus(a) === 'active') || null
 
   // ============================================================
   // Asignar plan: detecta si hay activo y dispara modal de reemplazo
@@ -155,17 +163,20 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       // y este plan en particular.
       const existing = new Set(
         (assignments || [])
-          .filter(a => a.linked_assignment_id === trainingAssignmentId &&
-            (a.plan_type || a.plan?.plan_type) === 'evaluation')
-          .map(a => a.plan_id)
+          .filter(
+            (a) =>
+              a.linked_assignment_id === trainingAssignmentId &&
+              (a.plan_type || a.plan?.plan_type) === 'evaluation'
+          )
+          .map((a) => a.plan_id)
       )
-      const toOffer = data.filter(ev => !existing.has(ev.id))
+      const toOffer = data.filter((ev) => !existing.has(ev.id))
       if (toOffer.length === 0) return
 
       setLinkedEvalsPrompt({
         trainingAssignmentId,
         evals: toOffer,
-        selected: new Set(toOffer.map(e => e.id)),
+        selected: new Set(toOffer.map((e) => e.id)),
       })
     } catch (err) {
       console.error('[StudentPlansTab] maybePromptLinkedEvals', err)
@@ -193,7 +204,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           })
         } catch (err) {
           console.error('[StudentPlansTab] confirmLinkedEvals item', templateId, err)
-          const ev = linkedEvalsPrompt.evals.find(e => e.id === templateId)
+          const ev = linkedEvalsPrompt.evals.find((e) => e.id === templateId)
           failures.push({ title: ev?.title || templateId, message: err?.message || 'error' })
         }
       }
@@ -201,7 +212,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       if (failures.length > 0) {
         alert(
           `Algunas evaluaciones no se pudieron asignar:\n` +
-          failures.map(f => `• ${f.title}: ${f.message}`).join('\n')
+            failures.map((f) => `• ${f.title}: ${f.message}`).join('\n')
         )
       }
       onRefresh()
@@ -360,7 +371,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       if (pauseErr) throw pauseErr
 
       // 2. Reactivar el deseado.
-      const target = trainingAssignments.find(a => a.id === reactivateModal.assignmentId)
+      const target = trainingAssignments.find((a) => a.id === reactivateModal.assignmentId)
       if (target) {
         const { error: actErr } = await supabase
           .from('plan_assignments')
@@ -391,10 +402,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     if (!confirmed) return
     setSavingAssignment(assignment.id)
     try {
-      const { error } = await supabase
-        .from('plan_assignments')
-        .delete()
-        .eq('id', assignment.id)
+      const { error } = await supabase.from('plan_assignments').delete().eq('id', assignment.id)
       if (error) throw error
       onRefresh()
     } catch (err) {
@@ -439,9 +447,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
         <div>
           <h3 className="font-semibold text-gray-900">Planes de entrenamiento</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            {currentPrimary
-              ? `Vigente: ${currentPrimary.plan?.title || '—'}`
-              : 'Sin plan vigente'}
+            {currentPrimary ? `Vigente: ${currentPrimary.plan?.title || '—'}` : 'Sin plan vigente'}
           </p>
         </div>
         <button
@@ -453,62 +459,63 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       </div>
 
       {/* Form de asignación inline */}
-      {assigningPlan && (() => {
-        const planRow = trainingPlans.find(p => p.id === selectedPlan)
-        const sessionsPerWeek = planRow?.sessions_per_week ?? null
-        const isFixed = newSchedule.schedule_mode === 'fixed'
-        const fixedHasNoDays = isFixed && (newSchedule.preferred_days?.length || 0) === 0
-        return (
-          <div className="card border-2 border-primary-200 space-y-3">
-            <h4 className="font-medium text-gray-900">Asignar nuevo plan</h4>
-            <select
-              value={selectedPlan}
-              onChange={e => setSelectedPlan(e.target.value)}
-              className="input"
-            >
-              <option value="">Seleccioná un plan...</option>
-              {trainingPlans.map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
+      {assigningPlan &&
+        (() => {
+          const planRow = trainingPlans.find((p) => p.id === selectedPlan)
+          const sessionsPerWeek = planRow?.sessions_per_week ?? null
+          const isFixed = newSchedule.schedule_mode === 'fixed'
+          const fixedHasNoDays = isFixed && (newSchedule.preferred_days?.length || 0) === 0
+          return (
+            <div className="card border-2 border-primary-200 space-y-3">
+              <h4 className="font-medium text-gray-900">Asignar nuevo plan</h4>
+              <select
+                value={selectedPlan}
+                onChange={(e) => setSelectedPlan(e.target.value)}
+                className="input"
+              >
+                <option value="">Seleccioná un plan...</option>
+                {trainingPlans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
 
-            {/* Editor de horario (Fase 2). Visible siempre que haya
+              {/* Editor de horario (Fase 2). Visible siempre que haya
                 plan elegido para que el coach decida desde el inicio. */}
-            {selectedPlan && (
-              <div className="pt-1">
-                <p className="label">Horario</p>
-                <ScheduleEditorInline
-                  value={newSchedule}
-                  onChange={setNewSchedule}
-                  sessionsPerWeek={sessionsPerWeek || undefined}
-                />
-              </div>
-            )}
+              {selectedPlan && (
+                <div className="pt-1">
+                  <p className="label">Horario</p>
+                  <ScheduleEditorInline
+                    value={newSchedule}
+                    onChange={setNewSchedule}
+                    sessionsPerWeek={sessionsPerWeek || undefined}
+                  />
+                </div>
+              )}
 
-            {currentActive && selectedPlan && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
-                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
-                Este alumno ya tiene un plan activo. Te vamos a preguntar qué hacer con él al confirmar.
-              </p>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={resetAssignForm}
-                className="btn-secondary flex-1 text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={tryAssignPlan}
-                disabled={!selectedPlan || fixedHasNoDays}
-                className="btn-primary flex-1 text-sm"
-              >
-                {currentActive ? 'Continuar…' : 'Asignar'}
-              </button>
+              {currentActive && selectedPlan && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
+                  <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                  Este alumno ya tiene un plan activo. Te vamos a preguntar qué hacer con él al
+                  confirmar.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button onClick={resetAssignForm} className="btn-secondary flex-1 text-sm">
+                  Cancelar
+                </button>
+                <button
+                  onClick={tryAssignPlan}
+                  disabled={!selectedPlan || fixedHasNoDays}
+                  className="btn-primary flex-1 text-sm"
+                >
+                  {currentActive ? 'Continuar…' : 'Asignar'}
+                </button>
+              </div>
             </div>
-          </div>
-        )
-      })()}
+          )
+        })()}
 
       {/* Lista vacía */}
       {trainingAssignments.length === 0 && !assigningPlan && (
@@ -534,11 +541,12 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
               const tb = new Date(b.created_at || 0).getTime()
               return tb - ta
             })
-            .map(a => {
+            .map((a) => {
               // Cuántas evaluaciones tiene vinculadas a esta asignación.
-              const linkedEvalCount = (assignments || []).filter(x =>
-                x.linked_assignment_id === a.id &&
-                (x.plan_type || x.plan?.plan_type) === 'evaluation'
+              const linkedEvalCount = (assignments || []).filter(
+                (x) =>
+                  x.linked_assignment_id === a.id &&
+                  (x.plan_type || x.plan?.plan_type) === 'evaluation'
               ).length
               return (
                 <AssignmentRow
@@ -553,7 +561,10 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                   onTransition={(toStatus) => changeStatus(a, toStatus)}
                   onReactivate={() => tryReactivate(a)}
                   onDelete={() => handleDelete(a)}
-                  onEditSchedule={() => { setEditingSchedule(a); setOpenMenu(null) }}
+                  onEditSchedule={() => {
+                    setEditingSchedule(a)
+                    setOpenMenu(null)
+                  }}
                 />
               )
             })}
@@ -575,7 +586,9 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {reactivateModal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setReactivateModal(null) }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReactivateModal(null)
+          }}
         >
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
@@ -585,7 +598,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
               <div>
                 <p className="font-semibold text-gray-900">Reactivar plan</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Esto va a pausar el plan actual <span className="font-medium text-gray-700">"{reactivateModal.conflictAssignment.plan?.title}"</span>. ¿Continuar?
+                  Esto va a pausar el plan actual{' '}
+                  <span className="font-medium text-gray-700">
+                    "{reactivateModal.conflictAssignment.plan?.title}"
+                  </span>
+                  . ¿Continuar?
                 </p>
               </div>
             </div>
@@ -601,10 +618,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 disabled={savingAssignment === reactivateModal.assignmentId}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 flex items-center justify-center gap-1.5"
               >
-                {savingAssignment === reactivateModal.assignmentId
-                  ? <Loader size={14} className="animate-spin" />
-                  : 'Sí, reactivar'
-                }
+                {savingAssignment === reactivateModal.assignmentId ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : (
+                  'Sí, reactivar'
+                )}
               </button>
             </div>
           </div>
@@ -633,17 +651,21 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {linkedEvalsPrompt && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget && !linkedEvalsLoading) setLinkedEvalsPrompt(null) }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !linkedEvalsLoading) setLinkedEvalsPrompt(null)
+          }}
         >
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
             <div>
               <h2 className="font-bold text-gray-900">Evaluaciones asociadas al plan</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Este plan tiene {linkedEvalsPrompt.evals.length} evaluación{linkedEvalsPrompt.evals.length > 1 ? 'es' : ''} asociada{linkedEvalsPrompt.evals.length > 1 ? 's' : ''}. ¿Asignárselas también al alumno?
+                Este plan tiene {linkedEvalsPrompt.evals.length} evaluación
+                {linkedEvalsPrompt.evals.length > 1 ? 'es' : ''} asociada
+                {linkedEvalsPrompt.evals.length > 1 ? 's' : ''}. ¿Asignárselas también al alumno?
               </p>
             </div>
             <div className="space-y-2">
-              {linkedEvalsPrompt.evals.map(ev => {
+              {linkedEvalsPrompt.evals.map((ev) => {
                 const checked = linkedEvalsPrompt.selected.has(ev.id)
                 return (
                   <label
@@ -657,18 +679,19 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                       checked={checked}
                       onChange={(e) => {
                         const next = new Set(linkedEvalsPrompt.selected)
-                        if (e.target.checked) next.add(ev.id); else next.delete(ev.id)
+                        if (e.target.checked) next.add(ev.id)
+                        else next.delete(ev.id)
                         setLinkedEvalsPrompt({ ...linkedEvalsPrompt, selected: next })
                       }}
                       className="mt-1"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-700'}`}>
+                      <p
+                        className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-700'}`}
+                      >
                         📊 {ev.title}
                       </p>
-                      {ev.eval_type && (
-                        <p className="text-xs text-gray-500">{ev.eval_type}</p>
-                      )}
+                      {ev.eval_type && <p className="text-xs text-gray-500">{ev.eval_type}</p>}
                     </div>
                   </label>
                 )
@@ -687,10 +710,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 disabled={linkedEvalsLoading || linkedEvalsPrompt.selected.size === 0}
                 className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
               >
-                {linkedEvalsLoading
-                  ? <Loader size={14} className="animate-spin" />
-                  : `Asignar ${linkedEvalsPrompt.selected.size > 0 ? `(${linkedEvalsPrompt.selected.size})` : ''}`
-                }
+                {linkedEvalsLoading ? (
+                  <Loader size={14} className="animate-spin" />
+                ) : (
+                  `Asignar ${linkedEvalsPrompt.selected.size > 0 ? `(${linkedEvalsPrompt.selected.size})` : ''}`
+                )}
               </button>
             </div>
           </div>
@@ -704,9 +728,17 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
 // AssignmentRow
 // ─────────────────────────────────────────────────────────────
 function AssignmentRow({
-  assignment, trainingAssignments, linkedEvalCount = 0,
-  saving, menuOpen, onToggleMenu, onCloseMenu,
-  onTransition, onReactivate, onDelete, onEditSchedule,
+  assignment,
+  trainingAssignments,
+  linkedEvalCount = 0,
+  saving,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onTransition,
+  onReactivate,
+  onDelete,
+  onEditSchedule,
 }) {
   const status = getAssignmentStatus(assignment)
   const cfg = statusConfig(status)
@@ -718,9 +750,10 @@ function AssignmentRow({
     ? format(parseISO(assignment.end_date), 'dd/MM/yy', { locale: es })
     : null
 
-  const replacedBy = status === 'replaced' && assignment.replaced_by_assignment_id
-    ? trainingAssignments.find(x => x.id === assignment.replaced_by_assignment_id)
-    : null
+  const replacedBy =
+    status === 'replaced' && assignment.replaced_by_assignment_id
+      ? trainingAssignments.find((x) => x.id === assignment.replaced_by_assignment_id)
+      : null
 
   const isLive = status === 'active' || status === 'paused'
   const planRoute = `/coach/plans/${assignment.plan_id}`
@@ -728,9 +761,10 @@ function AssignmentRow({
   // Horario (Fase 2)
   const scheduleMode = getScheduleMode(assignment)
   const preferredDays = getPreferredDays(assignment)
-  const scheduleLabel = scheduleMode === 'fixed' && preferredDays.length > 0
-    ? formatPreferredDays(preferredDays)
-    : 'Horario flexible'
+  const scheduleLabel =
+    scheduleMode === 'fixed' && preferredDays.length > 0
+      ? formatPreferredDays(preferredDays)
+      : 'Horario flexible'
 
   return (
     <div className={`card flex items-start gap-3 ${!isLive ? 'opacity-80' : ''}`}>
@@ -747,9 +781,7 @@ function AssignmentRow({
             <p className="font-medium text-sm text-gray-900 truncate">
               {assignment.plan?.title || '—'}
             </p>
-            <span className={`badge text-[10px] ${cfg.badgeClass}`}>
-              {cfg.label}
-            </span>
+            <span className={`badge text-[10px] ${cfg.badgeClass}`}>{cfg.label}</span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
             {startDate ? `Desde ${startDate}` : 'Sin fecha de inicio'}
@@ -784,28 +816,28 @@ function AssignmentRow({
             </p>
           )}
         </div>
-        <ChevronRight size={14} className="text-gray-400 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ChevronRight
+          size={14}
+          className="text-gray-400 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+        />
       </Link>
 
       {/* Menú kebab */}
       <div className="relative flex-shrink-0">
         <button
-          onClick={(e) => { e.preventDefault(); onToggleMenu() }}
+          onClick={(e) => {
+            e.preventDefault()
+            onToggleMenu()
+          }}
           disabled={saving}
           className="btn-ghost p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-50"
         >
-          {saving
-            ? <Loader size={16} className="animate-spin" />
-            : <MoreVertical size={16} />
-          }
+          {saving ? <Loader size={16} className="animate-spin" /> : <MoreVertical size={16} />}
         </button>
 
         {menuOpen && (
           <>
-            <div
-              className="fixed inset-0 z-30"
-              onClick={onCloseMenu}
-            />
+            <div className="fixed inset-0 z-30" onClick={onCloseMenu} />
             <div className="absolute right-0 top-9 z-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[180px]">
               {/* Editar horario solo en asignaciones vivas */}
               {isLive && onEditSchedule && (
@@ -816,12 +848,10 @@ function AssignmentRow({
                   >
                     Editar horario
                   </button>
-                  {actions.length > 0 && (
-                    <div className="my-1 border-t border-gray-100" />
-                  )}
+                  {actions.length > 0 && <div className="my-1 border-t border-gray-100" />}
                 </>
               )}
-              {actions.map(action => {
+              {actions.map((action) => {
                 const isReactivate = action.toStatus === 'active'
                 return (
                   <button
@@ -836,9 +866,7 @@ function AssignmentRow({
                   </button>
                 )
               })}
-              {actions.length > 0 && (
-                <div className="my-1 border-t border-gray-100" />
-              )}
+              {actions.length > 0 && <div className="my-1 border-t border-gray-100" />}
               <button
                 onClick={onDelete}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"

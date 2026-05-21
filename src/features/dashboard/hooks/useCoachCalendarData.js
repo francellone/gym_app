@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  getExpectedSessionDates,
-  getScheduleMode,
-} from '@/features/plans/assignmentHelpers'
+import { getExpectedSessionDates, getScheduleMode } from '@/features/plans/assignmentHelpers'
 import {
   COACH_EVENT_KIND,
   STUDENT_DAY_STYLE,
@@ -15,9 +12,14 @@ import {
 
 // Re-exports para mantener la API histórica del hook
 // (MonthlyCalendar.jsx y futuros consumidores).
-export { COACH_EVENT_KIND, STUDENT_DAY_STYLE, getCalendarWindow,
-         computeCalendarEvents, computeStudentDayStatus,
-         computeFlexibleOverflowSet }
+export {
+  COACH_EVENT_KIND,
+  STUDENT_DAY_STYLE,
+  getCalendarWindow,
+  computeCalendarEvents,
+  computeStudentDayStatus,
+  computeFlexibleOverflowSet,
+}
 
 // ── Constantes locales ───────────────────────────────────────
 // schedule_mode posibles. Se replican acá para no acoplar este
@@ -129,15 +131,17 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
           // Filtramos por coach via RLS — ya está cubierto.
           supabase
             .from('plan_assignments')
-            .select(`
+            .select(
+              `
               id, student_id, plan_id, status, plan_type,
               start_date, end_date,
               schedule_mode, preferred_days,
               plan:plans!plan_id(title, sessions_per_week)
-            `)
+            `
+            )
             .or(
               `and(start_date.lte.${windowEndYMD},end_date.gte.${windowStartYMD}),` +
-              `and(start_date.lte.${windowEndYMD},end_date.is.null)`
+                `and(start_date.lte.${windowEndYMD},end_date.is.null)`
             ),
         ])
 
@@ -146,7 +150,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
         const studentsData = studentsRes.data || []
         // Filtramos asignaciones a las de TRAINING por defecto. Las
         // evaluaciones se podrían sumar después como otro toggle.
-        const assignmentsData = (assignmentsRes.data || []).filter(a => {
+        const assignmentsData = (assignmentsRes.data || []).filter((a) => {
           const t = a.plan_type || a.plan?.plan_type || 'training'
           return t === 'training'
         })
@@ -164,10 +168,11 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
           // overflow set (false "Día extra"). Bug reportado: solapamiento
           // entre PLAN 10 (replaced) y PLAN 11 (active) en mayo 2026.
           const activeTrainingPlanIds = assignmentsData
-            .filter(a => sel.includes(a.student_id)
-                      && a.status === 'active'
-                      && a.plan_type === 'training')
-            .map(a => a.plan_id)
+            .filter(
+              (a) =>
+                sel.includes(a.student_id) && a.status === 'active' && a.plan_type === 'training'
+            )
+            .map((a) => a.plan_id)
 
           if (activeTrainingPlanIds.length > 0) {
             const sessionsRes = await supabase
@@ -199,7 +204,9 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
       }
     }
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [windowStartYMD, windowEndYMD, selectionKey, refreshTick])
 
   // Eventos del coach (siempre).
@@ -218,7 +225,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
   // como cumplidos (porque flexible no exige día específico).
   const perStudentDays = useMemo(() => {
     const out = new Map()
-    const sel = new Set((selectedStudentIds || []))
+    const sel = new Set(selectedStudentIds || [])
     if (sel.size === 0) return out
 
     for (const sid of sel) {
@@ -228,11 +235,13 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
       // El check explícito de plan_type es defensivo: aunque
       // assignmentsData ya viene filtrado a training, blinda contra
       // regresiones si ese filtro upstream cambia.
-      const a = assignments.find(
-        x => x.student_id === sid
-          && x.status === 'active'
-          && (x.plan_type || 'training') === 'training'
-      ) || null
+      const a =
+        assignments.find(
+          (x) =>
+            x.student_id === sid &&
+            x.status === 'active' &&
+            (x.plan_type || 'training') === 'training'
+        ) || null
 
       const scheduleMode = getScheduleMode(a)
       const completed = completedByStudent[sid] || new Set()
@@ -246,9 +255,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
 
       let flexibleOverflow = null
       if (a && scheduleMode === SCHED_FLEXIBLE) {
-        const spw = Number(
-          a?.plan?.sessions_per_week ?? a?.sessions_per_week ?? 0
-        )
+        const spw = Number(a?.plan?.sessions_per_week ?? a?.sessions_per_week ?? 0)
         flexibleOverflow = computeFlexibleOverflowSet(completed, spw)
       }
 
@@ -266,11 +273,11 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
   const selectedStudents = useMemo(() => {
     const sel = new Set(selectedStudentIds || [])
     if (sel.size === 0) return []
-    return students.filter(s => sel.has(s.id))
+    return students.filter((s) => sel.has(s.id))
   }, [students, selectedStudentIds])
 
   function refresh() {
-    setRefreshTick(t => t + 1)
+    setRefreshTick((t) => t + 1)
   }
 
   return {

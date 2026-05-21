@@ -3,9 +3,19 @@ import { supabase } from '@/lib/supabase'
 import { format, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, RadarChart,
-  Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
 } from 'recharts'
 import { WELLBEING_METRICS, wellbeingColor } from '../components/WellbeingModal'
 
@@ -13,23 +23,23 @@ import { WELLBEING_METRICS, wellbeingColor } from '../components/WellbeingModal'
 // Constantes
 // ─────────────────────────────────────────────────────────────
 const PERIODS = [
-  { label: '2s',   days: 14  },
-  { label: '1m',   days: 30  },
-  { label: '3m',   days: 90  },
+  { label: '2s', days: 14 },
+  { label: '1m', days: 30 },
+  { label: '3m', days: 90 },
   { label: 'Todo', days: 365 },
 ]
 
 // Colores para cada línea del gráfico
 const LINE_COLORS = {
-  sleep_quality:     '#6366f1',
+  sleep_quality: '#6366f1',
   nutrition_quality: '#22c55e',
   hydration_quality: '#3b82f6',
-  energy_level:      '#f59e0b',
-  stress_level:      '#ef4444',
-  muscle_fatigue:    '#ec4899',
+  energy_level: '#f59e0b',
+  stress_level: '#ef4444',
+  muscle_fatigue: '#ec4899',
 }
 
-const METRIC_KEYS = WELLBEING_METRICS.map(m => m.key)
+const METRIC_KEYS = WELLBEING_METRICS.map((m) => m.key)
 
 // Tooltip personalizado
 function TooltipCard({ active, payload, label }) {
@@ -99,26 +109,28 @@ export default function StudentWellbeingTab({ studentId }) {
   }
 
   // Datos para el gráfico de líneas
-  const chartData = useMemo(() =>
-    logs.map(l => ({
-      date: format(parseISO(l.date), 'd MMM', { locale: es }),
-      rawDate: l.date,
-      sleep_quality:     l.sleep_quality,
-      nutrition_quality: l.nutrition_quality,
-      hydration_quality: l.hydration_quality,
-      energy_level:      l.energy_level,
-      stress_level:      l.stress_level,
-      muscle_fatigue:    l.muscle_fatigue,
-      notes:             l.notes,
-    })),
-  [logs])
+  const chartData = useMemo(
+    () =>
+      logs.map((l) => ({
+        date: format(parseISO(l.date), 'd MMM', { locale: es }),
+        rawDate: l.date,
+        sleep_quality: l.sleep_quality,
+        nutrition_quality: l.nutrition_quality,
+        hydration_quality: l.hydration_quality,
+        energy_level: l.energy_level,
+        stress_level: l.stress_level,
+        muscle_fatigue: l.muscle_fatigue,
+        notes: l.notes,
+      })),
+    [logs]
+  )
 
   // Promedios por métrica
   const averages = useMemo(() => {
     if (!logs.length) return {}
     return Object.fromEntries(
-      METRIC_KEYS.map(key => {
-        const vals = logs.map(l => l[key]).filter(v => v != null)
+      METRIC_KEYS.map((key) => {
+        const vals = logs.map((l) => l[key]).filter((v) => v != null)
         const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
         return [key, { avg, count: vals.length }]
       })
@@ -126,23 +138,29 @@ export default function StudentWellbeingTab({ studentId }) {
   }, [logs])
 
   // Datos para el radar (promedios normalizados)
-  const radarData = useMemo(() =>
-    WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
-      const a = averages[key]?.avg
-      // Para métricas negativas (estrés, fatiga): invertimos para que el radar muestre "bienestar"
-      const normalized = a != null ? (positive ? a : 11 - a) : null
-      return {
-        metric: emoji,
-        fullLabel: label,
-        value: normalized != null ? parseFloat(normalized.toFixed(1)) : null,
-      }
-    }),
-  [averages])
+  const radarData = useMemo(
+    () =>
+      WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
+        const a = averages[key]?.avg
+        // Para métricas negativas (estrés, fatiga): invertimos para que el radar muestre "bienestar"
+        const normalized = a != null ? (positive ? a : 11 - a) : null
+        return {
+          metric: emoji,
+          fullLabel: label,
+          value: normalized != null ? parseFloat(normalized.toFixed(1)) : null,
+        }
+      }),
+    [averages]
+  )
 
   function toggleMetric(key) {
-    setVisibleMetrics(prev => {
+    setVisibleMetrics((prev) => {
       const next = new Set(prev)
-      if (next.has(key)) { next.delete(key) } else { next.add(key) }
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
       return next
     })
   }
@@ -170,10 +188,9 @@ export default function StudentWellbeingTab({ studentId }) {
 
   return (
     <div className="space-y-5">
-
       {/* Selector de período */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-        {PERIODS.map(p => (
+        {PERIODS.map((p) => (
           <button
             key={p.days}
             onClick={() => setPeriod(p.days)}
@@ -194,7 +211,7 @@ export default function StudentWellbeingTab({ studentId }) {
           Promedios — últimos {period} días
         </p>
         <div className="grid grid-cols-2 gap-2">
-          {WELLBEING_METRICS.map(metric => (
+          {WELLBEING_METRICS.map((metric) => (
             <MetricCard
               key={metric.key}
               metric={metric}
@@ -206,7 +223,7 @@ export default function StudentWellbeingTab({ studentId }) {
       </div>
 
       {/* Radar de bienestar general */}
-      {radarData.every(d => d.value != null) && (
+      {radarData.every((d) => d.value != null) && (
         <div className="card">
           <p className="text-sm font-semibold text-gray-800 mb-1">
             Radar de bienestar
@@ -218,10 +235,7 @@ export default function StudentWellbeingTab({ studentId }) {
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis
-                  dataKey="metric"
-                  tick={{ fontSize: 14 }}
-                />
+                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 14 }} />
                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9 }} />
                 <Radar
                   name="Bienestar"
@@ -302,22 +316,25 @@ export default function StudentWellbeingTab({ studentId }) {
       </div>
 
       {/* Últimas observaciones */}
-      {logs.some(l => l.notes) && (
+      {logs.some((l) => l.notes) && (
         <div className="card">
           <p className="text-sm font-semibold text-gray-800 mb-3">Observaciones recientes</p>
           <div className="space-y-2">
-            {[...logs].reverse().filter(l => l.notes).slice(0, 5).map(l => (
-              <div key={l.id} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-400 mb-1">
-                  {format(parseISO(l.date), "d 'de' MMMM yyyy", { locale: es })}
-                </p>
-                <p className="text-sm text-gray-700">{l.notes}</p>
-              </div>
-            ))}
+            {[...logs]
+              .reverse()
+              .filter((l) => l.notes)
+              .slice(0, 5)
+              .map((l) => (
+                <div key={l.id} className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">
+                    {format(parseISO(l.date), "d 'de' MMMM yyyy", { locale: es })}
+                  </p>
+                  <p className="text-sm text-gray-700">{l.notes}</p>
+                </div>
+              ))}
           </div>
         </div>
       )}
-
     </div>
   )
 }

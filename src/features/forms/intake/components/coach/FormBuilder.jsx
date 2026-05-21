@@ -59,17 +59,15 @@ export default function FormBuilder({
   // ──────────────────────────────────────────────────────────
 
   const toggleModule = useCallback((moduleId) => {
-    setModules(prev => prev.map(m =>
-      m.id === moduleId && m.removable
-        ? { ...m, enabled: !m.enabled }
-        : m
-    ))
+    setModules((prev) =>
+      prev.map((m) => (m.id === moduleId && m.removable ? { ...m, enabled: !m.enabled } : m))
+    )
   }, [])
 
   const moveModule = useCallback((moduleId, direction) => {
-    setModules(prev => {
+    setModules((prev) => {
       const sorted = [...prev].sort((a, b) => a.order - b.order)
-      const idx = sorted.findIndex(m => m.id === moduleId)
+      const idx = sorted.findIndex((m) => m.id === moduleId)
       const newIdx = direction === 'up' ? idx - 1 : idx + 1
 
       if (newIdx < 0 || newIdx >= sorted.length) return prev
@@ -84,7 +82,7 @@ export default function FormBuilder({
   }, [])
 
   const updateModule = useCallback((moduleId, updatedModule) => {
-    setModules(prev => prev.map(m => m.id === moduleId ? updatedModule : m))
+    setModules((prev) => prev.map((m) => (m.id === moduleId ? updatedModule : m)))
   }, [])
 
   const addCustomModule = useCallback(() => {
@@ -95,15 +93,15 @@ export default function FormBuilder({
       enabled: true,
       editable: true,
       removable: true,
-      order: Math.max(...modules.map(m => m.order)) + 1,
+      order: Math.max(...modules.map((m) => m.order)) + 1,
       questions: [],
       isCustom: true,
     }
-    setModules(prev => [...prev, newModule])
+    setModules((prev) => [...prev, newModule])
   }, [modules])
 
   const removeCustomModule = useCallback((moduleId) => {
-    setModules(prev => prev.filter(m => m.id !== moduleId || !m.removable))
+    setModules((prev) => prev.filter((m) => m.id !== moduleId || !m.removable))
   }, [])
 
   // ──────────────────────────────────────────────────────────
@@ -137,7 +135,6 @@ export default function FormBuilder({
 
   return (
     <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -178,7 +175,7 @@ export default function FormBuilder({
         {[
           { id: 'form', label: '✏️ Editar' },
           { id: 'preview', label: '👁 Vista previa' },
-        ].map(tab => (
+        ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -195,7 +192,6 @@ export default function FormBuilder({
 
       {activeTab === 'form' && (
         <div className="space-y-4">
-
           {/* Introducción */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-200">
@@ -231,9 +227,8 @@ export default function FormBuilder({
                 onMoveUp={() => moveModule(module.id, 'up')}
                 onMoveDown={() => moveModule(module.id, 'down')}
                 onUpdate={(updated) => updateModule(module.id, updated)}
-                onRemove={module.removable && module.isCustom
-                  ? () => removeCustomModule(module.id)
-                  : null
+                onRemove={
+                  module.removable && module.isCustom ? () => removeCustomModule(module.id) : null
                 }
               />
             ))}
@@ -249,7 +244,8 @@ export default function FormBuilder({
                     {CONSENT_MODULE.title} (obligatorio – no editable)
                   </p>
                   <p className="text-xs text-amber-600 mt-1">
-                    Este módulo siempre aparecerá al final y no puede eliminarse. Incluye el consentimiento informado del estudiante.
+                    Este módulo siempre aparecerá al final y no puede eliminarse. Incluye el
+                    consentimiento informado del estudiante.
                   </p>
                 </div>
                 <span className="ml-auto text-amber-400">🔒</span>
@@ -314,17 +310,21 @@ export default function FormBuilder({
       {showTemplates && (
         <TemplateManager
           templates={templates}
-          currentConfig={isFollowUp
-            ? buildFollowUpFormConfig({ intro, modules })
-            : buildFormConfig({ intro, modules })}
+          currentConfig={
+            isFollowUp
+              ? buildFollowUpFormConfig({ intro, modules })
+              : buildFormConfig({ intro, modules })
+          }
           onLoad={handleLoadTemplate}
           onClose={() => setShowTemplates(false)}
-          onSaveNew={(name) => onSave?.({
-            name,
-            config: isFollowUp
-              ? buildFollowUpFormConfig({ intro, modules })
-              : buildFormConfig({ intro, modules }),
-          })}
+          onSaveNew={(name) =>
+            onSave?.({
+              name,
+              config: isFollowUp
+                ? buildFollowUpFormConfig({ intro, modules })
+                : buildFormConfig({ intro, modules }),
+            })
+          }
         />
       )}
     </div>

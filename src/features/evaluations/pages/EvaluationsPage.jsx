@@ -12,17 +12,21 @@ export default function EvaluationsPage() {
   const [filterType, setFilterType] = useState('')
   const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
 
-  useEffect(() => { fetchEvalPlans() }, [])
+  useEffect(() => {
+    fetchEvalPlans()
+  }, [])
 
   async function fetchEvalPlans() {
     try {
       const { data, error } = await supabase
         .from('plans')
-        .select(`
+        .select(
+          `
           *,
           plan_assignments(id, active, student:profiles!student_id(id, name)),
           evaluation_results(id, student_id, eval_date)
-        `)
+        `
+        )
         .eq('plan_type', 'evaluation')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -35,7 +39,7 @@ export default function EvaluationsPage() {
   }
 
   function handleOpenDelete(plan) {
-    const activeStudents = plan.plan_assignments?.filter(a => a.active).length || 0
+    const activeStudents = plan.plan_assignments?.filter((a) => a.active).length || 0
     const resultCount = plan.evaluation_results?.length || 0
     setDeletingPlan({ plan, activeStudents, resultCount })
   }
@@ -44,10 +48,10 @@ export default function EvaluationsPage() {
     const { error } = await supabase.from('plans').delete().eq('id', planId)
     if (error) throw error
     setDeletingPlan(null)
-    setEvalPlans(prev => prev.filter(p => p.id !== planId))
+    setEvalPlans((prev) => prev.filter((p) => p.id !== planId))
   }
 
-  const filtered = evalPlans.filter(p => {
+  const filtered = evalPlans.filter((p) => {
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = !filterType || p.eval_type === filterType
     return matchSearch && matchType
@@ -69,8 +73,8 @@ export default function EvaluationsPage() {
 
       {/* Eval type summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {EVAL_TYPES.slice(0, 4).map(et => {
-          const count = evalPlans.filter(p => p.eval_type === et.key).length
+        {EVAL_TYPES.slice(0, 4).map((et) => {
+          const count = evalPlans.filter((p) => p.eval_type === et.key).length
           return (
             <button
               key={et.key}
@@ -94,17 +98,19 @@ export default function EvaluationsPage() {
             className="input pl-9"
             placeholder="Buscar evaluación..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
           className="input w-auto"
           value={filterType}
-          onChange={e => setFilterType(e.target.value)}
+          onChange={(e) => setFilterType(e.target.value)}
         >
           <option value="">Todos los tipos</option>
-          {EVAL_TYPES.map(et => (
-            <option key={et.key} value={et.key}>{et.icon} {et.label}</option>
+          {EVAL_TYPES.map((et) => (
+            <option key={et.key} value={et.key}>
+              {et.icon} {et.label}
+            </option>
           ))}
         </select>
       </div>
@@ -112,7 +118,7 @@ export default function EvaluationsPage() {
       {/* Plans list */}
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="card animate-pulse">
               <div className="h-5 bg-gray-200 rounded w-2/3 mb-2" />
               <div className="h-4 bg-gray-100 rounded w-1/3" />
@@ -136,29 +142,29 @@ export default function EvaluationsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(plan => {
-            const activeAssignments = plan.plan_assignments?.filter(a => a.active) || []
-            const lastResult = plan.evaluation_results?.sort((a, b) =>
-              new Date(b.eval_date) - new Date(a.eval_date)
+          {filtered.map((plan) => {
+            const activeAssignments = plan.plan_assignments?.filter((a) => a.active) || []
+            const lastResult = plan.evaluation_results?.sort(
+              (a, b) => new Date(b.eval_date) - new Date(a.eval_date)
             )[0]
 
             return (
-              <div key={plan.id} className="card flex items-start gap-3 hover:shadow-md transition-shadow">
+              <div
+                key={plan.id}
+                className="card flex items-start gap-3 hover:shadow-md transition-shadow"
+              >
                 {/* Icon */}
                 <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">
                   {evalTypeIcon(plan.eval_type)}
                 </div>
 
                 {/* Info – clickeable para navegar */}
-                <Link
-                  to={`/coach/evaluations/${plan.id}`}
-                  className="flex-1 min-w-0"
-                >
+                <Link to={`/coach/evaluations/${plan.id}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 truncate">{plan.title}</p>
                     {plan.eval_type && (
                       <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                        {EVAL_TYPES.find(e => e.key === plan.eval_type)?.label || plan.eval_type}
+                        {EVAL_TYPES.find((e) => e.key === plan.eval_type)?.label || plan.eval_type}
                       </span>
                     )}
                   </div>

@@ -5,14 +5,27 @@ import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } 
 import { es } from 'date-fns/locale'
 import { TrendingUp, Tag } from 'lucide-react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Legend, AreaChart, Area,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  AreaChart,
+  Area,
   ComposedChart,
 } from 'recharts'
 import {
-  borgColor, BORG_LABELS,
-  maxWeightOfLog, calculateLogVolume,
-  getEffectiveWeightMode, getEffectiveUnilateral,
+  borgColor,
+  BORG_LABELS,
+  maxWeightOfLog,
+  calculateLogVolume,
+  getEffectiveWeightMode,
+  getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
@@ -35,7 +48,8 @@ function CustomTooltip({ active, payload, label }) {
       <p className="font-semibold text-gray-700 mb-1">{label}</p>
       {payload.map((entry, i) => (
         <p key={i} style={{ color: entry.color }}>
-          {entry.name}: {entry.value}{entry.unit || ''}
+          {entry.name}: {entry.value}
+          {entry.unit || ''}
         </p>
       ))}
     </div>
@@ -51,14 +65,16 @@ function AttendanceHeatmap({ logs }) {
     return eachDayOfInterval({ start: weekStart, end: weekEnd })
   }).reverse()
 
-  const logDates = new Set(logs.filter(l => l.completed).map(l => l.logged_date))
+  const logDates = new Set(logs.filter((l) => l.completed).map((l) => l.logged_date))
   const dayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
   return (
     <div className="space-y-2">
       <div className="flex gap-1">
-        {dayLabels.map(d => (
-          <div key={d} className="flex-1 text-center text-xs text-gray-400">{d}</div>
+        {dayLabels.map((d) => (
+          <div key={d} className="flex-1 text-center text-xs text-gray-400">
+            {d}
+          </div>
         ))}
       </div>
       {weeks.map((week, wi) => (
@@ -72,11 +88,7 @@ function AttendanceHeatmap({ logs }) {
                 key={di}
                 title={dateStr}
                 className={`flex-1 h-6 rounded-md transition-all ${
-                  isFuture
-                    ? 'bg-gray-50'
-                    : hasLog
-                    ? 'bg-primary-500'
-                    : 'bg-gray-100'
+                  isFuture ? 'bg-gray-50' : hasLog ? 'bg-primary-500' : 'bg-gray-100'
                 }`}
               />
             )
@@ -84,8 +96,10 @@ function AttendanceHeatmap({ logs }) {
         </div>
       ))}
       <div className="flex items-center gap-2 text-xs text-gray-400 justify-end">
-        <div className="w-3 h-3 rounded bg-gray-100" />Sin entrenamiento
-        <div className="w-3 h-3 rounded bg-primary-500" />Con entrenamiento
+        <div className="w-3 h-3 rounded bg-gray-100" />
+        Sin entrenamiento
+        <div className="w-3 h-3 rounded bg-primary-500" />
+        Con entrenamiento
       </div>
     </div>
   )
@@ -93,12 +107,12 @@ function AttendanceHeatmap({ logs }) {
 
 // Colores fijos por métrica wellbeing
 const WELLBEING_LINE_COLORS = {
-  sleep_quality:     '#6366f1',
+  sleep_quality: '#6366f1',
   nutrition_quality: '#22c55e',
   hydration_quality: '#3b82f6',
-  energy_level:      '#f59e0b',
-  stress_level:      '#ef4444',
-  muscle_fatigue:    '#ec4899',
+  energy_level: '#f59e0b',
+  stress_level: '#ef4444',
+  muscle_fatigue: '#ec4899',
 }
 
 // Helpers ahora viven en planHelpers (readLogWeights / readLogReps /
@@ -119,7 +133,7 @@ export default function ProgressPage() {
   // ── ETIQUETAS ────────────────────────────────────────────
   const [exerciseTags, setExerciseTags] = useState([])
   const [tagAssignments, setTagAssignments] = useState([])
-  const [selectedTag, setSelectedTag] = useState('')   // '' = todas
+  const [selectedTag, setSelectedTag] = useState('') // '' = todas
   const [groupByTag, setGroupByTag] = useState(false)
 
   useEffect(() => {
@@ -131,11 +145,11 @@ export default function ProgressPage() {
   useEffect(() => {
     if (!exercises.length) return
     const filtered = selectedTag
-      ? exercises.filter(ex =>
-          tagAssignments.some(ta => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
+      ? exercises.filter((ex) =>
+          tagAssignments.some((ta) => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
         )
       : exercises
-    if (filtered.length > 0 && !filtered.some(e => e.id === selectedExercise)) {
+    if (filtered.length > 0 && !filtered.some((e) => e.id === selectedExercise)) {
       setSelectedExercise(filtered[0].id)
     }
   }, [selectedTag]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -150,7 +164,8 @@ export default function ProgressPage() {
       // y mezclar sus pesos/RPE/volumen distorsiona la progresión.
       supabase
         .from('workout_logs')
-        .select(`
+        .select(
+          `
           *,
           plan:plans!plan_id(plan_type),
           plan_exercise:plan_exercises!plan_exercise_id(
@@ -158,7 +173,8 @@ export default function ProgressPage() {
             weight_mode, unilateral,
             exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
           )
-        `)
+        `
+        )
         .eq('student_id', profile.id)
         .gte('logged_date', since)
         .order('logged_date'),
@@ -174,13 +190,8 @@ export default function ProgressPage() {
         .eq('user_id', profile.id)
         .gte('date', since)
         .order('date'),
-      supabase
-        .from('exercise_tags')
-        .select('*')
-        .order('name'),
-      supabase
-        .from('exercise_tag_assignments')
-        .select('*'),
+      supabase.from('exercise_tags').select('*').order('name'),
+      supabase.from('exercise_tag_assignments').select('*'),
     ])
 
     // Excluir logs de evaluaciones — solo entrenos cuentan para la
@@ -193,7 +204,7 @@ export default function ProgressPage() {
     setTagAssignments(tagAssignRes.data || [])
 
     const exMap = {}
-    logData.forEach(l => {
+    logData.forEach((l) => {
       const ex = l.plan_exercise?.exercise
       if (ex) exMap[ex.id] = ex.name
     })
@@ -209,16 +220,18 @@ export default function ProgressPage() {
 
   // Ejercicios filtrados por etiqueta (para el selector)
   const exercisesForTag = selectedTag
-    ? exercises.filter(ex =>
-        tagAssignments.some(ta => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
+    ? exercises.filter((ex) =>
+        tagAssignments.some((ta) => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
       )
     : exercises
 
   // Logs filtrados por etiqueta (para volumen y PSE)
   const logsForTag = selectedTag
-    ? logs.filter(l => {
+    ? logs.filter((l) => {
         const exId = l.plan_exercise?.exercise?.id
-        return exId && tagAssignments.some(ta => ta.exercise_id === exId && ta.tag_id === selectedTag)
+        return (
+          exId && tagAssignments.some((ta) => ta.exercise_id === exId && ta.tag_id === selectedTag)
+        )
       })
     : logs
 
@@ -228,44 +241,50 @@ export default function ProgressPage() {
 
   // Helper: ¿este log tiene info para mostrar peso/volumen?
   // (acepta jsonb nuevo o legacy con datos)
-  const hasWeightOrReps = l =>
+  const hasWeightOrReps = (l) =>
     Array.isArray(l.actual_weights_jsonb) ||
-    l.actual_weights || l.actual_weight ||
-    Array.isArray(l.actual_reps_jsonb) || l.actual_reps
+    l.actual_weights ||
+    l.actual_weight ||
+    Array.isArray(l.actual_reps_jsonb) ||
+    l.actual_reps
 
   // Volumen real respetando weight_mode + unilateral + bodyweight.
   // Devuelve null si bodyweight sin weight_kg (no calculable).
   function volumeOfLog(l) {
     const weightMode = getEffectiveWeightMode({
-      log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+      log: l,
+      planExercise: l.plan_exercise,
+      exercise: l.plan_exercise?.exercise,
     })
     const unilateral = getEffectiveUnilateral({
-      log: l, planExercise: l.plan_exercise, exercise: l.plan_exercise?.exercise,
+      log: l,
+      planExercise: l.plan_exercise,
+      exercise: l.plan_exercise?.exercise,
     })
     return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
   }
 
   // 1. Progresión de peso por ejercicio (usa exercisesForTag)
   const weightData = logs
-    .filter(l =>
-      l.plan_exercise?.exercise?.id === selectedExercise &&
-      hasWeightOrReps(l)
-    )
-    .map(l => ({
+    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise && hasWeightOrReps(l))
+    .map((l) => ({
       date: format(parseISO(l.logged_date), 'dd/MM'),
       Peso: maxWeightOfLog(l),
       PSE: l.perceived_difficulty,
     }))
-    .filter(d => d.Peso > 0)
+    .filter((d) => d.Peso > 0)
 
   // 2. Volumen por sesión (filtrado por etiqueta)
   // Bodyweight sin weight_kg → bandera para mostrar CTA.
   let bwUncomputable = false
   const volumeByDate = {}
-  logsForTag.forEach(l => {
+  logsForTag.forEach((l) => {
     const date = format(parseISO(l.logged_date), 'dd/MM')
     const vol = volumeOfLog(l)
-    if (vol === null) { bwUncomputable = true; return }
+    if (vol === null) {
+      bwUncomputable = true
+      return
+    }
     if (vol > 0) volumeByDate[date] = (volumeByDate[date] || 0) + vol
   })
   const volumeData = Object.entries(volumeByDate).map(([date, vol]) => ({
@@ -275,28 +294,30 @@ export default function ProgressPage() {
 
   // 2b. Volumen agrupado por etiqueta (para el agrupador)
   const volumeByTagAndDate = {}
-  exerciseTags.forEach(tag => { volumeByTagAndDate[tag.id] = {} })
-  logs.forEach(l => {
+  exerciseTags.forEach((tag) => {
+    volumeByTagAndDate[tag.id] = {}
+  })
+  logs.forEach((l) => {
     const exId = l.plan_exercise?.exercise?.id
     if (!exId) return
-    const myTags = tagAssignments.filter(ta => ta.exercise_id === exId).map(ta => ta.tag_id)
+    const myTags = tagAssignments.filter((ta) => ta.exercise_id === exId).map((ta) => ta.tag_id)
     if (!myTags.length) return
     const vol = volumeOfLog(l)
     if (vol === null || vol <= 0) return
     const date = format(parseISO(l.logged_date), 'dd/MM')
-    myTags.forEach(tagId => {
+    myTags.forEach((tagId) => {
       if (volumeByTagAndDate[tagId] !== undefined) {
         volumeByTagAndDate[tagId][date] = (volumeByTagAndDate[tagId][date] || 0) + vol
       }
     })
   })
-  const tagsWithVolume = exerciseTags.filter(tag =>
-    Object.values(volumeByTagAndDate[tag.id] || {}).some(v => v > 0)
+  const tagsWithVolume = exerciseTags.filter((tag) =>
+    Object.values(volumeByTagAndDate[tag.id] || {}).some((v) => v > 0)
   )
-  const allLogDates = [...new Set(logs.map(l => format(parseISO(l.logged_date), 'dd/MM')))]
-  const volumeGroupedData = allLogDates.map(date => {
+  const allLogDates = [...new Set(logs.map((l) => format(parseISO(l.logged_date), 'dd/MM')))]
+  const volumeGroupedData = allLogDates.map((date) => {
     const entry = { date }
-    tagsWithVolume.forEach(tag => {
+    tagsWithVolume.forEach((tag) => {
       const v = volumeByTagAndDate[tag.id]?.[date]
       if (v) entry[tag.name] = Math.round(v)
     })
@@ -305,7 +326,7 @@ export default function ProgressPage() {
 
   // 3. PSE promedio por sesión (filtrado por etiqueta)
   const pseByDate = {}
-  logsForTag.forEach(l => {
+  logsForTag.forEach((l) => {
     if (l.perceived_difficulty) {
       const date = format(parseISO(l.logged_date), 'dd/MM')
       if (!pseByDate[date]) pseByDate[date] = []
@@ -314,13 +335,13 @@ export default function ProgressPage() {
   })
   const pseData = Object.entries(pseByDate).map(([date, values]) => ({
     date,
-    'PSE promedio': Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10,
+    'PSE promedio': Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10,
   }))
 
   // 4. Intensidad general (borg_value)
   const borgData = sessions
-    .filter(s => s.borg_value !== null && s.borg_value !== undefined)
-    .map(s => ({
+    .filter((s) => s.borg_value !== null && s.borg_value !== undefined)
+    .map((s) => ({
       date: format(parseISO(s.logged_date), 'dd/MM'),
       Intensidad: Number(s.borg_value),
       label: BORG_LABELS[Math.round(Number(s.borg_value))],
@@ -328,29 +349,25 @@ export default function ProgressPage() {
 
   // 5. Duración de sesiones
   const durationData = sessions
-    .filter(s => s.started_at && s.finished_at)
-    .filter(s => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
-    .map(s => {
-      const mins = Math.round(
-        (new Date(s.finished_at) - new Date(s.started_at)) / 60000
-      )
+    .filter((s) => s.started_at && s.finished_at)
+    .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
+    .map((s) => {
+      const mins = Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000)
       return { date: format(parseISO(s.logged_date), 'dd/MM'), Minutos: mins }
     })
-    .filter(d => d.Minutos > 0)
+    .filter((d) => d.Minutos > 0)
 
   const medianDuration = (() => {
     if (!durationData.length) return null
-    const sorted = [...durationData].map(d => d.Minutos).sort((a, b) => a - b)
+    const sorted = [...durationData].map((d) => d.Minutos).sort((a, b) => a - b)
     const mid = Math.floor(sorted.length / 2)
-    return sorted.length % 2 !== 0
-      ? sorted[mid]
-      : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
   })()
 
   // 6. Comparación sugerido vs real por ejercicio
   const compareData = logs
-    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
-    .map(l => ({
+    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+    .map((l) => ({
       date: format(parseISO(l.logged_date), 'dd/MM'),
       'Series reales': l.actual_sets || 0,
       'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
@@ -358,23 +375,27 @@ export default function ProgressPage() {
     }))
 
   // 7. Stats resumen
-  const sessionDates = new Set(logs.map(l => l.logged_date))
+  const sessionDates = new Set(logs.map((l) => l.logged_date))
   const totalSessions = sessionDates.size
-  const totalCompleted = logs.filter(l => l.completed).length
-  const avgPSE = logs.filter(l => l.perceived_difficulty).length > 0
-    ? Math.round(
-        logs.filter(l => l.perceived_difficulty)
-          .reduce((a, l) => a + l.perceived_difficulty, 0) /
-        logs.filter(l => l.perceived_difficulty).length * 10
-      ) / 10
-    : null
+  const totalCompleted = logs.filter((l) => l.completed).length
+  const avgPSE =
+    logs.filter((l) => l.perceived_difficulty).length > 0
+      ? Math.round(
+          (logs
+            .filter((l) => l.perceived_difficulty)
+            .reduce((a, l) => a + l.perceived_difficulty, 0) /
+            logs.filter((l) => l.perceived_difficulty).length) *
+            10
+        ) / 10
+      : null
 
-  const avgBorg = borgData.length > 0
-    ? Math.round(borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length * 10) / 10
-    : null
+  const avgBorg =
+    borgData.length > 0
+      ? Math.round((borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length) * 10) / 10
+      : null
 
   const maxWeight = logs
-    .filter(l => l.plan_exercise?.exercise?.id === selectedExercise)
+    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
     .reduce((max, l) => Math.max(max, maxWeightOfLog(l)), 0)
 
   const CHARTS = [
@@ -387,10 +408,10 @@ export default function ProgressPage() {
   ]
 
   // Etiquetas que tienen ejercicios presentes en los logs del período
-  const tagsInLogs = exerciseTags.filter(tag =>
-    logs.some(l => {
+  const tagsInLogs = exerciseTags.filter((tag) =>
+    logs.some((l) => {
       const exId = l.plan_exercise?.exercise?.id
-      return exId && tagAssignments.some(ta => ta.exercise_id === exId && ta.tag_id === tag.id)
+      return exId && tagAssignments.some((ta) => ta.exercise_id === exId && ta.tag_id === tag.id)
     })
   )
 
@@ -400,7 +421,7 @@ export default function ProgressPage() {
       <div className="bg-white border-b border-gray-100 px-5 pt-12 pb-4 sticky top-0 z-10">
         <h1 className="text-xl font-bold text-gray-900">Mi progreso</h1>
         <div className="flex gap-1 mt-3 bg-gray-100 p-1 rounded-xl">
-          {PERIODS.map(p => (
+          {PERIODS.map((p) => (
             <button
               key={p.days}
               onClick={() => setPeriod(p.days)}
@@ -423,7 +444,9 @@ export default function ProgressPage() {
           <div className="text-center py-12">
             <TrendingUp className="w-12 h-12 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">Sin datos aún</p>
-            <p className="text-gray-400 text-sm mt-1">Completá entrenamientos para ver tu progreso</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Completá entrenamientos para ver tu progreso
+            </p>
           </div>
         ) : (
           <>
@@ -453,10 +476,14 @@ export default function ProgressPage() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Intensidad general promedio</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      Intensidad general promedio
+                    </p>
                     <p className="text-xs text-gray-500">Escala de Borg (0-10)</p>
                   </div>
-                  <span className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(avgBorg))}`}>
+                  <span
+                    className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(avgBorg))}`}
+                  >
                     {avgBorg}
                   </span>
                 </div>
@@ -468,9 +495,9 @@ export default function ProgressPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Peso máximo registrado</p>
-                    {exercises.find(e => e.id === selectedExercise) && (
+                    {exercises.find((e) => e.id === selectedExercise) && (
                       <p className="text-xs text-gray-500">
-                        {exercises.find(e => e.id === selectedExercise)?.name}
+                        {exercises.find((e) => e.id === selectedExercise)?.name}
                       </p>
                     )}
                   </div>
@@ -498,7 +525,7 @@ export default function ProgressPage() {
                     >
                       Todas
                     </button>
-                    {tagsInLogs.map(tag => (
+                    {tagsInLogs.map((tag) => (
                       <button
                         key={tag.id}
                         onClick={() => setSelectedTag(tag.id === selectedTag ? '' : tag.id)}
@@ -530,10 +557,12 @@ export default function ProgressPage() {
               <select
                 className="input text-sm w-full"
                 value={selectedExercise}
-                onChange={e => setSelectedExercise(e.target.value)}
+                onChange={(e) => setSelectedExercise(e.target.value)}
               >
-                {exercisesForTag.map(ex => (
-                  <option key={ex.id} value={ex.id}>{ex.name}</option>
+                {exercisesForTag.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </option>
                 ))}
               </select>
             )}
@@ -541,7 +570,7 @@ export default function ProgressPage() {
             {/* Tabs de gráficos */}
             <div className="overflow-x-auto -mx-4 px-4">
               <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-max min-w-full">
-                {CHARTS.map(c => (
+                {CHARTS.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setActiveChart(c.id)}
@@ -568,15 +597,39 @@ export default function ProgressPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
-                      <YAxis yAxisId="right" orientation="right" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        domain={[0, 10]}
+                        tick={{ fontSize: 10 }}
+                      />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Area yAxisId="left" type="monotone" dataKey="Peso" fill="#fde68a" stroke="#ea580c" strokeWidth={2.5} dot={{ fill: '#ea580c', r: 4 }} unit="kg" />
-                      <Line yAxisId="right" type="monotone" dataKey="PSE" stroke="#8b5cf6" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                      <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="Peso"
+                        fill="#fde68a"
+                        stroke="#ea580c"
+                        strokeWidth={2.5}
+                        dot={{ fill: '#ea580c', r: 4 }}
+                        unit="kg"
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="PSE"
+                        stroke="#8b5cf6"
+                        strokeWidth={1.5}
+                        dot={false}
+                        strokeDasharray="4 2"
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-sm text-gray-400 py-6">Sin datos de peso para este ejercicio</p>
+                  <p className="text-center text-sm text-gray-400 py-6">
+                    Sin datos de peso para este ejercicio
+                  </p>
                 )}
               </Card>
             )}
@@ -601,7 +654,9 @@ export default function ProgressPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-sm text-gray-400 py-6">Sin datos para este ejercicio</p>
+                  <p className="text-center text-sm text-gray-400 py-6">
+                    Sin datos para este ejercicio
+                  </p>
                 )}
               </Card>
             )}
@@ -611,9 +666,9 @@ export default function ProgressPage() {
               <Card>
                 {bwUncomputable && !bodyWeightKg && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                    <strong>Peso corporal sin registrar.</strong> Para calcular el volumen
-                    de ejercicios sin peso necesitamos tu peso corporal. Pedile a tu coach
-                    que lo cargue desde tu perfil.
+                    <strong>Peso corporal sin registrar.</strong> Para calcular el volumen de
+                    ejercicios sin peso necesitamos tu peso corporal. Pedile a tu coach que lo
+                    cargue desde tu perfil.
                   </div>
                 )}
                 <div className="flex items-start justify-between">
@@ -621,13 +676,13 @@ export default function ProgressPage() {
                     <h3 className="font-semibold text-gray-900">Volumen total por sesión</h3>
                     <p className="text-xs text-gray-500">
                       {selectedTag
-                        ? `Etiqueta: ${tagsInLogs.find(t => t.id === selectedTag)?.name}`
+                        ? `Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
                         : 'Reps × peso (peso corporal en BW). Unilateral × 2.'}
                     </p>
                   </div>
                   {tagsWithVolume.length > 1 && !selectedTag && (
                     <button
-                      onClick={() => setGroupByTag(g => !g)}
+                      onClick={() => setGroupByTag((g) => !g)}
                       className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all border ${
                         groupByTag
                           ? 'bg-primary-50 text-primary-700 border-primary-200'
@@ -650,7 +705,7 @@ export default function ProgressPage() {
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {tagsWithVolume.map(tag => (
+                        {tagsWithVolume.map((tag) => (
                           <Area
                             key={tag.id}
                             type="monotone"
@@ -676,11 +731,19 @@ export default function ProgressPage() {
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="Volumen" fill="#fed7aa" stroke="#fb923c" strokeWidth={2} />
+                      <Area
+                        type="monotone"
+                        dataKey="Volumen"
+                        fill="#fed7aa"
+                        stroke="#fb923c"
+                        strokeWidth={2}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen para este período</p>
+                  <p className="text-center text-sm text-gray-400 py-6">
+                    Sin datos de volumen para este período
+                  </p>
                 )}
               </Card>
             )}
@@ -693,7 +756,7 @@ export default function ProgressPage() {
                     <h3 className="font-semibold text-gray-900">Esfuerzo percibido (PSE)</h3>
                     <p className="text-xs text-gray-500">
                       {selectedTag
-                        ? `Promedio · Etiqueta: ${tagsInLogs.find(t => t.id === selectedTag)?.name}`
+                        ? `Promedio · Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
                         : 'Promedio por sesión'}
                     </p>
                   </div>
@@ -705,11 +768,19 @@ export default function ProgressPage() {
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="PSE promedio" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 3 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="PSE promedio"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={{ fill: '#8b5cf6', r: 3 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-sm text-gray-400 py-6">Sin datos de PSE para este período</p>
+                  <p className="text-center text-sm text-gray-400 py-6">
+                    Sin datos de PSE para este período
+                  </p>
                 )}
               </Card>
             )}
@@ -729,11 +800,18 @@ export default function ProgressPage() {
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="Intensidad" radius={[4, 4, 0, 0]}>
                       {borgData.map((entry, i) => (
-                        <rect key={i} fill={
-                          entry.Intensidad >= 8 ? '#ef4444' :
-                          entry.Intensidad >= 6 ? '#f97316' :
-                          entry.Intensidad >= 4 ? '#eab308' : '#22c55e'
-                        } />
+                        <rect
+                          key={i}
+                          fill={
+                            entry.Intensidad >= 8
+                              ? '#ef4444'
+                              : entry.Intensidad >= 6
+                                ? '#f97316'
+                                : entry.Intensidad >= 4
+                                  ? '#eab308'
+                                  : '#22c55e'
+                          }
+                        />
                       ))}
                     </Bar>
                   </BarChart>
@@ -747,7 +825,9 @@ export default function ProgressPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900">Duración de sesiones</h3>
-                    <p className="text-xs text-gray-500">Minutos por entrenamiento · solo sesiones del día</p>
+                    <p className="text-xs text-gray-500">
+                      Minutos por entrenamiento · solo sesiones del día
+                    </p>
                   </div>
                   {medianDuration !== null && (
                     <div className="flex flex-col items-end">
@@ -768,7 +848,8 @@ export default function ProgressPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    No hay datos de duración aún. Se registran automáticamente cuando finalizás el entrenamiento.
+                    No hay datos de duración aún. Se registran automáticamente cuando finalizás el
+                    entrenamiento.
                   </p>
                 )}
               </Card>
@@ -797,9 +878,11 @@ export default function ProgressPage() {
             {/* Promedios en grilla 2×3 */}
             <div className="grid grid-cols-2 gap-2">
               {WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
-                const vals = wellbeingLogs.map(l => l[key]).filter(v => v != null)
+                const vals = wellbeingLogs.map((l) => l[key]).filter((v) => v != null)
                 const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
-                const colorClass = avg ? wellbeingColor(Math.round(avg), positive) : 'bg-gray-100 text-gray-400'
+                const colorClass = avg
+                  ? wellbeingColor(Math.round(avg), positive)
+                  : 'bg-gray-100 text-gray-400'
                 return (
                   <div key={key} className="card p-3 flex items-center gap-3">
                     <span className="text-xl">{emoji}</span>
@@ -822,7 +905,7 @@ export default function ProgressPage() {
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart
-                  data={wellbeingLogs.map(l => ({
+                  data={wellbeingLogs.map((l) => ({
                     date: format(parseISO(l.date), 'd MMM', { locale: es }),
                     ...WELLBEING_METRICS.reduce((acc, { key }) => ({ ...acc, [key]: l[key] }), {}),
                   }))}
@@ -839,7 +922,10 @@ export default function ProgressPage() {
                           <p className="font-semibold text-gray-700">{lbl}</p>
                           {payload.map((e, i) => (
                             <div key={i} className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full" style={{ background: e.color }} />
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{ background: e.color }}
+                              />
                               <span className="text-gray-600">{e.name}:</span>
                               <span className="font-bold">{e.value}</span>
                             </div>
@@ -866,7 +952,6 @@ export default function ProgressPage() {
             </Card>
           </>
         )}
-
       </div>
     </div>
   )

@@ -27,16 +27,25 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Send, Lock, X, CornerDownRight, Loader2,
-  Paperclip, ChevronDown, MessageCircle, Dumbbell, Layers, Calendar
+  Send,
+  Lock,
+  X,
+  CornerDownRight,
+  Loader2,
+  Paperclip,
+  ChevronDown,
+  MessageCircle,
+  Dumbbell,
+  Layers,
+  Calendar,
 } from 'lucide-react'
 import { createNote, replyNote } from '../api'
 
 const CONTEXT_TABS = [
-  { key: 'free',         label: 'Observación',    Icon: MessageCircle },
-  { key: 'exercise',     label: 'Ejercicio',      Icon: Dumbbell },
+  { key: 'free', label: 'Observación', Icon: MessageCircle },
+  { key: 'exercise', label: 'Ejercicio', Icon: Dumbbell },
   { key: 'muscle_group', label: 'Grupo muscular', Icon: Layers },
-  { key: 'day',          label: 'Día',            Icon: Calendar },
+  { key: 'day', label: 'Día', Icon: Calendar },
 ]
 
 // Formatea Date → 'YYYY-MM-DD' en zona local (para que el date picker
@@ -223,16 +232,13 @@ export default function NoteComposer({
     if (!exerciseQuery.trim()) return allExercises.slice(0, 20)
     const q = exerciseQuery.trim().toLowerCase()
     return allExercises
-      .filter(ex =>
-        ex.name?.toLowerCase().includes(q) ||
-        ex.muscle_group?.toLowerCase().includes(q)
+      .filter(
+        (ex) => ex.name?.toLowerCase().includes(q) || ex.muscle_group?.toLowerCase().includes(q)
       )
       .slice(0, 20)
   }, [exerciseQuery, allExercises])
 
-  const attachedExercise = exerciseId
-    ? allExercises.find(ex => ex.id === exerciseId)
-    : null
+  const attachedExercise = exerciseId ? allExercises.find((ex) => ex.id === exerciseId) : null
 
   // Formato legible de fecha (para placeholder/header)
   function prettyDate(isoDate) {
@@ -243,7 +249,8 @@ export default function NoteComposer({
 
   const placeholder = (() => {
     if (isReply) return 'Escribir tu respuesta…'
-    if (contextTab === 'exercise' && attachedExercise) return `Comentar sobre ${attachedExercise.name}…`
+    if (contextTab === 'exercise' && attachedExercise)
+      return `Comentar sobre ${attachedExercise.name}…`
     if (contextTab === 'muscle_group' && muscleGroup) return `Comentar sobre ${muscleGroup}…`
     if (contextTab === 'day' && noteDate) return `Comentar sobre el ${prettyDate(noteDate)}…`
     if (isCoach) return 'Escribir nota para el alumno…'
@@ -282,7 +289,7 @@ export default function NoteComposer({
       {/* ── Tabs de contexto (oculto en reply: contexto heredado) ── */}
       {!isReply && (
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-          {CONTEXT_TABS.map(tab => (
+          {CONTEXT_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -309,7 +316,9 @@ export default function NoteComposer({
                 <Paperclip size={10} />
                 {attachedExercise.name}
                 {attachedExercise.muscle_group && (
-                  <span className="text-blue-500/70 text-[10px]">· {attachedExercise.muscle_group}</span>
+                  <span className="text-blue-500/70 text-[10px]">
+                    · {attachedExercise.muscle_group}
+                  </span>
                 )}
                 <button
                   type="button"
@@ -322,7 +331,7 @@ export default function NoteComposer({
               </span>
               <button
                 type="button"
-                onClick={() => setExercisePickerOpen(v => !v)}
+                onClick={() => setExercisePickerOpen((v) => !v)}
                 className="text-[11px] text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
               >
                 Cambiar <ChevronDown size={10} />
@@ -331,11 +340,16 @@ export default function NoteComposer({
           ) : (
             <button
               type="button"
-              onClick={() => setExercisePickerOpen(v => !v)}
+              onClick={() => setExercisePickerOpen((v) => !v)}
               className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-1"
             >
               <Paperclip size={11} /> Elegir ejercicio del catálogo
-              <ChevronDown size={11} className={exercisePickerOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              <ChevronDown
+                size={11}
+                className={
+                  exercisePickerOpen ? 'rotate-180 transition-transform' : 'transition-transform'
+                }
+              />
             </button>
           )}
 
@@ -344,7 +358,7 @@ export default function NoteComposer({
               <input
                 type="text"
                 value={exerciseQuery}
-                onChange={e => setExerciseQuery(e.target.value)}
+                onChange={(e) => setExerciseQuery(e.target.value)}
                 placeholder="Buscar ejercicio…"
                 className="input text-xs border-0 rounded-b-none focus:ring-0"
                 autoFocus
@@ -353,7 +367,7 @@ export default function NoteComposer({
                 {exerciseSuggestions.length === 0 ? (
                   <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
                 ) : (
-                  exerciseSuggestions.map(ex => (
+                  exerciseSuggestions.map((ex) => (
                     <button
                       type="button"
                       key={ex.id}
@@ -392,7 +406,7 @@ export default function NoteComposer({
             style={{ width: 'auto' }}
             value={noteDate || ''}
             max={todayLocalIso()}
-            onChange={e => setNoteDate(e.target.value || null)}
+            onChange={(e) => setNoteDate(e.target.value || null)}
             disabled={submitting}
           />
           {noteDate && (
@@ -436,7 +450,7 @@ export default function NoteComposer({
 
           {allMuscleGroups.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {allMuscleGroups.map(mg => (
+              {allMuscleGroups.map((mg) => (
                 <button
                   type="button"
                   key={mg}
@@ -477,7 +491,7 @@ export default function NoteComposer({
         {isCoach && !isReply && (
           <button
             type="button"
-            onClick={() => setVisibility(v => v === 'shared' ? 'coach_private' : 'shared')}
+            onClick={() => setVisibility((v) => (v === 'shared' ? 'coach_private' : 'shared'))}
             className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors inline-flex items-center gap-1.5 ${
               visibility === 'coach_private'
                 ? 'bg-gray-700 text-white border-gray-700'
@@ -497,25 +511,18 @@ export default function NoteComposer({
           disabled={disabled || !body.trim()}
           className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting
-            ? <Loader2 size={12} className="animate-spin" />
-            : <Send size={12} />
-          }
+          {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
           {isReply ? 'Responder' : 'Enviar'}
         </button>
       </div>
 
       {/* ── Error inline ── */}
       {error && (
-        <p className="text-xs text-red-600">
-          {error.message || 'No se pudo enviar la nota.'}
-        </p>
+        <p className="text-xs text-red-600">{error.message || 'No se pudo enviar la nota.'}</p>
       )}
 
       {!error && (
-        <p className="text-[10px] text-gray-400 text-right">
-          Cmd/Ctrl + Enter para enviar
-        </p>
+        <p className="text-[10px] text-gray-400 text-right">Cmd/Ctrl + Enter para enviar</p>
       )}
     </div>
   )

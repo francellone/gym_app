@@ -1,8 +1,17 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
-  LayoutDashboard, Users, ClipboardList, Dumbbell,
-  LogOut, Menu, X, ChevronRight, BarChart2, FileText, MessageSquare
+  LayoutDashboard,
+  Users,
+  ClipboardList,
+  Dumbbell,
+  LogOut,
+  Menu,
+  X,
+  ChevronRight,
+  BarChart2,
+  FileText,
+  MessageSquare,
 } from 'lucide-react'
 import { useState } from 'react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
@@ -29,10 +38,8 @@ export default function CoachLayout() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-
       {/* ── Sidebar (desktop) ─────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-56 fixed inset-y-0 bg-[#18202e] border-r border-[#252e42]">
-
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 py-5 border-b border-[#252e42]">
           <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -46,7 +53,7 @@ export default function CoachLayout() {
 
         {/* Nav */}
         <nav className="flex-1 px-2.5 py-4 space-y-0.5">
-          {navItems.map(item => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -114,10 +121,13 @@ export default function CoachLayout() {
 
       {/* ── Mobile drawer ─────────────────────────────────── */}
       {menuOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-black/60" onClick={() => setMenuOpen(false)}>
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/60"
+          onClick={() => setMenuOpen(false)}
+        >
           <div
             className="absolute right-0 top-0 h-full w-64 bg-[#18202e] shadow-2xl"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="pt-16 pb-4 px-3">
               <div className="flex items-center gap-2.5 mb-5 px-3 py-2.5 bg-white/5 rounded-xl">
@@ -133,7 +143,7 @@ export default function CoachLayout() {
               </div>
 
               <nav className="space-y-0.5">
-                {navItems.map(item => (
+                {navItems.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}

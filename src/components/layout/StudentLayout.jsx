@@ -20,10 +20,11 @@ export default function StudentLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-
       {/* ── Header con campana ─────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-40 bg-white border-b border-gray-100
-                         flex items-center justify-between px-4 py-2.5">
+      <header
+        className="fixed top-0 inset-x-0 z-40 bg-white border-b border-gray-100
+                         flex items-center justify-between px-4 py-2.5"
+      >
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-primary-500 rounded-lg flex items-center justify-center">
             <Dumbbell className="w-3.5 h-3.5 text-white" />
@@ -41,7 +42,7 @@ export default function StudentLayout() {
       {/* Bottom nav (mobile-first) */}
       <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 z-40 safe-area-inset-bottom">
         <div className="flex items-center justify-around px-2 py-2 max-w-lg mx-auto">
-          {navItems.map(item => {
+          {navItems.map((item) => {
             const showBadge = item.key === 'notes' && unreadNotes > 0
             return (
               <NavLink
@@ -50,9 +51,7 @@ export default function StudentLayout() {
                 end={item.end}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl transition-colors min-w-0 relative ${
-                    isActive
-                      ? 'text-primary-600'
-                      : 'text-gray-400 hover:text-gray-600'
+                    isActive ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'
                   }`
                 }
               >

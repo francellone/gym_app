@@ -17,15 +17,15 @@
 // ── Umbrales (centralizados para tunearlos en un solo lugar) ──
 export const ALERT_THRESHOLDS = {
   // Pago
-  PAYMENT_DUE_SOON_DAYS: 7,        // pago dentro de N días
+  PAYMENT_DUE_SOON_DAYS: 7, // pago dentro de N días
   // Plan
-  PLAN_EXPIRING_SOON_DAYS: 7,      // plan vence dentro de N días
+  PLAN_EXPIRING_SOON_DAYS: 7, // plan vence dentro de N días
   // Inactividad
-  INACTIVE_DAYS: 3,                // sin loguear hace N+ días
+  INACTIVE_DAYS: 3, // sin loguear hace N+ días
   // RPE alto sostenido
-  HIGH_RPE_THRESHOLD: 8,           // PSE >= N considerado alto
-  HIGH_RPE_MIN_OCCURRENCES: 3,     // al menos N ocurrencias
-  HIGH_RPE_WINDOW_DAYS: 14,        // dentro de los últimos N días
+  HIGH_RPE_THRESHOLD: 8, // PSE >= N considerado alto
+  HIGH_RPE_MIN_OCCURRENCES: 3, // al menos N ocurrencias
+  HIGH_RPE_WINDOW_DAYS: 14, // dentro de los últimos N días
 }
 
 // ── Date utils ────────────────────────────────────────────────
@@ -64,12 +64,14 @@ function parseYMD(s) {
 // ============================================================
 function getActiveTrainingAssignment(student) {
   const list = student?.plan_assignments || []
-  return list.find(a => {
-    const planType = a.plan_type || a.plan?.plan_type || 'training'
-    if (planType !== 'training') return false
-    if (a.status) return a.status === 'active'
-    return !!a.active
-  }) || null
+  return (
+    list.find((a) => {
+      const planType = a.plan_type || a.plan?.plan_type || 'training'
+      if (planType !== 'training') return false
+      if (a.status) return a.status === 'active'
+      return !!a.active
+    }) || null
+  )
 }
 
 // ============================================================
@@ -261,7 +263,12 @@ export function computeHighRpeStudents(students, recentLogs, today = new Date())
 // ============================================================
 // computeAllAlerts — orquestador
 // ============================================================
-export function computeAllAlerts({ students, lastLogDateByStudent, recentLogs, today = new Date() }) {
+export function computeAllAlerts({
+  students,
+  lastLogDateByStudent,
+  recentLogs,
+  today = new Date(),
+}) {
   const { overdue, dueSoon } = computePaymentAlerts(students, today)
   return {
     overdue,

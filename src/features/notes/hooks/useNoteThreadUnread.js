@@ -60,7 +60,7 @@ export function useNoteThreadUnread(studentId, role = 'coach') {
           if (alive && payload.new) {
             setCount(payload.new[field] || 0)
           }
-        },
+        }
       )
       .on(
         'postgres_changes',
@@ -70,7 +70,9 @@ export function useNoteThreadUnread(studentId, role = 'coach') {
           table: 'note_threads',
           filter: `student_id=eq.${studentId}`,
         },
-        () => { if (alive) load() },
+        () => {
+          if (alive) load()
+        }
       )
       .subscribe()
 

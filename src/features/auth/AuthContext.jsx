@@ -18,13 +18,15 @@ export function AuthProvider({ children }) {
     })
 
     // Escuchar cambios de auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id)
         // Registrar push al iniciar sesión o al recuperar sesión existente
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          registerPush(session.user.id).catch(err =>
+          registerPush(session.user.id).catch((err) =>
             console.warn('Push registration failed:', err)
           )
         }
@@ -39,11 +41,7 @@ export function AuthProvider({ children }) {
 
   async function fetchProfile(userId) {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
 
       if (!error) setProfile(data)
     } catch (err) {
@@ -62,9 +60,7 @@ export function AuthProvider({ children }) {
   async function signOut() {
     // Desregistrar push antes de cerrar sesión
     if (user) {
-      await unregisterPush(user.id).catch(err =>
-        console.warn('Push unregister failed:', err)
-      )
+      await unregisterPush(user.id).catch((err) => console.warn('Push unregister failed:', err))
     }
     const { error } = await supabase.auth.signOut()
     if (error) throw error

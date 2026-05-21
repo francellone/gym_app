@@ -1,7 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Plus, Trash2, GripVertical, ChevronUp, ChevronDown, Tag, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Save,
+  AlertCircle,
+  Dumbbell,
+  BarChart2,
+  Plus,
+  Trash2,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
+  Tag,
+  X,
+} from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import PlanExerciseRow from '../components/PlanExerciseRow'
 import BlockCard from '../components/blocks/BlockCard'
@@ -13,7 +26,12 @@ import {
   uiExToDBEx,
   uiBlockToDB,
 } from '../helpers'
-import { EVAL_TYPES, METHODS, PRUEBA_TYPES, EVAL_TAG_SUGGESTIONS } from '@/features/evaluations/helpers'
+import {
+  EVAL_TYPES,
+  METHODS,
+  PRUEBA_TYPES,
+  EVAL_TAG_SUGGESTIONS,
+} from '@/features/evaluations/helpers'
 import EvaluationParentPlanField from '../components/EvaluationParentPlanField'
 
 // ============================================================
@@ -24,7 +42,7 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
   const [creatingExercise, setCreatingExercise] = useState(false)
   const [newExName, setNewExName] = useState('')
 
-  const selectedExercise = exercises.find(e => e.id === prueba.exercise_id)
+  const selectedExercise = exercises.find((e) => e.id === prueba.exercise_id)
 
   async function handleCreateExercise() {
     if (!newExName.trim()) return
@@ -50,12 +68,20 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
       {/* Header de la fila */}
       <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50">
         <div className="flex flex-col gap-0.5">
-          <button type="button" onClick={() => onMove(-1)} disabled={index === 0}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-30">
+          <button
+            type="button"
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="text-gray-300 hover:text-gray-500 disabled:opacity-30"
+          >
             <ChevronUp size={14} />
           </button>
-          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-30">
+          <button
+            type="button"
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            className="text-gray-300 hover:text-gray-500 disabled:opacity-30"
+          >
             <ChevronDown size={14} />
           </button>
         </div>
@@ -65,10 +91,15 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
           {selectedExercise?.name || prueba.exercise_name || 'Nueva prueba'}
         </span>
         {prueba.mandatory && (
-          <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Oblig.</span>
+          <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">
+            Oblig.
+          </span>
         )}
-        <button type="button" onClick={() => setExpanded(e => !e)}
-          className="text-gray-400 hover:text-gray-600 px-1">
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="text-gray-400 hover:text-gray-600 px-1"
+        >
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
         <button type="button" onClick={onRemove} className="text-red-400 hover:text-red-600 px-1">
@@ -87,38 +118,69 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
                 <select
                   className="input flex-1 text-sm"
                   value={prueba.exercise_id || ''}
-                  onChange={e => {
-                    const ex = exercises.find(x => x.id === e.target.value)
+                  onChange={(e) => {
+                    const ex = exercises.find((x) => x.id === e.target.value)
                     onUpdate('exercise_id', e.target.value)
                     onUpdate('exercise_name', ex?.name || '')
                   }}
                 >
                   <option value="">— Seleccionar ejercicio —</option>
-                  {exercises.map(ex => (
-                    <option key={ex.id} value={ex.id}>{ex.name}</option>
+                  {exercises.map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.name}
+                    </option>
                   ))}
                 </select>
-                <button type="button" onClick={() => setCreatingExercise(true)}
-                  className="btn-secondary text-xs px-3 whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setCreatingExercise(true)}
+                  className="btn-secondary text-xs px-3 whitespace-nowrap"
+                >
                   + Nuevo
                 </button>
               </div>
             ) : (
               <div className="flex gap-2">
-                <input className="input flex-1 text-sm" placeholder="Nombre del ejercicio"
-                  value={newExName} onChange={e => setNewExName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateExercise() } }}
-                  autoFocus />
-                <button type="button" onClick={handleCreateExercise} className="btn-primary text-xs px-3">Crear</button>
-                <button type="button" onClick={() => { setCreatingExercise(false); setNewExName('') }}
-                  className="btn-secondary text-xs px-3">×</button>
+                <input
+                  className="input flex-1 text-sm"
+                  placeholder="Nombre del ejercicio"
+                  value={newExName}
+                  onChange={(e) => setNewExName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleCreateExercise()
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateExercise}
+                  className="btn-primary text-xs px-3"
+                >
+                  Crear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingExercise(false)
+                    setNewExName('')
+                  }}
+                  className="btn-secondary text-xs px-3"
+                >
+                  ×
+                </button>
               </div>
             )}
             {/* Si no hay exercise_id, permitir nombre libre */}
             {!prueba.exercise_id && !creatingExercise && (
-              <input className="input text-sm mt-2" placeholder="O escribí el nombre libremente..."
+              <input
+                className="input text-sm mt-2"
+                placeholder="O escribí el nombre libremente..."
                 value={prueba.exercise_name || ''}
-                onChange={e => onUpdate('exercise_name', e.target.value)} />
+                onChange={(e) => onUpdate('exercise_name', e.target.value)}
+              />
             )}
           </div>
 
@@ -126,14 +188,20 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
           <div>
             <label className="label text-xs">Tipo de prueba</label>
             <div className="grid grid-cols-2 gap-1.5">
-              {PRUEBA_TYPES.map(pt => (
-                <button key={pt.key} type="button"
-                  onClick={() => { onUpdate('test_type', pt.key); onUpdate('expected_unit', pt.unit || '') }}
+              {PRUEBA_TYPES.map((pt) => (
+                <button
+                  key={pt.key}
+                  type="button"
+                  onClick={() => {
+                    onUpdate('test_type', pt.key)
+                    onUpdate('expected_unit', pt.unit || '')
+                  }}
                   className={`text-left px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
                     prueba.test_type === pt.key
                       ? 'border-purple-500 bg-purple-50 text-purple-700'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}>
+                  }`}
+                >
                   {pt.label}
                   {pt.unit && <span className="ml-1 text-gray-400 font-normal">({pt.unit})</span>}
                 </button>
@@ -144,25 +212,34 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
           {/* Instrucciones */}
           <div>
             <label className="label text-xs">Instrucciones</label>
-            <textarea className="input resize-none text-sm" rows={2}
+            <textarea
+              className="input resize-none text-sm"
+              rows={2}
               placeholder="Describí cómo ejecutar la prueba..."
               value={prueba.instructions || ''}
-              onChange={e => onUpdate('instructions', e.target.value)} />
+              onChange={(e) => onUpdate('instructions', e.target.value)}
+            />
           </div>
 
           {/* Valor esperado */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="label text-xs">Valor esperado (opcional)</label>
-              <input className="input text-sm" placeholder="ej: 10"
+              <input
+                className="input text-sm"
+                placeholder="ej: 10"
                 value={prueba.expected_value || ''}
-                onChange={e => onUpdate('expected_value', e.target.value)} />
+                onChange={(e) => onUpdate('expected_value', e.target.value)}
+              />
             </div>
             <div>
               <label className="label text-xs">Unidad</label>
-              <input className="input text-sm" placeholder="ej: reps, kg, seg"
+              <input
+                className="input text-sm"
+                placeholder="ej: reps, kg, seg"
                 value={prueba.expected_unit || ''}
-                onChange={e => onUpdate('expected_unit', e.target.value)} />
+                onChange={(e) => onUpdate('expected_unit', e.target.value)}
+              />
             </div>
           </div>
 
@@ -173,9 +250,15 @@ function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove,
             }`}
             onClick={() => onUpdate('mandatory', !prueba.mandatory)}
           >
-            <input type="checkbox" readOnly checked={prueba.mandatory}
-              className="w-4 h-4 pointer-events-none text-red-500" />
-            <span className={`text-xs font-medium ${prueba.mandatory ? 'text-red-700' : 'text-gray-600'}`}>
+            <input
+              type="checkbox"
+              readOnly
+              checked={prueba.mandatory}
+              className="w-4 h-4 pointer-events-none text-red-500"
+            />
+            <span
+              className={`text-xs font-medium ${prueba.mandatory ? 'text-red-700' : 'text-gray-600'}`}
+            >
               Prueba obligatoria
             </span>
           </div>
@@ -212,7 +295,9 @@ export default function CreatePlanPage() {
   // Estructura del plan: por sección, una lista de bloques.
   // Cada bloque tiene sus propios ejercicios.
   const [planBlocks, setPlanBlocks] = useState({
-    day_a: [], day_b: [], day_c: [],
+    day_a: [],
+    day_b: [],
+    day_c: [],
   })
 
   // Estado exclusivo para evaluaciones (plano, sin bloques)
@@ -242,13 +327,13 @@ export default function CreatePlanPage() {
   useEffect(() => {
     if (plan.plan_type === 'evaluation') return
     const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
-    setPlanBlocks(prev => {
+    setPlanBlocks((prev) => {
       const next = {}
       for (const s of sections) next[s.id] = prev[s.id] || []
       return next
     })
-    setActiveSection(prev => {
-      if (sections.find(s => s.id === prev)) return prev
+    setActiveSection((prev) => {
+      if (sections.find((s) => s.id === prev)) return prev
       return sections[0]?.id || 'day_a'
     })
   }, [plan.sessions_per_week, plan.has_activation, plan.plan_type])
@@ -257,7 +342,7 @@ export default function CreatePlanPage() {
   // Helpers de manipulación de bloques
   // ============================================================
   function addBlock(section, type) {
-    setPlanBlocks(prev => {
+    setPlanBlocks((prev) => {
       const current = prev[section] || []
       const newBlock = emptyBlock(type, section, current.length)
       return { ...prev, [section]: [...current, newBlock] }
@@ -265,9 +350,9 @@ export default function CreatePlanPage() {
   }
 
   function updateBlock(section, index, patch) {
-    setPlanBlocks(prev => ({
+    setPlanBlocks((prev) => ({
       ...prev,
-      [section]: (prev[section] || []).map((b, i) => i === index ? { ...b, ...patch } : b),
+      [section]: (prev[section] || []).map((b, i) => (i === index ? { ...b, ...patch } : b)),
     }))
   }
 
@@ -276,16 +361,17 @@ export default function CreatePlanPage() {
   }
 
   function removeBlock(section, index) {
-    setPlanBlocks(prev => ({
+    setPlanBlocks((prev) => ({
       ...prev,
-      [section]: (prev[section] || []).filter((_, i) => i !== index)
+      [section]: (prev[section] || [])
+        .filter((_, i) => i !== index)
         .map((b, i) => ({ ...b, order_index: i })),
     }))
   }
 
   function moveBlock(section, index, direction) {
     const j = index + direction
-    setPlanBlocks(prev => {
+    setPlanBlocks((prev) => {
       const list = [...(prev[section] || [])]
       if (j < 0 || j >= list.length) return prev
       const [item] = list.splice(index, 1)
@@ -336,7 +422,7 @@ export default function CreatePlanPage() {
         if (plan.eval_type === 'custom') {
           // Evaluaciones custom: guardar pruebas en evaluation_tests
           const pruebaRows = evalPruebas
-            .filter(p => p.exercise_name?.trim() || p.exercise_id)
+            .filter((p) => p.exercise_name?.trim() || p.exercise_id)
             .map((p, i) => ({
               plan_id: newPlan.id,
               exercise_id: p.exercise_id || null,
@@ -349,13 +435,15 @@ export default function CreatePlanPage() {
               order_index: i,
             }))
           if (pruebaRows.length > 0) {
-            const { error: pruebaError } = await supabase.from('evaluation_tests').insert(pruebaRows)
+            const { error: pruebaError } = await supabase
+              .from('evaluation_tests')
+              .insert(pruebaRows)
             if (pruebaError) throw pruebaError
           }
         } else {
           // Evaluaciones científicas: flat plan_exercises, sin bloques
           const rows = evalExercises
-            .filter(ex => ex.exercise_id)
+            .filter((ex) => ex.exercise_id)
             .map((ex, i) => uiExToDBEx(ex, newPlan.id, 'day_a', i, null))
           if (rows.length > 0) {
             const { error: exError } = await supabase.from('plan_exercises').insert(rows)
@@ -378,7 +466,7 @@ export default function CreatePlanPage() {
             if (bErr) throw bErr
 
             const exRows = (block.exercises || [])
-              .filter(ex => ex.exercise_id)
+              .filter((ex) => ex.exercise_id)
               .map((ex, i) => uiExToDBEx(ex, newPlan.id, s.id, i, insertedBlock.id))
 
             if (exRows.length > 0) {
@@ -402,23 +490,31 @@ export default function CreatePlanPage() {
   // Helpers de pruebas (evaluación custom)
   // ============================================================
   function addPrueba() {
-    setEvalPruebas(prev => [...prev, {
-      exercise_id: '', exercise_name: '', test_type: 'libre',
-      instructions: '', expected_value: '', expected_unit: '', mandatory: false,
-    }])
+    setEvalPruebas((prev) => [
+      ...prev,
+      {
+        exercise_id: '',
+        exercise_name: '',
+        test_type: 'libre',
+        instructions: '',
+        expected_value: '',
+        expected_unit: '',
+        mandatory: false,
+      },
+    ])
   }
 
   function updatePrueba(i, field, value) {
-    setEvalPruebas(prev => prev.map((p, k) => k === i ? { ...p, [field]: value } : p))
+    setEvalPruebas((prev) => prev.map((p, k) => (k === i ? { ...p, [field]: value } : p)))
   }
 
   function removePrueba(i) {
-    setEvalPruebas(prev => prev.filter((_, k) => k !== i))
+    setEvalPruebas((prev) => prev.filter((_, k) => k !== i))
   }
 
   function movePrueba(i, dir) {
     const j = i + dir
-    setEvalPruebas(prev => {
+    setEvalPruebas((prev) => {
       if (j < 0 || j >= prev.length) return prev
       const next = [...prev]
       ;[next[i], next[j]] = [next[j], next[i]]
@@ -429,12 +525,12 @@ export default function CreatePlanPage() {
   function addTag(tag) {
     const t = tag.trim()
     if (!t || evalTags.includes(t)) return
-    setEvalTags(prev => [...prev, t])
+    setEvalTags((prev) => [...prev, t])
     setTagInput('')
   }
 
   function removeTag(tag) {
-    setEvalTags(prev => prev.filter(t => t !== tag))
+    setEvalTags((prev) => prev.filter((t) => t !== tag))
   }
 
   const isEval = plan.plan_type === 'evaluation'
@@ -443,9 +539,9 @@ export default function CreatePlanPage() {
 
   // Índice de bloques strength para numerar "Fuerza 1", "Fuerza 2"...
   const strengthCounts = {}
-  const strengthIndexMap = currentBlocks.map(b => {
+  const strengthIndexMap = currentBlocks.map((b) => {
     if (b.block_type !== 'strength') return 0
-    strengthCounts[activeSection] = (strengthCounts[activeSection] || 0)
+    strengthCounts[activeSection] = strengthCounts[activeSection] || 0
     const idx = strengthCounts[activeSection]
     strengthCounts[activeSection] += 1
     return idx
@@ -470,16 +566,21 @@ export default function CreatePlanPage() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setPlan(p => ({ ...p, plan_type: 'training', eval_type: '' }))}
+              onClick={() => setPlan((p) => ({ ...p, plan_type: 'training', eval_type: '' }))}
               className={`rounded-2xl border-2 p-3 flex items-center gap-2 text-left transition-all ${
                 plan.plan_type === 'training'
                   ? 'border-primary-500 bg-primary-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <Dumbbell size={18} className={plan.plan_type === 'training' ? 'text-primary-600' : 'text-gray-400'} />
+              <Dumbbell
+                size={18}
+                className={plan.plan_type === 'training' ? 'text-primary-600' : 'text-gray-400'}
+              />
               <div>
-                <p className={`text-sm font-semibold ${plan.plan_type === 'training' ? 'text-primary-700' : 'text-gray-700'}`}>
+                <p
+                  className={`text-sm font-semibold ${plan.plan_type === 'training' ? 'text-primary-700' : 'text-gray-700'}`}
+                >
                   Entrenamiento
                 </p>
                 <p className="text-xs text-gray-400">Rutina regular</p>
@@ -487,16 +588,21 @@ export default function CreatePlanPage() {
             </button>
             <button
               type="button"
-              onClick={() => setPlan(p => ({ ...p, plan_type: 'evaluation' }))}
+              onClick={() => setPlan((p) => ({ ...p, plan_type: 'evaluation' }))}
               className={`rounded-2xl border-2 p-3 flex items-center gap-2 text-left transition-all ${
                 plan.plan_type === 'evaluation'
                   ? 'border-purple-500 bg-purple-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <BarChart2 size={18} className={plan.plan_type === 'evaluation' ? 'text-purple-600' : 'text-gray-400'} />
+              <BarChart2
+                size={18}
+                className={plan.plan_type === 'evaluation' ? 'text-purple-600' : 'text-gray-400'}
+              />
               <div>
-                <p className={`text-sm font-semibold ${plan.plan_type === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}>
+                <p
+                  className={`text-sm font-semibold ${plan.plan_type === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}
+                >
                   Evaluación
                 </p>
                 <p className="text-xs text-gray-400">Protocolo de test</p>
@@ -510,11 +616,11 @@ export default function CreatePlanPage() {
           <div>
             <label className="label">Categoría de evaluación</label>
             <div className="space-y-1.5">
-              {EVAL_TYPES.map(et => (
+              {EVAL_TYPES.map((et) => (
                 <button
                   key={et.key}
                   type="button"
-                  onClick={() => setPlan(p => ({ ...p, eval_type: et.key, eval_method: '' }))}
+                  onClick={() => setPlan((p) => ({ ...p, eval_type: et.key, eval_method: '' }))}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
                     plan.eval_type === et.key
                       ? 'border-purple-500 bg-purple-50'
@@ -523,7 +629,9 @@ export default function CreatePlanPage() {
                 >
                   <span className="text-lg">{et.icon}</span>
                   <div className="flex-1">
-                    <p className={`text-sm font-semibold ${plan.eval_type === et.key ? 'text-purple-700' : 'text-gray-700'}`}>
+                    <p
+                      className={`text-sm font-semibold ${plan.eval_type === et.key ? 'text-purple-700' : 'text-gray-700'}`}
+                    >
                       {et.label}
                     </p>
                     <p className="text-xs text-gray-400">{et.description}</p>
@@ -543,11 +651,11 @@ export default function CreatePlanPage() {
           <div>
             <label className="label">Método / Protocolo</label>
             <div className="space-y-1.5">
-              {METHODS[plan.eval_type].map(m => (
+              {METHODS[plan.eval_type].map((m) => (
                 <button
                   key={m.key}
                   type="button"
-                  onClick={() => setPlan(p => ({ ...p, eval_method: m.key }))}
+                  onClick={() => setPlan((p) => ({ ...p, eval_method: m.key }))}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
                     plan.eval_method === m.key
                       ? 'border-purple-500 bg-purple-50'
@@ -555,7 +663,9 @@ export default function CreatePlanPage() {
                   }`}
                 >
                   <div className="flex-1">
-                    <p className={`text-sm font-semibold ${plan.eval_method === m.key ? 'text-purple-700' : 'text-gray-700'}`}>
+                    <p
+                      className={`text-sm font-semibold ${plan.eval_method === m.key ? 'text-purple-700' : 'text-gray-700'}`}
+                    >
                       {m.label}
                     </p>
                     <p className="text-xs text-gray-400">{m.note}</p>
@@ -578,7 +688,7 @@ export default function CreatePlanPage() {
               className="input"
               placeholder="Plan 1 - Iniciación"
               value={plan.title}
-              onChange={e => setPlan(p => ({ ...p, title: e.target.value }))}
+              onChange={(e) => setPlan((p) => ({ ...p, title: e.target.value }))}
             />
           </div>
           <div className="sm:col-span-2">
@@ -588,7 +698,7 @@ export default function CreatePlanPage() {
               rows={2}
               placeholder="Descripción del plan..."
               value={plan.description}
-              onChange={e => setPlan(p => ({ ...p, description: e.target.value }))}
+              onChange={(e) => setPlan((p) => ({ ...p, description: e.target.value }))}
             />
           </div>
 
@@ -600,40 +710,50 @@ export default function CreatePlanPage() {
                   className="input"
                   placeholder="Fuerza, hipertrofia..."
                   value={plan.goal}
-                  onChange={e => setPlan(p => ({ ...p, goal: e.target.value }))}
+                  onChange={(e) => setPlan((p) => ({ ...p, goal: e.target.value }))}
                 />
               </div>
               <div>
                 <label className="label">Días por semana</label>
                 <input
-                  type="number" min="1" max="7" className="input"
+                  type="number"
+                  min="1"
+                  max="7"
+                  className="input"
                   value={plan.sessions_per_week}
-                  onChange={e => setPlan(p => ({ ...p, sessions_per_week: e.target.value }))}
+                  onChange={(e) => setPlan((p) => ({ ...p, sessions_per_week: e.target.value }))}
                 />
               </div>
               <div>
                 <label className="label">Duración (semanas)</label>
                 <input
-                  type="number" className="input" placeholder="Opcional"
+                  type="number"
+                  className="input"
+                  placeholder="Opcional"
                   value={plan.duration_weeks}
-                  onChange={e => setPlan(p => ({ ...p, duration_weeks: e.target.value }))}
+                  onChange={(e) => setPlan((p) => ({ ...p, duration_weeks: e.target.value }))}
                 />
               </div>
 
               <div
                 className={`sm:col-span-2 flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                  plan.has_activation ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'
+                  plan.has_activation
+                    ? 'border-amber-400 bg-amber-50'
+                    : 'border-gray-200 bg-gray-50'
                 }`}
-                onClick={() => setPlan(p => ({ ...p, has_activation: !p.has_activation }))}
+                onClick={() => setPlan((p) => ({ ...p, has_activation: !p.has_activation }))}
               >
                 <input
-                  type="checkbox" id="has_activation"
+                  type="checkbox"
+                  id="has_activation"
                   className="w-4 h-4 rounded text-amber-500 pointer-events-none"
                   checked={plan.has_activation}
                   readOnly
                 />
                 <label htmlFor="has_activation" className="cursor-pointer flex-1">
-                  <span className={`text-sm font-medium ${plan.has_activation ? 'text-amber-800' : 'text-gray-700'}`}>
+                  <span
+                    className={`text-sm font-medium ${plan.has_activation ? 'text-amber-800' : 'text-gray-700'}`}
+                  >
                     Incluir bloque de Activación
                   </span>
                   <span className="text-xs text-gray-400 block">
@@ -652,10 +772,17 @@ export default function CreatePlanPage() {
                 Tags de la evaluación
               </label>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {evalTags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                {evalTags.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full"
+                  >
                     {t}
-                    <button type="button" onClick={() => removeTag(t)} className="hover:text-purple-900">
+                    <button
+                      type="button"
+                      onClick={() => removeTag(t)}
+                      className="hover:text-purple-900"
+                    >
                       <X size={11} />
                     </button>
                   </span>
@@ -666,20 +793,35 @@ export default function CreatePlanPage() {
                   className="input flex-1 text-sm"
                   placeholder="Ej: Fuerza, Movilidad..."
                   value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput) } }}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addTag(tagInput)
+                    }
+                  }}
                 />
-                <button type="button" onClick={() => addTag(tagInput)} className="btn-secondary text-sm px-3">
+                <button
+                  type="button"
+                  onClick={() => addTag(tagInput)}
+                  className="btn-secondary text-sm px-3"
+                >
                   Agregar
                 </button>
               </div>
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {EVAL_TAG_SUGGESTIONS.filter(s => !evalTags.includes(s)).slice(0, 6).map(s => (
-                  <button key={s} type="button" onClick={() => addTag(s)}
-                    className="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors">
-                    + {s}
-                  </button>
-                ))}
+                {EVAL_TAG_SUGGESTIONS.filter((s) => !evalTags.includes(s))
+                  .slice(0, 6)
+                  .map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => addTag(s)}
+                      className="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors"
+                    >
+                      + {s}
+                    </button>
+                  ))}
               </div>
             </div>
           )}
@@ -689,7 +831,7 @@ export default function CreatePlanPage() {
             <div className="sm:col-span-2">
               <EvaluationParentPlanField
                 value={plan.parent_plan_id}
-                onChange={(v) => setPlan(p => ({ ...p, parent_plan_id: v }))}
+                onChange={(v) => setPlan((p) => ({ ...p, parent_plan_id: v }))}
                 excludeId={null}
               />
             </div>
@@ -697,10 +839,11 @@ export default function CreatePlanPage() {
 
           <div className="flex items-center gap-2 mt-1">
             <input
-              type="checkbox" id="is_template"
+              type="checkbox"
+              id="is_template"
               className="w-4 h-4 rounded text-primary-600"
               checked={plan.is_template}
-              onChange={e => setPlan(p => ({ ...p, is_template: e.target.checked }))}
+              onChange={(e) => setPlan((p) => ({ ...p, is_template: e.target.checked }))}
             />
             <label htmlFor="is_template" className="text-sm text-gray-700 cursor-pointer">
               Guardar como plantilla reutilizable
@@ -730,11 +873,11 @@ export default function CreatePlanPage() {
                 exerciseTags={exerciseTags}
                 tagAssignments={tagAssignments}
                 onUpdate={(idx, field, value) =>
-                  setEvalExercises(prev => prev.map((e, k) => k === idx ? { ...e, [field]: value } : e))
+                  setEvalExercises((prev) =>
+                    prev.map((e, k) => (k === idx ? { ...e, [field]: value } : e))
+                  )
                 }
-                onRemove={(idx) =>
-                  setEvalExercises(prev => prev.filter((_, k) => k !== idx))
-                }
+                onRemove={(idx) => setEvalExercises((prev) => prev.filter((_, k) => k !== idx))}
               />
             ))}
           </div>
@@ -742,7 +885,7 @@ export default function CreatePlanPage() {
             onClick={() => {
               const newEx = emptyPlanExercise('day_a')
               newEx.order_index = evalExercises.length
-              setEvalExercises(prev => [...prev, newEx])
+              setEvalExercises((prev) => [...prev, newEx])
             }}
             className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
           >
@@ -780,7 +923,7 @@ export default function CreatePlanPage() {
                 exercises={exercises}
                 onUpdate={(field, value) => updatePrueba(i, field, value)}
                 onRemove={() => removePrueba(i)}
-                onMove={dir => movePrueba(i, dir)}
+                onMove={(dir) => movePrueba(i, dir)}
               />
             ))}
           </div>
@@ -804,7 +947,7 @@ export default function CreatePlanPage() {
 
           {/* Tabs de secciones */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
-            {dynamicSections.map(s => {
+            {dynamicSections.map((s) => {
               const blockCount = (planBlocks[s.id] || []).length
               return (
                 <button
@@ -840,10 +983,10 @@ export default function CreatePlanPage() {
                 block={block}
                 blockIndexInSection={i}
                 strengthIndexInSection={strengthIndexMap[i]}
-                onUpdate={patch => updateBlock(activeSection, i, patch)}
-                onUpdateExercises={next => updateBlockExercises(activeSection, i, next)}
+                onUpdate={(patch) => updateBlock(activeSection, i, patch)}
+                onUpdateExercises={(next) => updateBlockExercises(activeSection, i, next)}
                 onRemove={() => removeBlock(activeSection, i)}
-                onMove={dir => moveBlock(activeSection, i, dir)}
+                onMove={(dir) => moveBlock(activeSection, i, dir)}
                 canMoveUp={i > 0}
                 canMoveDown={i < currentBlocks.length - 1}
                 exercises={exercises}
@@ -852,7 +995,7 @@ export default function CreatePlanPage() {
               />
             ))}
 
-            <AddBlockMenu onAdd={type => addBlock(activeSection, type)} />
+            <AddBlockMenu onAdd={(type) => addBlock(activeSection, type)} />
           </div>
         </div>
       )}
@@ -865,7 +1008,9 @@ export default function CreatePlanPage() {
       )}
 
       <div className="flex gap-3 pb-8">
-        <button onClick={() => navigate(-1)} className="btn-secondary flex-1">Cancelar</button>
+        <button onClick={() => navigate(-1)} className="btn-secondary flex-1">
+          Cancelar
+        </button>
         <button
           onClick={handleSave}
           disabled={loading}
@@ -874,7 +1019,9 @@ export default function CreatePlanPage() {
           {loading ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            <><Save size={16} /> Guardar plan</>
+            <>
+              <Save size={16} /> Guardar plan
+            </>
           )}
         </button>
       </div>

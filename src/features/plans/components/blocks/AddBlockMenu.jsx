@@ -25,7 +25,7 @@ export default function AddBlockMenu({ onAdd }) {
             ¿Qué tipo de bloque querés agregar?
           </p>
           <div className="grid grid-cols-3 gap-2">
-            {BLOCK_TYPE_LIST.map(t => (
+            {BLOCK_TYPE_LIST.map((t) => (
               <button
                 key={t.key}
                 type="button"

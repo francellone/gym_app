@@ -15,17 +15,21 @@ export default function PlansPage() {
   const [filterType, setFilterType] = useState('all') // 'all' | 'training' | 'evaluation'
   const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
 
-  useEffect(() => { fetchPlans() }, [])
+  useEffect(() => {
+    fetchPlans()
+  }, [])
 
   async function fetchPlans() {
     try {
       const { data, error } = await supabase
         .from('plans')
-        .select(`
+        .select(
+          `
           *,
           plan_exercises(id),
           plan_assignments(id, active, status, student:profiles!student_id(name))
-        `)
+        `
+        )
         .order('created_at', { ascending: false })
       if (error) throw error
       const allPlans = data || []
@@ -38,7 +42,7 @@ export default function PlansPage() {
           evalsByParent[p.parent_plan_id] = (evalsByParent[p.parent_plan_id] || 0) + 1
         }
       }
-      const enriched = allPlans.map(p => ({
+      const enriched = allPlans.map((p) => ({
         ...p,
         _linked_evals_count: evalsByParent[p.id] || 0,
       }))
@@ -51,7 +55,7 @@ export default function PlansPage() {
   }
 
   async function handleOpenDelete(plan) {
-    const activeStudents = plan.plan_assignments?.filter(a => a.active).length || 0
+    const activeStudents = plan.plan_assignments?.filter((a) => a.active).length || 0
     let resultCount = 0
     if (plan.plan_type === 'evaluation') {
       const { count } = await supabase
@@ -67,7 +71,7 @@ export default function PlansPage() {
     const { error } = await supabase.from('plans').delete().eq('id', planId)
     if (error) throw error
     setDeletingPlan(null)
-    setPlans(prev => prev.filter(p => p.id !== planId))
+    setPlans((prev) => prev.filter((p) => p.id !== planId))
   }
 
   function handleDuplicateDone(newPlan) {
@@ -79,14 +83,14 @@ export default function PlansPage() {
     }
   }
 
-  const filtered = plans.filter(p => {
+  const filtered = plans.filter((p) => {
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = filterType === 'all' || (p.plan_type || 'training') === filterType
     return matchSearch && matchType
   })
 
-  const trainingCount = plans.filter(p => !p.plan_type || p.plan_type === 'training').length
-  const evalCount = plans.filter(p => p.plan_type === 'evaluation').length
+  const trainingCount = plans.filter((p) => !p.plan_type || p.plan_type === 'training').length
+  const evalCount = plans.filter((p) => p.plan_type === 'evaluation').length
 
   return (
     <div className="space-y-5">
@@ -108,7 +112,7 @@ export default function PlansPage() {
           { key: 'all', label: 'Todos', count: plans.length },
           { key: 'training', label: 'Entrenamiento', count: trainingCount },
           { key: 'evaluation', label: 'Evaluación', count: evalCount },
-        ].map(tab => (
+        ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setFilterType(tab.key)}
@@ -120,8 +124,12 @@ export default function PlansPage() {
           >
             {tab.key === 'evaluation' && <BarChart2 size={13} />}
             <span className="hidden sm:inline">{tab.label}</span>
-            <span className="sm:hidden">{tab.key === 'all' ? 'Todos' : tab.key === 'training' ? 'Entr.' : 'Eval.'}</span>
-            <span className={`text-xs ${filterType === tab.key ? 'text-gray-500' : 'text-gray-400'}`}>
+            <span className="sm:hidden">
+              {tab.key === 'all' ? 'Todos' : tab.key === 'training' ? 'Entr.' : 'Eval.'}
+            </span>
+            <span
+              className={`text-xs ${filterType === tab.key ? 'text-gray-500' : 'text-gray-400'}`}
+            >
               ({tab.count})
             </span>
           </button>
@@ -136,14 +144,14 @@ export default function PlansPage() {
           className="input pl-9"
           placeholder="Buscar plan..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       {/* List */}
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="card animate-pulse">
               <div className="h-5 bg-gray-200 rounded w-2/3 mb-2" />
               <div className="h-4 bg-gray-100 rounded w-1/3" />
@@ -161,8 +169,8 @@ export default function PlansPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(plan => {
-            const activeAssignments = plan.plan_assignments?.filter(a => a.active) || []
+          {filtered.map((plan) => {
+            const activeAssignments = plan.plan_assignments?.filter((a) => a.active) || []
             const isEval = plan.plan_type === 'evaluation'
 
             return (
@@ -184,20 +192,23 @@ export default function PlansPage() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {isEval ? 'Protocolo de evaluación' : `${plan.plan_exercises?.length || 0} ejercicios`}
-                      {plan.sessions_per_week && !isEval ? ` · ${plan.sessions_per_week} días/sem` : ''}
+                      {isEval
+                        ? 'Protocolo de evaluación'
+                        : `${plan.plan_exercises?.length || 0} ejercicios`}
+                      {plan.sessions_per_week && !isEval
+                        ? ` · ${plan.sessions_per_week} días/sem`
+                        : ''}
                       {activeAssignments.length > 0
                         ? ` · ${activeAssignments.length} alumno${activeAssignments.length > 1 ? 's' : ''}`
                         : ''}
                       {!isEval && plan._linked_evals_count > 0 && (
                         <span className="ml-1 text-purple-600">
-                          · 📊 {plan._linked_evals_count} {plan._linked_evals_count === 1 ? 'eval.' : 'evals.'}
+                          · 📊 {plan._linked_evals_count}{' '}
+                          {plan._linked_evals_count === 1 ? 'eval.' : 'evals.'}
                         </span>
                       )}
                       {isEval && plan.parent_plan_id && (
-                        <span className="ml-1 text-blue-600">
-                          · 📎 ligada a un plan
-                        </span>
+                        <span className="ml-1 text-blue-600">· 📎 ligada a un plan</span>
                       )}
                     </p>
                     {plan.description && (
