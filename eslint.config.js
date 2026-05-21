@@ -105,6 +105,36 @@ export default [
     },
   },
 
+  // Tests (vitest + RTL + jest-dom) — globals propias y relajación de unused-vars
+  // dentro de los tests, para que mocks "preparados pero no usados en cada test"
+  // no metan ruido. `vi`, `describe`, `it`, etc. son globals porque vitest.config.js
+  // tiene `globals: true`.
+  {
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+        ...globals.node,
+        vi: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeAll: 'readonly',
+        beforeEach: 'readonly',
+        afterAll: 'readonly',
+        afterEach: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+
   // Prettier al final para apagar reglas que chocan con formato
   prettier,
 ]
