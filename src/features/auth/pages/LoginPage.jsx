@@ -39,8 +39,11 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Email</label>
+              <label htmlFor="login-email" className="label">
+                Email
+              </label>
               <input
+                id="login-email"
                 type="email"
                 className="input"
                 placeholder="tu@email.com"
@@ -52,9 +55,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="label">Contraseña</label>
+              <label htmlFor="login-password" className="label">
+                Contraseña
+              </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="input pr-10"
                   placeholder="••••••••"

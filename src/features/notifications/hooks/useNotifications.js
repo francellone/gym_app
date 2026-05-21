@@ -38,19 +38,21 @@ export function useNotifications(userId) {
   }, [userId])
 
   // ── Marcar una como leída ─────────────────────────────────
+  // Nota técnica: el snapshot para rollback se captura desde el closure
+  // (state al momento de llamar markAsRead), NO desde dentro del updater
+  // de setState. El patrón viejo (capturar prev dentro del updater) era
+  // frágil en React 18 + tests con act: el updater puede ejecutarse
+  // diferido, dejando el snapshot undefined cuando el rollback corre.
+  // Ver `useNotifications.test.jsx` para el caso que lo expuso.
   const markAsRead = useCallback(
     async (notificationId) => {
-      // Guardar snapshot previo para poder revertir si falla el UPDATE
-      let prevNotifications
-      let prevUnread
-      setNotifications((prev) => {
-        prevNotifications = prev
-        return prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      })
-      setUnreadCount((prev) => {
-        prevUnread = prev
-        return Math.max(0, prev - 1)
-      })
+      const prevNotifications = notifications
+      const prevUnread = unreadCount
+
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
 
       const { error } = await supabase
         .from('notifications')
@@ -60,30 +62,24 @@ export function useNotifications(userId) {
 
       if (error) {
         console.error('[useNotifications] markAsRead failed:', error)
-        // Revertir
         setNotifications(prevNotifications)
         setUnreadCount(prevUnread)
       }
     },
-    [userId]
+    [userId, notifications, unreadCount]
   )
 
   // ── Marcar todas como leídas ──────────────────────────────
   // No-op si no hay unread (evita UPDATE innecesario). No devuelve nada.
+  // Snapshot desde closure por las mismas razones que markAsRead.
   const markAllAsRead = useCallback(async () => {
     if (unreadCount === 0) return
 
-    // Guardar snapshot previo (array entero) para poder revertir
-    let prevNotifications
-    let prevUnread
-    setNotifications((prev) => {
-      prevNotifications = prev
-      return prev.map((n) => ({ ...n, read: true }))
-    })
-    setUnreadCount((prev) => {
-      prevUnread = prev
-      return 0
-    })
+    const prevNotifications = notifications
+    const prevUnread = unreadCount
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setUnreadCount(0)
 
     const { error } = await supabase
       .from('notifications')
@@ -93,11 +89,10 @@ export function useNotifications(userId) {
 
     if (error) {
       console.error('[useNotifications] markAllAsRead failed:', error)
-      // Revertir
       setNotifications(prevNotifications)
       setUnreadCount(prevUnread)
     }
-  }, [userId, unreadCount])
+  }, [userId, unreadCount, notifications])
 
   // ── Realtime ───────────────────────────────────────────────
   useEffect(() => {

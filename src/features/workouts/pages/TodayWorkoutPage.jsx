@@ -18,6 +18,7 @@ import {
   postWorkoutLogNote,
   postWorkoutBlockLogNote,
 } from '@/features/notes/api'
+import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import BlockRenderer from '../components/BlockRenderer'
 import ValidationWarning from '../components/ValidationWarning'
 import DailyPSEModal from '../components/DailyPSEModal'
@@ -367,23 +368,21 @@ export default function TodayWorkoutPage() {
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
     maybeFireWellbeingStartAviso()
 
-    // Extraemos el body de la nota del data ANTES de armar los rpcArgs:
-    // el ExerciseCard (strength) y CircuitBlockRunCard meten el texto del
-    // alumno en _noteBody. Underscore-prefijado para que no se confunda
-    // con los p_* que sí van a la RPC.
-    const { _noteBody, ...rpcData } = data || {}
-
-    // Llamada a la RPC. Si existingLog → UPDATE (p_log_id), sino INSERT.
-    const rpcArgs = {
-      p_log_id: existingLog?.id ?? null,
-      p_student_id: profile.id,
-      p_plan_id: assignment.plan_id,
-      p_plan_exercise_id: planExerciseId,
-      p_logged_date: selectedDate,
-      p_logged_late: !isToday,
-      ...rpcData, // p_reps, p_weights, p_weight_mode, p_unilateral, p_reps_unit,
-      // p_actual_sets, p_perceived_difficulty, p_notes=null, p_completed
-    }
+    // El armado de los rpcArgs vive en `../api.js` desde el Tier 3.2 (21/05 PM):
+    // - Documenta la firma de la RPC (16 params) en un solo lugar
+    // - Filtra keys internas con prefijo "_" (como _noteBody) que no deben
+    //   llegar a la RPC pero sí se usan más abajo para postWorkoutLogNote.
+    // - Testeable con vitest sin necesidad de Supabase ni del render.
+    const _noteBody = extractNoteBody(data)
+    const rpcArgs = buildSaveWorkoutLogArgs({
+      profile,
+      assignment,
+      planExerciseId,
+      selectedDate,
+      isToday,
+      data,
+      existingLog,
+    })
 
     const { data: returnedId, error } = await supabase.rpc('save_workout_log', rpcArgs)
     if (error) {
