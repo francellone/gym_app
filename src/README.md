@@ -2,6 +2,8 @@
 
 App React 18 + Vite 5 + Tailwind 3 con cliente Supabase. JSX puro (sin TypeScript).
 
+> **Doc viva del proyecto entero:** ver `../docs/architecture.md` (1 página: stack, URLs, flujos clave, deployment, dónde mirar logs), `../docs/er-diagram.mermaid` (schema), `../docs/api-rpcs.md` (RPCs) y `../docs/known-exceptions.md` (trampas).
+
 ## Mapa rápido
 
 ```
@@ -56,6 +58,7 @@ src/
 ## Tamaño
 
 Snapshot 2026-05-20: ~30.794 LOC en `.jsx` + `.js`. Top archivos:
+
 - `pages/student/TodayWorkoutPage.jsx` — 2080 LOC (candidato a partir, ver propuesta Tier 2.3).
 - `pages/student/EvalWorkoutPage.jsx` — 1855 LOC (idem).
 - `lib/notes.js` — 1039 LOC.

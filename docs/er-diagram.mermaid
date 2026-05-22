@@ -1,0 +1,318 @@
+%% ER diagram de gym_app — schema `public` (snapshot 2026-05-21)
+%%
+%% Fuente: extracción vía MCP de Supabase (`information_schema.table_constraints`
+%% + `key_column_usage`) sobre el proyecto `bvexjanqmfypmtgoapbt`.
+%%
+%% Cobertura: 24 tablas operacionales en `public`. NO incluye:
+%%   - schema `auth.*` (gestionado por Supabase Auth)
+%%   - schema `archive.*` (backups + `student_profiles` mal ubicada — ver
+%%     `known-exceptions.md` §archive.student_profiles)
+%%   - schema `supabase_migrations.*`
+%%
+%% Cómo regenerar (cuando se agregue/elimine alguna FK):
+%%   En el MCP de Supabase, correr:
+%%     SELECT tc.table_name AS from_table, kcu.column_name AS from_col,
+%%            ccu.table_name AS to_table,   ccu.column_name AS to_col
+%%     FROM information_schema.table_constraints tc
+%%     JOIN information_schema.key_column_usage kcu
+%%       ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema
+%%     JOIN information_schema.constraint_column_usage ccu
+%%       ON tc.constraint_name=ccu.constraint_name AND tc.table_schema=ccu.table_schema
+%%     WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'
+%%     ORDER BY from_table, from_col;
+%%
+%%   y traducir cada fila a una línea `from_table }o--|| to_table : "from_col"`.
+%%
+%% Cardinalidad: todas las relaciones se modelan many-to-one (}o--||) porque
+%% la FK siempre vive en el lado "many" (igual que en el schema real). El
+%% "0..n" del lado many y el "1" del lado one son convenciones razonables
+%% para el snapshot — la nullabilidad real de cada FK no está expresada acá
+%% para mantener el diagrama legible; ver `list_tables --verbose` para detalle.
+
+erDiagram
+
+  %% ── Identity (profiles es el hub central) ────────────────────────────────
+  profiles {
+    uuid id PK
+    text name
+    text email
+    text role "coach | student"
+    uuid coach_id FK "auto-ref: alumno → su coach (NULL para coaches)"
+    boolean active
+    boolean is_test
+    timestamptz created_at
+  }
+  profiles ||--o{ profiles : "coach_id"
+
+  push_subscriptions {
+    uuid id PK
+    uuid user_id FK
+    text endpoint
+    jsonb keys
+  }
+  profiles ||--o{ push_subscriptions : "user_id"
+
+  student_edit_history {
+    uuid id PK
+    uuid student_id FK
+    uuid changed_by FK "auth.uid() o NULL si back/cron"
+    text field
+    jsonb before_after
+    timestamptz changed_at
+  }
+  profiles ||--o{ student_edit_history : "student_id"
+  profiles ||--o{ student_edit_history : "changed_by"
+
+  %% ── Catálogo de ejercicios ────────────────────────────────────────────────
+  exercises {
+    uuid id PK
+    text name
+    text muscle_group
+    text default_weight_mode
+    boolean default_unilateral
+    uuid created_by FK
+  }
+  profiles ||--o{ exercises : "created_by"
+
+  exercise_tags {
+    uuid id PK
+    uuid coach_id FK
+    text name
+    text color
+  }
+  profiles ||--o{ exercise_tags : "coach_id"
+
+  exercise_tag_assignments {
+    uuid exercise_id FK
+    uuid tag_id FK
+  }
+  exercises    ||--o{ exercise_tag_assignments : "exercise_id"
+  exercise_tags||--o{ exercise_tag_assignments : "tag_id"
+
+  %% ── Plans (plantillas + instancias por alumno) ──────────────────────────
+  plans {
+    uuid id PK
+    text title
+    text plan_type "training | evaluation"
+    boolean is_template
+    uuid parent_plan_id FK "instancia → plantilla origen"
+    uuid created_by FK
+    date start_date
+    date end_date
+    int sessions_per_week
+  }
+  plans    ||--o{ plans    : "parent_plan_id"
+  profiles ||--o{ plans    : "created_by"
+
+  plan_blocks {
+    uuid id PK
+    uuid plan_id FK
+    text label "A1, B1, Activación, Core, ..."
+    text block_type "strength | aerobic | circuit"
+    int order_index
+    boolean activation
+  }
+  plans ||--o{ plan_blocks : "plan_id"
+
+  plan_exercises {
+    uuid id PK
+    uuid plan_id FK
+    uuid block_id FK
+    uuid exercise_id FK
+    int order_index
+    int sets
+    text reps
+    numeric weight
+    text tempo
+  }
+  plans       ||--o{ plan_exercises : "plan_id"
+  plan_blocks ||--o{ plan_exercises : "block_id"
+  exercises   ||--o{ plan_exercises : "exercise_id"
+
+  plan_assignments {
+    uuid id PK
+    uuid plan_id FK "siempre apunta a un plan NO-template (trg_pa_forbid_template)"
+    uuid student_id FK
+    uuid linked_assignment_id FK "self-ref: secuencia de planes"
+    uuid replaced_by_assignment_id FK "self-ref: substitución sin perder historial"
+    date start_date
+    date end_date
+    jsonb preferred_days
+    boolean active
+  }
+  plans            ||--o{ plan_assignments : "plan_id"
+  profiles         ||--o{ plan_assignments : "student_id"
+  plan_assignments ||--o{ plan_assignments : "linked_assignment_id"
+  plan_assignments ||--o{ plan_assignments : "replaced_by_assignment_id"
+
+  %% ── Ejecución de entrenamientos ─────────────────────────────────────────
+  workout_sessions {
+    uuid id PK
+    uuid student_id FK
+    uuid plan_id FK "trigger workout_sessions_block_evaluations: rechaza plan_type=evaluation"
+    timestamptz started_at
+    timestamptz finished_at "NULL = abandoned, cerrada por fn_cleanup_abandoned_sessions"
+  }
+  profiles ||--o{ workout_sessions : "student_id"
+  plans    ||--o{ workout_sessions : "plan_id"
+
+  workout_logs {
+    uuid id PK
+    uuid student_id FK
+    uuid plan_id FK
+    uuid plan_exercise_id FK
+    date logged_date
+    text weight_mode "with_weight | bodyweight | barbell_only"
+    boolean unilateral
+    text reps_unit
+    jsonb reps_jsonb
+    jsonb weights_jsonb
+    int actual_sets
+    int perceived_difficulty
+    text notes
+    boolean completed
+    boolean logged_late
+  }
+  profiles       ||--o{ workout_logs : "student_id"
+  plans          ||--o{ workout_logs : "plan_id"
+  plan_exercises ||--o{ workout_logs : "plan_exercise_id"
+
+  workout_block_logs {
+    uuid id PK
+    uuid student_id FK
+    uuid plan_id FK
+    uuid plan_block_id FK
+    date logged_date
+    int perceived_difficulty
+  }
+  profiles    ||--o{ workout_block_logs : "student_id"
+  plans       ||--o{ workout_block_logs : "plan_id"
+  plan_blocks ||--o{ workout_block_logs : "plan_block_id"
+
+  wellbeing_logs {
+    uuid id PK
+    uuid user_id FK
+    date log_date
+    int sleep_quality
+    int energy_level
+    int stress_level
+    text notes
+  }
+  profiles ||--o{ wellbeing_logs : "user_id"
+
+  %% ── Evaluaciones (tests físicos) ────────────────────────────────────────
+  evaluation_tests {
+    uuid id PK
+    uuid plan_id FK
+    uuid exercise_id FK
+    text method "1RM | max_reps | power | cardio | body_comp | scored | custom"
+    int order_index
+  }
+  plans     ||--o{ evaluation_tests : "plan_id"
+  exercises ||--o{ evaluation_tests : "exercise_id"
+
+  evaluation_results {
+    uuid id PK
+    uuid student_id FK
+    uuid plan_id FK
+    date eval_date
+    boolean completed
+  }
+  profiles ||--o{ evaluation_results : "student_id"
+  plans    ||--o{ evaluation_results : "plan_id"
+
+  evaluation_test_responses {
+    uuid id PK
+    uuid evaluation_result_id FK
+    uuid test_id FK
+    jsonb response_data
+  }
+  evaluation_results ||--o{ evaluation_test_responses : "evaluation_result_id"
+  evaluation_tests   ||--o{ evaluation_test_responses : "test_id"
+
+  %% ── Comunicación coach↔alumno (notas, post-refactor v24/v31) ────────────
+  note_threads {
+    uuid id PK
+    uuid coach_id FK "v31 multi-coach: un thread por par (coach, alumno)"
+    uuid student_id FK
+    timestamptz last_bumped_at
+    timestamptz coach_last_read_at
+    timestamptz student_last_read_at
+  }
+  profiles ||--o{ note_threads : "coach_id"
+  profiles ||--o{ note_threads : "student_id"
+
+  notes {
+    uuid id PK
+    uuid thread_id FK
+    uuid author_id FK
+    text author_role "coach | student"
+    text body
+    text visibility "shared | coach_private"
+    text context_type "free | exercise | muscle_group | day"
+    uuid exercise_id FK "denormalizado por notes_resolve_context()"
+    text muscle_group
+    date note_date
+    uuid parent_note_id FK "respuestas inline"
+    timestamptz deleted_at "soft-delete — ver known-exceptions.md"
+  }
+  note_threads ||--o{ notes : "thread_id"
+  profiles     ||--o{ notes : "author_id"
+  exercises    ||--o{ notes : "exercise_id"
+  notes        ||--o{ notes : "parent_note_id"
+
+  legacy_notes_shim_log {
+    uuid id PK
+    text source_table
+    text outcome "created | duplicate | error"
+    jsonb payload
+    timestamptz created_at
+  }
+
+  %% ── Intake / Follow-up forms ────────────────────────────────────────────
+  intake_form_templates {
+    uuid id PK
+    uuid coach_id FK
+    text title
+    jsonb schema
+    text kind "intake | follow_up"
+    boolean is_active
+  }
+  profiles ||--o{ intake_form_templates : "coach_id"
+
+  intake_form_assignments {
+    uuid id PK
+    uuid template_id FK
+    uuid coach_id FK
+    uuid student_id FK
+    uuid plan_assignment_id FK "follow-up: vinculado a un plan"
+    text status "pending | sent | released | submitted"
+    date due_date
+    timestamptz released_at
+  }
+  intake_form_templates ||--o{ intake_form_assignments : "template_id"
+  profiles              ||--o{ intake_form_assignments : "coach_id"
+  profiles              ||--o{ intake_form_assignments : "student_id"
+  plan_assignments      ||--o{ intake_form_assignments : "plan_assignment_id"
+
+  intake_form_submissions {
+    uuid id PK
+    uuid assignment_id FK
+    uuid coach_id FK
+    uuid student_id FK
+    jsonb data
+    timestamptz submitted_at
+  }
+  intake_form_assignments ||--o{ intake_form_submissions : "assignment_id"
+  profiles                ||--o{ intake_form_submissions : "coach_id"
+  profiles                ||--o{ intake_form_submissions : "student_id"
+
+  %% ── Notificaciones ──────────────────────────────────────────────────────
+  notifications {
+    uuid id PK
+    uuid user_id FK
+    text kind "plan_assigned | session_completed | weekly_summary | stagnation | expiring_plan | form_submitted | coach_note | student_note"
+    jsonb payload
+    timestamptz read_at
+  }
+  profiles ||--o{ notifications : "user_id"

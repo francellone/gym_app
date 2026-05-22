@@ -17,10 +17,10 @@
 --   - Aislamiento entre alumnos en workout_logs, plan_assignments, notifications.
 --   - Anon bloqueado en tablas con datos privados.
 --   - Coach puede ver logs/asignaciones de sus alumnos (pero no de otros).
+--   - Student puede soft-deletar su propia note y recibir RETURNING (regresión del bug 21/05).
 --
 -- Lo que NO cubren todavía (deuda):
---   - INSERT/UPDATE/DELETE policies.
---   - notes, note_threads, intake_form_*, wellbeing_logs, evaluation_*.
+--   - INSERT/UPDATE/DELETE policies en intake_form_*, wellbeing_logs, evaluation_*.
 --   - Edge cases de coach con múltiples alumnos en distintos estados.
 --
 -- Cuándo actualizar:
@@ -208,6 +208,66 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'OK test 6: student_a no ve sessions de otros';
+END $$;
+
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- Test 7 — student_a puede soft-deletar su propia note y recibir RETURNING
+-- (regresión del bug RLS+RETURNING del 21/05 — ver
+--  diagnostico_arquitec/12_fix_rls_student_delete_notes_2026-05-21.md y
+--  docs/known-exceptions.md §RLS+RETURNING).
+--
+-- Setup: el coach crea un thread (o reutiliza el existente) con student_a.
+-- Luego student_a inserta una note propia, e intenta soft-deletarla con
+-- UPDATE notes SET deleted_at=now() RETURNING. Antes del fix tiraba 42501.
+-- ----------------------------------------------------------------------------
+
+-- Paso A: como coach, obtener (o crear) el thread con student_a.
+SET LOCAL ROLE authenticated;
+SELECT pg_temp._act_as('4d7b89ef-28af-4407-9d91-b5616e806ce3'::uuid);
+
+DO $$
+DECLARE
+  v_thread_id uuid;
+BEGIN
+  v_thread_id := public.notes_get_or_create_thread(
+    '4d7b89ef-28af-4407-9d91-b5616e806ce3'::uuid,  -- coach (anto)
+    'd7a1ceb5-80fa-4cb9-8477-126bb71f8081'::uuid   -- student_a (francellone)
+  );
+  PERFORM set_config('pg_temp.thread_id_smoke7', v_thread_id::text, true);
+  RAISE NOTICE 'Setup test 7: thread_id=%', v_thread_id;
+END $$;
+
+RESET ROLE;
+
+-- Paso B: como student_a, INSERT una note propia y UPDATE soft-delete con RETURNING.
+SET LOCAL ROLE authenticated;
+SELECT pg_temp._act_as('d7a1ceb5-80fa-4cb9-8477-126bb71f8081'::uuid);
+
+DO $$
+DECLARE
+  v_thread_id uuid := current_setting('pg_temp.thread_id_smoke7', true)::uuid;
+  v_note_id   uuid;
+  v_deleted_at timestamptz;
+BEGIN
+  INSERT INTO public.notes (thread_id, author_id, author_role, body, visibility, context_type)
+  VALUES (v_thread_id,
+          'd7a1ceb5-80fa-4cb9-8477-126bb71f8081'::uuid,
+          'student', 'smoke test 7 — soft delete', 'shared', 'free')
+  RETURNING id INTO v_note_id;
+
+  -- El UPDATE+RETURNING es la línea que antes del fix tiraba 42501.
+  UPDATE public.notes
+  SET deleted_at = now()
+  WHERE id = v_note_id
+  RETURNING deleted_at INTO v_deleted_at;
+
+  IF v_deleted_at IS NULL THEN
+    RAISE EXCEPTION 'FAIL test 7: UPDATE soft-delete devolvió 0 filas (RLS bloqueó el RETURNING)';
+  END IF;
+
+  RAISE NOTICE 'OK test 7: student_a soft-deletó su note y RETURNING devolvió deleted_at=%', v_deleted_at;
 END $$;
 
 RESET ROLE;

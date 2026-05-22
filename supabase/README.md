@@ -19,6 +19,8 @@ supabase/
 └── CONVENTIONS.md           (pendiente — ver propuesta 07)
 ```
 
+> **Doc viva del back:** ver `../docs/er-diagram.mermaid` (24 tablas + 48 FKs), `../docs/api-rpcs.md` (26 RPCs callable) y `../docs/known-exceptions.md` (trampas conocidas — RLS+RETURNING, archive.student_profiles mal ubicada, etc.).
+
 ## Estado del esquema (snapshot 2026-05-21)
 
 - **24 tablas en `public`** — todas con RLS habilitada. Inventario completo en `../diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` sección 4.
