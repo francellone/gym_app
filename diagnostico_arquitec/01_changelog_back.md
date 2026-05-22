@@ -58,6 +58,25 @@ Auditoría externa detectó 8 grietas finas que el linter de Supabase identifica
 
 **Total acumulado:** 20 migraciones atómicas. Cero rollbacks definitivos.
 
+### Día 8 (2026-05-21) — Hardening Tier 1 + fix RLS soft-delete notes (student)
+
+Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier 1) y quedaron sólo como `.sql` en `supabase/migrations/` sin entrada acá — se documentan ahora junto con el fix del bug de la noche.
+
+| # | Migración | Bug atacado | Resumen |
+|---|---|---|---|
+| 21 | `fix_search_path_six_functions` (`20260521003824`) | Tier 1 — search_path fijo | Reescribe 6 funciones legacy con `SET search_path = public, pg_temp` para evitar resolución insegura de identificadores (advisor de Supabase resuelto). |
+| 22 | `enable_rls_on_archive_notes_backups` (`20260521135103`) | Tier 1 — RLS en `archive.*_notes_*` | Habilita RLS en las 5 tablas `archive.*_notes_20260517` con `deny-by-default`. Backups históricos del refactor v25/v26 quedan sólo accesibles por service_role. |
+| 23 | `fix_student_select_own_notes_any_state` (`20260521222957`) | Bug prod: student no podía borrar su nota | Agrega policy `Student select own notes any state` (SELECT, `USING author_id = auth.uid() AND author_role = 'student'`). Tapa raíz documentada en `12_fix_rls_student_delete_notes_2026-05-21.md`. |
+
+**Detalle del bug #23 (resumen — desarrollo completo en handoff 12):**
+
+- **Síntoma:** desde el modelo de threads (commit `5357945`, 17/05) hasta el 21/05 PM, ningún student logró borrar su propia nota en prod (0 deletions de student-notes vía UI; las 3 "borradas" del 17/05 son service_role en smoke v25/v26).
+- **Causa raíz:** la policy `Student read shared notes of own thread` (SELECT) tenía `(deleted_at IS NULL)` en `USING`. En un `UPDATE ... RETURNING` (que es lo que dispara Supabase JS con `.update(...).select(...)`), Postgres exige que el NEW row también pase el USING de SELECT. Al setear `deleted_at = now()`, el NEW row deja de pasar → `42501 new row violates row-level security policy`. Coach no se ve afectado porque su SELECT policy no chequea `deleted_at`.
+- **Fix elegido (alternativa A):** policy SELECT adicional acotada al autor (sin `deleted_at` en `USING`). El front mantiene su filtro `.is('deleted_at', null)` en queries normales, así que la nota sigue desapareciendo de la lista visible tras soft-delete; sólo cambia que el RETURNING del propio `softDeleteNote` se completa.
+- **Alternativas descartadas:** (B) quitar `deleted_at IS NULL` de la policy existente — más invasivo, cambia visibilidad histórica; (C) RPC SECURITY DEFINER `delete_note` — más superficie de mantenimiento por un caso puntual.
+
+**Total acumulado actualizado:** 23 migraciones atómicas. Cero rollbacks definitivos.
+
 ### Día 3 — Decisiones NO ejecutadas (registradas)
 
 | Hallazgo de la auditoría | Decisión |
