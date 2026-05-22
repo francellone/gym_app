@@ -170,7 +170,7 @@ export default function QuestionEditor({
               onChange={handleTypeChange}
               className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
-              {Object.entries(QUESTION_TYPES).map(([key, val]) => (
+              {Object.entries(QUESTION_TYPES).map(([_key, val]) => (
                 <option key={val} value={val}>
                   {QUESTION_TYPE_META[val]?.icon} {QUESTION_TYPE_META[val]?.label}
                 </option>

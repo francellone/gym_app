@@ -9,7 +9,6 @@ import {
   readLogReps,
   readLogWeights,
   maxWeightOfLog,
-  avgWeightOfLog,
   calculateLogVolume,
   getEffectiveWeightMode,
   getEffectiveUnilateral,
@@ -22,10 +21,6 @@ import {
 function maxWeightOf(log) {
   return maxWeightOfLog(log)
 }
-function avgWeightOf(log) {
-  return avgWeightOfLog(log)
-}
-
 function displayWeight(ex) {
   if (ex.suggested_weights) {
     const arr = parseReps(ex.suggested_weights).filter((w) => w !== '' && w != null)

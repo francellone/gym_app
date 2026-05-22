@@ -5,11 +5,9 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Dumbbell, Calendar, AlertTriangle, Clock } from 'lucide-react'
 import {
-  borgColor,
   DAY_SECTION_IDS,
   SECTION_LABELS,
   groupExercisesIntoBlocks,
-  blockDisplayTitle,
   suggestNextDay,
 } from '@/features/plans/helpers'
 import {
@@ -20,7 +18,6 @@ import {
 } from '@/features/notes/api'
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import BlockRenderer from '../components/BlockRenderer'
-import ValidationWarning from '../components/ValidationWarning'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
 import SaveErrorBanner from '../components/SaveErrorBanner'
@@ -79,7 +76,6 @@ export default function TodayWorkoutPage() {
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
   const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const sessionStartRef = useRef(null)
   // Evitar disparar el modal varias veces en el mismo render
   const pseTriggeredRef = useRef({})
   // Evita re-aplicar el "día sugerido" cada vez que cambia la fecha o se refetchea.

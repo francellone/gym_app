@@ -34,7 +34,7 @@ import {
 } from '../../schema/default-form.js'
 
 export default function FormBuilder({
-  coachId,
+  coachId: _coachId,
   initialConfig,
   templates = [],
   onSave,

@@ -47,7 +47,6 @@ function MethodBadge({ method, evalType }) {
 
 function OneRMView({ results }) {
   if (!results?.exercises?.length) return <p className="text-sm text-gray-400">Sin datos</p>
-  const hasResults = results.exercises.some((ex) => ex.one_rm)
   return (
     <div className="space-y-3">
       <MethodBadge method={results.method} evalType="one_rm" />
@@ -220,7 +219,7 @@ function ScoredView({ results }) {
 
       {method === 'fms' && results.fms_patterns && (
         <div className="space-y-1.5 mt-2">
-          {results.fms_patterns.map((p, i) => {
+          {results.fms_patterns.map((p, _i) => {
             if (p.pain) {
               return (
                 <div key={p.key} className="flex items-center gap-2 text-sm">

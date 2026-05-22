@@ -107,17 +107,6 @@ export default function FormBuilderPage() {
     setShowSendModal(true)
   }
 
-  // ── Guardar como nueva plantilla ─────────────────────────
-  const handleSaveTemplate = async ({ name, config }) => {
-    const { data } = await supabase
-      .from('intake_form_templates')
-      .insert({ coach_id: profile.id, name, config, is_default: false })
-      .select()
-      .single()
-
-    if (data) setTemplates((prev) => [data, ...prev])
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">

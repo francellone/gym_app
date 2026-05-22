@@ -185,7 +185,6 @@ export function calcVO2max(method, inputs) {
     heart_rate,
     yoyo_level,
     beep_level,
-    beep_speed,
     hr1,
     hr2,
     hr3,
@@ -218,7 +217,6 @@ export function calcVO2max(method, inputs) {
     }
     case 'beep': {
       const lvl = parseFloat(beep_level)
-      const spd = parseFloat(beep_speed)
       if (!lvl) return null
       // VO₂max (ml/kg/min) = −24.4 + 6.0 × level (approximation)
       return +(-24.4 + 6.0 * lvl).toFixed(1)

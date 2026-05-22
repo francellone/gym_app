@@ -20,7 +20,6 @@ import { es } from 'date-fns/locale'
 import { buildFormConfig } from '@/features/forms/intake/schema/default-form.js'
 import {
   FIELD_LABELS,
-  LEVEL_LABELS,
   GENDER_LABELS,
   displayValue,
   PATOLOGIAS_OPTIONS,

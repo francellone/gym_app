@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { User, LogOut, Save, ChevronRight, Lock, ClipboardList, FileCheck } from 'lucide-react'
+import { LogOut, Save, ChevronRight, Lock, ClipboardList, FileCheck } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 

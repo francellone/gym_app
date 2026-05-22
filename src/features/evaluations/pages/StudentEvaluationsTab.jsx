@@ -14,12 +14,11 @@ import {
   Minus,
   Clock,
   Check,
-  AlertCircle,
   Save,
   BarChart2,
   Link2,
 } from 'lucide-react'
-import { format, parseISO, differenceInYears } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   groupEvaluationAssignments,
@@ -43,8 +42,6 @@ import { useAuth } from '@/features/auth/AuthContext'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
-  const { profile } = useAuth() // multi-coach v31: necesitamos profile.id como coachId
-
   // Solo evaluaciones asignadas (incluye históricas — el agrupador las separa).
   const evalAssignments = (assignments || []).filter((a) => {
     const t = a.plan_type || a.plan?.plan_type
@@ -566,7 +563,7 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
 // ─────────────────────────────────────────────────────────────
 // UltimoRegistro — tabla con último resultado + comentarios coach
 // ─────────────────────────────────────────────────────────────
-function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
+function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _studentId, onSaved }) {
   // multi-coach v31: necesitamos profile.id como coachId al postear comentarios.
   // Antes de 2026-05-21 esto faltaba acá (sólo estaba en el componente padre
   // StudentEvaluationsTab) y `profile?.id` era ReferenceError en saveComments.
@@ -797,7 +794,7 @@ function UltimoRegistro({ pruebas, resultado, planId, studentId, onSaved }) {
 // CoachCommentEditor
 // ─────────────────────────────────────────────────────────────
 function CoachCommentEditor({
-  testId,
+  testId: _testId,
   publicComment,
   privateComment,
   onUpdatePublic,

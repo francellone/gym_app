@@ -12,7 +12,7 @@ import { DEFAULT_TEMPLATES } from '../../schema/default-form.js'
 
 export default function TemplateManager({
   templates = [],
-  currentConfig,
+  currentConfig: _currentConfig,
   onLoad,
   onClose,
   onSaveNew,

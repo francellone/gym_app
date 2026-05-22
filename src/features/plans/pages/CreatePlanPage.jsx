@@ -307,7 +307,6 @@ export default function CreatePlanPage() {
   const [evalPruebas, setEvalPruebas] = useState([])
   const [evalTags, setEvalTags] = useState([])
   const [tagInput, setTagInput] = useState('')
-  const [newExerciseName, setNewExerciseName] = useState('') // para crear ejercicio nuevo inline
 
   const [activeSection, setActiveSection] = useState('day_a')
 

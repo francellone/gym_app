@@ -80,14 +80,6 @@ export default function StudentsPage() {
     advanced: 'Avanzado',
   }
 
-  // Filtros de estado
-  const STATUS_FILTERS = [
-    { id: 'all', label: 'Todos' },
-    { id: 'overdue', label: 'Pago vencido' },
-    { id: 'due_soon', label: 'Vence pronto' },
-    { id: 'no_plan', label: 'Sin plan' },
-  ]
-
   const filtered = students.filter((s) => {
     const matchSearch =
       s.name?.toLowerCase().includes(search.toLowerCase()) ||

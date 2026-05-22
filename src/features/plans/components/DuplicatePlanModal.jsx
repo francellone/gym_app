@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { EVAL_TYPES, evalTypeIcon } from '@/features/evaluations/helpers'
+import { EVAL_TYPES } from '@/features/evaluations/helpers'
 import { X, Copy, Dumbbell, BarChart2, ArrowRight, Loader } from 'lucide-react'
 
 // Two-step modal:

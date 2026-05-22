@@ -17,7 +17,7 @@ export default function StudentDashboard() {
   const [assignments, setAssignments] = useState([])
   const [weekLogs, setWeekLogs] = useState([])
   const [streak, setStreak] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [pendingIntake, setPendingIntake] = useState(false)
   const [pendingFollowUps, setPendingFollowUps] = useState([])
 

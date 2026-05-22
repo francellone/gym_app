@@ -28,7 +28,7 @@ import {
 
 export default function FormRenderer({
   assignment,
-  studentId,
+  studentId: _studentId,
   onSubmit,
   onSaveDraft,
   onFinish, // fn() opcional → botón "Ir al inicio" en pantalla de éxito

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 import { readLogReps, readLogWeights } from '@/features/plans/helpers'

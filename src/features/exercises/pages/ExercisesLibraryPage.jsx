@@ -1,17 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  Dumbbell,
-  Plus,
-  Search,
-  Edit2,
-  Trash2,
-  X,
-  Save,
-  AlertCircle,
-  Tag,
-  Settings,
-} from 'lucide-react'
+import { Dumbbell, Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Tag } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
 
@@ -156,7 +145,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 // ============================================================
 // Modal para crear/editar ejercicio
 // ============================================================
-function ExerciseModal({ exercise, tags, coachId, onSave, onClose }) {
+function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
   const { profile } = useAuth()
   const [form, setForm] = useState(
     exercise || {
