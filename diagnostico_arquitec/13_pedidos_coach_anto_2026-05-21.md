@@ -1,6 +1,16 @@
 # Pedidos del coach Anto — backlog para próxima sesión
 
-Fecha inicial: 2026-05-21 (noche). Última actualización: 2026-05-21 (madrugada del 22/05) — Anto pasó **22 pedidos** en total entre WhatsApp y chat. Este doc los lista, los categoriza, y propone qué analizar antes de tocar código. **NO implementar nada acá** — usar como punto de partida en la próxima sesión.
+Fecha inicial: 2026-05-21 (noche). Última actualización: 2026-05-23 — Anto pasó **22 pedidos** en total entre WhatsApp y chat. Este doc los lista, los categoriza, y propone qué analizar antes de tocar código.
+
+## ✅ Items cerrados (sesión del 2026-05-23)
+
+- **B1** — vista previa mezclaba ejercicios de circuito en la tabla de fuerza. Causa raíz: `groupedBySection` filtraba solo por `section` sin considerar `block_type`. Fix: derivar `strengthExercises` desde `blocksBySectionTyped[s.id].strength`. Ver doc 14.
+- **Q3** — notificación de nota ahora navega al panel de notas. Front-only, payload ya traía `thread_id`/`student_id`. Mapeo: `coach_comment → /student/notes`, `student_note → /coach/students/{id}?tab=notas`. `StudentDetailPage` lee `?tab=` del query string.
+- **Q8** — botón de video en la preview de bloques aeróbico y circuito (strength ya lo tenía). Reutiliza la clase CSS `plan-ex-video-btn`.
+
+Próximos candidatos sin bloqueo: **Q1** (foto pendiente de Anto), **Q7** (bloques A1/A2 auto, respuesta=A), **Q6** (perfil editable + notif coach, respuesta=A).
+
+---
 
 ---
 
