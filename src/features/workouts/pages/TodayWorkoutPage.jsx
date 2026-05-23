@@ -24,6 +24,7 @@ import SaveErrorBanner from '../components/SaveErrorBanner'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor, isSectionCompleted } from '../helpers'
 import WellbeingModal from '@/features/wellbeing/components/WellbeingModal'
+import { computeDayTallies, formatTallyForDisplay } from '@/features/students/dayTalliesLogic'
 
 // ============================================================
 // Constantes
@@ -71,6 +72,11 @@ export default function TodayWorkoutPage() {
   const [logs, setLogs] = useState({})
   const [blockLogs, setBlockLogs] = useState({})
   const [session, setSession] = useState(null)
+  // Q2 — workout_logs recientes del plan (cualquier fecha). Usado para
+  // computar las tildes "Día A ✓✓◐" debajo de cada selector de día.
+  // Se popula desde recentLogsRes que ya se trae para la sugerencia
+  // del día inicial.
+  const [recentLogs, setRecentLogs] = useState([])
   // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
   const [activeDay, setActiveDay] = useState(null)
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
@@ -187,19 +193,21 @@ export default function TodayWorkoutPage() {
           .eq('user_id', profile.id)
           .eq('date', selectedDate)
           .maybeSingle(),
-        // Logs recientes (cualquier fecha) para sugerir el día siguiente al último entrenado.
-        // Solo se usa en la primera carga; queries siguientes se descartan vía dayInitializedRef.
+        // Logs recientes (cualquier fecha) para sugerir el día siguiente al último entrenado
+        // y para computar las tildes Q2. Antes se limitaba a 80; ahora se trae lo necesario
+        // para que las tildes cubran todo el plan (límite alto para evitar paginado).
         supabase
           .from('workout_logs')
-          .select('logged_date, plan_exercise_id')
+          .select('logged_date, plan_exercise_id, completed')
           .eq('student_id', profile.id)
           .eq('plan_id', assignData.plan_id)
           .order('logged_date', { ascending: false })
-          .limit(80),
+          .limit(500),
       ])
 
       setPlanExercises(exercisesRes.data || [])
       setPlanBlocks(blocksRes.data || [])
+      setRecentLogs(recentLogsRes.data || [])
 
       // Sugerir el día siguiente al último entrenado (solo en la primera carga).
       if (!dayInitializedRef.current) {
@@ -549,6 +557,13 @@ export default function TodayWorkoutPage() {
     [blocksBySection]
   )
 
+  // Q2 — tallies por día del plan (Día A ✓✓◐) usando los logs recientes
+  // del plan que ya cargamos para sugerir el día inicial. Cap 500 logs.
+  const dayTallies = useMemo(
+    () => computeDayTallies({ logs: recentLogs, planExercises }),
+    [recentLogs, planExercises]
+  )
+
   // Si el día activo ya no existe (cambió el plan), ir al primero disponible.
   // Importante: si activeDay todavía es null, NO setearlo acá — lo hace fetchWorkout con suggestNextDay.
   useEffect(() => {
@@ -826,25 +841,42 @@ export default function TodayWorkoutPage() {
             )}
           </div>
 
-          {/* Selector de día (tabs) — dinámico 2..7 */}
+          {/* Selector de día (tabs) — dinámico 2..7
+              Q2: debajo del label sumamos las tildes históricas del plan
+              (Día A ✓✓◐) para que el alumno vea cuántas veces ya hizo
+              cada día y elija con criterio. */}
           {hasMultipleDays && (
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
               {activeDays.map((id) => {
                 const isDone = dayDoneMap[id]
                 const hasPSE = borgPerDay[id] !== undefined
+                const tally = dayTallies[id]
+                const tallyDisplay = formatTallyForDisplay(tally)
+                const hasParcial = tally && tally.parcial > 0
                 return (
                   <button
                     key={id}
                     onClick={() => setActiveDay(id)}
-                    className={`flex-1 min-w-[70px] py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[70px] py-2 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${
                       activeDay === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                     }`}
                   >
-                    {DAY_SHORT_LABELS[id]}
-                    {isDone && (
+                    <span className="flex items-center gap-1.5">
+                      {DAY_SHORT_LABELS[id]}
+                      {isDone && (
+                        <span
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`}
+                        />
+                      )}
+                    </span>
+                    {tallyDisplay && (
                       <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`}
-                      />
+                        className={`text-[10px] tracking-wider leading-none ${
+                          hasParcial ? 'text-amber-600' : 'text-primary-600'
+                        }`}
+                      >
+                        {tallyDisplay}
+                      </span>
                     )}
                   </button>
                 )

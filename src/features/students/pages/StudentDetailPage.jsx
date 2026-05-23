@@ -8,6 +8,7 @@ import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '..
 
 // ── Tabs ────────────────────────────────────────────────────
 import StudentInfoTab from '../tabs/StudentInfoTab'
+import StudentDayTalliesCard from '../components/StudentDayTalliesCard'
 import StudentPlansTab from '@/features/plans/pages/StudentPlansTab'
 import StudentProgressTab from '../tabs/StudentProgressTab'
 import StudentLogsTab from '../tabs/StudentLogsTab'
@@ -254,6 +255,14 @@ export default function StudentDetailPage() {
           </span>
         </div>
       </div>
+
+      {/* Q2 — Tildes de días del plan activo (visible siempre, arriba de los tabs) */}
+      <StudentDayTalliesCard
+        studentId={id}
+        activeAssignment={assignments.find(
+          (a) => a.status === 'active' && (a.plan_type || a.plan?.plan_type || 'training') === 'training'
+        )}
+      />
 
       {/* Tabs de navegación */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">

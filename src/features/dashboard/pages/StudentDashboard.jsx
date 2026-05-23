@@ -11,6 +11,8 @@ import {
   computeStreak,
   computeWeekTrainingDays,
 } from '@/features/students/dashboardLogic'
+import { computeDayTallies } from '@/features/students/dayTalliesLogic'
+import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
@@ -20,6 +22,10 @@ export default function StudentDashboard() {
   const [, setLoading] = useState(true)
   const [pendingIntake, setPendingIntake] = useState(false)
   const [pendingFollowUps, setPendingFollowUps] = useState([])
+  // Q2 — tallies por día (Día A ✓✓◐) para el plan activo.
+  // Se carga aparte porque necesita la ventana completa del plan,
+  // no la semana del heatmap.
+  const [dayTallies, setDayTallies] = useState({})
 
   useEffect(() => {
     if (profile?.id) fetchData()
@@ -87,6 +93,46 @@ export default function StudentDashboard() {
   )
   const evalPlans = assignments.filter((a) => a.plan?.plan_type === 'evaluation')
   const activePlan = trainingPlans[0]
+
+  // Q2 — fetch tallies del plan activo (todos los logs desde start_date).
+  // Separado del fetch principal porque depende de activePlan ya
+  // determinado y porque la ventana es más larga que la del heatmap.
+  useEffect(() => {
+    if (!profile?.id || !activePlan?.plan_id) {
+      setDayTallies({})
+      return
+    }
+    let cancelled = false
+    async function loadTallies() {
+      try {
+        const [exercisesRes, logsRes] = await Promise.all([
+          supabase
+            .from('plan_exercises')
+            .select('id, section')
+            .eq('plan_id', activePlan.plan_id),
+          supabase
+            .from('workout_logs')
+            .select('logged_date, plan_exercise_id, completed')
+            .eq('student_id', profile.id)
+            .eq('plan_id', activePlan.plan_id)
+            .gte('logged_date', activePlan.start_date || '2000-01-01'),
+        ])
+        if (cancelled) return
+        const tallies = computeDayTallies({
+          logs: logsRes.data || [],
+          planExercises: exercisesRes.data || [],
+        })
+        setDayTallies(tallies)
+      } catch (err) {
+        console.error('[StudentDashboard] computeDayTallies fetch', err)
+        if (!cancelled) setDayTallies({})
+      }
+    }
+    loadTallies()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id, activePlan?.plan_id, activePlan?.start_date])
 
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
@@ -188,6 +234,16 @@ export default function StudentDashboard() {
               )
             })}
           </div>
+
+          {/* Q2 — Tildes por día del plan activo */}
+          {activePlan && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Cuántas veces hiciste cada día
+              </h4>
+              <DayTalliesBadge tallies={dayTallies} showLegend />
+            </div>
+          )}
         </div>
 
         {/* Go to today's workout */}
