@@ -1,6 +1,9 @@
 # Handoff próximo agente — 2026-05-23 (late)
 
-Sesión corta y quirúrgica. Se cerró el **prereq de `archive.student_profiles → public`** (handoff 13 §"Pre-requisito recomendado antes de empezar"), pero con un hallazgo que cambió la lectura: la tabla NO era operacional como decía el doc 11 §2.1 — estaba huérfana.
+Sesión corta y quirúrgica en dos pulsos:
+
+1. **AM-tarde** — Cierre del **prereq de `archive.student_profiles → public`** (handoff 13 §"Pre-requisito recomendado antes de empezar"), con un hallazgo que cambió la lectura: la tabla NO era operacional como decía el doc 11 §2.1 — estaba huérfana.
+2. **PM-late** — Decisión adicional de Franco tras revisar el handoff: ir por el rename semántico (`public.student_profiles → public.intake_profile_snapshots`) para que el nombre cuente la historia sin necesidad de leer COMMENTs. Migración #25 aplicada inmediatamente. La sección "Sugerencia opcional" del handoff original se convirtió en sección ejecutada.
 
 ## Pre-flight al arrancar
 
@@ -117,22 +120,58 @@ Sin cambios respecto al doc 15. Resumen: respondió 13/14 preguntas, skip la #3 
 3. **Una `apply_migration` por MCP NO genera archivo en `supabase/migrations/`**. Sólo registra en `supabase_migrations.schema_migrations`. Si querés cumplir la convención del repo (`supabase/README.md §"Aplicar"`: "Nunca SQL ad-hoc directo a producción sin archivo en el repo"), hay que crear el `.sql` a mano después. Pendiente decidir si automatizar esto en sesiones futuras o seguir manual.
 4. **El doc 11 puede estar equivocado**. La regla "siempre lee handoff más reciente" no protege contra que el handoff mismo tenga premisas erradas. En este caso, doc 11 §2.1 decía "operacional" sin verificar. Mitigación a futuro: antes de aceptar una premisa estructural de un handoff viejo (>2 días), correr una pasada de diagnóstico para confirmar.
 
-## Defensa contra confusión futura sobre `public.student_profiles`
+## Defensa contra confusión futura sobre `public.intake_profile_snapshots`
 
-Cumpliendo el pedido explícito de Franco ("asegurate de que en lecturas futuras no vuelva a suceder la confusión"):
+Cumpliendo el pedido explícito de Franco ("asegurate de que en lecturas futuras no vuelva a suceder la confusión"). Tras el rename de la migración #25, las capas quedan así (5 capas, no 4):
 
-- **Capa 1 — Postgres COMMENTs**: visible vía `\d+ public.student_profiles` en psql, vía Supabase Dashboard, vía cualquier introspección de schema. Es la primera defensa para cualquier dev/agente que abra la tabla "a ciegas".
-- **Capa 2 — `docs/known-exceptions.md`**: entrada vigente al tope, con síntoma/realidad/mitigación/cero-callers explícitos. Cualquier agente futuro que use el patrón de leer `known-exceptions.md` al arrancar (recomendado en el prompt de Franco vía `feedback_session_preflight_check.md` de su memoria) la va a encontrar.
-- **Capa 3 — Changelog back**: la entrada en §2.1 "Tablas movidas a schema `archive`" marca explícitamente "**Revertida 2026-05-23**" con link al handoff 16.
-- **Capa 4 — Este handoff**: es el último en la cadena. Si un agente futuro lee handoffs en orden cronológico inverso, se topa primero con éste.
+- **Capa 1 — Nombre semántico de la tabla**: `intake_profile_snapshots` cuenta el rol sin necesidad de docs. Defensa más fuerte, antes de cualquier otra. Esta capa NO existía antes del rename.
+- **Capa 2 — Postgres COMMENTs**: visible vía `\d+ public.intake_profile_snapshots` en psql, vía Supabase Dashboard, vía cualquier introspección de schema. COMMENT ON TABLE incluye el histórico (archive → public → rename).
+- **Capa 3 — `docs/known-exceptions.md`**: entrada vigente al tope, con síntoma/realidad/mitigación/cero-callers/historia explícitos. Cualquier agente futuro que use el patrón de leer `known-exceptions.md` al arrancar (recomendado en el prompt de Franco vía `feedback_session_preflight_check.md` de su memoria) la va a encontrar.
+- **Capa 4 — Changelog back**: §2.1 "Tablas movidas a schema `archive`" marca "**Revertida + renombrada 2026-05-23**" con link al handoff 16. Y §1 Día 10 lista las dos migraciones (#24 + #25) con su contexto.
+- **Capa 5 — Este handoff**: último en la cadena. Si un agente futuro lee handoffs en orden cronológico inverso, se topa primero con éste.
 
-Si en el futuro alguien igual mete una refactor que lea `public.student_profiles` como source-of-truth, la única razón posible es ignorar las 4 capas. En ese punto, el COMMENT ON TABLE lo va a confundir el primer review.
+Si en el futuro alguien igual mete una refactor que lea `public.intake_profile_snapshots` como source-of-truth, la única razón posible es ignorar las 5 capas — empezando por el nombre que literalmente dice "snapshots". En ese punto la confusión es voluntaria, no accidental.
 
-## Sugerencia opcional para una sesión futura (NO ejecutar ahora sin pedido explícito)
+## Rename semántico ejecutado (migración #25)
 
-Renombrar la tabla a `intake_profile_snapshots` para que el nombre cuente la historia (siguiendo la convención del repo de "Helpers permanentes deben tener nombre semántico" del §3.9 del changelog). Costo: 1 migración chica (~15 min). Beneficio: cero confusión incluso sin leer COMMENTs. Riesgo: si en el futuro alguien quiere agregar refs, el nuevo nombre es más opinionado (intake-only) y limita el uso a ese contexto — lo cual probablemente sea bueno.
+Tras leer el handoff Franco aprobó la sugerencia. Aplicado en el mismo bloque de sesión:
 
-No lo hice ahora porque Franco pidió "marcala" no "renombrala". Lo dejo planteado para que él decida.
+**Migración** `rename_student_profiles_to_intake_profile_snapshots` (#25, version `20260523173232`):
+
+```sql
+ALTER TABLE public.student_profiles RENAME TO intake_profile_snapshots;
+
+-- 4 constraints renombrados
+ALTER TABLE public.intake_profile_snapshots
+  RENAME CONSTRAINT student_profiles_pkey TO intake_profile_snapshots_pkey;
+-- (… + student_id_fkey, submission_id_fkey, student_id_key)
+
+-- 2 policies renombradas
+ALTER POLICY coach_read_own_student_profiles
+  ON public.intake_profile_snapshots
+  RENAME TO coach_read_own_intake_snapshots;
+ALTER POLICY student_manage_own_student_profiles
+  ON public.intake_profile_snapshots
+  RENAME TO student_manage_own_intake_snapshot;
+
+-- Trigger renombrado
+ALTER TRIGGER student_profiles_updated_at
+  ON public.intake_profile_snapshots
+  RENAME TO intake_profile_snapshots_updated_at;
+
+-- COMMENT ON TABLE actualizado con histórico (archive → public → rename)
+```
+
+`.sql` generado en `supabase/migrations/20260523173232_rename_student_profiles_to_intake_profile_snapshots.sql`.
+
+**Smoke post-migración**: 4 filas intactas, RLS on, 2 policies (nombres nuevos), 4 constraints (nombres nuevos), 1 trigger (nombre nuevo), tabla vieja inexistente. ✅
+
+**Docs sincronizados:**
+- `docs/known-exceptions.md`: entrada vigente reescrita con el nuevo nombre + sección `[RESUELTA]` actualizada para mencionar ambas migraciones (#24 + #25).
+- `supabase/README.md`: refs al nombre nuevo.
+- `diagnostico_arquitec/01_changelog_back.md`: nueva fila #25 + total 24 → **25 migraciones atómicas** + tabla §2.1 actualizada con "Revertida + renombrada".
+
+**Filosofía aplicada** (referenciada en §3.9 del changelog back: "Helpers permanentes deben tener nombre semántico"): el nombre ya cuenta el rol → `intake_profile_snapshots` es plural por convención (snapshots = uno por intake) y deja en claro que es "frozen data", no estado vivo. Defensa más fuerte que solo COMMENTs porque no requiere abrir ninguna doc para entender.
 
 ## Tasks list al cierre
 

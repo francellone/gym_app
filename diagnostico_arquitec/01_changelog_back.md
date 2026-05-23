@@ -77,13 +77,14 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 
 **Total acumulado actualizado:** 23 migraciones atómicas. Cero rollbacks definitivos.
 
-### Día 10 (2026-05-23) — Limpieza schema `archive`
+### Día 10 (2026-05-23) — Limpieza schema `archive` + rename semántico
 
 | # | Migración | Bug atacado | Resumen |
 |---|---|---|---|
 | 24 | `move_student_profiles_to_public_with_clarifying_comments` | `archive.student_profiles` mal ubicada (pendiente desde 21/05, `known-exceptions.md` + `11_plan_tier_3_2.md §2.1`) | `ALTER TABLE archive.student_profiles SET SCHEMA public` + `COMMENT ON TABLE` + `COMMENT ON COLUMN` en 5 columnas. Las policies, FKs, trigger y RLS viajaron con la tabla. Diagnóstico previo encontró que la tabla estaba **huérfana** (0 RPCs y 0 archivos del front la referencian) — no era operacional como decía el doc 11. El move bajó el riesgo a casi cero; los COMMENTs evitan que cualquier dev futuro la confunda con source-of-truth (eso es `public.profiles`). Schema `archive` ahora cumple convención: 100% backups deny-by-default. Handoff 16. |
+| 25 | `rename_student_profiles_to_intake_profile_snapshots` | Defensa adicional: nombre semántico (handoff 16 §"Sugerencia opcional") | `ALTER TABLE public.student_profiles RENAME TO intake_profile_snapshots` + rename de 2 policies, 1 trigger, 4 constraints (PK + 2 FKs + UNIQUE) para coherencia. COMMENT ON TABLE actualizado con histórico (archive → public → rename). El nombre nuevo cuenta el rol sin necesidad de leer COMMENTs. Continuación inmediata de #24 dentro del mismo handoff. |
 
-**Total acumulado actualizado:** 24 migraciones atómicas. Cero rollbacks definitivos.
+**Total acumulado actualizado:** 25 migraciones atómicas. Cero rollbacks definitivos.
 
 ### Día 3 — Decisiones NO ejecutadas (registradas)
 
@@ -131,7 +132,7 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 | Tabla | Razón |
 |---|---|
 | `archive.plan_assignments_backup_20260508` | Tabla de backup en `public` (12 filas, ya en producción) |
-| ~~`archive.student_profiles`~~ | **Revertida 2026-05-23** (migración #24, handoff 16): se descubrió que era huérfana, no operacional. Movida de vuelta a `public.student_profiles` con `COMMENT ON TABLE` explícito que la marca como snapshot inmutable del intake (no source-of-truth). Source-of-truth sigue siendo `public.profiles`. |
+| ~~`archive.student_profiles`~~ | **Revertida + renombrada 2026-05-23** (migraciones #24 y #25, handoff 16): se descubrió que era huérfana, no operacional. Movida de vuelta a `public.student_profiles` con `COMMENT ON TABLE`, luego renombrada a `public.intake_profile_snapshots` para que el nombre cuente el rol. Source-of-truth sigue siendo `public.profiles`. |
 
 ### 2.2. CHECK constraints activos
 
