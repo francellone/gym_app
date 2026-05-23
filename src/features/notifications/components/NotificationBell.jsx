@@ -16,6 +16,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../hooks/useNotifications'
 import {
   Bell,
@@ -88,7 +89,37 @@ const TYPE_CONFIG = {
   },
 }
 
-function NotificationItem({ notification, onRead, highlightAsUnread }) {
+/**
+ * Destino de navegación al clickear una notificación.
+ * Devuelve `null` cuando el tipo no tiene destino definido (sólo se marca como leída).
+ *
+ * El payload (`notification.data`) ya viene poblado por los triggers/RPCs
+ * del back (`fn_notify_coach_note`, `fn_notify_student_note`, etc.), así que
+ * NO hace falta migración SQL — solo derivamos la URL en el front.
+ *
+ * Tipos cubiertos hoy (Q3 — Anto 2026-05-21):
+ *   - coach_comment  → panel de notas del alumno
+ *   - student_note   → tab "Notas" del alumno dentro del perfil (coach side)
+ *
+ * El resto de los tipos cae a `null` por ahora y mantiene el comportamiento
+ * actual de solo marcar como leída sin navegar.
+ */
+function getNotificationTargetUrl(notification) {
+  const data = notification.data || {}
+  switch (notification.type) {
+    case 'coach_comment':
+      // Notif al alumno → su panel de notas (único thread).
+      return '/student/notes'
+    case 'student_note':
+      // Notif al coach → perfil del alumno en tab notas. Si por algún motivo
+      // no vino student_id en el payload, no navegamos (sólo marcamos leída).
+      return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
+    default:
+      return null
+  }
+}
+
+function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread }) {
   const cfg = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.activity_update
   const { Icon, color, bg } = cfg
 
@@ -101,9 +132,14 @@ function NotificationItem({ notification, onRead, highlightAsUnread }) {
   // ya esté marcada como leída en BD (caso: marcadas al abrir el panel).
   const showAsUnread = highlightAsUnread || !notification.read
 
+  const targetUrl = getNotificationTargetUrl(notification)
+
   return (
     <button
-      onClick={() => !notification.read && onRead(notification.id)}
+      onClick={() => {
+        if (!notification.read) onRead(notification.id)
+        if (targetUrl) onNavigate(targetUrl)
+      }}
       className={`w-full text-left flex items-start gap-3 px-4 py-3 transition-colors
         hover:bg-gray-50 ${showAsUnread ? 'bg-blue-50/30' : ''}`}
     >
@@ -143,9 +179,16 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
   const [wasUnreadAtOpen, setWasUnreadAtOpen] = useState(() => new Set())
   const panelRef = useRef(null)
   const buttonRef = useRef(null)
+  const navigate = useNavigate()
 
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
     useNotifications(userId)
+
+  // Cierra el panel y navega al destino de la notificación.
+  function handleNavigate(url) {
+    setOpen(false)
+    navigate(url)
+  }
 
   // Cerrar al hacer click afuera
   useEffect(() => {
@@ -273,6 +316,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                   key={n.id}
                   notification={n}
                   onRead={markAsRead}
+                  onNavigate={handleNavigate}
                   highlightAsUnread={wasUnreadAtOpen.has(n.id)}
                 />
               ))

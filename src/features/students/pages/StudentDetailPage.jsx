@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ArrowLeft } from 'lucide-react'
@@ -43,6 +43,14 @@ export default function StudentDetailPage() {
   const { id } = useParams()
   const { profile } = useAuth()
   const navigate = useNavigate()
+  // ?tab=notas permite deep-linkear a una pestaña concreta (usado por la
+  // campana de notificaciones al clickear una notif de nota del alumno).
+  // Se valida contra TABS para evitar tabs inexistentes vía URL.
+  const [searchParams] = useSearchParams()
+  const initialTab = (() => {
+    const fromUrl = searchParams.get('tab')
+    return TABS.some((t) => t.id === fromUrl) ? fromUrl : 'info'
+  })()
 
   const [student, setStudent] = useState(null)
   const [assignments, setAssignments] = useState([])
@@ -52,7 +60,7 @@ export default function StudentDetailPage() {
   const [formAssignment, setFormAssignment] = useState(null)
   const [formSubmission, setFormSubmission] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('info')
+  const [activeTab, setActiveTab] = useState(initialTab)
 
   // Badge de no-leídas para el tab "Notas" (coach side)
   const { count: notesUnread } = useNoteThreadUnread(id, 'coach')
