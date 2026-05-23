@@ -36,7 +36,7 @@ import { registerPush, unregisterPush } from '@/features/notifications/services/
 
 Dos tablas (RLS):
 
-- **`notifications`** (79 filas al 2026-05-20). Una por evento dirigido al usuario. Tipos: `coach_comment`, `plan_assigned`, `plan_updated`, `plan_expiring`, `form_submitted`, `session_completed`, `stagnation`, `student_note`. Cada tipo se genera por un trigger del back (`fn_notify_*`).
+- **`notifications`** (79 filas al 2026-05-20). Una por evento dirigido al usuario. Tipos (CHECK constraint `notifications_type_check`): `coach_comment`, `plan_assigned`, `plan_updated`, `plan_expiring`, `form_submitted`, `session_completed`, `stagnation_alert`, `student_note`, `activity_update`, `weekly_summary`, `schema_health_alert`, `profile_change` (Q6 — 2026-05-23). Cada tipo se genera por un trigger del back (`fn_notify_*`). Si se agrega un nuevo tipo: ampliar el CHECK + sumar entry en `TYPE_CONFIG` y `getNotificationTargetUrl` en `NotificationBell.jsx`.
 - **`push_subscriptions`** (0 filas al 2026-05-20 — feature en standby). Suscripciones Web Push activas. Una por (user_id + endpoint).
 
 ## Realtime

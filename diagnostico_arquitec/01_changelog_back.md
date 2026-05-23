@@ -77,14 +77,15 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 
 **Total acumulado actualizado:** 23 migraciones atómicas. Cero rollbacks definitivos.
 
-### Día 10 (2026-05-23) — Limpieza schema `archive` + rename semántico
+### Día 10 (2026-05-23) — Limpieza schema `archive` + rename semántico + Q6 perfil editable
 
 | # | Migración | Bug atacado | Resumen |
 |---|---|---|---|
 | 24 | `move_student_profiles_to_public_with_clarifying_comments` | `archive.student_profiles` mal ubicada (pendiente desde 21/05, `known-exceptions.md` + `11_plan_tier_3_2.md §2.1`) | `ALTER TABLE archive.student_profiles SET SCHEMA public` + `COMMENT ON TABLE` + `COMMENT ON COLUMN` en 5 columnas. Las policies, FKs, trigger y RLS viajaron con la tabla. Diagnóstico previo encontró que la tabla estaba **huérfana** (0 RPCs y 0 archivos del front la referencian) — no era operacional como decía el doc 11. El move bajó el riesgo a casi cero; los COMMENTs evitan que cualquier dev futuro la confunda con source-of-truth (eso es `public.profiles`). Schema `archive` ahora cumple convención: 100% backups deny-by-default. Handoff 16. |
 | 25 | `rename_student_profiles_to_intake_profile_snapshots` | Defensa adicional: nombre semántico (handoff 16 §"Sugerencia opcional") | `ALTER TABLE public.student_profiles RENAME TO intake_profile_snapshots` + rename de 2 policies, 1 trigger, 4 constraints (PK + 2 FKs + UNIQUE) para coherencia. COMMENT ON TABLE actualizado con histórico (archive → public → rename). El nombre nuevo cuenta el rol sin necesidad de leer COMMENTs. Continuación inmediata de #24 dentro del mismo handoff. |
+| 26 | `q6_notify_coach_on_profile_change` | Q6 doc 13: alumno NO puede editar peso/altura/objetivo desde su perfil, y cuando lo hace no avisa al coach | Trigger nuevo `fn_notify_profile_change` (AFTER UPDATE en `profiles`) que inserta en `notifications(type='profile_change')` cuando cambia uno de 7 campos críticos: `weight_kg, target_weight_kg, goal, tiene_lesiones, patologias, descripcion_lesiones, weekly_frequency`. `height_cm` queda fuera (decisión Franco — no es estratégico). Self-notif suprimida (`auth.uid() = coach_id` → skip) para evitar ruido cuando el coach edita desde `StudentDetailPage`. Audit existente (`trg_audit_profile_changes`) sigue intacto: single-responsibility, este trigger sólo notifica. CHECK constraint `notifications_type_check` ampliado de 11 a 12 tipos. Handoff 17. |
 
-**Total acumulado actualizado:** 25 migraciones atómicas. Cero rollbacks definitivos.
+**Total acumulado actualizado:** 26 migraciones atómicas. Cero rollbacks definitivos.
 
 ### Día 3 — Decisiones NO ejecutadas (registradas)
 

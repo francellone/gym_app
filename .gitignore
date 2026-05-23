@@ -6,9 +6,11 @@ dist-verify
 .env.local.tmp
 .DS_Store
 
-# Vite — temp config snapshots
+# Vite + Vitest — temp config snapshots
 vite.config.js.timestamp-*.mjs
 vite.config.ts.timestamp-*.mjs
+vitest.config.js.timestamp-*.mjs
+vitest.config.ts.timestamp-*.mjs
 
 # Mensajes de commit guardados en archivo (no commitear)
 commit_message_*.txt

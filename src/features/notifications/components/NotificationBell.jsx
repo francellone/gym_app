@@ -31,6 +31,7 @@ import {
   X,
   ClipboardCheck,
   RefreshCw,
+  UserCog,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -87,6 +88,11 @@ const TYPE_CONFIG = {
     color: 'text-sky-500',
     bg: 'bg-sky-50',
   },
+  profile_change: {
+    Icon: UserCog,
+    color: 'text-cyan-600',
+    bg: 'bg-cyan-50',
+  },
 }
 
 /**
@@ -97,9 +103,12 @@ const TYPE_CONFIG = {
  * del back (`fn_notify_coach_note`, `fn_notify_student_note`, etc.), así que
  * NO hace falta migración SQL — solo derivamos la URL en el front.
  *
- * Tipos cubiertos hoy (Q3 — Anto 2026-05-21):
- *   - coach_comment  → panel de notas del alumno
- *   - student_note   → tab "Notas" del alumno dentro del perfil (coach side)
+ * Tipos cubiertos hoy:
+ *   - coach_comment  → panel de notas del alumno (Q3 — Anto 2026-05-21)
+ *   - student_note   → tab "Notas" del alumno dentro del perfil, coach side (Q3)
+ *   - profile_change → tab "Historial" del alumno, coach side. Lleva al audit
+ *                      log (student_edit_history) que es donde el coach ve QUÉ
+ *                      cambió, no sólo el estado actual del perfil (Q6 — 2026-05-23).
  *
  * El resto de los tipos cae a `null` por ahora y mantiene el comportamiento
  * actual de solo marcar como leída sin navegar.
@@ -114,6 +123,10 @@ function getNotificationTargetUrl(notification) {
       // Notif al coach → perfil del alumno en tab notas. Si por algún motivo
       // no vino student_id en el payload, no navegamos (sólo marcamos leída).
       return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
+    case 'profile_change':
+      // Notif al coach → tab "Historial" del alumno (audit log de cambios).
+      // El tab info muestra el estado actual; history muestra el diff.
+      return data.student_id ? `/coach/students/${data.student_id}?tab=history` : null
     default:
       return null
   }
