@@ -15,6 +15,11 @@ export default function StrengthBlockRunCard({
   logs,
   saveLog,
   deleteLog,
+  // Q1 — preview "Última vez" + chat del ejercicio
+  lastLogByExercise,
+  lastCoachNoteByExercise,
+  noteCountByExercise,
+  onOpenChat,
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -111,6 +116,11 @@ export default function StrengthBlockRunCard({
               onSaveLog={saveLog}
               onDeleteLog={deleteLog}
               suggestedSets={ex.suggested_sets}
+              // Q1 — preview "Última vez" + chat del ejercicio
+              lastLog={lastLogByExercise?.get?.(ex.exercise_id) || null}
+              lastCoachNote={lastCoachNoteByExercise?.get?.(ex.exercise_id) || null}
+              noteCount={noteCountByExercise?.get?.(ex.exercise_id) || 0}
+              onOpenChat={onOpenChat}
             />
           ))}
         </div>

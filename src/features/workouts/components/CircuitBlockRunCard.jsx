@@ -19,10 +19,30 @@ import {
   readLogWeights,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
+import {
+  ExerciseHistoryHeaderLine,
+  ExerciseHistoryBodyBlock,
+} from './ExerciseHistoryPreview'
 
 /**
  * Card del bloque CIRCUITO para la vista del alumno.
  * Registra: duración real + rondas + detalle por ejercicio + RPE del bloque.
+ *
+ * Props Q1:
+ *   lastBlockLog            workout_block_log | null
+ *   lastLogByExercise       Map<exercise_id, workout_log> — para los hijos
+ *   lastCoachNoteByExercise Map<exercise_id, note>
+ *   noteCountByExercise     Map<exercise_id, number>
+ *   onOpenChat              (exerciseId, exerciseName) => void
+ *
+ * Estrategia Q1 para circuit:
+ *   - Header: "Última vez" del block_log (no por exercise, porque el
+ *     circuit se entrena como bloque).
+ *   - Body: por cada ejercicio del circuito, sumar línea compacta con
+ *     "Última vez" del exercise + botón chat. Como son varios ejercicios
+ *     dentro de un bloque, no agregamos el ExerciseHistoryBodyBlock
+ *     completo por cada uno — eso satura. El alumno puede tocar el
+ *     badge chat en la línea del ejercicio para abrir el drawer.
  */
 export default function CircuitBlockRunCard({
   block,
@@ -31,6 +51,12 @@ export default function CircuitBlockRunCard({
   onSaveBlockLog,
   onSaveExerciseLog,
   onDeleteBlockLog,
+  // Q1
+  lastBlockLog = null,
+  lastLogByExercise,
+  lastCoachNoteByExercise,
+  noteCountByExercise,
+  onOpenChat,
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -231,6 +257,8 @@ export default function CircuitBlockRunCard({
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+            {/* Q1 — "Última vez" del bloque circuito (block-level) */}
+            <ExerciseHistoryHeaderLine lastBlockLog={lastBlockLog} noteCount={0} />
             {blockLog && !expanded && (
               <p className="text-xs text-orange-600 mt-0.5 font-medium">
                 ✓{' '}
@@ -299,6 +327,8 @@ export default function CircuitBlockRunCard({
                   })
                   const showWeight = exWeightMode !== 'bodyweight'
                   const repsLabel = exUnilateral ? 'Reps × lado' : 'Reps reales'
+                  const exLastLog = lastLogByExercise?.get?.(ex.exercise_id) || null
+                  const exNoteCount = noteCountByExercise?.get?.(ex.exercise_id) || 0
                   return (
                     <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
                       <div className="flex items-center justify-between">
@@ -313,6 +343,13 @@ export default function CircuitBlockRunCard({
                             {exWeightMode === 'bodyweight' && ' · sin peso'}
                             {exWeightMode === 'barbell_only' && ' · solo barra'}
                           </p>
+                          {/* Q1 — "Última vez" del ejercicio + badge chat */}
+                          <ExerciseHistoryHeaderLine
+                            lastLog={exLastLog}
+                            noteCount={exNoteCount}
+                            onOpenChat={() => onOpenChat?.(ex.exercise_id, ex.exercise?.name)}
+                            isCompact
+                          />
                         </div>
                       </div>
 

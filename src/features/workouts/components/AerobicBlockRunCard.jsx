@@ -17,12 +17,36 @@ import {
   blockDisplayTitle,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
+import {
+  ExerciseHistoryHeaderLine,
+  ExerciseHistoryBodyBlock,
+} from './ExerciseHistoryPreview'
 
 /**
  * Card del bloque AERÓBICO para la vista del alumno.
  * El alumno registra: duración real (min) + RPE + notas.
+ *
+ * Props Q1:
+ *   lastBlockLog            workout_block_log | null
+ *   lastCoachNoteByExercise Map<exercise_id, note>
+ *   noteCountByExercise     Map<exercise_id, number>
+ *   onOpenChat              (exerciseId, exerciseName) => void
+ *
+ * El "ejercicio" del aerobic se toma de `block.plan_exercises[0]` (típicamente
+ * el aerobic tiene un solo plan_exercise asociado: "Trote", "Bici", etc.).
+ * Si no tiene plan_exercise, no se muestra preview del chat.
  */
-export default function AerobicBlockRunCard({ block, blockLog, onSaveLog, onDeleteLog }) {
+export default function AerobicBlockRunCard({
+  block,
+  blockLog,
+  onSaveLog,
+  onDeleteLog,
+  // Q1
+  lastBlockLog = null,
+  lastCoachNoteByExercise,
+  noteCountByExercise,
+  onOpenChat,
+}) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -46,7 +70,21 @@ export default function AerobicBlockRunCard({ block, blockLog, onSaveLog, onDele
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
 
   const title = blockDisplayTitle(block)
-  const exerciseName = block.plan_exercises?.[0]?.exercise?.name
+  const firstPlanEx = block.plan_exercises?.[0]
+  const exerciseName = firstPlanEx?.exercise?.name
+  const exerciseId = firstPlanEx?.exercise_id || null
+
+  // Q1 — el preview "Última vez" usa el último block_log del bloque
+  // (los datos de cardio viven a nivel block, no por exercise). El chat,
+  // en cambio, usa exercise_id del primer plan_exercise.
+  const noteCount = exerciseId ? noteCountByExercise?.get?.(exerciseId) || 0 : 0
+  const lastCoachNote = exerciseId
+    ? lastCoachNoteByExercise?.get?.(exerciseId) || null
+    : null
+  const handleOpenChat = () => {
+    if (!exerciseId) return
+    onOpenChat?.(exerciseId, exerciseName)
+  }
 
   async function save() {
     setSaving(true)
@@ -144,6 +182,12 @@ export default function AerobicBlockRunCard({ block, blockLog, onSaveLog, onDele
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+            {/* Q1 — "Última vez" del bloque + badge chat del ejercicio asociado */}
+            <ExerciseHistoryHeaderLine
+              lastBlockLog={lastBlockLog}
+              noteCount={noteCount}
+              onOpenChat={handleOpenChat}
+            />
             {blockLog && !expanded && (
               <p className="text-xs text-sky-600 mt-0.5 font-medium">
                 ✓{' '}
@@ -166,6 +210,15 @@ export default function AerobicBlockRunCard({ block, blockLog, onSaveLog, onDele
 
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-3">
+            {/* Q1 — última nota del coach + ver chat completo del ejercicio */}
+            {exerciseId && (
+              <ExerciseHistoryBodyBlock
+                lastCoachNote={lastCoachNote}
+                noteCount={noteCount}
+                onOpenChat={handleOpenChat}
+              />
+            )}
+
             {/* Ficha del bloque */}
             <div className="bg-sky-50 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center gap-2 text-sky-700 text-sm font-semibold">

@@ -15,16 +15,25 @@ import {
   fetchSingleMirrorBodies,
   postWorkoutLogNote,
   postWorkoutBlockLogNote,
+  getStudentThread,
 } from '@/features/notes/api'
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import BlockRenderer from '../components/BlockRenderer'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
 import SaveErrorBanner from '../components/SaveErrorBanner'
+import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor, isSectionCompleted } from '../helpers'
 import WellbeingModal from '@/features/wellbeing/components/WellbeingModal'
 import { computeDayTallies, formatTallyForDisplay } from '@/features/students/dayTalliesLogic'
+import {
+  pickLastLogPerExercise,
+  pickLastBlockLogPerBlock,
+  pickLastCoachNotePerExercise,
+  countNotesByExercise,
+  groupNotesByExercise,
+} from '../exerciseHistoryLogic'
 
 // ============================================================
 // Constantes
@@ -77,6 +86,24 @@ export default function TodayWorkoutPage() {
   // Se popula desde recentLogsRes que ya se trae para la sugerencia
   // del día inicial.
   const [recentLogs, setRecentLogs] = useState([])
+  // Q1 — workout_logs recientes COMPLETOS del plan (con actual_weights_jsonb,
+  // actual_reps_jsonb, perceived_difficulty) para mostrar "Última vez" en
+  // el header de cada card. recentLogs (Q2) trae solo 3 columnas; este
+  // dataset trae todo lo necesario para `formatLastLogSummary`.
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState([])
+  // Q1 — workout_block_logs recientes del plan (aerobic + circuit).
+  const [recentBlockLogs, setRecentBlockLogs] = useState([])
+  // Q1 — notas tipo `exercise` del thread del alumno (ambos lados, shared).
+  // Se usan para: última nota coach (preview), conteo badge 💬N, y como
+  // cache pasada al drawer para evitar re-fetch.
+  const [exerciseNotes, setExerciseNotes] = useState([])
+  // Q1 — id del thread del alumno (1:1 con su coach). Se resuelve una sola
+  // vez en fetchWorkout. Necesario para que el drawer pueda hacer fetch
+  // si no hay cache.
+  const [threadId, setThreadId] = useState(null)
+  // Q1 — drawer del chat del ejercicio: null cerrado, sino { exerciseId,
+  // exerciseName }.
+  const [chatDrawer, setChatDrawer] = useState(null)
   // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
   const [activeDay, setActiveDay] = useState(null)
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
@@ -157,6 +184,9 @@ export default function TodayWorkoutPage() {
         sessionRes,
         wellbeingRes,
         recentLogsRes,
+        recentExerciseLogsRes,
+        recentBlockLogsRes,
+        threadRes,
       ] = await Promise.all([
         supabase
           .from('plan_exercises')
@@ -203,11 +233,69 @@ export default function TodayWorkoutPage() {
           .eq('plan_id', assignData.plan_id)
           .order('logged_date', { ascending: false })
           .limit(500),
+        // Q1 — logs completos para mostrar "Última vez" por ejercicio.
+        // Excluimos la fecha actual: queremos histórico, no reflejo del
+        // log que el alumno acaba de cargar (esa info se ve en el header
+        // del propio card en formato "✓ 3s · Xkg · PSE Y").
+        supabase
+          .from('workout_logs')
+          .select(
+            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, created_at'
+          )
+          .eq('student_id', profile.id)
+          .eq('plan_id', assignData.plan_id)
+          .eq('completed', true)
+          .lt('logged_date', selectedDate)
+          .order('logged_date', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(300),
+        // Q1 — block_logs históricos para aerobic/circuit "Última vez".
+        supabase
+          .from('workout_block_logs')
+          .select(
+            'id, plan_block_id, logged_date, actual_minutes, actual_rounds, perceived_difficulty, completed, created_at'
+          )
+          .eq('student_id', profile.id)
+          .eq('plan_id', assignData.plan_id)
+          .eq('completed', true)
+          .lt('logged_date', selectedDate)
+          .order('logged_date', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(200),
+        // Q1 — thread del alumno (1:1 con su coach). Lo necesitamos para
+        // filtrar `notes` y para pasarle el threadId al drawer.
+        getStudentThread(profile.id),
       ])
 
       setPlanExercises(exercisesRes.data || [])
       setPlanBlocks(blocksRes.data || [])
       setRecentLogs(recentLogsRes.data || [])
+      setRecentExerciseLogs(recentExerciseLogsRes.data || [])
+      setRecentBlockLogs(recentBlockLogsRes.data || [])
+
+      // Q1 — resolver threadId del alumno y fetchear las notas tipo
+      // 'exercise' del thread. La query del thread la hacemos en paralelo
+      // con todo lo demás; las notas dependen del threadId y por eso van
+      // en un fetch separado en serie. Tolerante a errores: si no hay
+      // thread (alumno sin coach todavía), el preview Q1 simplemente
+      // queda sin notas.
+      const resolvedThreadId = threadRes?.data?.id || null
+      setThreadId(resolvedThreadId)
+      if (resolvedThreadId) {
+        const { data: notesData } = await supabase
+          .from('notes')
+          .select(
+            'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
+          )
+          .eq('thread_id', resolvedThreadId)
+          .eq('context_type', 'exercise')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(500)
+        setExerciseNotes(notesData || [])
+      } else {
+        setExerciseNotes([])
+      }
 
       // Sugerir el día siguiente al último entrenado (solo en la primera carga).
       if (!dayInitializedRef.current) {
@@ -564,6 +652,47 @@ export default function TodayWorkoutPage() {
     [recentLogs, planExercises]
   )
 
+  // Q1 — maps derivados para el preview "Última vez" + chat.
+  // Todos por exercise_id global (no por plan_exercise_id) según
+  // decisión Franco 23/05.
+  const lastLogByExercise = useMemo(
+    () =>
+      pickLastLogPerExercise(recentExerciseLogs, planExercises, {
+        excludeDate: selectedDate,
+      }),
+    [recentExerciseLogs, planExercises, selectedDate]
+  )
+  const lastBlockLogByBlock = useMemo(
+    () =>
+      pickLastBlockLogPerBlock(recentBlockLogs, {
+        excludeDate: selectedDate,
+      }),
+    [recentBlockLogs, selectedDate]
+  )
+  const lastCoachNoteByExercise = useMemo(
+    () => pickLastCoachNotePerExercise(exerciseNotes),
+    [exerciseNotes]
+  )
+  const noteCountByExercise = useMemo(
+    () => countNotesByExercise(exerciseNotes),
+    [exerciseNotes]
+  )
+  // Cache de notas agrupadas por ejercicio: lo pasamos al drawer para
+  // evitar fetch extra (las notas ya vinieron en fetchWorkout).
+  const notesByExercise = useMemo(
+    () => groupNotesByExercise(exerciseNotes),
+    [exerciseNotes]
+  )
+
+  // Q1 — handler para abrir el drawer desde cualquier card.
+  // Lo memoizamos para no recrear el callback en cada render.
+  const openChatDrawer = useMemo(() => {
+    return (exerciseId, exerciseName) => {
+      if (!exerciseId) return
+      setChatDrawer({ exerciseId, exerciseName: exerciseName || '' })
+    }
+  }, [])
+
   // Si el día activo ya no existe (cambió el plan), ir al primero disponible.
   // Importante: si activeDay todavía es null, NO setearlo acá — lo hace fetchWorkout con suggestNextDay.
   useEffect(() => {
@@ -750,6 +879,19 @@ export default function TodayWorkoutPage() {
         />
       )}
 
+      {/* Q1 — Drawer del chat del ejercicio (read-only V1) */}
+      {chatDrawer && (
+        <ExerciseChatDrawer
+          open={true}
+          onClose={() => setChatDrawer(null)}
+          exerciseId={chatDrawer.exerciseId}
+          exerciseName={chatDrawer.exerciseName}
+          threadId={threadId}
+          currentUserId={profile?.id}
+          notesCache={notesByExercise}
+        />
+      )}
+
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-6">
@@ -927,6 +1069,11 @@ export default function TodayWorkoutPage() {
                     deleteLog={deleteLog}
                     saveBlockLog={saveBlockLog}
                     deleteBlockLog={deleteBlockLog}
+                    lastLogByExercise={lastLogByExercise}
+                    lastBlockLogByBlock={lastBlockLogByBlock}
+                    lastCoachNoteByExercise={lastCoachNoteByExercise}
+                    noteCountByExercise={noteCountByExercise}
+                    onOpenChat={openChatDrawer}
                   />
                 ))}
               </div>
@@ -951,6 +1098,11 @@ export default function TodayWorkoutPage() {
                     deleteLog={deleteLog}
                     saveBlockLog={saveBlockLog}
                     deleteBlockLog={deleteBlockLog}
+                    lastLogByExercise={lastLogByExercise}
+                    lastBlockLogByBlock={lastBlockLogByBlock}
+                    lastCoachNoteByExercise={lastCoachNoteByExercise}
+                    noteCountByExercise={noteCountByExercise}
+                    onOpenChat={openChatDrawer}
                   />
                 ))}
               </div>

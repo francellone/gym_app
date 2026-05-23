@@ -21,6 +21,10 @@ import {
 } from '@/features/plans/helpers'
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
+import {
+  ExerciseHistoryHeaderLine,
+  ExerciseHistoryBodyBlock,
+} from './ExerciseHistoryPreview'
 
 // Parsear el peso sugerido del coach a número (ej: "20kg" → "20", "BW" → "")
 // Helper privado de este componente.
@@ -44,7 +48,18 @@ function parseSuggestedWeight(val) {
 // constraints del back (bodyweight ⇒ weights NULL, etc.). Notas van
 // aparte vía postWorkoutLogNote() en el padre (Round 2b del refactor m26:
 // workout_logs.notes fue dropeada en v26d).
-export default function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, suggestedSets }) {
+export default function ExerciseCard({
+  planEx,
+  log,
+  onSaveLog,
+  onDeleteLog,
+  suggestedSets,
+  // Q1 — preview "Última vez" + chat del ejercicio
+  lastLog = null,
+  lastCoachNote = null,
+  noteCount = 0,
+  onOpenChat,
+}) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -473,6 +488,12 @@ export default function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, sugg
                 .filter(Boolean)
                 .join(' ')}
             </p>
+            {/* Q1 — "Última vez" + badge chat (siempre visible en el header) */}
+            <ExerciseHistoryHeaderLine
+              lastLog={lastLog}
+              noteCount={noteCount}
+              onOpenChat={() => onOpenChat?.(planEx.exercise_id, planEx.exercise?.name)}
+            />
             {log &&
               !expanded &&
               (() => {
@@ -516,6 +537,15 @@ export default function ExerciseCard({ planEx, log, onSaveLog, onDeleteLog, sugg
         {/* Expanded content */}
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-4">
+            {/* Q1 — última nota del coach + botón "Ver chat completo".
+                Va antes de la técnica para que sea lo primero que ve
+                el alumno al expandir (lo que más urge a Anto). */}
+            <ExerciseHistoryBodyBlock
+              lastCoachNote={lastCoachNote}
+              noteCount={noteCount}
+              onOpenChat={() => onOpenChat?.(planEx.exercise_id, planEx.exercise?.name)}
+            />
+
             {/* Technique notes */}
             {(planEx.extra_notes || planEx.exercise?.technique_notes) && (
               <div className="bg-blue-50 rounded-xl p-3 flex gap-2">

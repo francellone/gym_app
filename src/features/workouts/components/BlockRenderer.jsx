@@ -9,6 +9,13 @@ import StrengthBlockRunCard from './StrengthBlockRunCard'
 //   - 'aerobic' → AerobicBlockRunCard (un solo workout_block_log)
 //   - 'circuit' → CircuitBlockRunCard (un block_log + N exercise_logs)
 //   - 'strength' (default) → StrengthBlockRunCard (N ExerciseCard adentro)
+//
+// Props Q1 (preview "Última vez" + chat del ejercicio):
+//   - lastLogByExercise        Map<exercise_id, workout_log>
+//   - lastBlockLogByBlock      Map<plan_block_id, workout_block_log>
+//   - lastCoachNoteByExercise  Map<exercise_id, note>
+//   - noteCountByExercise      Map<exercise_id, number>
+//   - onOpenChat               (exerciseId, exerciseName) => void
 export default function BlockRenderer({
   block,
   strengthIndexInSection,
@@ -18,6 +25,12 @@ export default function BlockRenderer({
   deleteLog,
   saveBlockLog,
   deleteBlockLog,
+  // Q1
+  lastLogByExercise,
+  lastBlockLogByBlock,
+  lastCoachNoteByExercise,
+  noteCountByExercise,
+  onOpenChat,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -26,6 +39,10 @@ export default function BlockRenderer({
         blockLog={blockLog}
         onSaveLog={(data) => saveBlockLog(block.id, data)}
         onDeleteLog={() => deleteBlockLog(block.id)}
+        lastBlockLog={lastBlockLogByBlock?.get?.(block.id) || null}
+        lastCoachNoteByExercise={lastCoachNoteByExercise}
+        noteCountByExercise={noteCountByExercise}
+        onOpenChat={onOpenChat}
       />
     )
   }
@@ -44,6 +61,11 @@ export default function BlockRenderer({
         onSaveBlockLog={(data) => saveBlockLog(block.id, data)}
         onSaveExerciseLog={saveLog}
         onDeleteBlockLog={() => deleteBlockLog(block.id)}
+        lastBlockLog={lastBlockLogByBlock?.get?.(block.id) || null}
+        lastLogByExercise={lastLogByExercise}
+        lastCoachNoteByExercise={lastCoachNoteByExercise}
+        noteCountByExercise={noteCountByExercise}
+        onOpenChat={onOpenChat}
       />
     )
   }
@@ -56,6 +78,10 @@ export default function BlockRenderer({
       logs={logs}
       saveLog={saveLog}
       deleteLog={deleteLog}
+      lastLogByExercise={lastLogByExercise}
+      lastCoachNoteByExercise={lastCoachNoteByExercise}
+      noteCountByExercise={noteCountByExercise}
+      onOpenChat={onOpenChat}
     />
   )
 }
