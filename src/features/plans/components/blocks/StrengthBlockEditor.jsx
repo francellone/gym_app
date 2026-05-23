@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 import PlanExerciseRow from '../PlanExerciseRow'
-import { emptyPlanExercise } from '../../helpers'
+import { emptyPlanExercise, inheritFromFirstBlockmate } from '../../helpers'
 
 /**
  * Editor del bloque de FUERZA.
@@ -15,9 +15,35 @@ export default function StrengthBlockEditor({
 }) {
   const list = block.exercises || []
 
+  // Q7: Al crear un nuevo ejercicio, arrancamos con la última letra usada
+  // (continúa el bloque actual). Si esa letra ya tiene N ejercicios, autoincrementa
+  // el número y hereda pausa/series del primero con esa letra.
+  // Ej: A1 + B1 + agregar → arranca como B2, no A2.
   function addExercise() {
     const ex = emptyPlanExercise(block.section)
     ex.order_index = list.length
+
+    // Buscar la última letra usada en la lista (recorrer de atrás hacia adelante)
+    let lastLetter = ''
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i]?.block_letter) {
+        lastLetter = list[i].block_letter
+        break
+      }
+    }
+    if (lastLetter) {
+      ex.block_letter = lastLetter
+    }
+
+    if (ex.block_letter) {
+      const tempList = [...list, ex]
+      const patches = inheritFromFirstBlockmate({
+        list: tempList,
+        currentIndex: tempList.length - 1,
+        letter: ex.block_letter,
+      })
+      Object.assign(ex, patches)
+    }
     onUpdateExercises([...list, ex])
   }
 
@@ -35,6 +61,18 @@ export default function StrengthBlockEditor({
 
   function removeExercise(index) {
     onUpdateExercises(list.filter((_, i) => i !== index))
+  }
+
+  // Q7: Cambio de letra → si ya hay otro ejercicio con esa letra, auto-numerar
+  // (A2, A3...) y heredar series/descanso del primero. Si es la primera vez
+  // que se usa esa letra, se setea número 1.
+  function handleLetterChange(index, newLetter) {
+    const patches = inheritFromFirstBlockmate({
+      list,
+      currentIndex: index,
+      letter: newLetter,
+    })
+    updateExerciseMulti(index, patches)
   }
 
   return (
@@ -55,6 +93,7 @@ export default function StrengthBlockEditor({
           tagAssignments={tagAssignments}
           onUpdate={updateExercise}
           onUpdateMulti={updateExerciseMulti}
+          onLetterChange={handleLetterChange}
           onRemove={removeExercise}
         />
       ))}

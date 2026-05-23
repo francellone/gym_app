@@ -34,6 +34,7 @@ export default function PlanExerciseRow({
   index,
   onUpdate,
   onUpdateMulti,
+  onLetterChange,
   onRemove,
   exercises = [],
   exerciseTags = [],
@@ -266,7 +267,11 @@ export default function PlanExerciseRow({
                 <select
                   className="input text-sm"
                   value={ex.block_letter}
-                  onChange={(e) => onUpdate(index, 'block_letter', e.target.value)}
+                  onChange={(e) =>
+                    onLetterChange
+                      ? onLetterChange(index, e.target.value)
+                      : onUpdate(index, 'block_letter', e.target.value)
+                  }
                 >
                   <option value="">—</option>
                   {BLOCK_LETTERS.map((l) => (

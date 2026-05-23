@@ -18,6 +18,7 @@ import {
 import PlanExerciseRow from '../components/PlanExerciseRow'
 import BlockCard from '../components/blocks/BlockCard'
 import AddBlockMenu from '../components/blocks/AddBlockMenu'
+import DayBlocksOrderWarning from '../components/blocks/DayBlocksOrderWarning'
 import {
   getDynamicSections,
   emptyPlanExercise,
@@ -26,6 +27,7 @@ import {
   dbExToUIEx,
   uiExToDBEx,
   uiBlockToDB,
+  reorderByBlockmate,
 } from '../helpers'
 import {
   EVAL_TYPES,
@@ -288,6 +290,10 @@ export default function EditPlanPage() {
   const [evalExercises, setEvalExercises] = useState([])
   const [activeSection, setActiveSection] = useState('day_a')
 
+  // Q7 — banner por día: secciones donde el coach apretó "Dejar como está".
+  // Se resetea al desmontar (no persiste entre cargas del editor).
+  const [dismissedOrderWarnings, setDismissedOrderWarnings] = useState(() => new Set())
+
   // IDs para borrar al guardar
   const [toDeleteBlocks, setToDeleteBlocks] = useState([])
   const [toDeleteExercises, setToDeleteExercises] = useState([])
@@ -483,6 +489,27 @@ export default function EditPlanPage() {
       if (removed.length) setToDeleteExercises((d) => [...d, ...removed])
     }
     updateBlock(section, index, { exercises: nextExercises })
+  }
+
+  // Q7 — Reordena los ejercicios de cada bloque strength del día por (letra, número).
+  // Los ejercicios sin letra quedan en su slot original (no se mueven).
+  function reorderSectionStrength(section) {
+    setPlanBlocks((prev) => ({
+      ...prev,
+      [section]: (prev[section] || []).map((b) =>
+        b.block_type === 'strength'
+          ? { ...b, exercises: reorderByBlockmate(b.exercises || []) }
+          : b
+      ),
+    }))
+  }
+
+  function dismissOrderWarning(section) {
+    setDismissedOrderWarnings((prev) => {
+      const next = new Set(prev)
+      next.add(section)
+      return next
+    })
   }
 
   function removeBlock(section, index) {
@@ -1158,6 +1185,14 @@ export default function EditPlanPage() {
                 tagAssignments={tagAssignments}
               />
             ))}
+
+            {!dismissedOrderWarnings.has(activeSection) && (
+              <DayBlocksOrderWarning
+                dayBlocks={currentBlocks}
+                onReorderDay={() => reorderSectionStrength(activeSection)}
+                onDismiss={() => dismissOrderWarning(activeSection)}
+              />
+            )}
 
             <AddBlockMenu onAdd={(type) => addBlock(activeSection, type)} />
           </div>

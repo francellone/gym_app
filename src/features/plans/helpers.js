@@ -74,6 +74,219 @@ export function makeBlockLabel(letter, number) {
   return `${letter}${number}`
 }
 
+// ============================================================
+// Auto-numeración de bloques A1/A2 (Q7)
+// ============================================================
+//
+// Cuando dos ejercicios comparten la misma letra dentro del mismo bloque
+// strength, queremos que el "segundo" se llame automáticamente A2 (o A3, etc.)
+// y herede `suggested_sets` y `rest_time` del primero (el de número 1).
+//
+// Regla de herencia: NO pisamos series/descanso ya cargados por el coach.
+// Solo completamos los que están vacíos. Esto evita romper trabajo previo
+// cuando el coach reasigna letras a mano.
+// ============================================================
+
+/**
+ * Dado el array de ejercicios del bloque, el índice del ejercicio que está
+ * cambiando de letra (o siendo creado) y la nueva letra deseada, devuelve
+ * los patches a aplicar (block_letter, block_number, y opcionalmente
+ * suggested_sets / rest_time heredados del primer ejercicio con esa letra).
+ *
+ * @param {Object} args
+ * @param {Array<Object>} args.list - Lista completa de ejercicios del bloque.
+ * @param {number} args.currentIndex - Índice del ejercicio actual en `list`.
+ * @param {string} args.letter - Nueva letra deseada (A-Z) o '' para limpiar.
+ * @returns {Object} patches a aplicar con onUpdateMulti.
+ */
+export function inheritFromFirstBlockmate({ list, currentIndex, letter }) {
+  // Limpiar bloque: borrar letra y número
+  if (!letter) {
+    return { block_letter: '', block_number: '' }
+  }
+
+  const others = (list || []).filter(
+    (ex, i) => i !== currentIndex && ex && ex.block_letter === letter
+  )
+
+  if (others.length === 0) {
+    // Primer ejercicio con esta letra → arranca en 1, sin herencia
+    return { block_letter: letter, block_number: '1' }
+  }
+
+  // Próximo número libre = max(números existentes) + 1, cap a 10
+  const usedNumbers = others
+    .map((ex) => parseInt(ex.block_number) || 0)
+    .filter((n) => n > 0)
+  const nextNumber = Math.min(10, (usedNumbers.length ? Math.max(...usedNumbers) : 0) + 1)
+
+  // Primer ejercicio del bloque (block_number=='1' por prioridad, sino el menor)
+  const first =
+    others.find((ex) => ex.block_number === '1') ||
+    [...others].sort(
+      (a, b) => (parseInt(a.block_number) || 99) - (parseInt(b.block_number) || 99)
+    )[0]
+
+  const patches = {
+    block_letter: letter,
+    block_number: String(nextNumber),
+  }
+
+  // Heredar series/descanso del primero SOLO si el actual los tiene vacíos.
+  // No pisamos valores ya cargados por el coach.
+  const current = (list || [])[currentIndex] || {}
+  const isEmpty = (v) => v == null || v === ''
+  if (isEmpty(current.suggested_sets) && !isEmpty(first.suggested_sets)) {
+    patches.suggested_sets = first.suggested_sets
+  }
+  if (isEmpty(current.rest_time) && !isEmpty(first.rest_time)) {
+    patches.rest_time = first.rest_time
+  }
+
+  return patches
+}
+
+/**
+ * Valida si los ejercicios CON letra están agrupados consecutivamente y
+ * en orden numérico ascendente dentro de cada letra.
+ *
+ * Reglas:
+ *   - Ignora ejercicios sin letra (block_letter='').
+ *   - Las letras deben aparecer en "runs" contiguos (todos los A, después
+ *     todos los B, etc). Una letra no puede reaparecer después de haber
+ *     cambiado a otra (A1, B1, A2 → inválido).
+ *   - Dentro del run de una letra, los números deben ser ascendentes
+ *     (A2, A1 → inválido; A1, A1, A2 → válido).
+ *
+ * @param {Array<Object>} exercises - Lista de ejercicios del bloque.
+ * @returns {boolean} true si están ordenados (o si todos no tienen letra).
+ */
+export function isBlockOrderValid(exercises) {
+  const lettered = (exercises || []).filter((e) => e && e.block_letter)
+  if (lettered.length === 0) return true
+
+  const seenLetters = new Set()
+  let prevLetter = null
+  let prevNumber = 0
+
+  for (const ex of lettered) {
+    const letter = ex.block_letter
+    const number = parseInt(ex.block_number) || 0
+
+    if (letter !== prevLetter) {
+      // Cambio de letra: la nueva no puede haber aparecido antes
+      if (seenLetters.has(letter)) return false
+      if (prevLetter) seenLetters.add(prevLetter)
+      prevLetter = letter
+      prevNumber = number
+    } else {
+      // Misma letra: el número debe ser >= al anterior
+      if (number < prevNumber) return false
+      prevNumber = number
+    }
+  }
+  return true
+}
+
+/**
+ * Reordena los ejercicios CON letra por (letra ASC, número ASC) Y
+ * compacta la numeración dentro de cada letra (1, 2, 3...) eliminando huecos.
+ *
+ * Ej: A1, A4, B1 → A1, A2, B1 (el A4 pasa a A2).
+ *
+ * Los ejercicios sin letra mantienen su slot de aparición original
+ * (no se mueven). Útil para "arreglar" un bloque desordenado sin
+ * desplazar lo que el coach dejó suelto a propósito.
+ *
+ * Aplica order_index secuencial al resultado.
+ *
+ * @param {Array<Object>} exercises - Lista original.
+ * @returns {Array<Object>} Lista reordenada con order_index 0..n-1.
+ */
+export function reorderByBlockmate(exercises) {
+  const list = exercises || []
+
+  // Slots ocupados por sin-letra (se preservan)
+  const unletteredSlots = new Set()
+  const lettered = []
+  list.forEach((ex, i) => {
+    if (ex && ex.block_letter) {
+      lettered.push(ex)
+    } else {
+      unletteredSlots.add(i)
+    }
+  })
+
+  // Orden estable por (letra, número)
+  const sortedLettered = [...lettered].sort((a, b) => {
+    if (a.block_letter !== b.block_letter) {
+      return a.block_letter.localeCompare(b.block_letter)
+    }
+    return (parseInt(a.block_number) || 0) - (parseInt(b.block_number) || 0)
+  })
+
+  // Compactar números dentro de cada letra (1, 2, 3... sin huecos)
+  const counterByLetter = {}
+  const compactedLettered = sortedLettered.map((ex) => {
+    counterByLetter[ex.block_letter] = (counterByLetter[ex.block_letter] || 0) + 1
+    return { ...ex, block_number: String(counterByLetter[ex.block_letter]) }
+  })
+
+  const result = []
+  let cursor = 0
+  for (let i = 0; i < list.length; i++) {
+    if (unletteredSlots.has(i)) {
+      result.push(list[i])
+    } else {
+      result.push(compactedLettered[cursor++])
+    }
+  }
+
+  return result.map((ex, i) => ({ ...ex, order_index: i }))
+}
+
+/**
+ * Detecta si dentro de alguna letra hay huecos de numeración
+ * (ej: A1, A4 → falta A2 y A3).
+ *
+ * Si una letra usa los números 1..N consecutivos (en cualquier orden),
+ * no hay gaps. Si falta algún número intermedio o el primero no es 1,
+ * hay gap.
+ *
+ * @param {Array<Object>} exercises
+ * @returns {boolean}
+ */
+export function hasNumberGaps(exercises) {
+  const lettered = (exercises || []).filter((e) => e && e.block_letter)
+  if (lettered.length === 0) return false
+
+  const byLetter = {}
+  for (const ex of lettered) {
+    const n = parseInt(ex.block_number) || 0
+    if (n < 1) continue
+    byLetter[ex.block_letter] = byLetter[ex.block_letter] || []
+    byLetter[ex.block_letter].push(n)
+  }
+
+  for (const letter of Object.keys(byLetter)) {
+    const nums = byLetter[letter].sort((a, b) => a - b)
+    // Esperamos 1, 2, 3... (en cualquier orden de aparición, pero sin huecos)
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] !== i + 1) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Cuenta cuántos ejercicios del bloque NO tienen letra asignada.
+ * @param {Array<Object>} exercises
+ * @returns {number}
+ */
+export function countUnlettered(exercises) {
+  return (exercises || []).filter((e) => e && !e.block_letter).length
+}
+
 // Parsear reps: puede ser string simple, JSON array, o ya un array (jsonb)
 export function parseReps(repsValue) {
   if (repsValue == null || repsValue === '') return []
