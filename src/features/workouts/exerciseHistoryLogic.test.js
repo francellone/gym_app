@@ -1,0 +1,330 @@
+// ============================================================
+// exerciseHistoryLogic.test.js — Q1
+// ------------------------------------------------------------
+// Tests de las funciones puras que alimentan el preview "Última
+// vez" + chat del ejercicio en TodayWorkoutPage.
+// ============================================================
+
+import { describe, it, expect } from 'vitest'
+import {
+  pickLastLogPerExercise,
+  pickLastBlockLogPerBlock,
+  pickLastCoachNotePerExercise,
+  countNotesByExercise,
+  groupNotesByExercise,
+  formatLastLogSummary,
+  formatLastBlockLogSummary,
+  formatRelativeDate,
+} from './exerciseHistoryLogic'
+
+// Helpers de fixture
+const PE = [
+  { id: 'pe-a-day-a', exercise_id: 'ex-press', section: 'day_a' },
+  { id: 'pe-a-day-b', exercise_id: 'ex-press', section: 'day_b' }, // Mismo ejercicio en día B
+  { id: 'pe-b', exercise_id: 'ex-squat', section: 'day_a' },
+  { id: 'pe-c', exercise_id: 'ex-dead', section: 'day_a' },
+]
+
+describe('pickLastLogPerExercise', () => {
+  it('agrupa por exercise_id global, no por plan_exercise_id', () => {
+    const logs = [
+      // Mismo ejercicio (Press), dos plan_exercise_id distintos, distintas fechas
+      { id: 'l1', plan_exercise_id: 'pe-a-day-a', logged_date: '2026-05-20', completed: true },
+      { id: 'l2', plan_exercise_id: 'pe-a-day-b', logged_date: '2026-05-22', completed: true },
+      // Otro ejercicio
+      { id: 'l3', plan_exercise_id: 'pe-b', logged_date: '2026-05-19', completed: true },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    expect(map.size).toBe(2)
+    // Press: gana el más reciente (l2 de día B)
+    expect(map.get('ex-press').id).toBe('l2')
+    expect(map.get('ex-press')._exercise_id).toBe('ex-press')
+    expect(map.get('ex-squat').id).toBe('l3')
+  })
+
+  it('omite logs no completados cuando completedOnly=true (default)', () => {
+    const logs = [
+      { id: 'l1', plan_exercise_id: 'pe-b', logged_date: '2026-05-22', completed: false },
+      { id: 'l2', plan_exercise_id: 'pe-b', logged_date: '2026-05-20', completed: true },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    expect(map.get('ex-squat').id).toBe('l2')
+  })
+
+  it('respeta excludeDate (no muestra la sesión que estoy cargando hoy)', () => {
+    const logs = [
+      { id: 'l1', plan_exercise_id: 'pe-b', logged_date: '2026-05-23', completed: true },
+      { id: 'l2', plan_exercise_id: 'pe-b', logged_date: '2026-05-20', completed: true },
+    ]
+    const map = pickLastLogPerExercise(logs, PE, { excludeDate: '2026-05-23' })
+    expect(map.get('ex-squat').id).toBe('l2')
+  })
+
+  it('ignora logs con plan_exercise_id desconocido (plan_exercise borrado)', () => {
+    const logs = [
+      { id: 'huerfano', plan_exercise_id: 'pe-no-existe', logged_date: '2026-05-22', completed: true },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    expect(map.size).toBe(0)
+  })
+
+  it('tiebreak por id cuando misma fecha', () => {
+    const logs = [
+      { id: 'lA', plan_exercise_id: 'pe-b', logged_date: '2026-05-22', completed: true },
+      { id: 'lZ', plan_exercise_id: 'pe-b', logged_date: '2026-05-22', completed: true },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    // 'lZ' > 'lA' lexicográficamente, así que gana lZ
+    expect(map.get('ex-squat').id).toBe('lZ')
+  })
+
+  it('inputs vacíos / nulos devuelven Map vacío', () => {
+    expect(pickLastLogPerExercise([], PE).size).toBe(0)
+    expect(pickLastLogPerExercise(null, PE).size).toBe(0)
+    expect(pickLastLogPerExercise([{ id: 'l' }], []).size).toBe(0)
+  })
+})
+
+describe('pickLastBlockLogPerBlock', () => {
+  it('agrupa por plan_block_id, omite no completados, respeta excludeDate', () => {
+    const blockLogs = [
+      { id: 'bl1', plan_block_id: 'bk-1', logged_date: '2026-05-22', completed: true },
+      { id: 'bl2', plan_block_id: 'bk-1', logged_date: '2026-05-23', completed: true },
+      { id: 'bl3', plan_block_id: 'bk-2', logged_date: '2026-05-22', completed: false },
+      { id: 'bl4', plan_block_id: 'bk-3', logged_date: '2026-05-20', completed: true },
+    ]
+    const map = pickLastBlockLogPerBlock(blockLogs, { excludeDate: '2026-05-23' })
+    expect(map.size).toBe(2)
+    expect(map.get('bk-1').id).toBe('bl1') // bl2 excluido por fecha
+    expect(map.get('bk-3').id).toBe('bl4')
+    expect(map.has('bk-2')).toBe(false) // bl3 no completado
+  })
+
+  it('inputs vacíos / nulos no rompen', () => {
+    expect(pickLastBlockLogPerBlock([]).size).toBe(0)
+    expect(pickLastBlockLogPerBlock(null).size).toBe(0)
+  })
+})
+
+describe('pickLastCoachNotePerExercise', () => {
+  const notes = [
+    {
+      id: 'n1',
+      author_role: 'coach',
+      context_type: 'exercise',
+      exercise_id: 'ex-press',
+      visibility: 'shared',
+      created_at: '2026-05-18T12:00:00Z',
+      body: 'antigua',
+    },
+    {
+      id: 'n2',
+      author_role: 'coach',
+      context_type: 'exercise',
+      exercise_id: 'ex-press',
+      visibility: 'shared',
+      created_at: '2026-05-20T12:00:00Z',
+      body: 'reciente',
+    },
+    {
+      id: 'n3',
+      author_role: 'student',
+      context_type: 'exercise',
+      exercise_id: 'ex-press',
+      visibility: 'shared',
+      created_at: '2026-05-21T12:00:00Z',
+      body: 'del alumno (más nueva pero no cuenta)',
+    },
+    {
+      id: 'n4',
+      author_role: 'coach',
+      context_type: 'workout_log',
+      exercise_id: 'ex-press',
+      visibility: 'shared',
+      created_at: '2026-05-22T12:00:00Z',
+      body: 'otro context_type, descartar',
+    },
+    {
+      id: 'n5',
+      author_role: 'coach',
+      context_type: 'exercise',
+      exercise_id: 'ex-squat',
+      visibility: 'shared',
+      created_at: '2026-05-15T12:00:00Z',
+      body: 'squat note',
+    },
+    {
+      id: 'n6',
+      author_role: 'coach',
+      context_type: 'exercise',
+      exercise_id: 'ex-press',
+      visibility: 'coach_private',
+      created_at: '2026-05-23T12:00:00Z',
+      body: 'privada — no contar',
+    },
+    {
+      id: 'n7',
+      author_role: 'coach',
+      context_type: 'exercise',
+      exercise_id: 'ex-press',
+      visibility: 'shared',
+      deleted_at: '2026-05-19T00:00:00Z',
+      created_at: '2026-05-19T00:00:00Z',
+      body: 'borrada — no contar',
+    },
+  ]
+
+  it('toma la nota MÁS reciente del coach, ignorando alumno/privada/borrada/otro contexto', () => {
+    const map = pickLastCoachNotePerExercise(notes)
+    expect(map.get('ex-press').id).toBe('n2')
+    expect(map.get('ex-press').body).toBe('reciente')
+    expect(map.get('ex-squat').id).toBe('n5')
+  })
+
+  it('no devuelve entries cuando solo hay notas del alumno', () => {
+    const onlyStudent = [
+      {
+        id: 's',
+        author_role: 'student',
+        context_type: 'exercise',
+        exercise_id: 'ex-press',
+        visibility: 'shared',
+        created_at: '2026-05-22T00:00:00Z',
+      },
+    ]
+    expect(pickLastCoachNotePerExercise(onlyStudent).size).toBe(0)
+  })
+
+  it('inputs vacíos / nulos no rompen', () => {
+    expect(pickLastCoachNotePerExercise([]).size).toBe(0)
+    expect(pickLastCoachNotePerExercise(null).size).toBe(0)
+  })
+})
+
+describe('countNotesByExercise', () => {
+  it('cuenta todas las notas shared, ambos roles', () => {
+    const notes = [
+      { id: 'a', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach' },
+      { id: 'b', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student' },
+      { id: 'c', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'coach_private', author_role: 'coach' },
+      { id: 'd', context_type: 'exercise', exercise_id: 'ex-2', visibility: 'shared', author_role: 'coach' },
+      { id: 'e', context_type: 'workout_log', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student' },
+      { id: 'f', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', deleted_at: 'x' },
+    ]
+    const map = countNotesByExercise(notes)
+    expect(map.get('ex-1')).toBe(2) // a + b (c privada, e otro context, f borrada)
+    expect(map.get('ex-2')).toBe(1)
+  })
+
+  it('inputs vacíos devuelven map vacío', () => {
+    expect(countNotesByExercise([]).size).toBe(0)
+    expect(countNotesByExercise(null).size).toBe(0)
+  })
+})
+
+describe('groupNotesByExercise', () => {
+  it('agrupa por exercise_id, orden ASC cronológico', () => {
+    const notes = [
+      { id: 'late', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-22T10:00:00Z' },
+      { id: 'mid', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student', created_at: '2026-05-20T10:00:00Z' },
+      { id: 'early', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-18T10:00:00Z' },
+      { id: 'other', context_type: 'exercise', exercise_id: 'ex-2', visibility: 'shared', author_role: 'coach', created_at: '2026-05-15T10:00:00Z' },
+    ]
+    const map = groupNotesByExercise(notes)
+    expect(map.get('ex-1').map((n) => n.id)).toEqual(['early', 'mid', 'late'])
+    expect(map.get('ex-2').length).toBe(1)
+  })
+
+  it('excluye coach_private + deleted + otros context_types', () => {
+    const notes = [
+      { id: 'priv', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'coach_private', author_role: 'coach', created_at: '2026-05-22T10:00:00Z' },
+      { id: 'del', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-21T10:00:00Z', deleted_at: 'x' },
+      { id: 'other-ctx', context_type: 'workout_log', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-21T10:00:00Z' },
+      { id: 'ok', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student', created_at: '2026-05-20T10:00:00Z' },
+    ]
+    const map = groupNotesByExercise(notes)
+    expect(map.get('ex-1').map((n) => n.id)).toEqual(['ok'])
+  })
+})
+
+describe('formatLastLogSummary', () => {
+  it('extrae peso máximo + reps máximo + PSE del jsonb', () => {
+    const log = {
+      actual_weights_jsonb: [20, 20, 22.5],
+      actual_reps_jsonb: [8, 8, 6],
+      actual_sets: 3,
+      perceived_difficulty: 8,
+    }
+    expect(formatLastLogSummary(log)).toBe('22.5kg · 8r · PSE 8')
+  })
+
+  it('fallback a legacy actual_weights string', () => {
+    const log = {
+      actual_weights: '[20, 22.5]',
+      actual_reps: '[8, 8]',
+      actual_sets: 2,
+    }
+    expect(formatLastLogSummary(log)).toBe('22.5kg · 8r')
+  })
+
+  it('bodyweight: solo reps (toma el máximo del array)', () => {
+    const log = {
+      actual_weights_jsonb: null,
+      actual_reps_jsonb: [12, 10],
+      actual_sets: 2,
+    }
+    expect(formatLastLogSummary(log)).toBe('12r')
+  })
+
+  it('sin peso ni reps, cae a sets', () => {
+    const log = { actual_sets: 3, perceived_difficulty: 7 }
+    expect(formatLastLogSummary(log)).toBe('3s · PSE 7')
+  })
+
+  it('null no rompe', () => {
+    expect(formatLastLogSummary(null)).toBe('')
+    expect(formatLastLogSummary(undefined)).toBe('')
+  })
+
+  it('formato numérico: enteros sin decimales, decimales sin trailing 0', () => {
+    const log = { actual_weights_jsonb: [22.5], actual_reps_jsonb: [10] }
+    expect(formatLastLogSummary(log)).toBe('22.5kg · 10r')
+
+    const log2 = { actual_weights_jsonb: [22.0], actual_reps_jsonb: [10] }
+    expect(formatLastLogSummary(log2)).toBe('22kg · 10r')
+  })
+})
+
+describe('formatLastBlockLogSummary', () => {
+  it('min + rondas + PSE', () => {
+    const bl = { actual_minutes: 20, actual_rounds: 3, perceived_difficulty: 7 }
+    expect(formatLastBlockLogSummary(bl)).toBe('20 min · 3 rondas · PSE 7')
+  })
+
+  it('omite partes faltantes', () => {
+    expect(formatLastBlockLogSummary({ actual_minutes: 15 })).toBe('15 min')
+    expect(formatLastBlockLogSummary({ perceived_difficulty: 6 })).toBe('PSE 6')
+  })
+
+  it('null no rompe', () => {
+    expect(formatLastBlockLogSummary(null)).toBe('')
+  })
+})
+
+describe('formatRelativeDate', () => {
+  const today = new Date('2026-05-23T15:00:00Z')
+
+  it('hoy / ayer / hace N días / DD/MM', () => {
+    expect(formatRelativeDate('2026-05-23', today)).toBe('hoy')
+    expect(formatRelativeDate('2026-05-22', today)).toBe('ayer')
+    expect(formatRelativeDate('2026-05-20', today)).toBe('hace 3 días')
+    expect(formatRelativeDate('2026-05-18', today)).toBe('hace 5 días')
+    expect(formatRelativeDate('2026-05-15', today)).toBe('15/05')
+    expect(formatRelativeDate('2025-12-30', today)).toBe('30/12')
+  })
+
+  it('vacío / null devuelve string vacío', () => {
+    expect(formatRelativeDate('', today)).toBe('')
+    expect(formatRelativeDate(null, today)).toBe('')
+  })
+})
