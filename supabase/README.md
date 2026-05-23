@@ -19,12 +19,12 @@ supabase/
 └── CONVENTIONS.md           (pendiente — ver propuesta 07)
 ```
 
-> **Doc viva del back:** ver `../docs/er-diagram.mermaid` (24 tablas + 48 FKs), `../docs/api-rpcs.md` (26 RPCs callable) y `../docs/known-exceptions.md` (trampas conocidas — RLS+RETURNING, archive.student_profiles mal ubicada, etc.).
+> **Doc viva del back:** ver `../docs/er-diagram.mermaid` (24 tablas + 48 FKs), `../docs/api-rpcs.md` (26 RPCs callable) y `../docs/known-exceptions.md` (trampas conocidas — RLS+RETURNING, snapshot inmutable de intake en `public.student_profiles`, etc.).
 
-## Estado del esquema (snapshot 2026-05-21)
+## Estado del esquema (snapshot 2026-05-23)
 
-- **24 tablas en `public`** — todas con RLS habilitada. Inventario completo en `../diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` sección 4.
-- **7 tablas en `archive`** — todas con RLS habilitada. `plan_assignments_backup_20260508`, `student_profiles` y los 5 `*_notes_20260517` (RLS habilitada el 2026-05-21 vía migración `enable_rls_on_archive_notes_backups`). Sin policies — deny-by-default, sólo `service_role` accede.
+- **25 tablas en `public`** — todas con RLS habilitada. Inventario completo en `../diagnostico_arquitec/03_auditoria_estructura_2026-05-20.md` sección 4. Nueva inquilina desde 2026-05-23: `student_profiles` (movida desde `archive` — snapshot inmutable del intake, ver `../docs/known-exceptions.md`).
+- **6 tablas en `archive`** — todas con RLS habilitada y **sin policies** (deny-by-default, sólo `service_role` accede). `plan_assignments_backup_20260508` y los 5 `*_notes_20260517` (RLS habilitada el 2026-05-21 vía migración `enable_rls_on_archive_notes_backups`). El schema ahora cumple la convención: 100% backups, sin tablas operacionales.
 - **48 migraciones registradas** en `supabase_migrations.schema_migrations`. Las v2-v21 no figuran ahí porque se aplicaron por SQL Editor antes de MCP/CLI — se preservan en `legacy/`.
 - **Advisors security:** 0 ERROR, 95 WARN (mayormente RPCs intencionalmente expuestas a `anon` — revisar caso por caso), 7 INFO (`rls_enabled_no_policy` en backups de `archive`, esperable). 1 WARN aparte (`auth_leaked_password_protection`) requiere toggle manual en Dashboard.
 

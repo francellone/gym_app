@@ -77,6 +77,14 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 
 **Total acumulado actualizado:** 23 migraciones atómicas. Cero rollbacks definitivos.
 
+### Día 10 (2026-05-23) — Limpieza schema `archive`
+
+| # | Migración | Bug atacado | Resumen |
+|---|---|---|---|
+| 24 | `move_student_profiles_to_public_with_clarifying_comments` | `archive.student_profiles` mal ubicada (pendiente desde 21/05, `known-exceptions.md` + `11_plan_tier_3_2.md §2.1`) | `ALTER TABLE archive.student_profiles SET SCHEMA public` + `COMMENT ON TABLE` + `COMMENT ON COLUMN` en 5 columnas. Las policies, FKs, trigger y RLS viajaron con la tabla. Diagnóstico previo encontró que la tabla estaba **huérfana** (0 RPCs y 0 archivos del front la referencian) — no era operacional como decía el doc 11. El move bajó el riesgo a casi cero; los COMMENTs evitan que cualquier dev futuro la confunda con source-of-truth (eso es `public.profiles`). Schema `archive` ahora cumple convención: 100% backups deny-by-default. Handoff 16. |
+
+**Total acumulado actualizado:** 24 migraciones atómicas. Cero rollbacks definitivos.
+
 ### Día 3 — Decisiones NO ejecutadas (registradas)
 
 | Hallazgo de la auditoría | Decisión |
@@ -123,7 +131,7 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 | Tabla | Razón |
 |---|---|
 | `archive.plan_assignments_backup_20260508` | Tabla de backup en `public` (12 filas, ya en producción) |
-| `archive.student_profiles` | Deprecada; datos consolidados en `profiles` |
+| ~~`archive.student_profiles`~~ | **Revertida 2026-05-23** (migración #24, handoff 16): se descubrió que era huérfana, no operacional. Movida de vuelta a `public.student_profiles` con `COMMENT ON TABLE` explícito que la marca como snapshot inmutable del intake (no source-of-truth). Source-of-truth sigue siendo `public.profiles`. |
 
 ### 2.2. CHECK constraints activos
 

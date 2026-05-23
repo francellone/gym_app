@@ -4,7 +4,7 @@ Catálogo de excepciones, dragons y "esto no es como parece" que ya pisamos al m
 
 Mantener este archivo es más barato que redescubrir cada bug. Cuando algún agente (o vos del futuro) caza una nueva trampa, sumá una entrada acá.
 
-Última actualización: 2026-05-21.
+Última actualización: 2026-05-23.
 
 ---
 
@@ -25,13 +25,13 @@ Mantener este archivo es más barato que redescubrir cada bug. Cuando algún age
 - **Causa**: `COMMENT ON TABLE profiles` documenta que no hay policy DELETE para preservar integridad referencial (un `DELETE` cascadearía contra `workout_logs`, `plan_assignments`, `notes`, `evaluation_results`, `notifications`, etc.).
 - **Mitigación**: "borrar" un alumno = `UPDATE profiles SET active=false` y/o `is_test=true`. Si se requiere borrado real en el futuro, exponer endpoint admin con `service_role`, no policy DELETE.
 
-### `archive.student_profiles` está mal ubicada — es tabla operacional, no backup
+### `public.student_profiles` es snapshot inmutable del intake, NO source-of-truth
 
-- **Síntoma**: hay una tabla en schema `archive` con 4 filas vivas, 13 columnas operacionales (`objetivo_principal`, `nivel_experiencia`, `frecuencia_semanal`, `tiene_lesiones`, etc.) y 2 policies activas (`coach_read_own_student_profiles`, `student_manage_own_student_profiles`).
-- **Causa**: histórico — quedó en `archive` por una migración interrumpida que no se completó.
-- **Riesgo**: la convención del repo es "archive = backup deny-by-default, sólo `service_role`". Si alguien hace `DROP SCHEMA archive CASCADE` para limpiar backups, se lleva data viva.
-- **Mitigación**: mover a `public.student_profiles` con migración `<timestamp>_move_student_profiles_out_of_archive.sql` (rename + ajustar refs en el front). Está pendiente desde el 21/05 PM (handoff `10_*`, mencionado en `11_*` §2.1).
-- **Diferencial vs los 6 backups reales** (`*_notes_20260517`, `plan_assignments_backup_20260508`): los backups reales tienen **0 policies**, deny-by-default. Esta tiene 2.
+- **Síntoma**: existe una tabla `public.student_profiles` (4 filas) con columnas que parecen "perfil del alumno" (`objetivo_principal`, `nivel_experiencia`, `frecuencia_semanal`, `lugar_entrenamiento`, `tiene_lesiones`, `patologias`, `nombre`, `apellido`). Tentador leerla en features nuevas → **no hacerlo**.
+- **Realidad**: es snapshot inmutable del intake form al momento de alta. Los datos vivos del perfil viven en `public.profiles` (`goal`, `level`, `weekly_frequency`, `lugar_entrenamiento`, `tiene_lesiones`, `patologias`, `descripcion_lesiones`, `weight_kg`, `height_cm`, `target_weight_kg`). `public.intake_form_submissions.responses` contiene la misma data en jsonb cuando `submission_id IS NOT NULL`.
+- **Mitigación / defensa**: la tabla tiene `COMMENT ON TABLE` explícito + `COMMENT ON COLUMN` en `objetivo_principal`, `nivel_experiencia`, `frecuencia_semanal`, `raw_data`, `submission_id` que apuntan a sus equivalentes operacionales. Cualquier `\d+ public.student_profiles` en psql o introspección por dashboard lo muestra. Si abrís un PR que lea de esta tabla, asumí que estás en el camino equivocado y mirá `public.profiles` primero.
+- **Por qué se mantiene viva**: valor histórico — saber qué dijo el alumno cuando arrancó (antes de cualquier edición posterior del coach o del propio alumno). Útil eventualmente para F8 (historial de peso/objetivo) si se quiere mostrar el valor "original" del intake como baseline.
+- **Cero callers actuales**: 0 funciones Postgres la referencian, 0 archivos del front la referencian. `process_intake_submission` lee de `intake_form_submissions.responses` y escribe directo a `public.profiles`.
 
 ---
 
@@ -155,3 +155,15 @@ No confundir: secuencia ≠ substitución. La UI las muestra distinto.
 2. Estructura: **síntoma** → **causa** → **mitigación**. Sin esa estructura el archivo se vuelve un montón de prosa que nadie relee.
 3. Si la entrada lleva a cambio de código o nueva migración: linkear al commit / migración / handoff que la fixea.
 4. Si una entrada queda **obsoleta** (porque se fixeó el patrón estructural, no sólo el caso puntual): no la borres — agregá un encabezado `### [RESUELTA <fecha>] <título>` y movela al final del documento, archivada. Mostrar el "antes" sigue siendo útil.
+
+---
+
+## Entradas resueltas (archivo)
+
+### [RESUELTA 2026-05-23] `archive.student_profiles` mal ubicada
+
+- **Síntoma original (vigente hasta el 23/05)**: tabla en schema `archive` con 4 filas vivas, 13 columnas, 2 policies activas (`coach_read_own_student_profiles`, `student_manage_own_student_profiles`). Convención del repo dice "archive = backup deny-by-default sólo `service_role`" — esta no cumplía.
+- **Causa**: histórico — quedó en `archive` por una migración interrumpida que no se completó.
+- **Resolución**: migración `move_student_profiles_to_public_with_clarifying_comments` (2026-05-23, handoff 16). `ALTER TABLE archive.student_profiles SET SCHEMA public` + `COMMENT ON TABLE` + `COMMENT ON COLUMN` en 5 columnas para que cualquier dev/agente futuro entienda que es snapshot inmutable del intake (no source-of-truth). Policies, FKs, trigger y RLS viajaron con la tabla automáticamente.
+- **Hallazgo en el diagnóstico previo**: la tabla estaba huérfana (0 funciones Postgres la referencian, 0 archivos del front la referencian). NO era operacional como se asumía en el doc 11 §2.1 — era residuo del flujo original del intake que `process_intake_submission` ya no usa (proyecta directo a `public.profiles`). Esto bajó el riesgo del move a casi cero (sin refactor en front).
+- **Defensa contra recaída**: ver entrada vigente "`public.student_profiles` es snapshot inmutable del intake, NO source-of-truth" más arriba.
