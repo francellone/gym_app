@@ -26,6 +26,30 @@ export const ALERT_THRESHOLDS = {
   HIGH_RPE_THRESHOLD: 8, // PSE >= N considerado alto
   HIGH_RPE_MIN_OCCURRENCES: 3, // al menos N ocurrencias
   HIGH_RPE_WINDOW_DAYS: 14, // dentro de los últimos N días
+
+  // ── G2 (Fase C.5 doc 19) ──
+  // Fatiga / recuperación mala: energy_level <= N o muscle_fatigue >= N
+  // sostenidos en M+ días dentro de WELLBEING_WINDOW_DAYS.
+  LOW_ENERGY_THRESHOLD: 5,
+  HIGH_MUSCLE_FATIGUE_THRESHOLD: 7,
+  FATIGUE_MIN_DAYS: 3,
+  // Baja motivación: stress_level >= N en M+ días, o energy<=4 + stress>=6.
+  HIGH_STRESS_THRESHOLD: 7,
+  LOW_MOTIVATION_MIN_DAYS: 3,
+  // Ventana para las alertas basadas en wellbeing.
+  WELLBEING_WINDOW_DAYS: 14,
+  // Dolor repetido: keyword search en wellbeing_logs.notes
+  PAIN_KEYWORDS: ['dolor', 'molestia', 'duele', 'me molesta', 'sigue molestando', 'lesion', 'lesión'],
+  PAIN_MIN_MENTIONS: 1, // bajado de 2→1 (decisión Franco 23/05 noche)
+  PAIN_WINDOW_DAYS: 21,
+  // Estancamiento: sin subir max(actual_weight) en N días.
+  STAGNATION_WINDOW_DAYS: 21,
+  STAGNATION_MIN_LOGS: 6, // legacy aggregate (kept para compat)
+  // Por ejercicio: mínimo de logs para considerar la señal en un ejercicio.
+  STAGNATION_PER_EXERCISE_MIN_LOGS: 3,
+  // Dolor: muscle_fatigue alto sostenido como señal complementaria.
+  MUSCLE_FATIGUE_PAIN_THRESHOLD: 8,
+  MUSCLE_FATIGUE_PAIN_MIN_DAYS: 3,
 }
 
 // ── Date utils ────────────────────────────────────────────────
@@ -261,12 +285,335 @@ export function computeHighRpeStudents(students, recentLogs, today = new Date())
 }
 
 // ============================================================
+// 6. Fatiga / recuperación mala (G2 doc 19 Fase C.5)
+// ------------------------------------------------------------
+// Alumnos con wellbeing_logs sostenidamente "malos" en la ventana:
+//   - energy_level <= LOW_ENERGY_THRESHOLD en FATIGUE_MIN_DAYS+ días, O
+//   - muscle_fatigue >= HIGH_MUSCLE_FATIGUE_THRESHOLD en FATIGUE_MIN_DAYS+ días
+//
+// Inputs:
+//   students         activos
+//   wellbeingLogs   [{ user_id, date, energy_level, muscle_fatigue, ... }]
+// ============================================================
+export function computeFatigueStudents(students, wellbeingLogs, today = new Date()) {
+  const todayD = startOfDay(today)
+  const windowStart = addDays(todayD, -ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
+
+  // counts[userId] = { lowEnergy, highFatigue, peak: { lowEnergy, highFatigue } }
+  const counts = new Map()
+  for (const w of wellbeingLogs || []) {
+    const d = parseYMD(w.date)
+    if (!d || d < windowStart || d > todayD) continue
+    const sid = w.user_id
+    const prev = counts.get(sid) || {
+      lowEnergyDays: 0,
+      highFatigueDays: 0,
+      minEnergy: 10,
+      maxFatigue: 0,
+    }
+    if (Number(w.energy_level) > 0 && Number(w.energy_level) <= ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD) {
+      prev.lowEnergyDays += 1
+      if (Number(w.energy_level) < prev.minEnergy) prev.minEnergy = Number(w.energy_level)
+    }
+    if (Number(w.muscle_fatigue) >= ALERT_THRESHOLDS.HIGH_MUSCLE_FATIGUE_THRESHOLD) {
+      prev.highFatigueDays += 1
+      if (Number(w.muscle_fatigue) > prev.maxFatigue) prev.maxFatigue = Number(w.muscle_fatigue)
+    }
+    counts.set(sid, prev)
+  }
+
+  const out = []
+  for (const s of students || []) {
+    const stats = counts.get(s.id)
+    if (!stats) continue
+    const triggers = []
+    if (stats.lowEnergyDays >= ALERT_THRESHOLDS.FATIGUE_MIN_DAYS) {
+      triggers.push(`energía ≤${ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD} en ${stats.lowEnergyDays} días`)
+    }
+    if (stats.highFatigueDays >= ALERT_THRESHOLDS.FATIGUE_MIN_DAYS) {
+      triggers.push(
+        `fatiga muscular ≥${ALERT_THRESHOLDS.HIGH_MUSCLE_FATIGUE_THRESHOLD} en ${stats.highFatigueDays} días`
+      )
+    }
+    if (triggers.length === 0) continue
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      triggers,
+      lowEnergyDays: stats.lowEnergyDays,
+      highFatigueDays: stats.highFatigueDays,
+      minEnergy: stats.minEnergy === 10 ? null : stats.minEnergy,
+      maxFatigue: stats.maxFatigue || null,
+    })
+  }
+  out.sort(
+    (a, b) =>
+      b.lowEnergyDays + b.highFatigueDays - (a.lowEnergyDays + a.highFatigueDays)
+  )
+  return out
+}
+
+// ============================================================
+// 7. Baja motivación (G2 doc 19 Fase C.5)
+// ------------------------------------------------------------
+// Stress sostenido alto, o combinación de stress alto + energía baja.
+// Notas: no se hace NLP de las notes (Anto pidió, pero requiere
+// keywords validadas y modelo de lenguaje). Versión v1 con señales
+// numéricas + flag de keywords desmotivacionales si están presentes.
+// ============================================================
+const LOW_MOTIVATION_KEYWORDS = [
+  'sin ganas',
+  'desmotivad',
+  'no tengo ganas',
+  'cansad',
+  'aburrid',
+  'no aguanto',
+]
+
+export function computeLowMotivationStudents(students, wellbeingLogs, today = new Date()) {
+  const todayD = startOfDay(today)
+  const windowStart = addDays(todayD, -ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
+
+  const counts = new Map()
+  for (const w of wellbeingLogs || []) {
+    const d = parseYMD(w.date)
+    if (!d || d < windowStart || d > todayD) continue
+    const sid = w.user_id
+    const prev = counts.get(sid) || { stressDays: 0, comboDays: 0, keywordHits: 0 }
+    const stress = Number(w.stress_level)
+    const energy = Number(w.energy_level)
+    if (stress >= ALERT_THRESHOLDS.HIGH_STRESS_THRESHOLD) prev.stressDays += 1
+    if (stress >= 6 && energy > 0 && energy <= 4) prev.comboDays += 1
+    if (w.notes && typeof w.notes === 'string') {
+      const lower = w.notes.toLowerCase()
+      if (LOW_MOTIVATION_KEYWORDS.some((k) => lower.includes(k))) prev.keywordHits += 1
+    }
+    counts.set(sid, prev)
+  }
+
+  const out = []
+  for (const s of students || []) {
+    const stats = counts.get(s.id)
+    if (!stats) continue
+    const triggers = []
+    if (stats.stressDays >= ALERT_THRESHOLDS.LOW_MOTIVATION_MIN_DAYS) {
+      triggers.push(`estrés ≥${ALERT_THRESHOLDS.HIGH_STRESS_THRESHOLD} en ${stats.stressDays} días`)
+    }
+    if (stats.comboDays >= ALERT_THRESHOLDS.LOW_MOTIVATION_MIN_DAYS) {
+      triggers.push(`estrés alto + energía baja en ${stats.comboDays} días`)
+    }
+    if (stats.keywordHits > 0) {
+      triggers.push(`${stats.keywordHits} mención${stats.keywordHits === 1 ? '' : 'es'} desmotivacional${stats.keywordHits === 1 ? '' : 'es'} en notas`)
+    }
+    if (triggers.length === 0) continue
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      triggers,
+      stressDays: stats.stressDays,
+      comboDays: stats.comboDays,
+      keywordHits: stats.keywordHits,
+    })
+  }
+  out.sort((a, b) => b.stressDays + b.comboDays - (a.stressDays + a.comboDays))
+  return out
+}
+
+// ============================================================
+// 8. Dolor repetido (G2 doc 19 Fase C.5)
+// ------------------------------------------------------------
+// Búsqueda de keywords de dolor en wellbeing_logs.notes en la
+// ventana PAIN_WINDOW_DAYS. Si aparecen >= PAIN_MIN_MENTIONS, alerta.
+//
+// LIMITACIÓN: sin tabla específica de dolor por zona corporal, esto
+// es approximation por keyword. Documentado en doc 19. Cuando exista
+// pain_logs o un campo estructurado, reemplazar esta función.
+// ============================================================
+export function computePainStudents(students, wellbeingLogs, today = new Date()) {
+  const todayD = startOfDay(today)
+  const windowStart = addDays(todayD, -ALERT_THRESHOLDS.PAIN_WINDOW_DAYS)
+  const fatigueWindowStart = addDays(todayD, -ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
+  const keywords = ALERT_THRESHOLDS.PAIN_KEYWORDS
+
+  // hits[userId] = { kwCount, kwLastDate, kwLastSnippet, fatigueDays, fatigueMax }
+  const hits = new Map()
+
+  for (const w of wellbeingLogs || []) {
+    const d = parseYMD(w.date)
+    if (!d) continue
+
+    const sid = w.user_id
+    const prev = hits.get(sid) || {
+      kwCount: 0,
+      kwLastDate: null,
+      kwLastSnippet: '',
+      fatigueDays: 0,
+      fatigueMax: 0,
+    }
+
+    // Keyword search en notas (ventana PAIN_WINDOW_DAYS).
+    if (
+      d >= windowStart &&
+      d <= todayD &&
+      typeof w.notes === 'string' &&
+      w.notes.length > 0
+    ) {
+      const lower = w.notes.toLowerCase()
+      if (keywords.some((k) => lower.includes(k))) {
+        prev.kwCount += 1
+        if (!prev.kwLastDate || d > parseYMD(prev.kwLastDate)) {
+          prev.kwLastDate = w.date
+          prev.kwLastSnippet = w.notes.slice(0, 80)
+        }
+      }
+    }
+
+    // Muscle fatigue alto sostenido (ventana WELLBEING_WINDOW_DAYS).
+    if (d >= fatigueWindowStart && d <= todayD) {
+      const mf = Number(w.muscle_fatigue)
+      if (Number.isFinite(mf) && mf >= ALERT_THRESHOLDS.MUSCLE_FATIGUE_PAIN_THRESHOLD) {
+        prev.fatigueDays += 1
+        if (mf > prev.fatigueMax) prev.fatigueMax = mf
+      }
+    }
+
+    hits.set(sid, prev)
+  }
+
+  const out = []
+  for (const s of students || []) {
+    const stats = hits.get(s.id)
+    if (!stats) continue
+    const triggers = []
+    if (stats.kwCount >= ALERT_THRESHOLDS.PAIN_MIN_MENTIONS) {
+      triggers.push(
+        `${stats.kwCount} mención${stats.kwCount === 1 ? '' : 'es'} en notas`
+      )
+    }
+    if (stats.fatigueDays >= ALERT_THRESHOLDS.MUSCLE_FATIGUE_PAIN_MIN_DAYS) {
+      triggers.push(
+        `fatiga muscular ≥${ALERT_THRESHOLDS.MUSCLE_FATIGUE_PAIN_THRESHOLD} en ${stats.fatigueDays} días`
+      )
+    }
+    if (triggers.length === 0) continue
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      mentions: stats.kwCount,
+      lastDate: stats.kwLastDate,
+      lastNoteSnippet: stats.kwLastSnippet,
+      fatigueDays: stats.fatigueDays,
+      fatigueMax: stats.fatigueMax || null,
+      triggers,
+    })
+  }
+  out.sort(
+    (a, b) =>
+      b.mentions + b.fatigueDays - (a.mentions + a.fatigueDays) ||
+      b.mentions - a.mentions
+  )
+  return out
+}
+
+// ============================================================
+// 9. Estancamiento POR EJERCICIO (G2 doc 19 Fase C.5 — refactor 2026-05-23)
+// ------------------------------------------------------------
+// Versión por ejercicio: en lugar de aggregate por alumno, mira
+// cada (student, exercise) y compara max(actual_weight) de la primera
+// mitad vs segunda mitad de la ventana STAGNATION_WINDOW_DAYS.
+//
+// Un ejercicio queda flaggeado como estancado si:
+//   - tiene al menos STAGNATION_PER_EXERCISE_MIN_LOGS logs en la ventana
+//   - max(actual_weight) primera mitad > 0
+//   - max(actual_weight) segunda mitad > 0
+//   - segunda <= primera (no subió)
+//
+// Un alumno aparece en la alerta si tiene >= 1 ejercicio estancado.
+// El subtítulo lista los ejercicios concretos (matchea mockup G2:
+// "Sentadilla sin mejoras hace 3 semanas").
+//
+// Inputs:
+//   students    activos
+//   recentLogs  [{ student_id, logged_date, actual_weight, plan_exercise_id,
+//                  plan_exercise: { exercise: { id, name } } }]
+// ============================================================
+export function computeStagnationByExercise(students, recentLogs, today = new Date()) {
+  const todayD = startOfDay(today)
+  const windowStart = addDays(todayD, -ALERT_THRESHOLDS.STAGNATION_WINDOW_DAYS)
+  const halfMs = (todayD.getTime() - windowStart.getTime()) / 2
+  const midpoint = new Date(windowStart.getTime() + halfMs)
+
+  // (student, exercise) → { firstMax, secondMax, count, exerciseName }
+  const buckets = new Map()
+  for (const log of recentLogs || []) {
+    const d = parseYMD(log.logged_date)
+    if (!d || d < windowStart || d > todayD) continue
+    const w = Number(log.actual_weight)
+    if (!Number.isFinite(w) || w <= 0) continue
+    const exId = log.plan_exercise?.exercise?.id
+    const exName = log.plan_exercise?.exercise?.name
+    if (!exId) continue
+
+    const key = `${log.student_id}__${exId}`
+    const prev = buckets.get(key) || {
+      firstMax: 0,
+      secondMax: 0,
+      count: 0,
+      exerciseName: exName || 'Ejercicio sin nombre',
+      studentId: log.student_id,
+      exerciseId: exId,
+    }
+    prev.count += 1
+    if (d < midpoint) {
+      if (w > prev.firstMax) prev.firstMax = w
+    } else {
+      if (w > prev.secondMax) prev.secondMax = w
+    }
+    buckets.set(key, prev)
+  }
+
+  // Acumular ejercicios estancados por alumno.
+  const studentStagnant = new Map() // studentId → stagnant exercises[]
+  for (const [, stats] of buckets) {
+    if (stats.count < ALERT_THRESHOLDS.STAGNATION_PER_EXERCISE_MIN_LOGS) continue
+    if (stats.firstMax === 0 || stats.secondMax === 0) continue
+    if (stats.secondMax > stats.firstMax) continue
+    const list = studentStagnant.get(stats.studentId) || []
+    list.push({
+      exerciseId: stats.exerciseId,
+      exerciseName: stats.exerciseName,
+      firstMax: stats.firstMax,
+      secondMax: stats.secondMax,
+      logsCount: stats.count,
+    })
+    studentStagnant.set(stats.studentId, list)
+  }
+
+  const out = []
+  for (const s of students || []) {
+    const stagnant = studentStagnant.get(s.id)
+    if (!stagnant || stagnant.length === 0) continue
+    // Orden interno: más logs (más señal) primero.
+    stagnant.sort((a, b) => b.logsCount - a.logsCount)
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      stagnantExercises: stagnant,
+      count: stagnant.length,
+    })
+  }
+  out.sort((a, b) => b.count - a.count)
+  return out
+}
+
+// ============================================================
 // computeAllAlerts — orquestador
 // ============================================================
 export function computeAllAlerts({
   students,
   lastLogDateByStudent,
   recentLogs,
+  wellbeingLogs = [],
   today = new Date(),
 }) {
   const { overdue, dueSoon } = computePaymentAlerts(students, today)
@@ -277,6 +624,10 @@ export function computeAllAlerts({
     planExpiringSoon: computePlanExpiringSoon(students, today),
     inactiveStudents: computeInactiveStudents(students, lastLogDateByStudent, today),
     highRpeStudents: computeHighRpeStudents(students, recentLogs, today),
+    fatigueStudents: computeFatigueStudents(students, wellbeingLogs, today),
+    lowMotivationStudents: computeLowMotivationStudents(students, wellbeingLogs, today),
+    painStudents: computePainStudents(students, wellbeingLogs, today),
+    stagnationStudents: computeStagnationByExercise(students, recentLogs, today),
   }
 }
 
@@ -327,14 +678,46 @@ export const ALERT_KIND = {
     borderClass: 'border-l-gray-300',
     accentClass: 'text-gray-500',
   },
+  fatigueStudents: {
+    key: 'fatigueStudents',
+    label: 'Fatiga / recuperación mala',
+    icon: '😪',
+    borderClass: 'border-l-indigo-400',
+    accentClass: 'text-indigo-600',
+  },
+  lowMotivationStudents: {
+    key: 'lowMotivationStudents',
+    label: 'Baja motivación',
+    icon: '😞',
+    borderClass: 'border-l-pink-400',
+    accentClass: 'text-pink-600',
+  },
+  painStudents: {
+    key: 'painStudents',
+    label: 'Dolor repetido',
+    icon: '🤕',
+    borderClass: 'border-l-amber-400',
+    accentClass: 'text-amber-600',
+  },
+  stagnationStudents: {
+    key: 'stagnationStudents',
+    label: 'Estancamiento',
+    icon: '📉',
+    borderClass: 'border-l-slate-400',
+    accentClass: 'text-slate-600',
+  },
 }
 
 // Orden recomendado en la UI (de más urgente a menos).
 export const ALERT_RENDER_ORDER = [
   'overdue',
+  'painStudents', // dolor — atender rápido por riesgo de lesión
+  'fatigueStudents', // fatiga — ajustar carga
   'planExpiringSoon',
   'dueSoon',
   'inactiveStudents',
+  'lowMotivationStudents',
+  'stagnationStudents',
   'highRpeStudents',
   'noActivePlan',
 ]

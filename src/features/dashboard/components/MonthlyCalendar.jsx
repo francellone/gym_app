@@ -71,13 +71,21 @@ function sameYMD(a, b) {
   return toYMD(a) === toYMD(b)
 }
 
-export default function MonthlyCalendar() {
+export default function MonthlyCalendar({ controlledSelectedIds = null } = {}) {
   const today = useMemo(() => startOfDay(new Date()), [])
   const [monthAnchor, setMonthAnchor] = useState(today)
-  const [selectedIds, setSelectedIds] = useState([])
+  const [internalSelectedIds, setInternalSelectedIds] = useState([])
   const [openDay, setOpenDay] = useState(null) // YMD string
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Sync con filtro global del CoachDashboard (Fase C.4 doc 19): si el
+  // padre pasa controlledSelectedIds, usamos esos y deshabilitamos el
+  // filter bar interno. Si pasa null, mantenemos el comportamiento
+  // self-contained histórico.
+  const isControlled = Array.isArray(controlledSelectedIds)
+  const selectedIds = isControlled ? controlledSelectedIds : internalSelectedIds
+  const setSelectedIds = isControlled ? () => {} : setInternalSelectedIds
 
   const { loading, students, selectedStudents, eventsByDate, perStudentDays, window } =
     useCoachCalendarData(monthAnchor, selectedIds)
@@ -114,7 +122,8 @@ export default function MonthlyCalendar() {
   }
 
   function toggleStudent(id) {
-    setSelectedIds((curr) => {
+    if (isControlled) return // filter bar interno deshabilitado
+    setInternalSelectedIds((curr) => {
       if (curr.includes(id)) return curr.filter((x) => x !== id)
       if (curr.length >= MAX_COMPARISON) return curr
       return [...curr, id]
@@ -196,7 +205,7 @@ export default function MonthlyCalendar() {
           >
             Hoy
           </button>
-          {selectedIds.length < MAX_COMPARISON && (
+          {selectedIds.length < MAX_COMPARISON && !isControlled && (
             <button
               onClick={() => setSearchOpen((v) => !v)}
               className={[
@@ -214,6 +223,11 @@ export default function MonthlyCalendar() {
               </span>
             </button>
           )}
+          {isControlled && (
+            <span className="text-[11px] text-gray-400 italic ml-1">
+              Filtro global activo
+            </span>
+          )}
         </div>
       </div>
 
@@ -224,16 +238,17 @@ export default function MonthlyCalendar() {
             <div className="flex items-center gap-1.5 flex-wrap">
               {selectedStudents.map((s) => {
                 const color = studentColors.get(s.id) || COMPARISON_PALETTE[0]
+                const Tag = isControlled ? 'span' : 'button'
                 return (
-                  <button
+                  <Tag
                     key={s.id}
-                    onClick={() => toggleStudent(s.id)}
-                    className={`inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-full border text-xs font-medium ${color.chipClass}`}
+                    onClick={isControlled ? undefined : () => toggleStudent(s.id)}
+                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-medium ${color.chipClass}`}
                   >
                     <span className={`w-2 h-2 rounded-full ${color.dotClass}`} />
                     <span className="truncate max-w-[120px]">{s.name}</span>
-                    <X size={12} />
-                  </button>
+                    {!isControlled && <X size={12} />}
+                  </Tag>
                 )
               })}
               {selectedIds.length >= MAX_COMPARISON && (

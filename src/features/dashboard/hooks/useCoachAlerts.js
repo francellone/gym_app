@@ -33,6 +33,7 @@ export default function useCoachAlerts() {
   const [error, setError] = useState(null)
   const [students, setStudents] = useState([])
   const [logs, setLogs] = useState([])
+  const [wellbeingLogs, setWellbeingLogs] = useState([])
   const [refreshTick, setRefreshTick] = useState(0)
   const reqIdRef = useRef(0)
 
@@ -46,10 +47,19 @@ export default function useCoachAlerts() {
       try {
         const today = new Date()
         const ymdToday = formatYMD(today)
-        const logsLookbackDays = Math.max(30, ALERT_THRESHOLDS.HIGH_RPE_WINDOW_DAYS + 1)
+        const logsLookbackDays = Math.max(
+          30,
+          ALERT_THRESHOLDS.HIGH_RPE_WINDOW_DAYS + 1,
+          ALERT_THRESHOLDS.STAGNATION_WINDOW_DAYS + 1
+        )
         const ymdSince = formatYMD(addDaysSafe(today, -logsLookbackDays))
+        const wellbeingLookbackDays = Math.max(
+          ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS,
+          ALERT_THRESHOLDS.PAIN_WINDOW_DAYS
+        )
+        const ymdWellbeingSince = formatYMD(addDaysSafe(today, -wellbeingLookbackDays))
 
-        const [studentsRes, logsRes] = await Promise.all([
+        const [studentsRes, logsRes, wellbeingRes] = await Promise.all([
           supabase
             .from('profiles')
             .select(
@@ -63,20 +73,34 @@ export default function useCoachAlerts() {
             )
             .eq('role', 'student')
             .eq('active', true),
+          // Sumamos actual_weight + plan_exercise → exercise.name para que
+          // la alerta de estancamiento sea por ejercicio (no aggregate).
           supabase
             .from('workout_logs')
-            .select('student_id, logged_date, perceived_difficulty')
+            .select(
+              `student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
+               plan_exercise:plan_exercises!plan_exercise_id(
+                 exercise:exercises!exercise_id(id, name)
+               )`
+            )
             .gte('logged_date', ymdSince)
             .lte('logged_date', ymdToday),
+          supabase
+            .from('wellbeing_logs')
+            .select('user_id, date, energy_level, muscle_fatigue, stress_level, notes')
+            .gte('date', ymdWellbeingSince)
+            .lte('date', ymdToday),
         ])
 
         if (cancelled || reqIdRef.current !== myReqId) return
 
         if (studentsRes.error) throw studentsRes.error
         if (logsRes.error) throw logsRes.error
+        if (wellbeingRes.error) throw wellbeingRes.error
 
         setStudents(studentsRes.data || [])
         setLogs(logsRes.data || [])
+        setWellbeingLogs(wellbeingRes.data || [])
       } catch (err) {
         console.error('[useCoachAlerts] fetch', err)
         if (!cancelled && reqIdRef.current === myReqId) setError(err)
@@ -110,9 +134,10 @@ export default function useCoachAlerts() {
         students,
         lastLogDateByStudent,
         recentLogs: logs,
+        wellbeingLogs,
         today: new Date(),
       }),
-    [students, lastLogDateByStudent, logs]
+    [students, lastLogDateByStudent, logs, wellbeingLogs]
   )
 
   function refresh() {
