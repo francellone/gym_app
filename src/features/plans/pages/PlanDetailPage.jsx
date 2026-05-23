@@ -395,7 +395,9 @@ function AerobicBlockSummary({ block }) {
   const intensity = INTENSITY_LEVELS.find((i) => i.key === block.aerobic_intensity)
   const zone = AEROBIC_ZONES.find((z) => z.key === block.aerobic_zone)
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
-  const exerciseName = block.plan_exercises?.[0]?.exercise?.name
+  const mainExercise = block.plan_exercises?.[0]?.exercise
+  const exerciseName = mainExercise?.name
+  const exerciseVideo = mainExercise?.video_url
 
   return (
     <div className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-3.5 space-y-2">
@@ -417,7 +419,23 @@ function AerobicBlockSummary({ block }) {
             {intensity.label}
           </span>
         )}
-        {exerciseName && <span className="text-xs text-sky-700/80">· {exerciseName}</span>}
+        {exerciseName && (
+          <span className="text-xs text-sky-700/80 inline-flex items-center gap-1">
+            · {exerciseName}
+            {exerciseVideo && exerciseVideo.startsWith('http') && (
+              <a
+                href={exerciseVideo}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="plan-ex-video-btn"
+                title="Ver video"
+              >
+                <ExternalLink size={12} />
+              </a>
+            )}
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-sky-800">
@@ -549,6 +567,18 @@ function CircuitBlockSummary({ block }) {
                   <span className="text-xs text-gray-800 flex-1 truncate">
                     {ex.exercise?.name || 'Sin ejercicio'}
                   </span>
+                  {ex.exercise?.video_url && ex.exercise.video_url.startsWith('http') && (
+                    <a
+                      href={ex.exercise.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="plan-ex-video-btn"
+                      title="Ver video"
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                   <span className="text-[11px] text-gray-500 font-mono whitespace-nowrap">
                     {isTime
                       ? `${ex.duration_seconds || '—'}s`
@@ -692,14 +722,10 @@ export default function PlanDetailPage() {
     }
   }, [activeSections.length])
 
-  const groupedBySection = {}
-  for (const s of activeSections) {
-    groupedBySection[s.id] = exercises
-      .filter((e) => e.section === s.id)
-      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-  }
-
-  // Agrupar plan_blocks (con sus ejercicios) por sección, separando por tipo
+  // Agrupar plan_blocks (con sus ejercicios) por sección, separando por tipo.
+  // Los ejercicios de cada bloque se mantienen aislados por block_type — esto
+  // es lo que evita que ejercicios de un bloque circuit/aerobic se intercalen
+  // en la tabla de fuerza (bug B1 — Anto 2026-05-21).
   const blocksBySectionTyped = {}
   {
     const allGrouped = groupExercisesIntoBlocks(exercises, planBlocks)
@@ -713,6 +739,17 @@ export default function PlanDetailPage() {
         circuit: sectionBlocks.filter((b) => b.block_type === 'circuit'),
       }
     }
+  }
+
+  // Ejercicios de FUERZA por sección: derivados de los bloques strength
+  // (incluye bloques virtuales para planes viejos sin block_id, que
+  // groupExercisesIntoBlocks crea como strength por default).
+  const strengthExercisesBySection = {}
+  for (const s of activeSections) {
+    const strengthBlocks = blocksBySectionTyped[s.id]?.strength || []
+    strengthExercisesBySection[s.id] = strengthBlocks
+      .flatMap((b) => b.plan_exercises || [])
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
   }
 
   const totalExercises = exercises.length
@@ -1001,7 +1038,7 @@ export default function PlanDetailPage() {
               }
               const hasAerobic = typed.aerobic.length > 0
               const hasCircuit = typed.circuit.length > 0
-              const strengthExercises = groupedBySection[currentSection.id] || []
+              const strengthExercises = strengthExercisesBySection[currentSection.id] || []
               const hasStrength = strengthExercises.length > 0
               const hasAnything = hasStrength || hasAerobic || hasCircuit
 
