@@ -18,6 +18,7 @@ import {
   getStudentThread,
 } from '@/features/notes/api'
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
+import { cleanupStaleDrafts } from '../draftStorage'
 import BlockRenderer from '../components/BlockRenderer'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
@@ -144,6 +145,15 @@ export default function TodayWorkoutPage() {
   useEffect(() => {
     if (profile?.id) fetchWorkout()
   }, [profile, selectedDate])
+
+  // F4 (doc 23) — cleanup oportunista de drafts huérfanos al boot.
+  // Barre: drafts de otros alumnos (cambio de cuenta en mismo browser),
+  // drafts con loggedDate más viejos que 7d, envelopes corruptos o de
+  // versión vieja. Corre una vez por carga, costo despreciable.
+  useEffect(() => {
+    if (!profile?.id) return
+    cleanupStaleDrafts({ studentId: profile.id })
+  }, [profile?.id])
 
   // Al cambiar de fecha, resetear los triggers de PSE y de aviso de wellbeing
   useEffect(() => {
@@ -1074,6 +1084,8 @@ export default function TodayWorkoutPage() {
                     lastCoachNoteByExercise={lastCoachNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
+                    studentId={profile?.id || null}
+                    loggedDate={selectedDate}
                   />
                 ))}
               </div>
@@ -1103,6 +1115,8 @@ export default function TodayWorkoutPage() {
                     lastCoachNoteByExercise={lastCoachNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
+                    studentId={profile?.id || null}
+                    loggedDate={selectedDate}
                   />
                 ))}
               </div>

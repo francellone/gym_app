@@ -31,6 +31,9 @@ export default function BlockRenderer({
   lastCoachNoteByExercise,
   noteCountByExercise,
   onOpenChat,
+  // F4 — passthrough a ExerciseCard para draft local
+  studentId = null,
+  loggedDate = null,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -82,6 +85,9 @@ export default function BlockRenderer({
       lastCoachNoteByExercise={lastCoachNoteByExercise}
       noteCountByExercise={noteCountByExercise}
       onOpenChat={onOpenChat}
+      // F4 — draft local en ExerciseCard
+      studentId={studentId}
+      loggedDate={loggedDate}
     />
   )
 }

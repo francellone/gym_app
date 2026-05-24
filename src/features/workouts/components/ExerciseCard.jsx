@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   Circle,
@@ -8,6 +8,7 @@ import {
   Lock,
   Trash2,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react'
 import {
   parseReps,
@@ -25,6 +26,9 @@ import {
   ExerciseHistoryHeaderLine,
   ExerciseHistoryBodyBlock,
 } from './ExerciseHistoryPreview'
+import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
+import { buildDraftKey } from '../draftStorage'
+import { formatRelativeDate } from '../exerciseHistoryLogic'
 
 // Parsear el peso sugerido del coach a número (ej: "20kg" → "20", "BW" → "")
 // Helper privado de este componente.
@@ -59,6 +63,12 @@ export default function ExerciseCard({
   lastCoachNote = null,
   noteCount = 0,
   onOpenChat,
+  // F4 (doc 23) — draft local de lo que el alumno tipea por serie.
+  // studentId + loggedDate componen la key del localStorage. Si no llegan,
+  // el draft queda deshabilitado (degradación graceful — el componente
+  // sigue funcionando como antes, sin autosave local).
+  studentId = null,
+  loggedDate = null,
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -178,6 +188,54 @@ export default function ExerciseCard({
       reps_unit: log.reps_unit || p.reps_unit,
     }))
   }, [log?.id, log?.completed, log?.updated_at])
+
+  // ── F4 (doc 23) — draft local en localStorage ────────────────────────
+  // Construimos la key con (studentId, planExerciseId, loggedDate). Si
+  // alguno falta, buildDraftKey devuelve null y el hook queda en noop.
+  // El draft está deshabilitado cuando el log ya está completed: el server
+  // gana, no queremos pisar un log real con un draft viejo.
+  const draftKey = useMemo(
+    () =>
+      buildDraftKey({
+        studentId,
+        planExerciseId: planEx.id,
+        loggedDate,
+      }),
+    [studentId, planEx.id, loggedDate]
+  )
+
+  const draftEnabled = !!draftKey && !log?.completed
+
+  const { restoredAt, clearDraft } = useLocalStorageDraft({
+    key: draftKey,
+    value: logData,
+    enabled: draftEnabled,
+    onRestore: (payload) => {
+      // Merge defensivo: nunca aceptamos `completed: true` desde un draft
+      // (drafts son siempre parciales), ni pisamos IDs / metadata server.
+      setLogData((p) => ({
+        ...p,
+        ...payload,
+        completed: false,
+      }))
+      // Si el alumno tenía algo cargado, lo más probable es que quiera
+      // seguir editando — abrimos directo el form.
+      setEditing(true)
+      setExpanded(true)
+    },
+  })
+
+  // Si en algún momento el log llega completed=true (el server confirmó
+  // el save), borramos el draft local para no dejar basura silenciosa.
+  useEffect(() => {
+    if (log?.completed) clearDraft()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log?.completed, log?.id])
+
+  // Estado del hint "Recuperamos lo que estabas cargando". Se oculta
+  // cuando el alumno hace cualquier cambio o lo descarta manualmente.
+  const [draftHintDismissed, setDraftHintDismissed] = useState(false)
+  const showDraftHint = !!restoredAt && !draftHintDismissed && !log?.completed
 
   const completed = logData.completed
   const isBodyweight = logData.weight_mode === 'bodyweight'
@@ -341,6 +399,9 @@ export default function ExerciseCard({
       await onSaveLog(planEx.id, data)
       setLogData((p) => ({ ...p, completed: true }))
       setEditing(false)
+      // F4: save server exitoso → el draft local ya no tiene razón de ser.
+      clearDraft()
+      setDraftHintDismissed(true)
     } catch (err) {
       console.error(err)
     } finally {
@@ -352,6 +413,9 @@ export default function ExerciseCard({
     setDeleting(true)
     try {
       await onDeleteLog(planEx.id)
+      // F4: delete server exitoso → barrer también el draft local.
+      clearDraft()
+      setDraftHintDismissed(true)
       // Resetear estado local al estado inicial (sin log)
       setLogData({
         actual_sets: setsCount > 0 ? setsCount.toString() : '',
@@ -382,6 +446,30 @@ export default function ExerciseCard({
   }
 
   const actualSetsCount = parseInt(logData.actual_sets) || setsCount || 1
+
+  // F4: descartar el draft restaurado → volvemos a los valores sugeridos
+  // del coach. NO toca el log server (que puede no existir aún).
+  function discardDraft() {
+    clearDraft()
+    setDraftHintDismissed(true)
+    setLogData((p) => ({
+      ...p,
+      actual_sets: setsCount > 0 ? setsCount.toString() : '',
+      actual_reps_arr:
+        setsCount > 0
+          ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
+          : [suggestedRepsArr[0] || ''],
+      actual_weights_arr:
+        setsCount > 0
+          ? Array.from({ length: setsCount }, (_, i) => suggestedWeightsArr[i] || '')
+          : [suggestedWeightsArr[0] || ''],
+      perceived_difficulty: null,
+      notes: '',
+      weight_mode: initialWeightMode,
+      unilateral: initialUnilateral,
+      reps_unit: null,
+    }))
+  }
 
   return (
     <>
@@ -567,6 +655,26 @@ export default function ExerciseCard({
             {!completed || editing ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">Registrar entrenamiento</p>
+
+                {/* F4 (doc 23) — hint de restauración del draft local.
+                    Aparece cuando el hook restaura datos desde localStorage
+                    y todavía no fueron descartados. Permite descartar para
+                    volver a los valores sugeridos del coach. */}
+                {showDraftHint && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                    <RotateCcw size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-800 flex-1 leading-tight">
+                      Recuperamos lo que estabas cargando ({formatRelativeDate(restoredAt)}).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={discardDraft}
+                      className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                )}
 
                 {/* Series */}
                 <div>

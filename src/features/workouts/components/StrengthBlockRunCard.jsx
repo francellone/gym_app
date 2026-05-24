@@ -20,6 +20,9 @@ export default function StrengthBlockRunCard({
   lastCoachNoteByExercise,
   noteCountByExercise,
   onOpenChat,
+  // F4 — passthrough para draft local en ExerciseCard
+  studentId = null,
+  loggedDate = null,
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -121,6 +124,9 @@ export default function StrengthBlockRunCard({
               lastCoachNote={lastCoachNoteByExercise?.get?.(ex.exercise_id) || null}
               noteCount={noteCountByExercise?.get?.(ex.exercise_id) || 0}
               onOpenChat={onOpenChat}
+              // F4 — draft local
+              studentId={studentId}
+              loggedDate={loggedDate}
             />
           ))}
         </div>
