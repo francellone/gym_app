@@ -139,7 +139,7 @@ propio card como "✓ 3s · 22.5, 22.5, 20kg · PSE 8".
   `dist/` por lock del sandbox — esto es esperado por
   `feedback_sandbox_limits.md`. El build limpio anda igual si se apunta a
   otro outDir o se corre desde la terminal de Franco.)
-- **Smoke browser**: **OK end-to-end.** Franco se logueó como alumno
+- **Smoke browser STRENGTH**: **OK end-to-end.** Franco se logueó como alumno
   (`francellone@gmail.com`) y validamos juntos en `/student/workout`:
   1. Header del ExerciseCard (thruster barbell, A1): muestra
      `⤴ 14/05: 15kg · 10r · PSE 9` + badge `💬3` debajo de "Sugerido".
@@ -157,6 +157,11 @@ propio card como "✓ 3s · 22.5, 22.5, 20kg · PSE 8".
      no hay notas tipo `exercise` asociadas.
   7. Ningún preview muestra la fecha de HOY (23/05): todos son históricos
      — la exclusión `logged_date < selectedDate` funciona.
+- **Smoke browser AEROBIC**: **PENDIENTE.** Plan vigente de Franco no
+  tiene aerobic (`recent_block_logs=0` en query SQL). Código compila + tests
+  pasan, pero falta validación visual. Ver P0.1 en §Pendientes.
+- **Smoke browser CIRCUIT**: **PENDIENTE.** Plan vigente de Franco no tiene
+  circuit. Mismo estado que aerobic. Ver P0.2 en §Pendientes.
 
 ## Commits sugeridos (Franco con `--no-verify`)
 
@@ -195,23 +200,184 @@ git push origin main
 
 ## Pendientes / bloqueos abiertos
 
-1. **Smoke Q6 (sigue del handoff 17/20)** — perfil del alumno editable.
-   Implementado y validado por SQL pero falta smoke + commit en main.
-3. **Plan de Franco no tiene aerobic/circuit** — el código del aerobic/circuit
-   compila y los tests pasan, pero no se puede smoke-validar con Franco. Si
-   hay otro alumno con plan que mezcla cardio + fuerza (ej. anto almanza tenía
-   un plan con activación que podría incluir un bloque aerobic), sería
-   bueno smokearlo. Si no, el handoff 23 puede pedirle a Anto un plan dummy
-   para validar.
-4. **Composer dentro del drawer** — deferido a V2 según decisión Franco.
-   Si Anto pide responder desde el flow workout, sumar
-   `<NoteComposer />` debajo de la lista del drawer (footer cambia de
-   placeholder a composer). Esfuerzo estimado: 1-2h.
-5. **Notas del alumno como "última nota"** — NO. Anto decidió coach-only.
-6. **Sin tests unitarios para los componentes UI nuevos** — los helpers
-   están bien cubiertos (26 tests). UI sin tests porque el codebase no
-   los tenía para componentes similares. Si se quiere RTL para el drawer,
-   sumar handoff 23.
+Ordenados por prioridad / riesgo, con tag para que el próximo agente filtre:
+
+### 🔴 P0 — Bloqueantes para cerrar Q1 100%
+
+P0.1. **Smoke browser de AEROBIC.** El path aerobic compila, los tests
+puros pasan, pero **NO se validó en el browser con datos reales**. Plan
+de Franco (alumno) no tiene aerobic. Posibles caminos:
+
+- anto almanza también tiene un perfil de alumno (id distinto al de coach)
+  con planes que históricamente incluyen aerobic — logueate como ella y
+  validar.
+- Pedirle a Anto que cree un plan dummy con un bloque aerobic asignado a
+  un alumno de prueba (cuenta `prueba@*` ya existe en la base).
+- Si no hay alumno con aerobic, crear uno via SQL.
+
+Qué validar visualmente:
+- Header del `AerobicBlockRunCard` debe mostrar `⤴ fecha: N min · M rondas
+  · PSE X` debajo del subtítulo (`format · min · intensity`).
+- Si el aerobic tiene `plan_exercises[0]` con `exercise_id`, badge `💬N`
+  (probablemente 0 si nunca hubo chat sobre ese ejercicio específico).
+- Expandir el bloque debe mostrar el `ExerciseHistoryBodyBlock` arriba de
+  la ficha del bloque (`bg-sky-50` "Aeróbico …").
+
+P0.2. **Smoke browser de CIRCUIT.** Idem aerobic. anto almanza tampoco
+suele usar circuit. Mismas opciones: alumno con plan dummy.
+
+Qué validar visualmente:
+- Header del `CircuitBlockRunCard` debe mostrar la línea de "Última vez"
+  block-level (sin badge chat — es deliberado, ver §Diferencias).
+- Dentro del body expandido, cada ítem del circuito debe mostrar su línea
+  compacta `⤴ fecha: peso/reps/PSE` + badge `💬N` si hay chat (modo
+  `isCompact`, font [10px]).
+- Click en el badge de un ítem debe abrir el drawer del ejercicio
+  correspondiente (no del bloque).
+
+P0.3. **Commit + push pendientes.** 3 commits sugeridos en §Commits
+sugeridos. Franco con `--no-verify` desde su terminal.
+
+### 🟠 P1 — Mejoras / V2 conocidas
+
+P1.1. **Composer dentro del drawer.** Read-only V1 fue decisión deliberada
+(AskUserQuestion). Si Anto pide responder desde el flow workout, sumar
+`<NoteComposer />` debajo de la lista del drawer reusando lo que ya hay
+en `features/notes/components/NoteComposer.jsx`. Esfuerzo ~1-2h.
+Cambiar el footer del drawer de "Para responder, abrí el panel…" a
+mostrar el composer real.
+
+P1.2. **Aerobic con múltiples `plan_exercises[]`.** Solo el primero recibe
+badge chat (ver §Decisiones deliberadas #2). Si esto se vuelve común,
+considerar:
+- Mostrar varios badges chat en el header (`💬3 Trote · 💬1 Bici`).
+- O un dropdown "Ver chat de…" con los exercises del bloque.
+
+P1.3. **Circuit sin `ExerciseHistoryBodyBlock`.** Decisión deliberada para
+evitar saturación, pero si Anto pide ver la última nota del coach completa
+sin abrir el drawer dentro de un circuito, hay 3 opciones:
+- (a) Un panel colectivo del bloque con la última nota más reciente entre
+  todos los ejercicios del circuito.
+- (b) Hacer expandible cada ítem del circuito y meter el body block ahí.
+- (c) Mostrar un mini-preview de las primeras 2 líneas de la última nota
+  coach inline en la línea compacta del ítem (sin panel completo).
+
+Mi voto sería (c) si surge el pedido.
+
+P1.4. **Notas del alumno como "última nota".** Anto decidió coach-only.
+NO cambiar sin pedido explícito de Anto.
+
+### 🟡 P2 — Deuda técnica / nice-to-have
+
+P2.1. **Sin tests RTL para los componentes UI nuevos.** Los helpers están
+cubiertos (26 tests en `exerciseHistoryLogic.test.js`). Si se quiere
+testear render del drawer / preview, sumar React Testing Library con
+mocks de Supabase. ~2-3h.
+
+P2.2. **Cap de query (300 logs + 200 block_logs).** Para alumnos con
+históricos largos (>1 año entrenando 4×/semana → ~800+ logs) el cap puede
+empezar a faltar. No urgente, pero monitorear. Si se ajusta, también
+revisar el cap de 500 en `exerciseNotes`.
+
+P2.3. **Footer del drawer es texto fijo.** Si más adelante se reorganizan
+las pestañas del nav inferior, el copy "abrí el panel de Notas desde el
+menú" puede quedar desactualizado. Hard-coded en `ExerciseChatDrawer.jsx`.
+
+P2.4. **Realtime del thread del ejercicio.** El cache `notesByExercise`
+viene precomputado en `fetchWorkout`. Si el coach manda una nota mientras
+el alumno tiene el drawer abierto, el alumno NO la ve hasta refrescar la
+página. Si se quisiera realtime, suscribirse al thread con
+`subscribeThread` de `notes/api.js` desde el drawer e invalidar el cache.
+~1h.
+
+P2.5. **Falta `.gitignore` para `vitest.config.js.timestamp-*.mjs` y
+`vite.config.js.timestamp-*.mjs`.** Residuos untracked que se regeneran en
+cada sesión, NO commitear. Sigue desde handoff 17. Fix: 2 líneas en
+`.gitignore`.
+
+### 🔵 P3 — Sin relación directa con Q1 pero pendiente desde antes
+
+P3.1. **Smoke Q6** (perfil del alumno editable, sigue del handoff 17/20).
+Implementado y validado por SQL pero falta smoke + commit. El handoff 22
+NO lo abordó.
+
+P3.2. **Tasks comunes del doc 18.** No afectan Q1, sigue del handoff 20:
+- Sumar columna `sport` a `profiles` (nullable text). 1 migración chica.
+- Refactor del header de `StudentDetailPage` para usar `avatar_url` real.
+- Reorganización de tabs (10→7 con "Más ▾"). Decisión: opción suave en V1.
+
+P3.3. **Sin tests para las 4 alertas G2 nuevas** (`computeFatigueStudents`,
+`computeLowMotivationStudents`, `computePainStudents`,
+`computeStagnationByExercise`). Sigue del handoff 20.
+
+P3.4. **F5 (resumen semanal alumno)** — el componente del banner
+motivacional + KPIs del Panel del alumno se pueden reusar cuando llegue
+F5. Diseño deliberado de doc 19 (D5). Sigue del handoff 20.
+
+P3.5. **C.6 deferido** — calendario semanal embebido en `StudentPanel`.
+Overlap con `MonthlyCalendar` global, baja prioridad. Si Anto pide
+específicamente la vista semanal por alumno, reabrir. Sigue del handoff 20.
+
+## Diferencias deliberadas entre strength / aerobic / circuit (Q1)
+
+Franco preguntó explícitamente si las diferencias entre tipos de bloque se
+contemplaron al implementar Q1. Sí, pero se resolvieron distinto en cada uno
+porque los modelos de datos son distintos. Acá la matriz completa para que
+un agente futuro NO confunda los flujos.
+
+### Modelo de datos subyacente
+
+| Tipo | Tablas que se loggean | Unidad de "ejercicio" |
+|---|---|---|
+| **strength** | 1 `workout_log` por ejercicio (peso/reps/PSE por serie) | Cada `plan_exercise` con su `exercise_id` |
+| **aerobic** | 1 `workout_block_log` por bloque (min/rondas/PSE) | Block-level. `block.plan_exercises[0]` suele ser el "ejercicio principal" ("Trote", "Bici"). |
+| **circuit** | 1 `workout_block_log` por bloque + N `workout_logs` por ejercicio del circuito | Doble: bloque (stats agregados) + cada item del circuito (su propio `exercise_id`). |
+
+### Qué muestra "Última vez" en el header
+
+| Tipo | Fuente | Formato |
+|---|---|---|
+| **strength** | `lastLogByExercise.get(exercise_id)` | `formatLastLogSummary` → "22.5kg · 8r · PSE 8" |
+| **aerobic** | `lastBlockLogByBlock.get(plan_block_id)` | `formatLastBlockLogSummary` → "20 min · 3 rondas · PSE 7" |
+| **circuit (header bloque)** | `lastBlockLogByBlock.get(plan_block_id)` | mismo que aerobic. Badge chat **omitido** acá (no hay 1 ejercicio canónico). |
+| **circuit (cada item)** | `lastLogByExercise.get(item.exercise_id)` | mismo que strength, en modo `isCompact` (font [10px]). |
+
+### Qué muestra "Última nota coach + Ver chat completo" (body expandido)
+
+| Tipo | `ExerciseHistoryBodyBlock` (panel rosa con nota completa) | Cómo se abre el drawer |
+|---|---|---|
+| **strength** | ✅ Sí, antes de la técnica | Badge `💬N` en header (no expand) o botón "Ver chat" en body |
+| **aerobic** | ✅ Sí, antes de la ficha del bloque. Solo si `plan_exercises[0]?.exercise_id` existe | Badge `💬N` en header (usa el exercise_id del primer plan_ex) o botón "Ver chat" en body |
+| **circuit** | ❌ **NO se sumó** — sería 4-6 paneles apilados dentro del mismo body, saturado | Badge `💬N` por cada item del circuito, en su línea compacta |
+
+### Decisiones deliberadas (no son bugs)
+
+1. **Circuit no tiene panel `ExerciseHistoryBodyBlock`.** Cada ítem del
+   circuito tiene su badge chat compacto en la línea de "Última vez", y desde
+   ahí se abre el drawer del ejercicio. Si un alumno quiere ver la última nota
+   del coach completa sin abrir el drawer, tiene que mirar el badge y abrir
+   el drawer (1 click). El razonamiento: 4-6 paneles rosados apilados dentro
+   del body de un circuito sería ruido visual fuerte.
+
+2. **Aerobic con MÚLTIPLES `plan_exercises[]` (caso raro).** Solo el primero
+   recibe badge chat. Los otros no tienen forma de abrir su chat desde el
+   flow workout — el alumno tendría que ir al panel de Notas global. La
+   mayoría de los aerobic tienen 0 o 1 `plan_exercise` así que no debería
+   ser problema en práctica.
+
+3. **Aerobic sin `plan_exercises[]` (block puro).** No se muestra badge chat
+   ni body block. Solo el preview block-level del "Última vez". Coherente con
+   el modelo: si no hay exercise_id, no hay thread asociable.
+
+4. **Circuit cuyo block_log NO está completed pero items SÍ.** El header
+   del bloque NO muestra "Última vez" (filtro `completed=true`), pero los
+   items del circuito sí muestran su línea compacta porque sus
+   `workout_logs` están completed. Comportamiento idéntico a strength.
+
+5. **Aerobic/circuit usan el mismo cap de query que strength** (300 logs +
+   200 block_logs). Para alumnos con muchas sesiones de cardio podría no
+   alcanzar — pero el corte es por fecha más reciente, así que el
+   "Última vez" de los últimos 6-12 meses está cubierto holgadamente.
 
 ## Decisiones de Anto vigentes (sin cambios)
 
@@ -262,9 +428,33 @@ git push origin main
 - ✅ Implementación Opción C (helpers + componentes + integración + strength
   + aerobic + circuit)
 - ✅ Lint (0 errors) + tests (212/212) + build (OK con outDir alt)
-- ✅ Smoke browser end-to-end (Franco-alumno, thruster barbell con 3 mensajes
-  + ejercicios sin chat sin badge, ambas entradas al drawer funcionan)
-- ⏭ Q6 smoke (sigue del handoff 17/20)
-- ⏭ 3 commits + push (Franco con `--no-verify`)
-- ⏭ Composer en drawer (V2 si Anto lo pide)
-- ⏭ Plan con aerobic/circuit para smoke-validar esos paths
+- ✅ Smoke browser end-to-end **strength** (Franco-alumno, thruster barbell
+  con 3 mensajes + ejercicios sin chat sin badge, ambas entradas al drawer
+  funcionan, exclusión `logged_date < selectedDate` verificada)
+- 🟡 Smoke browser **aerobic** — pendiente P0.1 (plan de Franco no tiene)
+- 🟡 Smoke browser **circuit** — pendiente P0.2 (plan de Franco no tiene)
+- ⏭ 3 commits + push (Franco con `--no-verify`) — P0.3
+- ⏭ Composer en drawer (P1.1, V2 si Anto lo pide)
+- ⏭ Q6 smoke (P3.1, sigue del handoff 17/20)
+
+## TL;DR para el próximo agente
+
+**Lo que está listo y validado:**
+- Q1 strength end-to-end (código + tests + build + smoke browser real con
+  alumno Franco).
+- Última vez + última nota coach + drawer chat funcionan desde 2 entradas
+  (badge en header, botón en body expandido).
+
+**Lo que está implementado pero NO smoke-validado:**
+- Q1 aerobic — código + tests pasan, falta browser.
+- Q1 circuit — código + tests pasan, falta browser.
+
+**Lo que es trabajo activo del próximo agente:**
+1. (P0.1) Smoke aerobic con un alumno que tenga ese tipo de bloque.
+2. (P0.2) Smoke circuit con un alumno que tenga ese tipo de bloque.
+3. (P0.3) Confirmar que los 3 commits de esta sesión se pushearon.
+
+**Lo que NO es trabajo activo pero hay que tener presente:**
+- Lista completa P1/P2/P3 en §Pendientes. Ninguno bloquea Q1 strength.
+- Las decisiones deliberadas de §Diferencias — NO cambiar circuit ni
+  aerobic sin pedido explícito de Anto.

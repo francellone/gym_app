@@ -1006,25 +1006,12 @@ export default function EditPlanPage() {
             </div>
           )}
 
-          {/* B4 (24/05): checkbox is_template oculto para evaluaciones.
-              En edit, además, NO forzamos el valor en el UPDATE: si era una
-              plantilla sigue siéndolo; si era un clon (instancia personal)
-              sigue siendo clon. El fix aplica sólo al flow de CREATE +
-              al filtro de PlansPage. Para training se conserva la opción. */}
-          {!isEval && (
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="checkbox"
-                id="is_template"
-                className="w-4 h-4 rounded text-primary-600"
-                checked={plan.is_template}
-                onChange={(e) => setPlan((p) => ({ ...p, is_template: e.target.checked }))}
-              />
-              <label htmlFor="is_template" className="text-sm text-gray-700 cursor-pointer">
-                Guardar como plantilla reutilizable
-              </label>
-            </div>
-          )}
+          {/* B4 + Q10 (24/05): checkbox is_template eliminado tanto para
+              evaluaciones como para training. En edit, además, NO forzamos
+              el valor en el UPDATE: si era una plantilla sigue siéndolo;
+              si era un clon (instancia personal) o un legacy is_template=
+              false sigue como estaba. El fix aplica sólo al flow de CREATE
+              + al filtro de PlansPage. */}
         </div>
       </div>
 

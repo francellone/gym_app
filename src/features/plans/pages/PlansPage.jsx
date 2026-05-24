@@ -83,24 +83,28 @@ export default function PlansPage() {
     }
   }
 
-  // B3 (24/05): los clones de evaluaciones (is_template=false) son
-  // instancias personales del alumno generadas por assign_template_to_student
-  // al asignar. No tienen sentido en el recetario del coach — sólo en la
-  // ficha del alumno respectivo (StudentDetailPage → tab Evaluaciones).
-  // Se filtran de PlansPage y de los contadores de tabs.
-  // Para training se conserva el comportamiento anterior (decisión Franco):
-  // si en el futuro Anto reporta la misma confusión, extender el patrón.
-  const isEvalClone = (p) => p.plan_type === 'evaluation' && p.is_template === false
+  // B3 + Q10 (24/05): los planes con is_template=false son "instancias
+  // personales" — clones generados por assign_template_to_student al asignar,
+  // o legacies pre-trigger (anteriores a 2026-05-15) que se asignaban directo.
+  // No tienen sentido en el recetario del coach (mezclan recetas con
+  // fotocopias) — sólo en la ficha del alumno respectivo (StudentDetailPage
+  // → tab Planes/Evaluaciones). Se filtran de PlansPage y de los contadores.
+  // B3 cubrió evaluaciones; Q10 extendió el patrón a training también.
+  // Plan 2 de Anto + M1 de Gonza quedan invisibles desde acá (decisión
+  // Franco: no migrar data; el coach recrea si necesita).
+  const isClone = (p) => p.is_template === false
 
   const filtered = plans.filter((p) => {
-    if (isEvalClone(p)) return false
+    if (isClone(p)) return false
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = filterType === 'all' || (p.plan_type || 'training') === filterType
     return matchSearch && matchType
   })
 
-  const trainingCount = plans.filter((p) => !p.plan_type || p.plan_type === 'training').length
-  const evalCount = plans.filter((p) => p.plan_type === 'evaluation' && !isEvalClone(p)).length
+  const trainingCount = plans.filter(
+    (p) => (!p.plan_type || p.plan_type === 'training') && !isClone(p)
+  ).length
+  const evalCount = plans.filter((p) => p.plan_type === 'evaluation' && !isClone(p)).length
 
   return (
     <div className="space-y-5">
@@ -109,7 +113,7 @@ export default function PlansPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planes</h1>
           <p className="text-sm text-gray-500">
-            {plans.filter((p) => !isEvalClone(p)).length} planes en total
+            {plans.filter((p) => !isClone(p)).length} planes en total
           </p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">

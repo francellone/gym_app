@@ -854,9 +854,9 @@ export default function PlanDetailPage() {
             >
               <Edit2 size={13} /> Editar
             </Link>
-            <button className="btn-primary flex items-center gap-1.5 text-sm">
-              <Plus size={13} /> Agregar ejercicio
-            </button>
+            {/* B5 (24/05): se eliminó el botón "+ Agregar ejercicio" del
+                header que no tenía handler (dead button). El flujo natural
+                de agregar ejercicio es desde dentro de cada bloque. */}
           </div>
         </div>
 
