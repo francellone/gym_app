@@ -125,7 +125,7 @@ export default function PlansPage() {
       {/* Type filter tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
         {[
-          { key: 'all', label: 'Todos', count: plans.length },
+          { key: 'all', label: 'Todos', count: plans.filter((p) => !isClone(p)).length },
           { key: 'training', label: 'Entrenamiento', count: trainingCount },
           { key: 'evaluation', label: 'Evaluación', count: evalCount },
         ].map((tab) => (
