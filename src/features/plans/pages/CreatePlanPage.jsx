@@ -371,9 +371,7 @@ export default function CreatePlanPage() {
     setPlanBlocks((prev) => ({
       ...prev,
       [section]: (prev[section] || []).map((b) =>
-        b.block_type === 'strength'
-          ? { ...b, exercises: reorderByBlockmate(b.exercises || []) }
-          : b
+        b.block_type === 'strength' ? { ...b, exercises: reorderByBlockmate(b.exercises || []) } : b
       ),
     }))
   }
@@ -431,7 +429,13 @@ export default function CreatePlanPage() {
           sessions_per_week: parseInt(plan.sessions_per_week) || 3,
           has_activation: plan.plan_type === 'training' ? plan.has_activation : false,
           duration_weeks: plan.duration_weeks ? parseInt(plan.duration_weeks) : null,
-          is_template: plan.is_template,
+          // B4 (24/05): para evaluaciones forzamos is_template=true en el
+          // create. La distinción "plantilla vs no-plantilla" para evals no
+          // tiene sentido conceptual desde el lado del coach (las "instancias
+          // personales" se generan automáticamente al asignar vía
+          // assign_template_to_student). El checkbox UI también se oculta
+          // abajo para evals. Para training se respeta lo que el coach eligió.
+          is_template: plan.plan_type === 'evaluation' ? true : plan.is_template,
           plan_type: plan.plan_type,
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
           eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
@@ -863,18 +867,25 @@ export default function CreatePlanPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="checkbox"
-              id="is_template"
-              className="w-4 h-4 rounded text-primary-600"
-              checked={plan.is_template}
-              onChange={(e) => setPlan((p) => ({ ...p, is_template: e.target.checked }))}
-            />
-            <label htmlFor="is_template" className="text-sm text-gray-700 cursor-pointer">
-              Guardar como plantilla reutilizable
-            </label>
-          </div>
+          {/* B4 (24/05): el checkbox is_template se oculta para evaluaciones.
+              Toda evaluación nueva se crea como plantilla asignable; las
+              "instancias personales" del alumno son clones automáticos vía
+              assign_template_to_student. Para training se conserva la
+              opción explícita (decisión consciente del coach). */}
+          {plan.plan_type !== 'evaluation' && (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                id="is_template"
+                className="w-4 h-4 rounded text-primary-600"
+                checked={plan.is_template}
+                onChange={(e) => setPlan((p) => ({ ...p, is_template: e.target.checked }))}
+              />
+              <label htmlFor="is_template" className="text-sm text-gray-700 cursor-pointer">
+                Guardar como plantilla reutilizable
+              </label>
+            </div>
+          )}
         </div>
       </div>
 

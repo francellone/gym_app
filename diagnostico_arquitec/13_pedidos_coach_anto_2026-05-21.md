@@ -1,6 +1,8 @@
 # Pedidos del coach Anto — backlog para próxima sesión
 
-Fecha inicial: 2026-05-21 (noche). Última actualización: 2026-05-23 — Anto pasó **22 pedidos** en total entre WhatsApp y chat. Este doc los lista, los categoriza, y propone qué analizar antes de tocar código.
+Fecha inicial: 2026-05-21 (noche). Última actualización: **2026-05-24** — sumadas Ronda 2 (23/05, 22 pedidos) + **Ronda 3 (24/05, 8 pedidos nuevos)**. Total acumulado: **30 pedidos**. Este doc los lista, los categoriza, y propone qué analizar antes de tocar código.
+
+> **Ronda 3 nueva**: ver §"Ronda 3 (2026-05-24)" al final del doc. Mezcla bugs de UX en evaluaciones + planes y 1 feature mediana (autocierre bloque 24hs). El bug B5 (botón "Agregar ejercicio" muerto) y el B6 (asignar evaluación creada falla) son los más urgentes.
 
 ## ✅ Items cerrados (sesión del 2026-05-23)
 
@@ -8,7 +10,12 @@ Fecha inicial: 2026-05-21 (noche). Última actualización: 2026-05-23 — Anto p
 - **Q3** — notificación de nota ahora navega al panel de notas. Front-only, payload ya traía `thread_id`/`student_id`. Mapeo: `coach_comment → /student/notes`, `student_note → /coach/students/{id}?tab=notas`. `StudentDetailPage` lee `?tab=` del query string.
 - **Q8** — botón de video en la preview de bloques aeróbico y circuito (strength ya lo tenía). Reutiliza la clase CSS `plan-ex-video-btn`.
 
-Próximos candidatos sin bloqueo: **Q1** (foto pendiente de Anto), **Q7** (bloques A1/A2 auto, respuesta=A), **Q6** (perfil editable + notif coach, respuesta=A).
+## ✅ Items cerrados (sesión del 2026-05-24)
+
+- **B3** — "se crea otra aparte sin contenido" al asignar evaluación. **No era bug del back**: era UX que mezclaba plantillas con clones. Fix: `PlansPage.jsx` ahora filtra `is_template=false` de las evaluaciones (los clones siguen accesibles desde la ficha del alumno). Ver doc 24.
+- **B4** — "evaluaciones ya creadas no aparecen como opción para asignar". Causa: checkbox "Guardar como plantilla reutilizable" desmarcado por default. Fix: el checkbox se oculta para evaluaciones en `CreatePlanPage.jsx` y `EditPlanPage.jsx`; el `INSERT` de evals fuerza `is_template=true`. Para training se preserva la opción explícita. Ver doc 24.
+
+Próximos candidatos sin bloqueo: **Q1** (foto pendiente de Anto), **Q7** (bloques A1/A2 auto, respuesta=A), **Q6** (perfil editable + notif coach, respuesta=A), **B5** (botón "Agregar ejercicio" muerto), **B2** (notif assignations clickables, extensión de Q3).
 
 ---
 
@@ -532,3 +539,241 @@ Sin esas imágenes la UI se inventa y es probable que Anto pida rehacer. **Bajar
 - Cuando el item involucre migración SQL → entrada en `01_changelog_back.md`.
 - Cuando el item involucre una decisión grande → handoff dedicado (`14_*.md`, `15_*.md`).
 - Al cerrar la sesión: actualizar este doc tachando el item resuelto (no borrar, dejar histórico).
+
+---
+
+## Ronda 3 (2026-05-24) — pedidos nuevos de Anto
+
+> **Regla global de decisiones (24/05)**: las decisiones de producto las toma **Franco directo**, sin esperar a Anto. Las únicas excepciones son cosas que dependen de cómo Anto USA la app o de su negocio puro: maquetas/screenshots mandados por WhatsApp, copy específico (ej. mensajes motivacionales), criterios comerciales (ej. cuándo cobra). El resto se define con Franco vía AskUserQuestion o propuesta concreta. Esta regla aplica retroactivamente al cuestionario del doc 13.
+
+Anto mandó **8 pedidos nuevos** mezclados (bugs + UX). Resumen:
+
+| # | Tipo | Item | Esfuerzo estimado |
+|---|---|---|---|
+| **B2** | 🐞 Bug | Notif de asignación (plan/eval) no clickeables | 2-3h |
+| **B3** | 🐞 Bug crítico | Al asignar evaluación inicial se crea otra aparte vacía | 3-5h (investigación) |
+| **B4** | 🐞 Bug crítico | Evaluaciones ya creadas no aparecen como opción al asignar al alumno | 3-5h (investigación) |
+| **B5** | 🐞 Bug | Botón "Agregar ejercicio" en cabecera de plan ya hecho no hace nada | 1h |
+| **Q9** | 🟢 Quick win | Asignar alumno directamente desde la pantalla de evaluación recién creada | 2-3h |
+| **Q10** | 🟢 Quick win | Cartel "sin alumno" en plan ya hecho con botón "Asignar alumno" | 2h |
+| **Q11** | 🟢 Quick win | Badge visual en lista de ejercicios cuando falta video / nota | 2-3h |
+| **F11** | 🟡 Feature mediana | Autocierre + notif al alumno si un bloque queda abierto >24hs | 6-8h |
+
+**Total ronda 3**: ~22-30h (~3-4 sesiones).
+
+**Prioridad sugerida dentro de ronda 3**: B5 (1h, muerto visible) → B2 (continuación lógica de Q3) → Q10 + Q9 (refuerzan flujo "crear → asignar" cerrado) → Q11 (visibilidad ejercicios incompletos) → B3 + B4 (requieren investigación, posiblemente sea el mismo bug raíz) → F11 (requiere decisión sobre "qué significa cerrar bloque").
+
+---
+
+### 🐞 B2 — Notificaciones de asignación de plan / evaluación no llevan a ningún lado
+
+> *"Desde panel notificaciones el acceso directo es solo cuando es notificaciones de notas. Si es assignation de plan o de evaluacion cuando lo apreto no me lleva a nada."*
+
+**Contexto histórico**: Q3 (cerrado el 23/05) ya cubrió notif de notas → navegan a `/student/notes` o `/coach/students/{id}?tab=notas`. Esta es la **extensión natural** a los `kind` de notif de asignación.
+
+**Qué analizar antes**:
+- Listar los `kind` actuales que NO tienen handler:
+  - `plan_assigned` (alumno recibe asignación de plan)
+  - `evaluation_assigned` (alumno recibe asignación de evaluación)
+  - Posiblemente `weekly_summary`, `stagnation`, `payment_due` (cuando se sumen)
+- Verificar payload de cada uno: ¿incluye `plan_id` / `assignment_id` / `evaluation_id`? Si no, extender el `INSERT INTO notifications` del RPC respectivo.
+- Mapeo de rutas (propuesta):
+  - `plan_assigned` (alumno) → `/student/today` o `/student/plans/{plan_id}`
+  - `evaluation_assigned` (alumno) → `/student/evaluations/{assignment_id}`
+  - Equivalentes del lado coach si emite alguno propio.
+- Reutilizar el switch que se hizo en Q3 dentro de `features/notifications/NotificationBell.jsx`.
+
+**Esfuerzo estimado**: 2-3h.
+
+**Archivos candidatos**: `features/notifications/NotificationBell.jsx` (handler `onClick`), revisar migraciones de `fn_notify_plan_assigned` y `fn_notify_evaluation_assigned` para asegurar payload completo. Posible mini-migración SQL si falta `plan_id` / `assignment_id` en payload.
+
+---
+
+### 🐞 B3 — "Al asignar evaluación inicial se crea otra aparte sin contenido" (DIAGNÓSTICO 24/05)
+
+> *"Una vez creada evaluación inicial, al asignarla a alguien se crea otra aparte sin contenido."*
+
+**Diagnóstico 24/05 (verificado con Supabase MCP + lectura de código)**: **NO es un bug del back, es UX confusa.**
+
+Causa raíz:
+- El sistema funciona por **clonación**: la RPC `assign_template_to_student` (única vía para asignar — el trigger `trg_pa_forbid_template` prohíbe `plan_assignments` apuntando a plantillas) **clona** el plan entero a una "instancia personal del alumno" con `is_template=false`, título `"<original> — <nombre alumno>"`, y crea el `plan_assignments` apuntando al CLON.
+- La "EVALUACION INICIAL" plantilla de Anto **está vacía** (`n_exercises=0, n_blocks=0` — verificado por SQL).
+- Al asignarla a su cuenta test, generó "EVALUACION INICIAL — anto almanza" (clon, también vacío).
+- Ese clon aparece en algún listado del coach (probablemente `PlansPage`, que no filtra `is_template=false`) → Anto lo ve como "otra evaluación aparte sin contenido" y se confunde.
+
+Datos crudos (resultado SQL del 24/05):
+
+```
+title                              | is_template | n_exercises | n_assignments
+EVALUACION INICIAL                 | true        | 0           | 0       ← plantilla original (vacía)
+EVALUACION INICIAL — anto almanza  | false       | 0           | 1       ← clon de la asignación
+EVALUACION HIP THRUST              | false       | 1           | 1       ← otro clon
+EVALUACION CHIN UPS Y SENTADILLA   | false       | 2           | 1       ← otro clon
+plan 1 anto DIA A                  | false       | 2           | 0       ← creada como NO plantilla (B4)
+TEST PLAN 1 ANTO DIA B             | false       | 2           | 0       ← creada como NO plantilla (B4)
+```
+
+**Fix propuesto**: filtrar `PlansPage` (vista "Biblioteca / Planes") para mostrar SOLO `is_template=true` por defecto, con toggle "Ver instancias asignadas" opcional. Igual para la vista de evaluaciones. Los clones son personales del alumno y no tienen sentido en la biblioteca del coach.
+
+**Esfuerzo estimado**: 2-3h (filtrado en `PlansPage` + opcional toggle). Decisión rápida: ¿esconder clones por completo o agruparlos abajo?
+
+---
+
+### 🐞 B4 — "Evaluaciones ya creadas no aparecen como opción para asignar" (DIAGNÓSTICO 24/05)
+
+> *"Cuando estoy en el apartado alumnos evaluación me sale solo la de evaluación inicial ya asignada y las evaluaciones (ya creadas) no me aparecen como opción."*
+
+**Diagnóstico 24/05 (verificado con Supabase MCP + lectura de código)**: **bug de default en el form de creación.**
+
+Causa raíz:
+- `src/features/evaluations/pages/StudentEvaluationsTab.jsx:258-260` filtra el dropdown así: `p.plan_type === 'evaluation' && p.is_template !== false`.
+- `src/features/plans/pages/CreatePlanPage.jsx:290` setea `is_template: false` como default y expone un checkbox "Guardar como plantilla reutilizable" (línea 866-876) que el coach debe marcar manualmente.
+- Anto no marca ese checkbox → las 4 evaluaciones que creó quedaron con `is_template=false` → no aparecen en el dropdown.
+- La única que SÍ aparece es "EVALUACION INICIAL" (creada 12/05 con `is_template=true`).
+
+**Fix propuesto (2 partes)**:
+
+1. **Front (CreatePlanPage)**: para `plan_type='evaluation'`, default `is_template=true` (o eliminar el concepto de "plantilla vs no" en la UI de evaluaciones — toda eval creada es asignable). Decisión a tomar.
+
+2. **Datos**: migrar las 4 evals existentes que están en `is_template=false` y NO tienen assignments todavía:
+   - "TEST PLAN 1 ANTO DIA B" — sin assignments → safe
+   - "plan 1 anto DIA A" — sin assignments → safe
+   - (las que tienen assignments son clones legítimos, NO tocar — el trigger `trg_pa_forbid_template` no las dejaría flipear igual porque romperían el invariante).
+
+**Esfuerzo estimado**: 1-2h (cambio de default + migración chica de datos).
+
+---
+
+### 🐞 B5 — Botón "Agregar ejercicio" en cabecera de plan ya hecho no hace nada
+
+> *"Cuando estoy en un plan ya hecho arriba de todo me salen dos opciones: EDITAR y AGREGAR EJERCICIO. Cuando apreto agregar ejercicio no pasa nada, capaz si se saca no pasa nada (foto rodeado con color amarillo)."*
+
+**Qué analizar antes**:
+- Ubicar el header de `PlanDetailPage.jsx` (o `EditPlanPage.jsx`). El botón existe pero no tiene `onClick` o el handler está roto.
+- Decisión rápida con Anto (registrada abajo en decisiones pendientes): **¿se arregla para que abra un modal "agregar ejercicio rápido"** o **se elimina y se accede agregando desde el bloque correspondiente** (que ya funciona)?
+- Si se elimina: cambio trivial (sacar el botón). Si se arregla: hay que decidir a qué bloque agrega (default al primero, picker, modal).
+
+**Esfuerzo estimado**: 1h si se elimina; 3-4h si se implementa modal nuevo.
+
+**Archivos candidatos**: `features/plans/pages/PlanDetailPage.jsx` (header), `features/plans/components/EditPlanHeader.jsx` (si existe).
+
+**Pedir foto a Anto** (mencionó "rodeado con color amarillo") y guardar en `diagnostico_arquitec/assets/`.
+
+---
+
+### 🟢 Q9 — Asignar alumno directamente desde la pantalla de evaluación recién creada
+
+> *"Desde evaluaciones: no puedo asignar alumnos en la evaluacion, tengo q hacer evaluacion y despues irme al alumno evaluaciones y asignar. Se podria hacer un boton directo en la evaluacion cuando lo hago de ASIGNAR ALUMNO?"*
+
+**Qué analizar antes**:
+- Hoy el flujo es: crear evaluación → cerrar modal → ir a alumno → ir a tab Evaluaciones → asignar. Son 4 pantallas.
+- Propuesta: al guardar la evaluación, mostrar un modal "¿Asignar ya a alumnos?" con multi-select de alumnos del coach. Reutilizar la misma RPC `assign_evaluation` con loop sobre los seleccionados.
+- Decidir si es:
+  - **Variante A**: botón "Guardar y asignar" además de "Guardar" en el form.
+  - **Variante B**: siempre mostrar el modal post-save (1 click más para los que no quieren asignar).
+  - **Variante C (recomendada)**: tras guardar, banner verde "Evaluación creada" con link "Asignar a alumnos →".
+- **OJO**: arreglar B3+B4 primero. Sin esa base, este botón duplicaría el problema en cadena.
+
+**Esfuerzo estimado**: 2-3h (depende de cuánto se reutilice del modal existente de asignación).
+
+**Archivos candidatos**: `features/evaluations/components/forms/*.jsx` o el wizard de creación, `features/evaluations/components/AssignToStudentsModal.jsx` (probablemente nuevo).
+
+---
+
+### 🟢 Q10 — Cartel "sin alumno" en plan ya hecho con botón "Asignar alumno"
+
+> *"Cuando estoy en un plan ya hecho me sale el cartel de sin alumno, se podria agregar un cartel de agregar alumno y agregarlo desde ahi? (foto rodeado con color rojo)."*
+
+**Qué analizar antes**:
+- Mismo patrón que Q9 pero para planes (no evaluaciones): si el plan no tiene asignaciones activas, hoy hay un cartel "sin alumno" como dead-end. Sumar CTA.
+- Probablemente reutilizable: ya debe existir un modal "asignar plan a alumno" en otro flujo (`StudentDetailPage → tab Planes`). Verificar para no duplicar.
+- Decidir el copy: "Asignar a un alumno" / "Asignar este plan" / "+ Alumno".
+
+**Esfuerzo estimado**: 2h.
+
+**Archivos candidatos**: `features/plans/pages/PlanDetailPage.jsx` (estado "sin asignaciones"), reutilizar `AssignPlanModal.jsx` si existe.
+
+**Pedir foto a Anto** (mencionó "rodeado con color rojo") y guardar en `diagnostico_arquitec/assets/`.
+
+---
+
+### 🟢 Q11 — Badge visual en lista de ejercicios cuando falta video o nota
+
+> *"En apartado de ejercicios me gustaria ver cuando alguno le falte video / nota."*
+
+**Qué analizar antes**:
+- Verificar columnas en `exercises`: `video_url`, `description` (o `notes` / `instructions`). Definir "falta" = `NULL` o `''` o `length < N`.
+- En la lista de ejercicios del coach (`features/exercises/pages/ExercisesListPage.jsx`), agregar 2 chips/iconos:
+  - 🎥❌ si no tiene video
+  - 📝❌ si no tiene descripción/nota
+- Opcional: filtro "Mostrar solo ejercicios incompletos" para que Anto pueda atacarlos en lote.
+- **Definir con Anto qué cuenta como "nota"**: ¿la descripción del ejercicio (campo `description` en `exercises`) o las notas del coach asociadas (otra tabla)? Lo más probable es lo primero.
+
+**Esfuerzo estimado**: 2-3h.
+
+**Archivos candidatos**: `features/exercises/pages/ExercisesListPage.jsx`, `features/exercises/components/ExerciseRow.jsx`.
+
+---
+
+### 🟡 F11 — Autocierre + notificación al alumno si un bloque queda abierto >24hs
+
+> *"Que si un bloque de ejercicios no fue cerrado después de 24 hs le aparezca notificación al alumno y lo cierre."*
+
+**Qué analizar antes**:
+- **Definición operativa de "bloque cerrado"**: hay que confirmar con Anto. Opciones:
+  - (a) `workout_sessions.finished_at IS NOT NULL` para la sesión que contiene el bloque.
+  - (b) Todos los `plan_exercises` del bloque tienen `workout_logs` con `completed=true` en la fecha de la sesión.
+  - (c) Algo más explícito a nivel bloque (¿hay `block_runs` o similar?).
+- Mecanismo de detección: cron diario (extensión a `fn_notify_stagnation` que ya existe) que busca sesiones started_at >24h sin finished_at, emite notif al alumno y aplica el "autocierre" (¿finished_at = started_at + 24h? ¿descarta los logs parciales? ¿los marca como `completed=false`?).
+- **Riesgo importante**: si el alumno entrena en 2 turnos (mañana + tarde), un autocierre demasiado agresivo borra su sesión legítima en progreso. Probablemente queremos:
+  - Notif al cumplirse 24h (no cerrar todavía).
+  - Cerrar a las 48h o 72h si sigue sin actividad nueva.
+- **Compatibilidad con F4 (autosave, ya cerrado el 24/05)**: el draft local puede colisionar con el "cerrar la sesión" del cron. Hay que pensar el orden: el cron cierra → la próxima vez que el alumno abre el card y restaura el draft de localStorage, ¿qué pasa?
+- Notif al alumno: copy y "acción accionable" (¿botón "Reanudar sesión"? ¿"Marcar como completado"?).
+
+**Esfuerzo estimado**: 6-8h. Mayoría es decisión + cron SQL + manejo del edge case F4.
+
+**Archivos candidatos**: nueva migración SQL `fn_autoclose_stale_blocks()` + cron schedule, `features/notifications/` nuevo `kind: 'session_autoclose'`, posible toque en `features/workouts/components/ExerciseCard.jsx` para detectar sessions cerradas por cron y limpiar drafts viejos.
+
+**Recomendación**: doc plan dedicado `24_plan_F11_autocierre_bloques.md` con las decisiones (a/b/c, ventana 24h vs 48h, qué hacer con drafts F4) antes de tocar código.
+
+---
+
+## Decisiones pendientes — Ronda 3
+
+Sumar a la tabla principal de decisiones pendientes:
+
+| # | Decisión | A definir antes de |
+|---|---|---|
+| 15 | B5: ¿el botón "Agregar ejercicio" se elimina o se arregla con modal? | B5 |
+| 16 | Q9: ¿variante A (botón "Guardar y asignar"), B (modal post-save siempre), o C (banner verde con link)? | Q9 |
+| 17 | Q11: "nota" = `exercises.description` o tabla externa de notas del coach? | Q11 |
+| 18 | F11: "bloque cerrado" = (a) session.finished_at, (b) todos los plan_exercises completed=true, (c) campo nuevo a nivel bloque? | F11 |
+| 19 | F11: ¿notif a las 24h sólo, o autocierre real a las 48-72h? ¿Qué pasa con los drafts F4 localStorage cuando un cron cierra la sesión? | F11 |
+| 20 | B3+B4: ¿son el mismo bug raíz? Hipótesis: sí (una RPC mal filtrada). Confirmar al investigar. | B3, B4 |
+
+---
+
+## Fotos pendientes — Ronda 3
+
+| Item | Qué se mandó / pedir por WhatsApp |
+|---|---|
+| B5 | Screenshot del header con botones "EDITAR" y "AGREGAR EJERCICIO" (rodeado en amarillo) — pedirla. |
+| Q10 | Screenshot del cartel "sin alumno" en plan ya hecho (rodeado en rojo) — pedirla. |
+
+Guardar en `diagnostico_arquitec/assets/` antes de empezar el item.
+
+---
+
+## Orden de ataque actualizado tras Ronda 3
+
+Sumar al final del orden sugerido:
+
+| Sesión | Items | Esfuerzo |
+|---|---|---|
+| **12** | **B5** (sacar/arreglar botón muerto) + **B2** (notif assignations clickeables) + **Q10** (cartel sin alumno con CTA) | medio día |
+| **13** | **B3 + B4** investigación conjunta (bugs flujo asignación evaluación) | 1 día |
+| **14** | **Q9** (asignar alumno desde eval) + **Q11** (badge falta video/nota) | medio día |
+| **15** | **F11** — plan documentado `24_plan_F11_autocierre_bloques.md` + implementación | 1-1.5 días |
+
+Estas 4 sesiones pueden intercalarse entre las del backlog anterior según urgencia que defina Anto. **Sugerencia**: meter sesión 12 antes que sesión 8-9 (eval refactor + autosave), porque son items chicos y visibles que Anto va a notar inmediatamente.
