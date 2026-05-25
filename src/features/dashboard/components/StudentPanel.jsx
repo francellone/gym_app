@@ -89,7 +89,7 @@ export default function StudentPanel({
         // workout_block_logs (para que circuit/aerobic cuenten en el tally).
         const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
           supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
-          supabase.from('plan_blocks').select('id, section_id, block_type').eq('plan_id', planId),
+          supabase.from('plan_blocks').select('id, section, block_type').eq('plan_id', planId),
           supabase
             .from('workout_logs')
             .select(

@@ -37,7 +37,7 @@
 /**
  * @typedef {Object} PlanBlock
  * @property {string} id
- * @property {string} section_id      'activation' | 'day_a' | 'day_b' | ...
+ * @property {string} section      'activation' | 'day_a' | 'day_b' | ...
  * @property {string} block_type      'strength' | 'aerobic' | 'circuit'
  */
 
@@ -92,12 +92,12 @@ export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks }
     if (b.__virtual) continue // bloques sintéticos no cuentan
     if (b.block_type) blockTypeById.set(b.id, b.block_type)
     if (
-      typeof b.section_id === 'string' &&
-      b.section_id.startsWith('day_') &&
+      typeof b.section === 'string' &&
+      b.section.startsWith('day_') &&
       b.block_type &&
       b.block_type !== 'strength'
     ) {
-      blockToSection.set(b.id, b.section_id)
+      blockToSection.set(b.id, b.section)
     }
   }
   const hasBlocksInfo = blockTypeById.size > 0

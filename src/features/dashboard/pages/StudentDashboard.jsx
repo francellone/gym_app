@@ -114,7 +114,7 @@ export default function StudentDashboard() {
             .eq('plan_id', activePlan.plan_id),
           supabase
             .from('plan_blocks')
-            .select('id, section_id, block_type')
+            .select('id, section, block_type')
             .eq('plan_id', activePlan.plan_id),
           supabase
             .from('workout_logs')

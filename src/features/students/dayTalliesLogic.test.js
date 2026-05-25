@@ -136,8 +136,8 @@ describe('computeDayTallies', () => {
     { id: 'pe_c2', section: 'day_b', block_id: 'pb_tabata' },
   ]
   const blocksMixto = [
-    { id: 'pb_str', section_id: 'day_b', block_type: 'strength' },
-    { id: 'pb_tabata', section_id: 'day_b', block_type: 'circuit' },
+    { id: 'pb_str', section: 'day_b', block_type: 'strength' },
+    { id: 'pb_tabata', section: 'day_b', block_type: 'circuit' },
   ]
 
   it('v29: día con strength + circuit, ambos completados → entero', () => {
@@ -192,7 +192,7 @@ describe('computeDayTallies', () => {
 
   it('v29: día solo con bloque aerobic/circuit (sin strength) → block_log entero', () => {
     const planSoloCircuit = [{ id: 'pe_c1', section: 'day_c', block_id: 'pb_aero' }]
-    const blocksSoloCircuit = [{ id: 'pb_aero', section_id: 'day_c', block_type: 'aerobic' }]
+    const blocksSoloCircuit = [{ id: 'pb_aero', section: 'day_c', block_type: 'aerobic' }]
     const blockLogs = [{ logged_date: '2026-05-25', plan_block_id: 'pb_aero', completed: true }]
     const out = computeDayTallies({
       logs: [],
@@ -251,8 +251,8 @@ describe('computeDayTallies', () => {
   it('v29: bloque con __virtual se ignora', () => {
     const planExercises = [{ id: 'pe_s1', section: 'day_b', block_id: 'pb_str' }]
     const planBlocks = [
-      { id: 'pb_str', section_id: 'day_b', block_type: 'strength' },
-      { id: 'pb_v', section_id: 'day_b', block_type: 'circuit', __virtual: true },
+      { id: 'pb_str', section: 'day_b', block_type: 'strength' },
+      { id: 'pb_v', section: 'day_b', block_type: 'circuit', __virtual: true },
     ]
     const logs = [{ logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true }]
     const out = computeDayTallies({ logs, planExercises, blockLogs: [], planBlocks })

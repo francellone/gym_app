@@ -48,7 +48,7 @@ export default function StudentDayTalliesCard({
         // como ítems del día (antes quedaban siempre como "parcial").
         const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
           supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
-          supabase.from('plan_blocks').select('id, section_id, block_type').eq('plan_id', planId),
+          supabase.from('plan_blocks').select('id, section, block_type').eq('plan_id', planId),
           supabase
             .from('workout_logs')
             .select('logged_date, plan_exercise_id, completed')

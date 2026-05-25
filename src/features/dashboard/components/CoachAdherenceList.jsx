@@ -88,7 +88,7 @@ export default function CoachAdherenceList({
             .in('plan_id', planIds),
           supabase
             .from('plan_blocks')
-            .select('id, plan_id, section_id, block_type')
+            .select('id, plan_id, section, block_type')
             .in('plan_id', planIds),
           supabase
             .from('workout_logs')
