@@ -14,8 +14,16 @@ Fecha inicial: 2026-05-21 (noche). Última actualización: **2026-05-24** — su
 
 - **B3** — "se crea otra aparte sin contenido" al asignar evaluación. **No era bug del back**: era UX que mezclaba plantillas con clones. Fix: `PlansPage.jsx` ahora filtra `is_template=false` de las evaluaciones (los clones siguen accesibles desde la ficha del alumno). Ver doc 24.
 - **B4** — "evaluaciones ya creadas no aparecen como opción para asignar". Causa: checkbox "Guardar como plantilla reutilizable" desmarcado por default. Fix: el checkbox se oculta para evaluaciones en `CreatePlanPage.jsx` y `EditPlanPage.jsx`; el `INSERT` de evals fuerza `is_template=true`. Para training se preserva la opción explícita. Ver doc 24.
+- **B5** — botón "Agregar ejercicio" muerto + Q10 cartel sin alumno con CTA. Commits `d03b69d`, `9920b54`, `5987f45`. Validado en prod el 24/05. Ver docs 26, 27, 28.
+- **F4** — autosave de series en TodayWorkoutPage. Opción A (localStorage). Smoke OK. Ver doc 23.
 
-Próximos candidatos sin bloqueo: **Q1** (foto pendiente de Anto), **Q7** (bloques A1/A2 auto, respuesta=A), **Q6** (perfil editable + notif coach, respuesta=A), **B5** (botón "Agregar ejercicio" muerto), **B2** (notif assignations clickables, extensión de Q3).
+## ✅ Items cerrados (sesión del 2026-05-25 PM)
+
+- **Cartel "no cumple las reglas"** (no estaba en backlog, reportado por Ana en prod) — fallback genérico 23514 del helper no traducía mensajes en español del RPC `save_workout_log`. Fix: 4 ramas extra por mensaje en español en `errorHelpers.js`. Commit `fd7c1e0`. Documentado en handoff 9.1 §8.
+- **Plan 29 — tally parcial con bloques aerobic/circuit** (continuación de Q2 cerrado el 23/05). Bug descubierto al revisar Ana: `Día B ◐◐` aunque entrenaba todo. `computeDayTallies` no contemplaba `workout_block_logs`. Opción B implementada (todos los ítems prescriptos cuentan: strength por ejercicio + 1 ítem por bloque aerobic/circuit). 5 callers migrados, 23 tests verdes. Commits `18905a7` + hotfix `545061e` (la columna real era `plan_blocks.section`, no `section_id`). Validado en prod: Ana Día B pasa de ◐◐ a ✓✓. Ver doc 29 y handoff 30.
+- **Hallazgo de producto (NO bug)** durante validación: anto almanza esquiva sistemáticamente **Chin Ups y DIPS** del Día C (3/5 ejercicios cargados las 3 sesiones, siempre los mismos faltantes). El tally arreglado ahora muestra esa señal correctamente. → **Acción Franco**: hablar con Anto.
+
+Próximos candidatos sin bloqueo (al 25/05 PM): **B2** (notif assignations clickeables, extensión de Q3 ya cerrado), **Q4** (desasignar eval), **Q5** (filtrar ejercicios por tag EVALUACIONES), **Q9** (asignar alumno desde eval recién creada), **Q11** (badge falta video/nota). Bloqueados por decisión Anto: la mayoría tienen respuesta en el cuestionario del doc 13.
 
 ---
 
