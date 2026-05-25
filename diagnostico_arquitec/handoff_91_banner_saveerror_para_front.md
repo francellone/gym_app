@@ -174,3 +174,42 @@ Casos de prueba sugeridos (sin tocar BD real):
 ## 7. Confirmación
 
 Cuando termines, avisame y validamos juntos los 4 casos de prueba. No requiere migración ni queries del back.
+
+---
+
+## 8. Follow-up 2026-05-25 — gap del RPC `save_workout_log`
+
+### Lo que pasó
+
+Alumna Ana reportó cartel **"Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo."** al cerrar Día B. Verificado en DB: la `workout_session` quedó cerrada OK (`finished_at` + `borg_per_day:{"day_b":6}`), los 12 `workout_logs` están consistentes. El cartel salió en un intento intermedio y al reintentar funcionó.
+
+### Causa
+
+El § 2.2 de este handoff asume que todos los errores `23514` traen el **nombre del constraint** en `error.details` (`workout_logs_weight_mode_check`, `bodyweight_no_weights`, etc.). Eso funciona cuando el CHECK declarativo de la tabla rebota.
+
+Pero el RPC `save_workout_log` (instalado después del handoff) valida las mismas 4 condiciones con `RAISE EXCEPTION ... USING ERRCODE = 'check_violation'` y tira **mensajes en español sin el nombre del constraint**:
+
+| Mensaje del RPC | Patrón que el helper buscaba | Match |
+|---|---|---|
+| `weight_mode inválido: %` | `/workout_logs_weight_mode_check/i` | ❌ |
+| `reps_unit inválido: %` | `/workout_logs_reps_unit_check/i` | ❌ |
+| `weight_mode=bodyweight no admite p_weights` | `/bodyweight_no_weights/i` | ❌ |
+| `p_reps y p_weights deben tener la misma longitud` | `/reps_weights_same_length/i` | ❌ |
+
+Los 4 cayeron al fallback **"Hay un dato que no cumple las reglas..."** desde el día 1.
+
+### Fix aplicado
+
+`src/utils/errorHelpers.js` — agregué 4 ramas extra dentro de `if (code === '23514')` que matchean por mensaje en español del RPC (antes del fallback). Reusan los mismos mensajes accionables de § 2.2.
+
+Tests: 249/249 verdes. ESLint: 0 warnings. Diff acotado al helper, sin impacto en BD ni en otros archivos.
+
+### Por qué Ana terminó cerrando OK
+
+El cartel saltó en un intento intermedio (probable: editó reps/pesos dejando longitudes desincronizadas → cayó la rama 4). Al reintentar corrigiendo, el save pasó. La DB no muestra nada raro de ella.
+
+### Implicación para el back
+
+Si en el futuro se agregan más `RAISE EXCEPTION USING ERRCODE = 'check_violation'` en RPCs, considerar:
+- Opción A: emitir el nombre del constraint en el mensaje del RAISE (más prolijo, mantiene contrato del § 2.2).
+- Opción B: confiar en que el front mappee por mensaje en español (lo que se hizo ahora).

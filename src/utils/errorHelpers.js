@@ -99,6 +99,22 @@ export function getFriendlyErrorMessage(error) {
     if (/apunta a una plantilla/i.test(haystack)) {
       return 'Error técnico al asignar el plan. Avisá al coach (cod: 23514 template).'
     }
+    // Mensajes en español del RPC save_workout_log (RAISE EXCEPTION USING ERRCODE='check_violation').
+    // El RPC NO emite el nombre del constraint en el mensaje, así que los patrones de arriba
+    // (que buscan workout_logs_*) no matchean. Sin estos catches, todo error de save_workout_log
+    // caía al fallback "Hay un dato que no cumple las reglas".
+    if (/p_reps y p_weights|misma longitud/i.test(haystack)) {
+      return 'La cantidad de reps no coincide con la de pesos. Revisá los sets.'
+    }
+    if (/weight_mode inválido/i.test(haystack)) {
+      return 'Modo de peso inválido. Recargá la página.'
+    }
+    if (/reps_unit inválido/i.test(haystack)) {
+      return 'Unidad de reps inválida. Recargá la página.'
+    }
+    if (/bodyweight no admite p_weights|no admite p_weights/i.test(haystack)) {
+      return 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.'
+    }
     return 'Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo.'
   }
 
