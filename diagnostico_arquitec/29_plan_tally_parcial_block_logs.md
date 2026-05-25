@@ -187,7 +187,17 @@ src/features/workouts/pages/TodayWorkoutPage.jsx         |  13 +-
 7 files changed, 361 insertions(+), 33 deletions(-)
 ```
 
-### Pendiente de validar en prod
+### Validado en prod (2026-05-25 PM)
 
-- Ana Moran (Día B 25/05) debería pasar de **◐◐** a **✓◐** (el 25/05 fue entero, el otro día B aún parcial si no completó TABATA).
-- anto almanza (Día C) — verificar si el cambio lo corrige también.
+**Hotfix encontrado durante la validación:** Tres commits para llegar a verde:
+1. `18905a7` — implementación inicial Opción B
+2. `545061e` — hotfix: la columna real en `plan_blocks` es `section`, no `section_id`. Fix en los 5 callers + tests.
+
+**Resultados después del hotfix:**
+
+- **Ana Moran (Día B):** ✅ pasa de ◐◐ a ✓✓ — los 4 strength + el TABATA cuentan correctamente.
+- **anto almanza (Día C):** ◐ se mantiene, **y es correcto**. Verificado por SQL: Anto carga sistemáticamente 3 de los 5 ejercicios del Día C (todas las veces: Kettlebell Swing, Peso Muerto Barbell, SINGLE HOP PLATE). Esquiva consistentemente **Chin Ups** y **DIPS** las 3 sesiones (30/04, 07/05, 15/05). El ◐ es señal real para el coach, no ruido del cálculo.
+
+### Aprendizaje de producto
+
+El tally parcial pasó de ser ruido (bug que ocultaba sesiones completas) a ser **señal accionable** para el coach. Anto puede ahora preguntarle a su alumno por qué esos dos ejercicios específicos quedan sin cargar — es info que antes estaba oculta detrás del bug.
