@@ -78,11 +78,26 @@ export default function CoachAdherenceList({
         const planIds = Array.from(new Set(valid.map((a) => a.plan_id)))
         const studentIds = Array.from(new Set(valid.map((a) => a.student_id)))
 
-        const [exercisesRes, logsRes] = await Promise.all([
-          supabase.from('plan_exercises').select('id, section, plan_id').in('plan_id', planIds),
+        // v29 (plan 29): además de plan_exercises + workout_logs, traemos
+        // plan_blocks (para resolver block_type) y workout_block_logs (para
+        // que los bloques aerobic/circuit cuenten al armar los tallies).
+        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
+          supabase
+            .from('plan_exercises')
+            .select('id, section, plan_id, block_id')
+            .in('plan_id', planIds),
+          supabase
+            .from('plan_blocks')
+            .select('id, plan_id, section_id, block_type')
+            .in('plan_id', planIds),
           supabase
             .from('workout_logs')
             .select('logged_date, plan_exercise_id, completed, plan_id, student_id')
+            .in('plan_id', planIds)
+            .in('student_id', studentIds),
+          supabase
+            .from('workout_block_logs')
+            .select('logged_date, plan_block_id, completed, plan_id, student_id')
             .in('plan_id', planIds)
             .in('student_id', studentIds),
         ])
@@ -90,7 +105,9 @@ export default function CoachAdherenceList({
         if (cancelled) return
 
         const allExercises = exercisesRes.data || []
+        const allBlocks = blocksRes.data || []
         const allLogs = logsRes.data || []
+        const allBlockLogs = blockLogsRes.data || []
 
         // 3) Indexar por plan_id y (plan_id, student_id) para no recorrer
         // todo el array por cada asignación.
@@ -100,11 +117,24 @@ export default function CoachAdherenceList({
           exercisesByPlan.get(pe.plan_id).push(pe)
         }
 
+        const blocksByPlan = new Map()
+        for (const pb of allBlocks) {
+          if (!blocksByPlan.has(pb.plan_id)) blocksByPlan.set(pb.plan_id, [])
+          blocksByPlan.get(pb.plan_id).push(pb)
+        }
+
         const logsByKey = new Map()
         for (const l of allLogs) {
           const key = `${l.plan_id}__${l.student_id}`
           if (!logsByKey.has(key)) logsByKey.set(key, [])
           logsByKey.get(key).push(l)
+        }
+
+        const blockLogsByKey = new Map()
+        for (const bl of allBlockLogs) {
+          const key = `${bl.plan_id}__${bl.student_id}`
+          if (!blockLogsByKey.has(key)) blockLogsByKey.set(key, [])
+          blockLogsByKey.get(key).push(bl)
         }
 
         // 4) Construir filas. Filtrar logs anteriores a start_date del
@@ -113,7 +143,9 @@ export default function CoachAdherenceList({
         // se acota adicionalmente a esa ventana.
         const built = valid.map((a) => {
           const planExercises = exercisesByPlan.get(a.plan_id) || []
+          const planBlocks = blocksByPlan.get(a.plan_id) || []
           const allStudentLogs = logsByKey.get(`${a.plan_id}__${a.student_id}`) || []
+          const allStudentBlockLogs = blockLogsByKey.get(`${a.plan_id}__${a.student_id}`) || []
           const planStart = a.start_date || '2000-01-01'
           const windowStart =
             filterPeriodRange?.start && filterPeriodRange.start > planStart
@@ -124,7 +156,16 @@ export default function CoachAdherenceList({
             const d = String(l.logged_date || '').slice(0, 10)
             return d >= windowStart && d <= windowEnd
           })
-          const tallies = computeDayTallies({ logs: logsInWindow, planExercises })
+          const blockLogsInWindow = allStudentBlockLogs.filter((bl) => {
+            const d = String(bl.logged_date || '').slice(0, 10)
+            return d >= windowStart && d <= windowEnd
+          })
+          const tallies = computeDayTallies({
+            logs: logsInWindow,
+            planExercises,
+            blockLogs: blockLogsInWindow,
+            planBlocks,
+          })
           const hasAnyTally = Object.values(tallies).some(
             (t) => t && (t.entero > 0 || t.parcial > 0)
           )
@@ -155,7 +196,6 @@ export default function CoachAdherenceList({
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStudentId, filterPlanId, filterPeriodRange?.start, filterPeriodRange?.end])
 
   if (loading) {
@@ -186,9 +226,7 @@ export default function CoachAdherenceList({
           className="card flex items-center gap-3 hover:shadow-md transition-shadow"
         >
           <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-700 text-sm font-semibold">
-              {initials(student.name)}
-            </span>
+            <span className="text-primary-700 text-sm font-semibold">{initials(student.name)}</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline justify-between gap-2">

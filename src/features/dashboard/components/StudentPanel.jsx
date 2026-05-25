@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { ChevronRight, TrendingUp, Activity, Target, Zap, ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import {
+  ChevronRight,
+  TrendingUp,
+  Activity,
+  Target,
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getExpectedSessionDates } from '@/features/plans/assignmentHelpers'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
@@ -54,7 +63,9 @@ export default function StudentPanel({
   studentName,
 }) {
   const [planExercises, setPlanExercises] = useState([])
+  const [planBlocks, setPlanBlocks] = useState([])
   const [logs, setLogs] = useState([])
+  const [blockLogs, setBlockLogs] = useState([])
   const [loading, setLoading] = useState(false)
 
   const planId = assignment?.plan_id || null
@@ -64,15 +75,21 @@ export default function StudentPanel({
   useEffect(() => {
     if (!studentId || !planId || !periodStart || !periodEnd) {
       setPlanExercises([])
+      setPlanBlocks([])
       setLogs([])
+      setBlockLogs([])
       return
     }
     let cancelled = false
     async function load() {
       setLoading(true)
       try {
-        const [exercisesRes, logsRes] = await Promise.all([
-          supabase.from('plan_exercises').select('id, section').eq('plan_id', planId),
+        // v29 (plan 29): además de plan_exercises + workout_logs, traemos
+        // plan_blocks (para saber el block_type de cada PE) y
+        // workout_block_logs (para que circuit/aerobic cuenten en el tally).
+        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
+          supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
+          supabase.from('plan_blocks').select('id, section_id, block_type').eq('plan_id', planId),
           supabase
             .from('workout_logs')
             .select(
@@ -85,15 +102,26 @@ export default function StudentPanel({
             .eq('plan_id', planId)
             .gte('logged_date', periodStart)
             .lte('logged_date', periodEnd),
+          supabase
+            .from('workout_block_logs')
+            .select('logged_date, plan_block_id, completed')
+            .eq('student_id', studentId)
+            .eq('plan_id', planId)
+            .gte('logged_date', periodStart)
+            .lte('logged_date', periodEnd),
         ])
         if (cancelled) return
         setPlanExercises(exercisesRes.data || [])
+        setPlanBlocks(blocksRes.data || [])
         setLogs(logsRes.data || [])
+        setBlockLogs(blockLogsRes.data || [])
       } catch (err) {
         console.error('[StudentPanel] fetch', err)
         if (!cancelled) {
           setPlanExercises([])
+          setPlanBlocks([])
           setLogs([])
+          setBlockLogs([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -106,16 +134,13 @@ export default function StudentPanel({
   }, [studentId, planId, periodStart, periodEnd])
 
   // ── Cálculos derivados ───────────────────────────────────
-  const donutData = useMemo(
-    () => computeDonutData({ logs, planExercises }),
-    [logs, planExercises]
-  )
+  const donutData = useMemo(() => computeDonutData({ logs, planExercises }), [logs, planExercises])
 
   const completedDays = useMemo(() => computeCompletedDays(logs), [logs])
   const pseAvg = useMemo(() => computeAveragePSE(logs), [logs])
   const tallies = useMemo(
-    () => computeDayTallies({ logs, planExercises }),
-    [logs, planExercises]
+    () => computeDayTallies({ logs, planExercises, blockLogs, planBlocks }),
+    [logs, planExercises, blockLogs, planBlocks]
   )
 
   const fixedExpectedDates = useMemo(() => {
@@ -159,9 +184,7 @@ export default function StudentPanel({
       {/* Header del panel */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-gray-900 truncate">
-            {studentName || 'Alumno'}
-          </h3>
+          <h3 className="text-base font-bold text-gray-900 truncate">{studentName || 'Alumno'}</h3>
           <p className="text-xs text-gray-500 truncate">
             {assignment.plan?.title || 'Plan activo'} · {findPeriodLabel(periodKey)}
           </p>
@@ -252,9 +275,7 @@ export default function StudentPanel({
                   </ul>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 italic">
-                  Sin sesiones en este período
-                </p>
+                <p className="text-xs text-gray-400 italic">Sin sesiones en este período</p>
               )}
             </div>
 
@@ -267,7 +288,9 @@ export default function StudentPanel({
           </div>
 
           {/* Banner motivacional */}
-          <div className={`mt-2 rounded-xl px-3 py-2 text-sm ${motivationToneClass(motivation.tone)}`}>
+          <div
+            className={`mt-2 rounded-xl px-3 py-2 text-sm ${motivationToneClass(motivation.tone)}`}
+          >
             {motivation.text}
           </div>
 

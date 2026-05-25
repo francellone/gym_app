@@ -43,11 +43,21 @@ export default function StudentDayTalliesCard({
     async function load() {
       setLoading(true)
       try {
-        const [exercisesRes, logsRes] = await Promise.all([
-          supabase.from('plan_exercises').select('id, section').eq('plan_id', planId),
+        // v29 (plan 29): además de PE + workout_logs, traemos plan_blocks
+        // y workout_block_logs para que los bloques aerobic/circuit cuenten
+        // como ítems del día (antes quedaban siempre como "parcial").
+        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
+          supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
+          supabase.from('plan_blocks').select('id, section_id, block_type').eq('plan_id', planId),
           supabase
             .from('workout_logs')
             .select('logged_date, plan_exercise_id, completed')
+            .eq('student_id', studentId)
+            .eq('plan_id', planId)
+            .gte('logged_date', startDate || '2000-01-01'),
+          supabase
+            .from('workout_block_logs')
+            .select('logged_date, plan_block_id, completed')
             .eq('student_id', studentId)
             .eq('plan_id', planId)
             .gte('logged_date', startDate || '2000-01-01'),
@@ -56,6 +66,8 @@ export default function StudentDayTalliesCard({
         const t = computeDayTallies({
           logs: logsRes.data || [],
           planExercises: exercisesRes.data || [],
+          blockLogs: blockLogsRes.data || [],
+          planBlocks: blocksRes.data || [],
         })
         setTallies(t)
       } catch (err) {

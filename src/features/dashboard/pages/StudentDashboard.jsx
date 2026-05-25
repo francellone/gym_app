@@ -105,14 +105,26 @@ export default function StudentDashboard() {
     let cancelled = false
     async function loadTallies() {
       try {
-        const [exercisesRes, logsRes] = await Promise.all([
+        // v29 (plan 29): traemos también plan_blocks + workout_block_logs
+        // para que los bloques aerobic/circuit cuenten como ítems del día.
+        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
           supabase
             .from('plan_exercises')
-            .select('id, section')
+            .select('id, section, block_id')
+            .eq('plan_id', activePlan.plan_id),
+          supabase
+            .from('plan_blocks')
+            .select('id, section_id, block_type')
             .eq('plan_id', activePlan.plan_id),
           supabase
             .from('workout_logs')
             .select('logged_date, plan_exercise_id, completed')
+            .eq('student_id', profile.id)
+            .eq('plan_id', activePlan.plan_id)
+            .gte('logged_date', activePlan.start_date || '2000-01-01'),
+          supabase
+            .from('workout_block_logs')
+            .select('logged_date, plan_block_id, completed')
             .eq('student_id', profile.id)
             .eq('plan_id', activePlan.plan_id)
             .gte('logged_date', activePlan.start_date || '2000-01-01'),
@@ -121,6 +133,8 @@ export default function StudentDashboard() {
         const tallies = computeDayTallies({
           logs: logsRes.data || [],
           planExercises: exercisesRes.data || [],
+          blockLogs: blockLogsRes.data || [],
+          planBlocks: blocksRes.data || [],
         })
         setDayTallies(tallies)
       } catch (err) {

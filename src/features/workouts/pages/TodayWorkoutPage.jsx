@@ -657,9 +657,18 @@ export default function TodayWorkoutPage() {
 
   // Q2 — tallies por día del plan (Día A ✓✓◐) usando los logs recientes
   // del plan que ya cargamos para sugerir el día inicial. Cap 500 logs.
+  // v29 (plan 29): pasamos planBlocks + recentBlockLogs para que los
+  // bloques aerobic/circuit cuenten en el denominador (antes el TABATA
+  // del Día B nunca llegaba a "entero" aunque el alumno lo completara).
   const dayTallies = useMemo(
-    () => computeDayTallies({ logs: recentLogs, planExercises }),
-    [recentLogs, planExercises]
+    () =>
+      computeDayTallies({
+        logs: recentLogs,
+        planExercises,
+        blockLogs: recentBlockLogs,
+        planBlocks,
+      }),
+    [recentLogs, planExercises, recentBlockLogs, planBlocks]
   )
 
   // Q1 — maps derivados para el preview "Última vez" + chat.
@@ -683,16 +692,10 @@ export default function TodayWorkoutPage() {
     () => pickLastCoachNotePerExercise(exerciseNotes),
     [exerciseNotes]
   )
-  const noteCountByExercise = useMemo(
-    () => countNotesByExercise(exerciseNotes),
-    [exerciseNotes]
-  )
+  const noteCountByExercise = useMemo(() => countNotesByExercise(exerciseNotes), [exerciseNotes])
   // Cache de notas agrupadas por ejercicio: lo pasamos al drawer para
   // evitar fetch extra (las notas ya vinieron en fetchWorkout).
-  const notesByExercise = useMemo(
-    () => groupNotesByExercise(exerciseNotes),
-    [exerciseNotes]
-  )
+  const notesByExercise = useMemo(() => groupNotesByExercise(exerciseNotes), [exerciseNotes])
 
   // Q1 — handler para abrir el drawer desde cualquier card.
   // Lo memoizamos para no recrear el callback en cada render.

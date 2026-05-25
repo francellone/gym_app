@@ -28,11 +28,29 @@
  * @typedef {Object} PlanExercise
  * @property {string} id
  * @property {string} section         'activation' | 'day_a' | 'day_b' | 'day_c' | 'day_d'
+ * @property {string} [block_id]      uuid del plan_blocks padre. Opcional para
+ *                                    compatibilidad legacy; si no viene, se
+ *                                    asume que el ejercicio loggea por workout_log
+ *                                    (comportamiento previo a v29).
+ */
+
+/**
+ * @typedef {Object} PlanBlock
+ * @property {string} id
+ * @property {string} section_id      'activation' | 'day_a' | 'day_b' | ...
+ * @property {string} block_type      'strength' | 'aerobic' | 'circuit'
+ */
+
+/**
+ * @typedef {Object} WorkoutBlockLog
+ * @property {string} logged_date
+ * @property {string} plan_block_id
+ * @property {boolean} completed
  */
 
 /**
  * @typedef {Object} SectionTally
- * @property {number} entero          Fechas con 100% de ejercicios completed
+ * @property {number} entero          Fechas con 100% de ítems completed
  * @property {number} parcial         Fechas con >0% pero <100% completed
  * @property {number} total           entero + parcial
  * @property {Set<string>} days       Fechas YMD que contribuyeron (cualquier estado)
@@ -41,37 +59,77 @@
 // ============================================================
 // computeDayTallies
 // ------------------------------------------------------------
-// Inputs:
-//   logs           WorkoutLog[]   — workout_logs del alumno+plan.
-//                                   Sólo se consideran los cuyo
-//                                   plan_exercise_id matchea un PE
-//                                   del plan con section LIKE 'day_%'.
-//   planExercises  PlanExercise[] — plan_exercises del plan target.
+// Inputs (v29, 2026-05-25):
+//   logs           WorkoutLog[]      — workout_logs del alumno+plan.
+//   planExercises  PlanExercise[]    — plan_exercises del plan target.
+//                                      Si trae `block_id`, junto con `planBlocks`
+//                                      permite discriminar por block_type.
+//   blockLogs      WorkoutBlockLog[] — (opcional) workout_block_logs.
+//   planBlocks     PlanBlock[]       — (opcional) plan_blocks del plan.
+//
+// Reglas (v29 — Opción B del plan 29):
+//   - Para una sección day_X, los "ítems esperados" son:
+//       * todos los plan_exercises cuyo block_type === 'strength'
+//         (cuentan por ejercicio, vía workout_logs.completed)
+//       * cada plan_block aerobic/circuit cuenta como 1 ítem
+//         (vía workout_block_logs.completed para ese block_id)
+//   - Si planBlocks NO se pasa (caller legacy), se asume que TODOS los
+//     plan_exercises son strength y los block_logs no se cuentan.
+//     Esto preserva el comportamiento previo para callers que aún
+//     no migraron a la firma nueva.
 //
 // Output:
 //   Record<section, SectionTally>
-//   Ej:
-//     {
-//       day_a: { entero: 2, parcial: 1, total: 3, days: Set(['...']) },
-//       day_b: { entero: 0, parcial: 1, total: 1, days: Set(['...']) }
-//     }
 // ============================================================
-export function computeDayTallies({ logs, planExercises } = {}) {
-  // 1) Mapeo exerciseId → section + totales esperados por section.
-  //    Sólo nos importa section LIKE 'day_%'. La activación NO cuenta
-  //    como día propio: el alumno la hace siempre antes de cualquier
-  //    day_X y mezclarla rompería el conteo.
+export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks } = {}) {
+  // 1) Mapa block_id → block_type. Vacío si el caller no pasa planBlocks
+  //    (modo legacy: todos los plan_exercises se tratan como strength
+  //    y los block_logs se ignoran).
+  const blockTypeById = new Map()
+  const blockToSection = new Map()
+  for (const b of planBlocks || []) {
+    if (!b || !b.id) continue
+    if (b.__virtual) continue // bloques sintéticos no cuentan
+    if (b.block_type) blockTypeById.set(b.id, b.block_type)
+    if (
+      typeof b.section_id === 'string' &&
+      b.section_id.startsWith('day_') &&
+      b.block_type &&
+      b.block_type !== 'strength'
+    ) {
+      blockToSection.set(b.id, b.section_id)
+    }
+  }
+  const hasBlocksInfo = blockTypeById.size > 0
+
+  // 2) Mapear plan_exercises de bloques strength → exerciseId → section,
+  //    e ir acumulando totales por section.
+  //    - Modo legacy (sin planBlocks): TODOS los plan_exercises cuentan.
+  //    - Modo nuevo: sólo los de bloques strength (los de aerobic/circuit
+  //      no loggean por ejercicio, loggean por bloque).
   const exerciseToSection = new Map()
   const sectionTotals = {}
 
   for (const pe of planExercises || []) {
     if (!pe || typeof pe.section !== 'string' || !pe.section.startsWith('day_')) continue
+    if (hasBlocksInfo) {
+      const bt = blockTypeById.get(pe.block_id)
+      // Si el bloque del PE es strength → cuenta. Si es aerobic/circuit → no.
+      // Si block_id no matchea con ningún bloque conocido (dato inconsistente)
+      // → lo tratamos como strength para no perder señal silenciosamente.
+      if (bt && bt !== 'strength') continue
+    }
     exerciseToSection.set(pe.id, pe.section)
     sectionTotals[pe.section] = (sectionTotals[pe.section] || 0) + 1
   }
 
-  // 2) Por (fecha, section), contar cuántos ejercicios completados
-  //    tiene el alumno. Sólo logs con completed=true cuentan.
+  // 3) Sumar al denominador los bloques aerobic/circuit (1 por bloque).
+  //    Sólo si tenemos planBlocks.
+  for (const [, section] of blockToSection.entries()) {
+    sectionTotals[section] = (sectionTotals[section] || 0) + 1
+  }
+
+  // 4) Numerador parte 1: workout_logs.completed por (date, section).
   const completedByDateSection = new Map()
 
   for (const log of logs || []) {
@@ -84,7 +142,19 @@ export function computeDayTallies({ logs, planExercises } = {}) {
     completedByDateSection.set(key, (completedByDateSection.get(key) || 0) + 1)
   }
 
-  // 3) Por (fecha, section): entero si completados >= total esperado,
+  // 5) Numerador parte 2: workout_block_logs.completed para bloques
+  //    aerobic/circuit. Sólo si tenemos planBlocks y blockLogs.
+  for (const bl of blockLogs || []) {
+    if (!bl || !bl.completed) continue
+    const section = blockToSection.get(bl.plan_block_id)
+    if (!section) continue
+    const date = String(bl.logged_date || '').slice(0, 10)
+    if (!date) continue
+    const key = `${date}__${section}`
+    completedByDateSection.set(key, (completedByDateSection.get(key) || 0) + 1)
+  }
+
+  // 6) Por (fecha, section): entero si completados >= total esperado,
   //    parcial si 0 < completados < total. Acumular por section.
   const tallies = {}
 

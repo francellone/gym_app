@@ -122,6 +122,144 @@ describe('computeDayTallies', () => {
     expect(out.day_a.days.has('2026-05-13')).toBe(true)
     expect(out.day_a.entero).toBe(1)
   })
+
+  // ============================================================
+  // v29 (2026-05-25) — soporte de bloques aerobic/circuit
+  // ============================================================
+  // Plan con mix strength + circuit (el caso real de Ana Día B):
+  //   day_b strength: pe_s1, pe_s2 (workout_logs por ejercicio)
+  //   day_b circuit:  pb_tabata con pe_c1, pe_c2 (loggean a nivel bloque)
+  const planMixto = [
+    { id: 'pe_s1', section: 'day_b', block_id: 'pb_str' },
+    { id: 'pe_s2', section: 'day_b', block_id: 'pb_str' },
+    { id: 'pe_c1', section: 'day_b', block_id: 'pb_tabata' },
+    { id: 'pe_c2', section: 'day_b', block_id: 'pb_tabata' },
+  ]
+  const blocksMixto = [
+    { id: 'pb_str', section_id: 'day_b', block_type: 'strength' },
+    { id: 'pb_tabata', section_id: 'day_b', block_type: 'circuit' },
+  ]
+
+  it('v29: día con strength + circuit, ambos completados → entero', () => {
+    const logs = [
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true },
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s2', completed: true },
+    ]
+    const blockLogs = [{ logged_date: '2026-05-25', plan_block_id: 'pb_tabata', completed: true }]
+    const out = computeDayTallies({
+      logs,
+      planExercises: planMixto,
+      blockLogs,
+      planBlocks: blocksMixto,
+    })
+    expect(out.day_b).toMatchObject({ entero: 1, parcial: 0, total: 1 })
+  })
+
+  it('v29: día con strength completo pero circuit faltante → parcial', () => {
+    const logs = [
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true },
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s2', completed: true },
+    ]
+    const out = computeDayTallies({
+      logs,
+      planExercises: planMixto,
+      blockLogs: [],
+      planBlocks: blocksMixto,
+    })
+    expect(out.day_b).toMatchObject({ entero: 0, parcial: 1 })
+  })
+
+  it('v29: plan_exercises de bloques no-strength se ignoran del denominador', () => {
+    // pe_c1/pe_c2 son del bloque circuit — no deben sumar al denominador
+    // ni siquiera si por error apareciera un workout_log con su id.
+    const logs = [
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true },
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s2', completed: true },
+      // Estos no deberían existir en prod, pero si llegasen, no rompen:
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_c1', completed: true },
+    ]
+    const blockLogs = [{ logged_date: '2026-05-25', plan_block_id: 'pb_tabata', completed: true }]
+    const out = computeDayTallies({
+      logs,
+      planExercises: planMixto,
+      blockLogs,
+      planBlocks: blocksMixto,
+    })
+    // Denominador esperado: 2 strength + 1 bloque circuit = 3
+    // Numerador: 2 workout_logs (los strength) + 1 block_log = 3
+    expect(out.day_b).toMatchObject({ entero: 1, parcial: 0 })
+  })
+
+  it('v29: día solo con bloque aerobic/circuit (sin strength) → block_log entero', () => {
+    const planSoloCircuit = [{ id: 'pe_c1', section: 'day_c', block_id: 'pb_aero' }]
+    const blocksSoloCircuit = [{ id: 'pb_aero', section_id: 'day_c', block_type: 'aerobic' }]
+    const blockLogs = [{ logged_date: '2026-05-25', plan_block_id: 'pb_aero', completed: true }]
+    const out = computeDayTallies({
+      logs: [],
+      planExercises: planSoloCircuit,
+      blockLogs,
+      planBlocks: blocksSoloCircuit,
+    })
+    expect(out.day_c).toMatchObject({ entero: 1, parcial: 0 })
+  })
+
+  it('v29 legacy: sin planBlocks → comportamiento previo (todos los PE cuentan)', () => {
+    // Si el caller aún no migró, no debe romperse. Todos los pe1/pe2/pe3
+    // se tratan como strength (como antes de v29).
+    const logs = [
+      { logged_date: '2026-05-13', plan_exercise_id: 'pe1', completed: true },
+      { logged_date: '2026-05-13', plan_exercise_id: 'pe2', completed: true },
+      { logged_date: '2026-05-13', plan_exercise_id: 'pe3', completed: true },
+    ]
+    const out = computeDayTallies({ logs, planExercises: plan })
+    expect(out.day_a).toMatchObject({ entero: 1, parcial: 0 })
+  })
+
+  it('v29: block_log con completed=false no cuenta', () => {
+    const logs = [
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true },
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s2', completed: true },
+    ]
+    const blockLogs = [{ logged_date: '2026-05-25', plan_block_id: 'pb_tabata', completed: false }]
+    const out = computeDayTallies({
+      logs,
+      planExercises: planMixto,
+      blockLogs,
+      planBlocks: blocksMixto,
+    })
+    expect(out.day_b).toMatchObject({ entero: 0, parcial: 1 })
+  })
+
+  it('v29: block_log de un plan_block que no es del plan se ignora', () => {
+    const logs = [
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true },
+      { logged_date: '2026-05-25', plan_exercise_id: 'pe_s2', completed: true },
+    ]
+    const blockLogs = [
+      { logged_date: '2026-05-25', plan_block_id: 'pb_ghost', completed: true },
+      { logged_date: '2026-05-25', plan_block_id: 'pb_tabata', completed: true },
+    ]
+    const out = computeDayTallies({
+      logs,
+      planExercises: planMixto,
+      blockLogs,
+      planBlocks: blocksMixto,
+    })
+    expect(out.day_b).toMatchObject({ entero: 1, parcial: 0 })
+  })
+
+  it('v29: bloque con __virtual se ignora', () => {
+    const planExercises = [{ id: 'pe_s1', section: 'day_b', block_id: 'pb_str' }]
+    const planBlocks = [
+      { id: 'pb_str', section_id: 'day_b', block_type: 'strength' },
+      { id: 'pb_v', section_id: 'day_b', block_type: 'circuit', __virtual: true },
+    ]
+    const logs = [{ logged_date: '2026-05-25', plan_exercise_id: 'pe_s1', completed: true }]
+    const out = computeDayTallies({ logs, planExercises, blockLogs: [], planBlocks })
+    // Si __virtual contara, el denominador sería 2 (1 strength + 1 circuit virtual).
+    // Como NO debe contar, queda 1 y el día es entero.
+    expect(out.day_b).toMatchObject({ entero: 1, parcial: 0 })
+  })
 })
 
 describe('formatTallyForDisplay', () => {
