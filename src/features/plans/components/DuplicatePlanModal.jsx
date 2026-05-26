@@ -35,7 +35,12 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         sessions_per_week: plan.sessions_per_week,
         duration_weeks: plan.duration_weeks ?? null,
         has_activation: plan.has_activation ?? false,
-        is_template: false,
+        // Bug 4 doc 32 (2026-05-26): duplicar debe producir una nueva PLANTILLA,
+        // no una instancia personal. Antes esto hardcodeaba `false` y dejaba al
+        // duplicado inasignable (caía afuera del filtro `is_template !== false`
+        // del AssignEvaluationForm). El flujo de instancias personales se hace
+        // exclusivamente vía RPC assign_template_to_student al asignar a un alumno.
+        is_template: true,
         plan_type: planType,
         eval_type: isEval ? evalType : null,
         eval_method: isEval ? (plan.eval_method ?? null) : null,
