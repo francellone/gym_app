@@ -58,7 +58,16 @@ export default function EvaluationsPage() {
     setEvalPlans((prev) => prev.filter((p) => p.id !== planId))
   }
 
-  const filtered = evalPlans.filter((p) => {
+  // C3 doc 34 (2026-05-26 PM): los planes con is_template=false son
+  // instancias personales — clones generados por la RPC al asignar a un
+  // alumno o legacies pre-trigger. No corresponden al recetario del coach
+  // (mezclan recetas con fotocopias). Mismo pattern que PlansPage (B3+Q10
+  // del 24/05). Las instancias quedan visibles desde el perfil del alumno
+  // → tab Evaluaciones, que es donde tienen sentido.
+  const isClone = (p) => p.is_template === false
+  const templates = evalPlans.filter((p) => !isClone(p))
+
+  const filtered = templates.filter((p) => {
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = !filterType || p.eval_type === filterType
     return matchSearch && matchType
@@ -70,7 +79,7 @@ export default function EvaluationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Evaluaciones</h1>
-          <p className="text-sm text-gray-500">{evalPlans.length} planes de evaluación</p>
+          <p className="text-sm text-gray-500">{templates.length} planes de evaluación</p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
@@ -81,7 +90,7 @@ export default function EvaluationsPage() {
       {/* Eval type summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {EVAL_TYPES.slice(0, 4).map((et) => {
-          const count = evalPlans.filter((p) => p.eval_type === et.key).length
+          const count = templates.filter((p) => p.eval_type === et.key).length
           return (
             <button
               key={et.key}
