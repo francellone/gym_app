@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { EVAL_TYPES, evalTypeColor, evalTypeIcon } from '../helpers'
-import { BarChart2, Plus, Users, ChevronRight, Search, Trash2 } from 'lucide-react'
+import {
+  BarChart2,
+  Plus,
+  Users,
+  ChevronRight,
+  Search,
+  Trash2,
+  UserPlus,
+  Check,
+  X,
+} from 'lucide-react'
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
+import { assignTemplateToStudent } from '@/features/plans/assignmentHelpers'
 
 export default function EvaluationsPage() {
   const [evalPlans, setEvalPlans] = useState([])
@@ -11,6 +22,12 @@ export default function EvaluationsPage() {
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
   const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
+
+  // Bug 1 doc 32 (2026-05-26): asignar evaluación a un alumno desde
+  // la lista. Antes había que ir al perfil del alumno → tab Evaluaciones.
+  // El flow nuevo reutiliza el helper assignTemplateToStudent (mismo que
+  // usa StudentEvaluationsTab) y solo cambia el "origen" de la acción.
+  const [assigningPlan, setAssigningPlan] = useState(null) // template a asignar
 
   useEffect(() => {
     fetchEvalPlans()
@@ -188,6 +205,16 @@ export default function EvaluationsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {plan.is_template !== false && (
+                    <button
+                      onClick={() => setAssigningPlan(plan)}
+                      className="btn-ghost p-2 text-gray-400 hover:text-purple-600"
+                      title="Asignar a alumno"
+                      aria-label="Asignar evaluación a alumno"
+                    >
+                      <UserPlus size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleOpenDelete(plan)}
                     className="btn-ghost p-2 text-gray-400 hover:text-red-500"
@@ -214,6 +241,160 @@ export default function EvaluationsPage() {
           onConfirm={handleDeletePlan}
         />
       )}
+
+      {/* Assign-to-student modal — Bug 1 doc 32 */}
+      {assigningPlan && (
+        <AssignEvalToStudentModal
+          plan={assigningPlan}
+          onClose={() => setAssigningPlan(null)}
+          onDone={() => {
+            setAssigningPlan(null)
+            fetchEvalPlans()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// AssignEvalToStudentModal — Bug 1 doc 32 (2026-05-26)
+// Carga lista de alumnos al abrir (lazy), permite elegir uno
+// y llama a la RPC assign_template_to_student vía el helper.
+// ─────────────────────────────────────────────────────────────
+function AssignEvalToStudentModal({ plan, onClose, onDone }) {
+  const [students, setStudents] = useState([])
+  const [loadingStudents, setLoadingStudents] = useState(true)
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [assignLoading, setAssignLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchStudents() {
+      try {
+        const { data, error: e } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .eq('role', 'student')
+          .order('name')
+        if (e) throw e
+        if (!cancelled) setStudents(data || [])
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Error cargando alumnos')
+      } finally {
+        if (!cancelled) setLoadingStudents(false)
+      }
+    }
+    fetchStudents()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleAssign() {
+    if (!selectedStudentId) return
+    setAssignLoading(true)
+    setError(null)
+    try {
+      await assignTemplateToStudent(supabase, {
+        templateId: plan.id,
+        studentId: selectedStudentId,
+        startDate: new Date().toISOString().slice(0, 10),
+      })
+      onDone()
+    } catch (err) {
+      console.error(err)
+      setError(err.message || 'Error al asignar la evaluación')
+    } finally {
+      setAssignLoading(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900">Asignar evaluación</h3>
+            <p className="text-sm text-gray-600 mt-0.5 truncate">{plan.title}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            type="button"
+            aria-label="Cerrar"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div>
+          <label className="label text-xs">Alumno</label>
+          {loadingStudents ? (
+            <div className="h-10 bg-gray-50 rounded-lg flex items-center justify-center">
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+            </div>
+          ) : students.length === 0 ? (
+            <p className="text-sm text-gray-500">No hay alumnos cargados todavía.</p>
+          ) : (
+            <select
+              className="input text-sm"
+              value={selectedStudentId}
+              onChange={(e) => setSelectedStudentId(e.target.value)}
+            >
+              <option value="">— Seleccionar alumno —</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name || s.email}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-2">
+            {error}
+          </p>
+        )}
+
+        <p className="text-xs text-gray-500">
+          Para vincularla a un plan del alumno (opcional), usá la pestaña Evaluaciones dentro del
+          perfil.
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={assignLoading}
+            className="btn-secondary flex-1 text-sm"
+            type="button"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAssign}
+            disabled={!selectedStudentId || assignLoading || loadingStudents}
+            className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
+            type="button"
+          >
+            {assignLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <Check size={14} /> Asignar
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
