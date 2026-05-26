@@ -17,6 +17,8 @@ import {
   Save,
   BarChart2,
   Link2,
+  X,
+  AlertTriangle,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -181,6 +183,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
               assignment={a}
               studentId={studentId}
               linkedTo={grouped.activeTraining}
+              onRefresh={onRefresh}
             />
           ))}
         </EvalGroup>
@@ -190,7 +193,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       {grouped.independent.length > 0 && (
         <EvalGroup title="Evaluaciones independientes" accent="gray">
           {grouped.independent.map((a) => (
-            <EvaluationCard key={a.id} assignment={a} studentId={studentId} />
+            <EvaluationCard key={a.id} assignment={a} studentId={studentId} onRefresh={onRefresh} />
           ))}
         </EvalGroup>
       )}
@@ -210,6 +213,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
               studentId={studentId}
               linkedTo={trainingAssignments.find((t) => t.id === a.linked_assignment_id) || null}
               historical
+              onRefresh={onRefresh}
             />
           ))}
         </EvalGroup>
@@ -342,10 +346,25 @@ function AssignEvaluationForm({
 // ─────────────────────────────────────────────────────────────
 // EvaluationCard — tarjeta por evaluación asignada
 // ─────────────────────────────────────────────────────────────
-function EvaluationCard({ assignment, studentId, linkedTo = null, historical = false }) {
+function EvaluationCard({
+  assignment,
+  studentId,
+  linkedTo = null,
+  historical = false,
+  onRefresh = () => {},
+}) {
   const plan = assignment.plan
   const [expanded, setExpanded] = useState(false)
   const [view, setView] = useState('ultimo') // 'ultimo' | 'historial'
+
+  // Bug 2 doc 32: desasignar evaluación. Q4 13.7 (Anto): active=false,
+  // mantener evaluation_results parciales. UI: botón ✕ en header (no
+  // visible en históricas), confirm modal con resumen del impacto.
+  const [showUnassign, setShowUnassign] = useState(false)
+  const [unassigning, setUnassigning] = useState(false)
+  const assignmentStatus = getAssignmentStatus(assignment)
+  const canUnassign =
+    !historical && (assignmentStatus === 'active' || assignmentStatus === 'paused')
 
   // Datos cargados al expandir
   const [pruebas, setPruebas] = useState([]) // evaluation_tests
@@ -356,6 +375,26 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
   const isCustom = plan?.eval_type === 'custom'
   const colorClass = evalTypeColor(plan?.eval_type)
   const tags = plan?.eval_tags || []
+
+  async function handleUnassign() {
+    setUnassigning(true)
+    try {
+      // Q4 13.7 (Anto): mantener resultados parciales, solo archivar la
+      // asignación. NO borrar evaluation_results del alumno.
+      const { error } = await supabase
+        .from('plan_assignments')
+        .update({ active: false, status: 'archived' })
+        .eq('id', assignment.id)
+      if (error) throw error
+      setShowUnassign(false)
+      onRefresh()
+    } catch (err) {
+      console.error(err)
+      alert(err.message || 'Error al desasignar la evaluación')
+    } finally {
+      setUnassigning(false)
+    }
+  }
 
   async function fetchData() {
     if (loaded || loading) return
@@ -451,10 +490,18 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
 
   return (
     <div className={`card space-y-0 p-0 overflow-hidden ${historical ? 'opacity-80' : ''}`}>
-      {/* Header de la tarjeta */}
-      <button
+      {/* Header de la tarjeta — div para permitir botón anidado de desasignar */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleToggle}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleToggle()
+          }
+        }}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors cursor-pointer"
       >
         <span className="text-2xl">{evalTypeIcon(plan?.eval_type)}</span>
         <div className="flex-1 min-w-0">
@@ -490,13 +537,37 @@ function EvaluationCard({ assignment, studentId, linkedTo = null, historical = f
               {resultados.length} {resultados.length === 1 ? 'registro' : 'registros'}
             </span>
           )}
+          {canUnassign && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowUnassign(true)
+              }}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              title="Desasignar evaluación"
+              aria-label="Desasignar evaluación"
+            >
+              <X size={16} />
+            </button>
+          )}
           {expanded ? (
             <ChevronUp size={18} className="text-gray-400" />
           ) : (
             <ChevronDown size={18} className="text-gray-400" />
           )}
         </div>
-      </button>
+      </div>
+
+      {showUnassign && (
+        <UnassignEvaluationModal
+          planTitle={plan?.title}
+          resultCount={resultados.length}
+          loading={unassigning}
+          onCancel={() => setShowUnassign(false)}
+          onConfirm={handleUnassign}
+        />
+      )}
 
       {/* Contenido expandido */}
       {expanded && (
@@ -1108,4 +1179,68 @@ function ResultadoResumen({ results, evalType }) {
         </p>
       )
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// UnassignEvaluationModal — confirm modal para Bug 2 doc 32
+// Q4 13.7 (Anto): active=false + status='archived'; los
+// evaluation_results parciales se conservan (no se borran).
+// ─────────────────────────────────────────────────────────────
+function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, onConfirm }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={20} className="text-rose-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900">Desasignar evaluación</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              La evaluación <span className="font-medium">{planTitle}</span> quedará archivada para
+              el alumno y no la podrá completar.
+            </p>
+            {resultCount > 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                {resultCount === 1
+                  ? 'El registro ya cargado se conserva'
+                  : `Los ${resultCount} registros ya cargados se conservan`}{' '}
+                — sólo se archiva la asignación.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="btn-secondary flex-1 text-sm"
+            type="button"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 text-sm py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+            type="button"
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <X size={14} /> Desasignar
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
