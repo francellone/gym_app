@@ -165,3 +165,37 @@ Mi voto: **(a)** — más limpio, sin riesgo de trigger. Anto decide si las quie
 
 **Cerrado por:** agente Cowork sesión 2026-05-26
 **Próximo agente:** lee este handoff + doc 32 + `MEMORY.md`. Si Franco arranca con "¿cómo quedó lo de las evals?", la respuesta corta es: "Las 4 fases del doc 32 implementadas, smoke pendiente. C1-C4 quedan como follow-up que él decidió postergar."
+
+---
+
+## 6. Iteración 2 (2026-05-26 PM, post-smoke de Franco)
+
+Franco hizo smoke después del push y reportó 3 puntos:
+
+1. **Vista del coach mostraba "vacía"** aunque los 8 tests sí estaban en BD — el `UltimoRegistro` mostraba placeholder "El alumno aún no registró…" en vez de las pruebas asignadas. El alumno SÍ ve las 8 pruebas al entrar a `EvalWorkoutPage`; el bug era solo en la preview del coach.
+2. **Desasignar dejaba la eval visible** — el SELECT de `plan_assignments` en `StudentDetailPage` trae todas las asignaciones sin filtrar status; después del UPDATE active=false/status=archived seguía apareciendo en el listado.
+3. **Pidió botón Asignar también en el detalle del template** (Q9 backlog).
+
+### Cambios aplicados
+
+| Archivo | Qué hace |
+|---|---|
+| `src/features/evaluations/components/AssignEvalToStudentModal.jsx` (new) | Modal extraído a archivo propio para reusarlo entre `EvaluationsPage` y `EvaluationDetailPage`. |
+| `src/features/evaluations/pages/EvaluationsPage.jsx` | Importa el modal externo, borra la versión inline. |
+| `src/features/evaluations/pages/EvaluationDetailPage.jsx` | Botón "Asignar" en header (entre Delete y Editar), visible solo si `is_template !== false`. Modal compartido. |
+| `src/features/evaluations/pages/StudentEvaluationsTab.jsx` | (a) `visibleAssignments` filtra `status='archived'` antes del grouping → desasignadas desaparecen del tab. (b) `UltimoRegistro` muestra lista de pruebas en preview cuando no hay resultado pero sí hay pruebas custom. |
+
+### Validación iteración 2
+
+- ESLint: 0 errores, **70 warnings** (baseline ahora −2 vs original 72).
+- Tests: 257/257 verdes.
+- Smoke pendiente — Franco va a re-probar los 4 escenarios después del 2º push.
+
+### Commits planeados iteración 2
+
+```
+feat(evaluations): preview de pruebas + ocultar desasignadas + asignar desde detalle (doc 32 iter 2)
+```
+
+Un único commit porque los 3 cambios son interdependientes UX-wise y todos atacan el mismo doc.
+

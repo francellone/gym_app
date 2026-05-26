@@ -11,8 +11,10 @@ import {
   Edit2,
   ExternalLink,
   Trash2,
+  UserPlus,
 } from 'lucide-react'
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
+import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
 // ============================================================
@@ -453,6 +455,9 @@ export default function EvaluationDetailPage() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  // Iteración 2 doc 32 (2026-05-26 PM) + Q9 backlog: asignar desde
+  // el detalle de la evaluación, igual que desde EvaluationsPage.
+  const [showAssignModal, setShowAssignModal] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -541,6 +546,16 @@ export default function EvaluationDetailPage() {
           {plan.description && <p className="text-sm text-gray-500 mt-0.5">{plan.description}</p>}
         </div>
         <div className="flex items-center gap-2">
+          {plan.is_template !== false && (
+            <button
+              onClick={() => setShowAssignModal(true)}
+              className="btn-secondary flex items-center gap-1.5 text-sm"
+              title="Asignar a alumno"
+            >
+              <UserPlus size={14} />
+              <span className="hidden sm:inline">Asignar</span>
+            </button>
+          )}
           <button
             onClick={() => setShowDeleteModal(true)}
             className="btn-ghost p-2 text-gray-400 hover:text-red-500"
@@ -557,6 +572,17 @@ export default function EvaluationDetailPage() {
           </Link>
         </div>
       </div>
+
+      {showAssignModal && (
+        <AssignEvalToStudentModal
+          plan={plan}
+          onClose={() => setShowAssignModal(false)}
+          onDone={() => {
+            setShowAssignModal(false)
+            fetchData()
+          }}
+        />
+      )}
 
       {showDeleteModal && (
         <DeletePlanModal

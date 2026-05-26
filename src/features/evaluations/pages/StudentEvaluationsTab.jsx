@@ -44,20 +44,29 @@ import { useAuth } from '@/features/auth/AuthContext'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
+  // Bug 2 doc 32 iteración 2 (2026-05-26 PM): las evals desasignadas
+  // (status='archived') deben desaparecer del tab. El SELECT en
+  // StudentDetailPage trae todas las asignaciones; filtramos acá.
+  // Las completed/replaced se mantienen porque son referencia histórica.
+  const visibleAssignments = (assignments || []).filter((a) => a.status !== 'archived')
+
   // Solo evaluaciones asignadas (incluye históricas — el agrupador las separa).
-  const evalAssignments = (assignments || []).filter((a) => {
+  const evalAssignments = visibleAssignments.filter((a) => {
     const t = a.plan_type || a.plan?.plan_type
     return t === 'evaluation'
   })
 
   // Asignaciones de training del alumno (para dropdown de asociación).
-  const trainingAssignments = (assignments || []).filter((a) => {
+  const trainingAssignments = visibleAssignments.filter((a) => {
     const t = a.plan_type || a.plan?.plan_type || 'training'
     return t === 'training'
   })
 
   // Agrupado: del plan vigente, independientes, históricas.
-  const grouped = useMemo(() => groupEvaluationAssignments(assignments || []), [assignments])
+  const grouped = useMemo(
+    () => groupEvaluationAssignments(visibleAssignments),
+    [visibleAssignments]
+  )
 
   // Estado para asignar nueva evaluación
   const [assigning, setAssigning] = useState(false)
@@ -732,6 +741,48 @@ function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _stude
   }
 
   if (!resultado) {
+    // Iteración 2 doc 32 (2026-05-26 PM): cuando no hay registro del
+    // alumno, mostrar las pruebas asignadas en modo preview (sin valores)
+    // para que el coach vea qué pruebas le tocan al alumno. Antes solo
+    // aparecía el placeholder "El alumno aún no registró…" y daba la
+    // impresión de eval vacía aunque los tests sí estaban en BD.
+    if (pruebas && pruebas.length > 0) {
+      return (
+        <div className="p-4 space-y-3">
+          <div className="text-center text-xs text-gray-400 py-2 border-b border-gray-100">
+            <ClipboardList size={20} className="mx-auto mb-1 text-gray-300" />
+            El alumno todavía no registró esta evaluación.
+            <br />
+            <span className="text-gray-400">{pruebas.length} pruebas asignadas:</span>
+          </div>
+          <div className="space-y-1.5">
+            {pruebas.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
+              >
+                <span className="w-5 h-5 flex-shrink-0 rounded-full bg-gray-200 text-gray-500 text-xs font-semibold flex items-center justify-center mt-0.5">
+                  {p.order_index + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800 truncate">
+                    {p.exercise_name || 'Ejercicio sin nombre'}
+                  </p>
+                  {p.instructions && (
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{p.instructions}</p>
+                  )}
+                  {(p.expected_value || p.expected_unit) && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Esperado: {p.expected_value || '—'} {p.expected_unit || ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-8">
         <ClipboardList size={28} className="mx-auto mb-2 text-gray-300" />
