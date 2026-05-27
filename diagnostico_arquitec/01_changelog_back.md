@@ -114,7 +114,7 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 | `workout_logs` | `reps_unit` | text | NULL, `reps`, `pasos`, `respiraciones` o `segundos` |
 | `exercises` | `default_weight_mode` | text | Default heredado al asignar al plan |
 | `exercises` | `default_unilateral` | boolean | Idem unilateral |
-| `exercises` | `is_active` | boolean | Si false, ejercicio archivado (no aparece en pickers) |
+| ~~`exercises`~~ | ~~`is_active`~~ | ~~boolean~~ | **DROPEADA el 2026-05-27** (migración `20260527165112_drop_exercises_is_active_junk_flag`). Era una foto de "sin uso al 16/05" que nunca se mantuvo viva; el front la respetaba sólo en `notes/api.js`. Decisión de producto: el coach debe ver todos los ejercicios sin distinción y la organización visual se resuelve por etiquetas. |
 | `plan_exercises` | `weight_mode` | text NULL | Override opcional del default del exercise |
 | `plan_exercises` | `unilateral` | boolean NULL | Override opcional del default del exercise |
 | `profiles` | `is_test` | boolean | Cuenta de prueba/dev (4 marcadas) |
@@ -186,7 +186,7 @@ Horario en zona Argentina (UTC-3): los cron diarios corren entre 2 y 7 AM, los s
 
 **Creados** (12 en total):
 - 11 índices en FKs que estaban sin cubrir (`idx_evaluation_tests_exercise_id`, `idx_exercises_created_by`, `idx_ifa_plan_assignment_id`, `idx_ifa_template_id`, `idx_plan_assignments_replaced_by`, `idx_plan_exercises_exercise_id`, `idx_student_edit_history_changed_by`, `idx_student_profiles_submission_id`, `idx_workout_block_logs_plan_id`, `idx_workout_logs_plan_id`, `idx_workout_sessions_plan_id`).
-- 1 índice parcial sobre `exercises (is_active=true)`.
+- ~~1 índice parcial sobre `exercises (is_active=true)`~~ — dropeado junto con la columna el 2026-05-27.
 
 **Borrados** (4 duplicados):
 - `idx_workout_logs_student` (duplicado de `idx_workout_logs_student_id`)

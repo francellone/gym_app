@@ -1227,31 +1227,35 @@ export async function fetchEvalMirrorBodies(responseIds) {
 }
 
 // ============================================================
-// B.11 — listAllActiveExercises()
+// B.11 — listAllExercises()
 // ------------------------------------------------------------
-// Catálogo completo de ejercicios activos. Lo necesita el composer
+// Catálogo completo de ejercicios. Lo necesita el composer
 // para que el coach/alumno pueda elegir cualquier ejercicio al
 // que adjuntar la nota (no solo los ya comentados en el thread,
 // que es lo que devuelve listFilterOptions).
 //
 // Cache módulo (5 min) — el catálogo rara vez cambia.
 // Devuelve: { data: Array<{id, name, muscle_group}>, error }
+//
+// Nota: el filtro previo `is_active = true` fue removido junto
+// con la columna en la migración de junk-flag cleanup. El picker
+// muestra todos los ejercicios; la organización visual queda a
+// cargo del sistema de etiquetas (exercise_tags).
 // ============================================================
 let _catalogCache = null
 const CATALOG_CACHE_TTL_MS = 5 * 60_000
 
-export async function listAllActiveExercises() {
+export async function listAllExercises() {
   if (_catalogCache && _catalogCache.expiresAt > Date.now()) {
     return { data: _catalogCache.value, error: null }
   }
   const { data, error } = await supabase
     .from('exercises')
     .select('id, name, muscle_group')
-    .eq('is_active', true)
     .order('name', { ascending: true })
 
   if (error) {
-    console.warn('[notes.listAllActiveExercises] error:', error)
+    console.warn('[notes.listAllExercises] error:', error)
     return { data: [], error: normalizeError(error, 'No se pudo cargar el catálogo.') }
   }
   _catalogCache = { value: data || [], expiresAt: Date.now() + CATALOG_CACHE_TTL_MS }

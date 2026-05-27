@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
-import { listFilterOptions, markThreadRead, listAllActiveExercises } from '../api'
+import { listFilterOptions, markThreadRead, listAllExercises } from '../api'
 import NotesFilters from './NotesFilters'
 import NoteCard from './NoteCard'
 import NoteComposer from './NoteComposer'
@@ -42,7 +42,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   // presentes en el thread).
   useEffect(() => {
     let alive = true
-    listAllActiveExercises().then(({ data }) => {
+    listAllExercises().then(({ data }) => {
       if (alive) setCatalogExercises(data || [])
     })
     return () => {

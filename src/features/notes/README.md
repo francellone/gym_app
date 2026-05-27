@@ -12,7 +12,7 @@ notes/
 │                                   Exporta ~30 funciones: getStudentThread,
 │                                   getOrCreateThreadForStudent, listNotes, createNote,
 │                                   replyNote, editNote, deleteNote, markThreadRead,
-│                                   subscribeThread, listFilterOptions, listAllActiveExercises,
+│                                   subscribeThread, listFilterOptions, listAllExercises,
 │                                   contextTypeLabel, fetchSingleMirrorBodies,
 │                                   fetchEvalMirrorBodies, postWorkoutLogNote,
 │                                   postWorkoutBlockLogNote, postEvalCommentNote,
@@ -33,17 +33,17 @@ notes/
 
 ## Quién consume estos módulos
 
-| Consumidor | Importa |
-|---|---|
-| `src/App.jsx` | `StudentNotesPage` (page route) |
-| `src/components/layout/StudentLayout.jsx` | `useNoteThreadUnread` (badge en navbar del alumno) |
-| `src/pages/coach/StudentDetailPage.jsx` | `StudentNotesTab` + `useNoteThreadUnread` + `fetchSingleMirrorBodies` (badge tab) |
-| `src/pages/coach/EvaluationDetailPage.jsx` | `fetchSingleMirrorBodies` (renderiza notas mirror) |
-| `src/pages/coach/student/StudentEvaluationsTab.jsx` | `fetchEvalMirrorBodies`, `postEvalCommentNote`, `fetchSingleMirrorBodies` |
-| `src/pages/coach/student/StudentProgressTab.jsx` | `fetchSingleMirrorBodies` |
-| `src/pages/student/TodayWorkoutPage.jsx` | `postPSEDayNote`, `fetchSingleMirrorBodies`, `postWorkoutLogNote`, `postWorkoutBlockLogNote` |
-| `src/pages/student/HistoryPage.jsx` | `fetchSingleMirrorBodies` |
-| `src/pages/student/EvalWorkoutPage.jsx` | `fetchEvalMirrorBodies`, `postEvalCommentNote`, `postEvalResultNote`, `fetchSingleMirrorBodies` |
+| Consumidor                                          | Importa                                                                                         |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/App.jsx`                                       | `StudentNotesPage` (page route)                                                                 |
+| `src/components/layout/StudentLayout.jsx`           | `useNoteThreadUnread` (badge en navbar del alumno)                                              |
+| `src/pages/coach/StudentDetailPage.jsx`             | `StudentNotesTab` + `useNoteThreadUnread` + `fetchSingleMirrorBodies` (badge tab)               |
+| `src/pages/coach/EvaluationDetailPage.jsx`          | `fetchSingleMirrorBodies` (renderiza notas mirror)                                              |
+| `src/pages/coach/student/StudentEvaluationsTab.jsx` | `fetchEvalMirrorBodies`, `postEvalCommentNote`, `fetchSingleMirrorBodies`                       |
+| `src/pages/coach/student/StudentProgressTab.jsx`    | `fetchSingleMirrorBodies`                                                                       |
+| `src/pages/student/TodayWorkoutPage.jsx`            | `postPSEDayNote`, `fetchSingleMirrorBodies`, `postWorkoutLogNote`, `postWorkoutBlockLogNote`    |
+| `src/pages/student/HistoryPage.jsx`                 | `fetchSingleMirrorBodies`                                                                       |
+| `src/pages/student/EvalWorkoutPage.jsx`             | `fetchEvalMirrorBodies`, `postEvalCommentNote`, `postEvalResultNote`, `fetchSingleMirrorBodies` |
 
 Siempre importar con el alias absoluto:
 
@@ -69,6 +69,7 @@ RPCs relevantes:
 - `notes_thread_filter_options(p_thread_id, ...)` — devuelve las opciones del filtro (tags / ejercicios usados / grupos musculares).
 
 Triggers automáticos en BD:
+
 - `last_message_at` se actualiza al INSERT.
 - Contadores `unread_for_*` se incrementan/decrementan según author_role y mark-as-read.
 - Notas mirror se sincronizan desde `workout_logs`, `workout_block_logs`, `evaluation_test_responses` vía triggers (v25d/v25e) — el front no las crea directamente.
