@@ -13,6 +13,32 @@ import { supabase } from '@/lib/supabase'
 
 const PAGE_SIZE = 30
 
+// Tipos de notif cuyo destino depende de si el plan es entrenamiento o
+// evaluación. El payload de `fn_notify_plan_assigned` /
+// `fn_notify_plan_updated_internal` NO incluye plan_type, así que lo
+// resolvemos client-side (cubre también las notifs viejas, sin migración).
+const PLAN_LINKED_TYPES = new Set(['plan_assigned', 'plan_updated'])
+
+async function enrichWithPlanType(notifs) {
+  const planIds = [
+    ...new Set(
+      notifs
+        .filter((n) => PLAN_LINKED_TYPES.has(n.type) && n.data?.plan_id && !n.data?.plan_type)
+        .map((n) => n.data.plan_id)
+    ),
+  ]
+  if (planIds.length === 0) return notifs
+
+  const { data: plans } = await supabase.from('plans').select('id, plan_type').in('id', planIds)
+  const typeById = new Map((plans || []).map((p) => [p.id, p.plan_type]))
+
+  return notifs.map((n) =>
+    PLAN_LINKED_TYPES.has(n.type) && n.data?.plan_id && !n.data?.plan_type
+      ? { ...n, data: { ...n.data, plan_type: typeById.get(n.data.plan_id) || null } }
+      : n
+  )
+}
+
 export function useNotifications(userId) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -31,8 +57,9 @@ export function useNotifications(userId) {
       .limit(PAGE_SIZE)
 
     if (!error && data) {
-      setNotifications(data)
-      setUnreadCount(data.filter((n) => !n.read).length)
+      const enriched = await enrichWithPlanType(data)
+      setNotifications(enriched)
+      setUnreadCount(enriched.filter((n) => !n.read).length)
     }
     setLoading(false)
   }, [userId])
@@ -114,7 +141,11 @@ export function useNotifications(userId) {
         },
         (payload) => {
           const newNotif = payload.new
-          setNotifications((prev) => [newNotif, ...prev].slice(0, PAGE_SIZE))
+          // Enriquecer con plan_type (async) para que el deep-link sea correcto
+          // ni bien llega; mientras resuelve, igual se muestra la notif.
+          enrichWithPlanType([newNotif]).then(([enriched]) => {
+            setNotifications((prev) => [enriched, ...prev].slice(0, PAGE_SIZE))
+          })
           setUnreadCount((prev) => prev + 1)
 
           // Mostrar notificación nativa del browser si la pestaña no está activa

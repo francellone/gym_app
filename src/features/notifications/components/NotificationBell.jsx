@@ -99,34 +99,62 @@ const TYPE_CONFIG = {
  * Destino de navegación al clickear una notificación.
  * Devuelve `null` cuando el tipo no tiene destino definido (sólo se marca como leída).
  *
- * El payload (`notification.data`) ya viene poblado por los triggers/RPCs
- * del back (`fn_notify_coach_note`, `fn_notify_student_note`, etc.), así que
- * NO hace falta migración SQL — solo derivamos la URL en el front.
+ * El payload (`notification.data`) viene poblado por los triggers/RPCs del back.
+ * `plan_type` (para plan_assigned/plan_updated) lo inyecta `useNotifications`
+ * client-side, ya que el trigger no lo guarda. Todo se deriva en el front,
+ * sin migración SQL.
  *
- * Tipos cubiertos hoy:
- *   - coach_comment  → panel de notas del alumno (Q3 — Anto 2026-05-21)
- *   - student_note   → tab "Notas" del alumno dentro del perfil, coach side (Q3)
- *   - profile_change → tab "Historial" del alumno, coach side. Lleva al audit
- *                      log (student_edit_history) que es donde el coach ve QUÉ
- *                      cambió, no sólo el estado actual del perfil (Q6 — 2026-05-23).
- *
- * El resto de los tipos cae a `null` por ahora y mantiene el comportamiento
- * actual de solo marcar como leída sin navegar.
+ * Cobertura (B2 + audit 2026-05-30): cada tipo va a donde corresponde según su
+ * recipiente (coach o alumno), verificado contra los payloads reales en DB y
+ * las rutas de App.jsx.
+ *   ALUMNO:
+ *     - coach_comment           → panel de notas (Q3)
+ *     - plan_assigned/updated    → workout de hoy (training) o la eval (B2)
+ *     - weekly_summary           → progreso
+ *   COACH:
+ *     - student_note             → perfil del alumno, tab Notas (Q3)
+ *     - profile_change           → perfil del alumno, tab Historial (Q6)
+ *     - activity_update/session_completed → perfil del alumno
+ *     - stagnation_alert         → perfil del alumno, tab Progreso (Anto 13a)
+ *     - plan_expiring/form_submitted → perfil del alumno
+ *   Sin destino (alerta interna): schema_health_alert.
  */
-function getNotificationTargetUrl(notification) {
+export function getNotificationTargetUrl(notification) {
   const data = notification.data || {}
   switch (notification.type) {
+    // ── Notificaciones al ALUMNO ──────────────────────────────
     case 'coach_comment':
-      // Notif al alumno → su panel de notas (único thread).
       return '/student/notes'
+    case 'plan_assigned':
+    case 'plan_updated':
+      // Evaluación → abre esa evaluación; entrenamiento → workout de hoy.
+      // plan_type lo resuelve useNotifications. Si por algún motivo no llegó
+      // y es una eval, el plan_id igual permite abrirla; si no, va a workout.
+      if (data.plan_type === 'evaluation' && data.plan_id) {
+        return `/student/eval/${data.plan_id}`
+      }
+      return '/student/workout'
+    case 'weekly_summary':
+      return '/student/progress'
+
+    // ── Notificaciones al COACH ───────────────────────────────
     case 'student_note':
-      // Notif al coach → perfil del alumno en tab notas. Si por algún motivo
-      // no vino student_id en el payload, no navegamos (sólo marcamos leída).
       return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
     case 'profile_change':
-      // Notif al coach → tab "Historial" del alumno (audit log de cambios).
-      // El tab info muestra el estado actual; history muestra el diff.
+      // tab info = estado actual; history = el diff (audit log).
       return data.student_id ? `/coach/students/${data.student_id}?tab=history` : null
+    case 'activity_update':
+    case 'session_completed':
+      return data.student_id ? `/coach/students/${data.student_id}` : null
+    case 'stagnation_alert':
+      // Anto (decisión 13a): que lleve al progreso del alumno, no a un chat.
+      return data.student_id ? `/coach/students/${data.student_id}?tab=progress` : null
+    case 'plan_expiring':
+    case 'form_submitted':
+      return data.student_id ? `/coach/students/${data.student_id}` : null
+
+    // ── Sin destino (alertas internas/dev) ────────────────────
+    case 'schema_health_alert':
     default:
       return null
   }

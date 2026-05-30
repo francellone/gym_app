@@ -799,7 +799,12 @@ Estas 4 sesiones pueden intercalarse entre las del backlog anterior según urgen
 
 ### 🔁 Ya en backlog, sin hacer (confirmado por código/DB)
 
-- **B2** — notif de asignación de plan/evaluación no clickeables. **CONFIRMADO no hecho**: `NotificationBell.jsx:getNotificationTargetUrl` solo mapea `coach_comment`, `student_note`, `profile_change`. `plan_assigned` y la asignación de eval caen en `default → null` (no navegan). Cubre los pedidos "evaluación asignada no me lleva a ningún lado" y "assignation de plan/eval no me lleva a nada". Esf: 2-3h.
+- **B2** — notif de asignación de plan/evaluación no clickeables. **RESUELTO 30/05 + audit completo de navegación.** `getNotificationTargetUrl` (NotificationBell.jsx) antes solo cubría `coach_comment`/`student_note`/`profile_change`; el resto caía a `null`. Ahora cubre **todos** los tipos según recipiente y rutas reales de App.jsx:
+  - Alumno: `coach_comment`→`/student/notes`; `plan_assigned`/`plan_updated`→`/student/workout` (training) o `/student/eval/{plan_id}` (eval); `weekly_summary`→`/student/progress`.
+  - Coach: `student_note`→tab notas; `profile_change`→tab history; `activity_update`/`session_completed`→perfil; `stagnation_alert`→tab progress (decisión Anto 13a); `plan_expiring`/`form_submitted`→perfil.
+  - Sin destino: `schema_health_alert` (alerta interna).
+  - **Truco**: el payload de `plan_assigned`/`plan_updated` NO trae `plan_type`, así que `useNotifications` lo resuelve client-side con un fetch a `plans` (cubre también las 24 notifs viejas, sin migración SQL).
+  - Test nuevo `notificationTargetUrl.test.js` (14 casos) ancla el mapa. 271/271 tests, lint 0 err, build OK.
 - **F1** — notif al dashboard cuando el alumno cumple la evaluación. **CONFIRMADO no hecho**: `fn_close_eval_on_result` solo hace `UPDATE plan_assignments SET status='completed'`; NO inserta en `notifications`. Hay que sumar el `INSERT INTO notifications` (kind `evaluation_completed`) + su handler de navegación en el front (depende de B2). El pedido suma "que sea linkeable así me lleva directo". Esf: ~4h.
 - **Q11** — badge en lista de ejercicios cuando falta video/nota. **CONFIRMADO no hecho**: en `ExercisesLibraryPage.jsx`, `video_url`/`description` solo existen como campos del form de alta/edición; no hay indicador en las filas de la lista. Esf: 2-3h.
 - **F11** — autocierre + notif si un bloque queda abierto >24hs. **CONFIRMADO no hecho**: no existe `fn_autoclose_stale_blocks` ni cron equivalente en la DB. Requiere doc plan (decisiones a/b/c + ventana 24h vs 48h + interacción con drafts F4). Esf: 6-8h.
@@ -854,7 +859,7 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 |---|---|---|
 | B5 (agregar ejercicio muerto) | ✅ hecho (prod) — Anto ve versión vieja | 0 |
 | Q10 (cartel sin alumno + CTA) | ✅ hecho (prod) — Anto ve versión vieja | 0 |
-| B2 (notif asignación clickeable) | 🔁 backlog, no hecho | 2-3h |
+| B2 (notif asignación clickeable) | ✅ resuelto 30/05 (local, falta push) — + audit de TODOS los tipos | hecho |
 | F1 (notif eval cumplida + linkeable) | 🔁 backlog, no hecho | ~4h |
 | Q11 (badge falta video/nota) | 🔁 backlog, no hecho | 2-3h |
 | F11 (autocierre bloque 24h) | 🔁 backlog, no hecho | 6-8h |
