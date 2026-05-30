@@ -72,6 +72,12 @@ describe('getNotificationTargetUrl', () => {
     ).toBe(`/coach/students/${STUDENT}`)
   })
 
+  it('evaluation_completed → perfil del alumno tab evaluaciones (coach)', () => {
+    expect(
+      getNotificationTargetUrl({ type: 'evaluation_completed', data: { student_id: STUDENT } })
+    ).toBe(`/coach/students/${STUDENT}?tab=evaluaciones`)
+  })
+
   it('stagnation_alert → perfil del alumno tab progreso (coach)', () => {
     expect(
       getNotificationTargetUrl({ type: 'stagnation_alert', data: { student_id: STUDENT } })

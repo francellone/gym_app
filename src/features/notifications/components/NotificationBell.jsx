@@ -83,6 +83,11 @@ const TYPE_CONFIG = {
     color: 'text-teal-500',
     bg: 'bg-teal-50',
   },
+  evaluation_completed: {
+    Icon: ClipboardCheck,
+    color: 'text-violet-600',
+    bg: 'bg-violet-50',
+  },
   plan_updated: {
     Icon: RefreshCw,
     color: 'text-sky-500',
@@ -146,6 +151,10 @@ export function getNotificationTargetUrl(notification) {
     case 'activity_update':
     case 'session_completed':
       return data.student_id ? `/coach/students/${data.student_id}` : null
+    case 'evaluation_completed':
+      // F1: el alumno cumplió una evaluación → perfil del alumno, tab
+      // Evaluaciones (donde el coach ve el resultado cargado).
+      return data.student_id ? `/coach/students/${data.student_id}?tab=evaluaciones` : null
     case 'stagnation_alert':
       // Anto (decisión 13a): que lleve al progreso del alumno, no a un chat.
       return data.student_id ? `/coach/students/${data.student_id}?tab=progress` : null

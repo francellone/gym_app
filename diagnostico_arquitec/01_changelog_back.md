@@ -87,6 +87,15 @@ Sesiones del 21/05. Las dos primeras se hicieron en el bloque AM/mediodía (Tier
 
 **Total acumulado actualizado:** 26 migraciones atómicas. Cero rollbacks definitivos.
 
+### Día 17 (2026-05-30) — F1: notif al coach cuando el alumno cumple una evaluación
+
+| # | Migración | Bug atacado | Resumen |
+|---|---|---|---|
+| 27 | `notify_coach_on_eval_completed_F1` | F1 doc 13: no había notificación cuando el alumno completaba una evaluación | `CREATE OR REPLACE` de `fn_close_eval_on_result` (trigger AFTER INSERT en `evaluation_results`). Mantiene el cierre de la asignación y suma un `INSERT INTO notifications(type='evaluation_completed')` al coach del alumno (`profiles.coach_id`, mismo patrón que `fn_notify_session_completed`). Dedup por `student_id+plan_id+día`. El `plan_title` del payload usa el título del **template** vía `cloned_from_plan_id` (cae al título del clon si no hay linaje), para no mostrar "— alumno". |
+| 28 | `add_evaluation_completed_to_notifications_type_check` | El CHECK `notifications_type_check` no incluía el tipo nuevo | Sin esto, el `INSERT` del trigger violaba el CHECK y, al ser AFTER INSERT, **abortaba la carga del `evaluation_result` entero** (rompía completar evals). Se amplió el constraint de 12→13 tipos sumando `evaluation_completed`. Detectado por smoke SQL antes de pushear el front. |
+
+**Total acumulado actualizado:** 28 migraciones atómicas. Cero rollbacks definitivos. Smoke con `DO`+rollback confirmó: 1 notif al coach correcto, título limpio del template.
+
 ### Día 3 — Decisiones NO ejecutadas (registradas)
 
 | Hallazgo de la auditoría | Decisión |
