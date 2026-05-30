@@ -1,4 +1,4 @@
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, PlayCircle } from 'lucide-react'
 import { pruebaTypeInfo } from '../../helpers'
 
 // ============================================================
@@ -33,6 +33,20 @@ export default function CustomForm({ pruebas, responses, onChange }) {
                   <p className="text-sm font-semibold text-gray-800">
                     {prueba.exercise_name || `Prueba ${i + 1}`}
                   </p>
+                  {/* B7 (30/05): video de referencia del ejercicio (link de
+                      Drive/YouTube cargado por el coach). El dato llega vía el
+                      join exercises(video_url) que normaliza EvalWorkoutPage. */}
+                  {prueba.video_url && prueba.video_url.startsWith('http') && (
+                    <a
+                      href={prueba.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                      title="Ver video del ejercicio"
+                    >
+                      <PlayCircle size={16} />
+                    </a>
+                  )}
                   <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
                     {typeInfo.label}
                   </span>

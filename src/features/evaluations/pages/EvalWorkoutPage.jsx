@@ -127,10 +127,21 @@ export default function EvalWorkoutPage() {
       if (data.eval_type === 'custom') {
         const { data: pruebasData } = await supabase
           .from('evaluation_tests')
-          .select('*')
+          // B7 (30/05): joinear el ejercicio para traer su video de referencia.
+          // Cada prueba puede linkear a un exercise (exercise_id) que tiene
+          // video_url (link de Drive/YouTube cargado por el coach). Sin este
+          // join el alumno nunca veía el video en la evaluación asignada.
+          .select('*, exercises(video_url)')
           .eq('plan_id', planId)
           .order('order_index')
-        setPruebas(pruebasData || [])
+        // Normalizamos video_url al nivel de la prueba para que CustomForm
+        // no tenga que conocer la forma del join.
+        setPruebas(
+          (pruebasData || []).map((p) => ({
+            ...p,
+            video_url: p.exercises?.video_url || null,
+          }))
+        )
         setResults({ notes: '' })
 
         // Load existing result for today (custom)
