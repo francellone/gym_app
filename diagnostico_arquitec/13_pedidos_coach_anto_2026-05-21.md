@@ -869,3 +869,38 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 | **F13** (cuadro texto + link Drive en eval) | 🆕 feature (decisión 12) | 3-4h |
 
 **Sugerencia de orden:** B7 (1-2h, render trivial, alumna afectada hoy) → B6 (bug crítico, el coach no puede leer resultados) → B2 (desbloquea F1) → F1 → Q11 → F13 → F12 → F11.
+
+---
+
+## Ronda 5 — Evaluaciones por días + método por ejercicio (2026-05-30)
+
+> Pedido de Anto (vía Franco): *"Que en la evaluación también se puedan asignar ejercicios a diferentes días. Y que los métodos de evaluación se apliquen por ejercicio o al total — tener esa opción: por ejemplo, evaluar fuerza máxima en un ejercicio y fuerza-resistencia en otro dentro de la misma evaluación."*
+
+#### F14 (🟡 feature) — Asignar ejercicios de la evaluación a distintos días
+
+> Hoy las evaluaciones son **planas, de un solo día**. Anto quiere organizarlas por Día A/B/C… igual que un plan de entrenamiento.
+
+**Diagnóstico (relevamiento 30/05):**
+- Una evaluación es un `plan` con `plan_type='evaluation'`. Los ejercicios de tipo `one_rm`/`max_reps` se guardan en `plan_exercises` con la sección **hardcodeada a `day_a`** (tanto en `CreatePlanPage`/`EditPlanPage` al guardar, como en `EvalWorkoutPage.fetchPlan` al leer: `.eq('section','day_a')`). Las pruebas `custom` viven en `evaluation_tests`, que **no tiene columna de día/sección**.
+- Los planes de entrenamiento ya resuelven esto con `getDynamicSections(sessions_per_week, has_activation)` y tabs Día A/B/C. La idea es replicar ese mecanismo en evals.
+- **Datos en prod:** 23 `plan_exercises` de evals, **todos en `day_a`**; 32 `evaluation_tests`, todas sin sección. Migración trivial → todo cae a "Día A".
+
+**Alcance confirmado con Franco:** igual que los planes (cantidad de días configurable).
+
+#### F15 (🟡 feature) — Método de evaluación por ejercicio (no sólo a nivel evaluación)
+
+> *"Evaluar un ejercicio con fuerza máxima y otro con fuerza-resistencia en la misma evaluación."* Con opción de **aplicar un método por ejercicio o el mismo a todos**.
+
+**Diagnóstico (relevamiento 30/05):**
+- Hoy el tipo+método de evaluación vive a **nivel del plan** (`plans.eval_type` + `plans.eval_method`) y eso decide qué formulario ve la alumna (`EvalForm` dispatcher en `EvalWorkoutPage`). O sea: toda la eval es 1RM, o toda es custom — no se pueden mezclar.
+- Lo que pide Anto requiere **bajar el tipo+método al nivel del ejercicio/prueba**. Es un cambio estructural (modelo de datos + editor + pantalla de la alumna + detalle del coach). >500 LOC → requiere plan documentado (ver doc 37).
+- **Datos en prod:** sólo se usan 2 tipos hoy — `one_rm` (12 evals, método `brzycki`) y `custom` (4 evals, método `libre`). Bajo volumen, migración de bajo riesgo.
+
+**Decisión de producto (Franco, 30/05):** se elige el modelo unificado (Opción A del doc 37) + toggle en el front "un método por ejercicio / mismo método para todos". **Plan detallado y opciones A/B/C en `37_plan_evaluaciones_por_dia_y_metodo.md`.**
+
+### Resumen Ronda 5
+
+| Item | Estado | Esf |
+|---|---|---|
+| **F14** (ejercicios de eval por días) | 🆕 feature — plan doc 37 | ~ ver doc 37 |
+| **F15** (método de eval por ejercicio) | 🆕 feature — plan doc 37, Franco eligió Opción A | ~ ver doc 37 |

@@ -1,28 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import {
-  ArrowLeft,
-  Save,
-  AlertCircle,
-  Dumbbell,
-  BarChart2,
-  Plus,
-  Trash2,
-  GripVertical,
-  ChevronUp,
-  ChevronDown,
-  Tag,
-  X,
-} from 'lucide-react'
+import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
-import PlanExerciseRow from '../components/PlanExerciseRow'
 import BlockCard from '../components/blocks/BlockCard'
 import AddBlockMenu from '../components/blocks/AddBlockMenu'
 import DayBlocksOrderWarning from '../components/blocks/DayBlocksOrderWarning'
 import {
   getDynamicSections,
-  emptyPlanExercise,
   emptyBlock,
   uiExToDBEx,
   uiBlockToDB,
@@ -31,244 +16,12 @@ import {
 import {
   EVAL_TYPES,
   METHODS,
-  PRUEBA_TYPES,
   EVAL_TAG_SUGGESTIONS,
+  isExerciseBasedEval,
+  uiEvalExerciseToDB,
 } from '@/features/evaluations/helpers'
 import EvaluationParentPlanField from '../components/EvaluationParentPlanField'
-
-// ============================================================
-// PruebaBuilderRow — fila editable de una prueba custom
-// ============================================================
-function PruebaBuilderRow({ prueba, index, total, exercises, onUpdate, onRemove, onMove }) {
-  const [expanded, setExpanded] = useState(true)
-  const [creatingExercise, setCreatingExercise] = useState(false)
-  const [newExName, setNewExName] = useState('')
-
-  const selectedExercise = exercises.find((e) => e.id === prueba.exercise_id)
-
-  async function handleCreateExercise() {
-    if (!newExName.trim()) return
-    try {
-      const { data: newEx, error } = await supabase
-        .from('exercises')
-        .insert({ name: newExName.trim(), created_by: null })
-        .select()
-        .single()
-      if (error) throw error
-      onUpdate('exercise_id', newEx.id)
-      onUpdate('exercise_name', newEx.name)
-      setCreatingExercise(false)
-      setNewExName('')
-      // Recargar ejercicios — se maneja en el padre, aquí seteamos el nombre como fallback
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  return (
-    <div className="border-2 border-gray-100 rounded-2xl overflow-hidden">
-      {/* Header de la fila */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50">
-        <div className="flex flex-col gap-0.5">
-          <button
-            type="button"
-            onClick={() => onMove(-1)}
-            disabled={index === 0}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-30"
-          >
-            <ChevronUp size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMove(1)}
-            disabled={index === total - 1}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-30"
-          >
-            <ChevronDown size={14} />
-          </button>
-        </div>
-        <GripVertical size={14} className="text-gray-300" />
-        <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
-        <span className="flex-1 text-sm font-medium text-gray-700 truncate">
-          {selectedExercise?.name || prueba.exercise_name || 'Nueva prueba'}
-        </span>
-        {prueba.mandatory && (
-          <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">
-            Oblig.
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="text-gray-400 hover:text-gray-600 px-1"
-        >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-        <button type="button" onClick={onRemove} className="text-red-400 hover:text-red-600 px-1">
-          <Trash2 size={15} />
-        </button>
-      </div>
-
-      {/* Cuerpo expandible */}
-      {expanded && (
-        <div className="p-3 space-y-3">
-          {/* Ejercicio */}
-          <div>
-            <label className="label text-xs">Ejercicio</label>
-            {!creatingExercise ? (
-              <div className="flex gap-2">
-                <select
-                  className="input flex-1 text-sm"
-                  value={prueba.exercise_id || ''}
-                  onChange={(e) => {
-                    const ex = exercises.find((x) => x.id === e.target.value)
-                    onUpdate('exercise_id', e.target.value)
-                    onUpdate('exercise_name', ex?.name || '')
-                  }}
-                >
-                  <option value="">— Seleccionar ejercicio —</option>
-                  {exercises.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setCreatingExercise(true)}
-                  className="btn-secondary text-xs px-3 whitespace-nowrap"
-                >
-                  + Nuevo
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  className="input flex-1 text-sm"
-                  placeholder="Nombre del ejercicio"
-                  value={newExName}
-                  onChange={(e) => setNewExName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleCreateExercise()
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateExercise}
-                  className="btn-primary text-xs px-3"
-                >
-                  Crear
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingExercise(false)
-                    setNewExName('')
-                  }}
-                  className="btn-secondary text-xs px-3"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            {/* Si no hay exercise_id, permitir nombre libre */}
-            {!prueba.exercise_id && !creatingExercise && (
-              <input
-                className="input text-sm mt-2"
-                placeholder="O escribí el nombre libremente..."
-                value={prueba.exercise_name || ''}
-                onChange={(e) => onUpdate('exercise_name', e.target.value)}
-              />
-            )}
-          </div>
-
-          {/* Tipo de prueba */}
-          <div>
-            <label className="label text-xs">Tipo de prueba</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {PRUEBA_TYPES.map((pt) => (
-                <button
-                  key={pt.key}
-                  type="button"
-                  onClick={() => {
-                    onUpdate('test_type', pt.key)
-                    onUpdate('expected_unit', pt.unit || '')
-                  }}
-                  className={`text-left px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                    prueba.test_type === pt.key
-                      ? 'border-purple-500 bg-purple-50 text-purple-700'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  {pt.label}
-                  {pt.unit && <span className="ml-1 text-gray-400 font-normal">({pt.unit})</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Instrucciones */}
-          <div>
-            <label className="label text-xs">Instrucciones</label>
-            <textarea
-              className="input resize-none text-sm"
-              rows={2}
-              placeholder="Describí cómo ejecutar la prueba..."
-              value={prueba.instructions || ''}
-              onChange={(e) => onUpdate('instructions', e.target.value)}
-            />
-          </div>
-
-          {/* Valor esperado */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label text-xs">Valor esperado (opcional)</label>
-              <input
-                className="input text-sm"
-                placeholder="ej: 10"
-                value={prueba.expected_value || ''}
-                onChange={(e) => onUpdate('expected_value', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label text-xs">Unidad</label>
-              <input
-                className="input text-sm"
-                placeholder="ej: reps, kg, seg"
-                value={prueba.expected_unit || ''}
-                onChange={(e) => onUpdate('expected_unit', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Obligatoria */}
-          <div
-            className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
-              prueba.mandatory ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'
-            }`}
-            onClick={() => onUpdate('mandatory', !prueba.mandatory)}
-          >
-            <input
-              type="checkbox"
-              readOnly
-              checked={prueba.mandatory}
-              className="w-4 h-4 pointer-events-none text-red-500"
-            />
-            <span
-              className={`text-xs font-medium ${prueba.mandatory ? 'text-red-700' : 'text-gray-600'}`}
-            >
-              Prueba obligatoria
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+import EvalDaysEditor from '../components/EvalDaysEditor'
 
 // ============================================================
 export default function CreatePlanPage() {
@@ -302,11 +55,16 @@ export default function CreatePlanPage() {
     day_c: [],
   })
 
-  // Estado exclusivo para evaluaciones (plano, sin bloques)
-  const [evalExercises, setEvalExercises] = useState([])
+  // Estado para evaluaciones exercise-based (doc 38): ejercicios por día.
+  // { day_a: [row], day_b: [row], ... }
+  const [evalDays, setEvalDays] = useState({ day_a: [] })
+  // Días de la evaluación (sessions_per_week reusado para getDynamicSections).
+  const [evalSessionsPerWeek, setEvalSessionsPerWeek] = useState(1)
+  // Toggle método (solo aplica a `mixed`).
+  const [evalSameMethod, setEvalSameMethod] = useState(true)
+  const [evalGlobalType, setEvalGlobalType] = useState('one_rm')
+  const [evalGlobalMethod, setEvalGlobalMethod] = useState('brzycki')
 
-  // Estado para pruebas de evaluación custom
-  const [evalPruebas, setEvalPruebas] = useState([])
   const [evalTags, setEvalTags] = useState([])
   const [tagInput, setTagInput] = useState('')
 
@@ -342,6 +100,17 @@ export default function CreatePlanPage() {
       return sections[0]?.id || 'day_a'
     })
   }, [plan.sessions_per_week, plan.has_activation, plan.plan_type])
+
+  // Sincronizar las secciones de evalDays cuando cambia la cantidad de días.
+  useEffect(() => {
+    if (plan.plan_type !== 'evaluation') return
+    const sections = getDynamicSections(evalSessionsPerWeek, false)
+    setEvalDays((prev) => {
+      const next = {}
+      for (const s of sections) next[s.id] = prev[s.id] || []
+      return next
+    })
+  }, [evalSessionsPerWeek, plan.plan_type])
 
   // ============================================================
   // Helpers de manipulación de bloques
@@ -405,6 +174,42 @@ export default function CreatePlanPage() {
   }
 
   // ============================================================
+  // Construir filas de plan_exercises para una eval exercise-based.
+  // Aplica el modo "mismo método para todos" (propaga tipo+método global)
+  // o "por ejercicio" (cada fila conserva su tipo+método).
+  // ============================================================
+  function buildEvalExerciseRows(planId) {
+    const isMixed = plan.eval_type === 'mixed'
+    const sections = getDynamicSections(evalSessionsPerWeek, false)
+    const rows = []
+    for (const s of sections) {
+      const dayRows = (evalDays[s.id] || []).filter((r) => r.exercise_id)
+      dayRows.forEach((row, i) => {
+        let effType = row.eval_type
+        let effMethod = row.eval_method
+        if (!isMixed) {
+          // Tipos fijos: todas las filas heredan el tipo+método del plan.
+          effType = plan.eval_type
+          effMethod = plan.eval_method || row.eval_method || null
+        } else if (evalSameMethod) {
+          // Mixta "mismo para todos": propagar tipo+método global.
+          effType = evalGlobalType
+          effMethod = evalGlobalMethod || null
+        }
+        rows.push(
+          uiEvalExerciseToDB(
+            { ...row, eval_type: effType, eval_method: effMethod },
+            planId,
+            s.id,
+            i
+          )
+        )
+      })
+    }
+    return rows
+  }
+
+  // ============================================================
   // Guardar
   // ============================================================
   async function handleSave() {
@@ -426,7 +231,12 @@ export default function CreatePlanPage() {
           title: plan.title,
           description: plan.description,
           goal: plan.goal,
-          sessions_per_week: parseInt(plan.sessions_per_week) || 3,
+          // Para evaluaciones exercise-based los "días" se guardan en
+          // sessions_per_week (lo usa getDynamicSections al leer/editar).
+          sessions_per_week:
+            plan.plan_type === 'evaluation'
+              ? parseInt(evalSessionsPerWeek) || 1
+              : parseInt(plan.sessions_per_week) || 3,
           has_activation: plan.plan_type === 'training' ? plan.has_activation : false,
           duration_weeks: plan.duration_weeks ? parseInt(plan.duration_weeks) : null,
           // B4 + Q10 (24/05): para TODO plan_type forzamos is_template=true
@@ -440,7 +250,11 @@ export default function CreatePlanPage() {
           is_template: true,
           plan_type: plan.plan_type,
           eval_type: plan.plan_type === 'evaluation' ? plan.eval_type : null,
-          eval_method: plan.plan_type === 'evaluation' ? plan.eval_method || null : null,
+          // Para `mixed` el método vive por ejercicio → plan.eval_method = null.
+          eval_method:
+            plan.plan_type === 'evaluation' && plan.eval_type !== 'mixed'
+              ? plan.eval_method || null
+              : null,
           eval_tags: plan.plan_type === 'evaluation' ? evalTags : [],
           // Asociación template-level a un plan padre (solo para evaluaciones).
           parent_plan_id: plan.plan_type === 'evaluation' ? plan.parent_plan_id || null : null,
@@ -451,36 +265,12 @@ export default function CreatePlanPage() {
       if (planError) throw planError
 
       if (plan.plan_type === 'evaluation') {
-        if (plan.eval_type === 'custom') {
-          // Evaluaciones custom: guardar pruebas en evaluation_tests
-          const pruebaRows = evalPruebas
-            .filter((p) => p.exercise_name?.trim() || p.exercise_id)
-            .map((p, i) => ({
-              plan_id: newPlan.id,
-              exercise_id: p.exercise_id || null,
-              exercise_name: p.exercise_name || null,
-              test_type: p.test_type || 'libre',
-              instructions: p.instructions || null,
-              expected_value: p.expected_value || null,
-              expected_unit: p.expected_unit || null,
-              mandatory: p.mandatory || false,
-              order_index: i,
-            }))
-          if (pruebaRows.length > 0) {
-            const { error: pruebaError } = await supabase
-              .from('evaluation_tests')
-              .insert(pruebaRows)
-            if (pruebaError) throw pruebaError
-          }
-        } else {
-          // Evaluaciones científicas: flat plan_exercises, sin bloques
-          const rows = evalExercises
-            .filter((ex) => ex.exercise_id)
-            .map((ex, i) => uiExToDBEx(ex, newPlan.id, 'day_a', i, null))
-          if (rows.length > 0) {
-            const { error: exError } = await supabase.from('plan_exercises').insert(rows)
-            if (exError) throw exError
-          }
+        // Evaluaciones exercise-based (doc 38): un solo cajón = plan_exercises.
+        // Cada ejercicio lleva su eval_type + eval_method por día (section).
+        const rows = buildEvalExerciseRows(newPlan.id)
+        if (rows.length > 0) {
+          const { error: exError } = await supabase.from('plan_exercises').insert(rows)
+          if (exError) throw exError
         }
       } else {
         // Entrenamiento: insertar bloques y sus ejercicios
@@ -519,41 +309,8 @@ export default function CreatePlanPage() {
   }
 
   // ============================================================
-  // Helpers de pruebas (evaluación custom)
+  // Helpers de tags (evaluación)
   // ============================================================
-  function addPrueba() {
-    setEvalPruebas((prev) => [
-      ...prev,
-      {
-        exercise_id: '',
-        exercise_name: '',
-        test_type: 'libre',
-        instructions: '',
-        expected_value: '',
-        expected_unit: '',
-        mandatory: false,
-      },
-    ])
-  }
-
-  function updatePrueba(i, field, value) {
-    setEvalPruebas((prev) => prev.map((p, k) => (k === i ? { ...p, [field]: value } : p)))
-  }
-
-  function removePrueba(i) {
-    setEvalPruebas((prev) => prev.filter((_, k) => k !== i))
-  }
-
-  function movePrueba(i, dir) {
-    const j = i + dir
-    setEvalPruebas((prev) => {
-      if (j < 0 || j >= prev.length) return prev
-      const next = [...prev]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-  }
-
   function addTag(tag) {
     const t = tag.trim()
     if (!t || evalTags.includes(t)) return
@@ -877,88 +634,45 @@ export default function CreatePlanPage() {
       </div>
 
       {/* ============================================================
-           EVALUACIÓN: lista plana clásica
+           EVALUACIÓN exercise-based (doc 38): ejercicios por día +
+           método por ejercicio.
          ============================================================ */}
-      {isEval && ['one_rm', 'max_reps'].includes(plan.eval_type) && (
+      {isEval && isExerciseBasedEval(plan.eval_type) && (
         <div className="card space-y-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">Ejercicios a evaluar</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Se mostrarán en el formulario del alumno.
-            </p>
-          </div>
-          <div className="space-y-3">
-            {evalExercises.map((ex, i) => (
-              <PlanExerciseRow
-                key={i}
-                ex={ex}
-                index={i}
-                exercises={exercises}
-                exerciseTags={exerciseTags}
-                tagAssignments={tagAssignments}
-                onUpdate={(idx, field, value) =>
-                  setEvalExercises((prev) =>
-                    prev.map((e, k) => (k === idx ? { ...e, [field]: value } : e))
-                  )
-                }
-                onRemove={(idx) => setEvalExercises((prev) => prev.filter((_, k) => k !== idx))}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-gray-900">Ejercicios a evaluar</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Organizados por día. Se mostrarán en el formulario del alumno.
+              </p>
+            </div>
+            <div className="w-24">
+              <label className="label text-xs">Días</label>
+              <input
+                type="number"
+                min="1"
+                max="7"
+                className="input text-sm"
+                value={evalSessionsPerWeek}
+                onChange={(e) => setEvalSessionsPerWeek(e.target.value)}
               />
-            ))}
+            </div>
           </div>
-          <button
-            onClick={() => {
-              const newEx = emptyPlanExercise('day_a')
-              newEx.order_index = evalExercises.length
-              setEvalExercises((prev) => [...prev, newEx])
+          <EvalDaysEditor
+            planEvalType={plan.eval_type}
+            sessionsPerWeek={evalSessionsPerWeek}
+            evalDays={evalDays}
+            onChange={setEvalDays}
+            exercises={exercises}
+            sameMethod={evalSameMethod}
+            onSameMethodChange={setEvalSameMethod}
+            globalType={evalGlobalType}
+            globalMethod={evalGlobalMethod}
+            onGlobalChange={({ type, method }) => {
+              setEvalGlobalType(type)
+              setEvalGlobalMethod(method)
             }}
-            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-          >
-            <Plus size={16} />
-            Agregar ejercicio
-          </button>
-        </div>
-      )}
-
-      {/* ============================================================
-           EVALUACIÓN CUSTOM: constructor de pruebas
-         ============================================================ */}
-      {isEval && plan.eval_type === 'custom' && (
-        <div className="card space-y-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">Pruebas de la evaluación</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Definí cada test que deberá completar el alumno.
-            </p>
-          </div>
-
-          {evalPruebas.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-3">
-              Aún no hay pruebas. Agregá la primera.
-            </p>
-          )}
-
-          <div className="space-y-3">
-            {evalPruebas.map((prueba, i) => (
-              <PruebaBuilderRow
-                key={i}
-                prueba={prueba}
-                index={i}
-                total={evalPruebas.length}
-                exercises={exercises}
-                onUpdate={(field, value) => updatePrueba(i, field, value)}
-                onRemove={() => removePrueba(i)}
-                onMove={(dir) => movePrueba(i, dir)}
-              />
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addPrueba}
-            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-          >
-            <Plus size={16} /> Agregar prueba
-          </button>
+          />
         </div>
       )}
 

@@ -6,24 +6,23 @@ import {
   emptyResults,
   evalTypeLabel,
   evalTypeIcon,
-  buildInitialSetsArr,
-  pruebaTypeInfo,
+  isExerciseBasedEval,
+  groupEvalExercisesByDay,
+  buildExerciseResponseJson,
+  calc1RM,
 } from '../helpers'
 import { ArrowLeft, Save, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
-import { parseReps } from '@/features/plans/helpers'
 import {
   fetchEvalMirrorBodies,
   postEvalCommentNote,
   postEvalResultNote,
   fetchSingleMirrorBodies,
 } from '@/features/notes/api'
-import OneRMForm from '../components/forms/OneRMForm'
-import MaxRepsForm from '../components/forms/MaxRepsForm'
 import PowerForm from '../components/forms/PowerForm'
 import CardioForm from '../components/forms/CardioForm'
 import BodyCompForm from '../components/forms/BodyCompForm'
 import ScoredForm from '../components/forms/ScoredForm'
-import CustomForm from '../components/forms/CustomForm'
+import EvalByDayForm from '../components/forms/EvalByDayForm'
 
 // ============================================================
 // Helper: leer la nota general de un evaluation_result desde el panel
@@ -45,24 +44,13 @@ async function loadResultNotesFromPanel(resultId) {
 // buildInitialSetsArr movidos a `../helpers` (21/05, Tier 2.3 batch 2).
 
 // ============================================================
-// Dispatcher
+// Dispatcher de protocolos enteros (power/cardio/body_comp/scored).
+// Los tipos exercise-based (one_rm/max_reps/custom/mixed) se renderizan
+// con EvalByDayForm fuera de este dispatcher (doc 38).
 // ============================================================
-function EvalForm({
-  evalType,
-  results,
-  onChange,
-  planMethod,
-  planExercises,
-  pruebas,
-  pruebaResponses,
-  onChangePrueba,
-}) {
-  const props = { results, onChange, planMethod, planExercises }
+function ProtocolForm({ evalType, results, onChange, planMethod }) {
+  const props = { results, onChange, planMethod }
   switch (evalType) {
-    case 'one_rm':
-      return <OneRMForm {...props} />
-    case 'max_reps':
-      return <MaxRepsForm {...props} />
     case 'power':
       return <PowerForm {...props} />
     case 'cardio':
@@ -71,14 +59,6 @@ function EvalForm({
       return <BodyCompForm {...props} />
     case 'scored':
       return <ScoredForm {...props} />
-    case 'custom':
-      return (
-        <CustomForm
-          pruebas={pruebas || []}
-          responses={pruebaResponses || {}}
-          onChange={onChangePrueba}
-        />
-      )
     default:
       return <p className="text-sm text-gray-400">Tipo de evaluación no reconocido.</p>
   }
@@ -93,7 +73,6 @@ export default function EvalWorkoutPage() {
   const { user } = useAuth()
 
   const [plan, setPlan] = useState(null)
-  const [planExercises, setPlanExercises] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -106,144 +85,119 @@ export default function EvalWorkoutPage() {
   const [deleting, setDeleting] = useState(false)
 
   const [evalDate, setEvalDate] = useState(new Date().toISOString().slice(0, 10))
-  const [results, setResults] = useState(null)
   const [notes, setNotes] = useState('')
 
-  // Estado exclusivo para evaluaciones custom (pruebas)
-  const [pruebas, setPruebas] = useState([]) // evaluation_tests del plan
-  const [pruebaResponses, setPruebaResponses] = useState({}) // { test_id: { value, unit, comment } }
+  // Protocolos enteros (power/cardio/body_comp/scored): jsonb en results.
+  const [results, setResults] = useState(null)
+
+  // Evals exercise-based (doc 38): plan_exercises agrupados por día +
+  // responses keyed por plan_exercise_id.
+  const [exByDay, setExByDay] = useState({}) // { day_a: [pe], ... }
+  const [exResponses, setExResponses] = useState({}) // { peId: { ...jsonb, comment } }
+
+  const exerciseBased = plan ? isExerciseBasedEval(plan.eval_type) : false
 
   useEffect(() => {
     fetchPlan()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
+
+  // ── Cargar las responses exercise-based de un resultado existente ──
+  async function loadExerciseResponses(resultId) {
+    const { data: respData } = await supabase
+      .from('evaluation_test_responses')
+      .select('*')
+      .eq('evaluation_result_id', resultId)
+    const respIds = (respData || []).map((r) => r.id)
+    const evalMirrors = await fetchEvalMirrorBodies(respIds)
+    const map = {}
+    for (const r of respData || []) {
+      // Compat: respuestas nuevas keyean por plan_exercise_id; las viejas
+      // (pre-cutover) keyean por test_id. Usamos plan_exercise_id si existe.
+      const key = r.plan_exercise_id || r.test_id
+      if (!key) continue
+      const mirror = evalMirrors.get(r.id)
+      map[key] = {
+        ...(r.student_response || {}),
+        // alias para inputs custom legacy
+        value: r.student_response?.value ?? '',
+        unit: r.student_response?.unit ?? '',
+        comment: mirror?.studentComment ?? r.student_comment ?? '',
+      }
+    }
+    return map
+  }
 
   async function fetchPlan() {
     try {
       const { data, error } = await supabase.from('plans').select('*').eq('id', planId).single()
       if (error) throw error
       setPlan(data)
+      const today = new Date().toISOString().slice(0, 10)
 
-      // Para tipo custom: cargar pruebas (evaluation_tests)
-      if (data.eval_type === 'custom') {
-        const { data: pruebasData } = await supabase
-          .from('evaluation_tests')
-          // B7 (30/05): joinear el ejercicio para traer su video de referencia.
-          // Cada prueba puede linkear a un exercise (exercise_id) que tiene
-          // video_url (link de Drive/YouTube cargado por el coach). Sin este
-          // join el alumno nunca veía el video en la evaluación asignada.
-          .select('*, exercises(video_url)')
+      if (isExerciseBasedEval(data.eval_type)) {
+        // Leer plan_exercises de la eval (sin hardcodear day_a) + join ejercicio.
+        const { data: peData } = await supabase
+          .from('plan_exercises')
+          .select('*, exercises(name, video_url)')
           .eq('plan_id', planId)
           .order('order_index')
-        // Normalizamos video_url al nivel de la prueba para que CustomForm
-        // no tenga que conocer la forma del join.
-        setPruebas(
-          (pruebasData || []).map((p) => ({
-            ...p,
-            video_url: p.exercises?.video_url || null,
-          }))
-        )
-        setResults({ notes: '' })
+        let rows = peData || []
 
-        // Load existing result for today (custom)
+        // Compat hacia atrás: evals custom pre-cutover viven en
+        // evaluation_tests. Si no hay filas en plan_exercises, mapearlas.
+        if (rows.length === 0 && data.eval_type === 'custom') {
+          const { data: testsData } = await supabase
+            .from('evaluation_tests')
+            .select('*, exercises(name, video_url)')
+            .eq('plan_id', planId)
+            .order('order_index')
+          rows = (testsData || []).map((t) => ({
+            id: t.id, // se keyea por test_id en este caso
+            exercise_id: t.exercise_id,
+            section: 'day_a',
+            order_index: t.order_index || 0,
+            eval_type: 'custom',
+            eval_method: t.test_type || 'libre',
+            instructions: t.instructions,
+            expected_value: t.expected_value,
+            expected_unit: t.expected_unit,
+            mandatory: t.mandatory,
+            exercises: t.exercises,
+            __legacyTest: true,
+          }))
+        }
+
+        setExByDay(groupEvalExercisesByDay(rows))
+
         const { data: existing } = await supabase
           .from('evaluation_results')
           .select('*')
           .eq('plan_id', planId)
           .eq('student_id', user.id)
-          .eq('eval_date', new Date().toISOString().slice(0, 10))
+          .eq('eval_date', today)
           .maybeSingle()
-
         if (existing) {
           setExistingResultId(existing.id)
           setNotes(await loadResultNotesFromPanel(existing.id))
-          // Cargar las responses existentes
-          const { data: respData } = await supabase
-            .from('evaluation_test_responses')
-            .select('*')
-            .eq('evaluation_result_id', existing.id)
-          // Round 2a: merge body de notas mirror eval (context_id=etr.id)
-          // sobre student_comment, para que muestre la versión del panel.
-          const respIds = (respData || []).map((r) => r.id)
-          const evalMirrors = await fetchEvalMirrorBodies(respIds)
-          const map = {}
-          for (const r of respData || []) {
-            const mirror = evalMirrors.get(r.id)
-            map[r.test_id] = {
-              value: r.student_response?.value || '',
-              unit: r.student_response?.unit || '',
-              comment: mirror?.studentComment ?? r.student_comment ?? '',
-            }
-          }
-          setPruebaResponses(map)
+          setExResponses(await loadExerciseResponses(existing.id))
         }
-        return // early return — no sigue con lógica científica
+        return
       }
 
-      // For exercise-based eval types, pre-load the plan's exercises
-      let planEx = []
-      if (['one_rm', 'max_reps'].includes(data.eval_type)) {
-        const { data: exData } = await supabase
-          .from('plan_exercises')
-          .select('*, exercises(name, video_url)')
-          .eq('plan_id', planId)
-          .eq('section', 'day_a')
-          .order('order_index')
-        planEx = exData || []
-        setPlanExercises(planEx)
-      }
-
-      // Build initial results with method and pre-loaded exercises
+      // ── Protocolos enteros (power/cardio/body_comp/scored) ──
       const initResults = emptyResults(data.eval_type, data.eval_method || '')
-      if (planEx.length > 0) {
-        initResults.exercises = planEx.map((pe) => ({
-          exercise_id: pe.exercise_id,
-          name: pe.exercises?.name || 'Ejercicio',
-          video_url: pe.exercises?.video_url || null,
-          sets_arr: buildInitialSetsArr(pe, data.eval_type, parseReps),
-          best_one_rm: null,
-          weight_kg: '',
-          reps: '',
-          one_rm: null,
-        }))
-      }
       setResults(initResults)
 
-      // Load existing result for today (if any)
       const { data: existing } = await supabase
         .from('evaluation_results')
         .select('*')
         .eq('plan_id', planId)
         .eq('student_id', user.id)
-        .eq('eval_date', new Date().toISOString().slice(0, 10))
+        .eq('eval_date', today)
         .maybeSingle()
-
       if (existing) {
-        let loadedResults = existing.results
-        if (planEx.length > 0 && loadedResults.exercises) {
-          loadedResults = {
-            ...loadedResults,
-            exercises: loadedResults.exercises.map((ex, i) => {
-              const pe = planEx[i]
-              const enriched = {
-                ...ex,
-                name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
-                video_url: pe?.exercises?.video_url || ex.video_url || null,
-              }
-              // Migrar formato viejo (sin sets_arr) → un set con los datos guardados
-              if (!enriched.sets_arr) {
-                enriched.sets_arr = [
-                  {
-                    weight_kg: ex.weight_kg || '',
-                    reps: ex.reps || '',
-                    ...(data.eval_type === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
-                  },
-                ]
-              }
-              return enriched
-            }),
-          }
-        }
-        setResults(loadedResults)
+        setResults(existing.results)
         setNotes(await loadResultNotesFromPanel(existing.id))
         setExistingResultId(existing.id)
       }
@@ -254,45 +208,6 @@ export default function EvalWorkoutPage() {
     }
   }
 
-  // ── Helpers internos ─────────────────────────────────────
-  function makeFreshResults(evalType, evalMethod, planEx) {
-    const init = emptyResults(evalType, evalMethod || '')
-    if (planEx.length > 0) {
-      init.exercises = planEx.map((pe) => ({
-        exercise_id: pe.exercise_id,
-        name: pe.exercises?.name || 'Ejercicio',
-        video_url: pe.exercises?.video_url || null,
-        sets_arr: buildInitialSetsArr(pe, evalType, parseReps),
-        best_one_rm: null,
-        weight_kg: '',
-        reps: '',
-        one_rm: null,
-      }))
-    }
-    return init
-  }
-
-  function enrichExercises(exercises, planEx, evalType) {
-    return exercises.map((ex, i) => {
-      const pe = planEx[i]
-      const enriched = {
-        ...ex,
-        name: ex.name || pe?.exercises?.name || `Ejercicio ${i + 1}`,
-        video_url: pe?.exercises?.video_url || ex.video_url || null,
-      }
-      if (!enriched.sets_arr) {
-        enriched.sets_arr = [
-          {
-            weight_kg: ex.weight_kg || '',
-            reps: ex.reps || '',
-            ...(evalType === 'one_rm' ? { one_rm: ex.one_rm || null } : {}),
-          },
-        ]
-      }
-      return enriched
-    })
-  }
-
   // Cambio de fecha: resetea y carga resultado existente si lo hay
   async function handleDateChange(dateStr) {
     setEvalDate(dateStr)
@@ -301,8 +216,8 @@ export default function EvalWorkoutPage() {
     setError(null)
     setNotes('')
 
-    if (plan.eval_type === 'custom') {
-      setPruebaResponses({})
+    if (exerciseBased) {
+      setExResponses({})
       const { data: existing } = await supabase
         .from('evaluation_results')
         .select('*')
@@ -313,29 +228,12 @@ export default function EvalWorkoutPage() {
       if (existing) {
         setExistingResultId(existing.id)
         setNotes(await loadResultNotesFromPanel(existing.id))
-        const { data: respData } = await supabase
-          .from('evaluation_test_responses')
-          .select('*')
-          .eq('evaluation_result_id', existing.id)
-        // Round 2a: merge mirror eval body sobre student_comment
-        const respIds = (respData || []).map((r) => r.id)
-        const evalMirrors = await fetchEvalMirrorBodies(respIds)
-        const map = {}
-        for (const r of respData || []) {
-          const mirror = evalMirrors.get(r.id)
-          map[r.test_id] = {
-            value: r.student_response?.value || '',
-            unit: r.student_response?.unit || '',
-            comment: mirror?.studentComment ?? r.student_comment ?? '',
-          }
-        }
-        setPruebaResponses(map)
+        setExResponses(await loadExerciseResponses(existing.id))
       }
       return
     }
 
-    setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
-
+    setResults(emptyResults(plan.eval_type, plan.eval_method || ''))
     const { data: existing } = await supabase
       .from('evaluation_results')
       .select('*')
@@ -343,16 +241,8 @@ export default function EvalWorkoutPage() {
       .eq('student_id', user.id)
       .eq('eval_date', dateStr)
       .maybeSingle()
-
     if (existing) {
-      let loaded = existing.results
-      if (planExercises.length > 0 && loaded.exercises) {
-        loaded = {
-          ...loaded,
-          exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type),
-        }
-      }
-      setResults(loaded)
+      setResults(existing.results)
       setNotes(await loadResultNotesFromPanel(existing.id))
       setExistingResultId(existing.id)
     }
@@ -368,16 +258,12 @@ export default function EvalWorkoutPage() {
       .select('*')
       .eq('id', existingResultId)
       .single()
-    if (existing) {
-      let loaded = existing.results
-      if (planExercises.length > 0 && loaded.exercises) {
-        loaded = {
-          ...loaded,
-          exercises: enrichExercises(loaded.exercises, planExercises, plan.eval_type),
-        }
-      }
-      setResults(loaded)
-      setNotes(await loadResultNotesFromPanel(existing.id))
+    if (!existing) return
+    setNotes(await loadResultNotesFromPanel(existing.id))
+    if (exerciseBased) {
+      setExResponses(await loadExerciseResponses(existing.id))
+    } else {
+      setResults(existing.results)
     }
   }
 
@@ -391,7 +277,8 @@ export default function EvalWorkoutPage() {
         .delete()
         .eq('id', existingResultId)
       if (error) throw error
-      setResults(makeFreshResults(plan.eval_type, plan.eval_method, planExercises))
+      if (exerciseBased) setExResponses({})
+      else setResults(emptyResults(plan.eval_type, plan.eval_method || ''))
       setNotes('')
       setExistingResultId(null)
       setConfirmDelete(false)
@@ -409,8 +296,9 @@ export default function EvalWorkoutPage() {
     try {
       // 1. Upsert evaluation_result. v26f: la columna `notes` se dropeó;
       // ahora la observación general va al panel via postEvalResultNote.
-      // Para custom seguimos guardando { notes } dentro del jsonb `results`
-      // (compat con readers de detail page mientras migran).
+      // Las evals exercise-based guardan results vacío (los datos van por
+      // ejercicio en evaluation_test_responses); los protocolos enteros
+      // mantienen su jsonb en results.
       const { data: upserted, error } = await supabase
         .from('evaluation_results')
         .upsert(
@@ -419,7 +307,7 @@ export default function EvalWorkoutPage() {
             plan_id: planId,
             eval_date: evalDate,
             eval_type: plan.eval_type,
-            results: plan.eval_type === 'custom' ? { notes } : results,
+            results: exerciseBased ? {} : results,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'student_id,plan_id,eval_date' }
@@ -439,41 +327,47 @@ export default function EvalWorkoutPage() {
         console.warn('[handleSave] no se pudo guardar la nota general en el panel:', noteErr)
       }
 
-      // 2. Para custom: upsert evaluation_test_responses
-      if (plan.eval_type === 'custom') {
-        for (const prueba of pruebas) {
-          const resp = pruebaResponses[prueba.id]
-          if (!resp && !resp?.value) continue
-          // Round 2b: ya no escribimos student_comment a la columna
-          // (dropeada en v26d). Después del upsert llamamos a
-          // postEvalCommentNote() con el body, que aterriza en el panel.
+      // 2. Exercise-based: una response por ejercicio keyed por plan_exercise_id.
+      if (exerciseBased) {
+        const allRows = Object.values(exByDay).flat()
+        for (const pe of allRows) {
+          const resp = exResponses[pe.id]
+          if (!resp) continue
+          const evalType = pe.eval_type || 'custom'
+          // Recalcular 1RM estimado al guardar (por si cambió el método).
+          const input = { ...resp }
+          if (evalType === 'one_rm') {
+            input.one_rm_estimated = calc1RM(pe.eval_method || 'brzycki', resp.weight_kg, resp.reps)
+          }
+          const studentResponse = buildExerciseResponseJson(evalType, input)
+
+          // Pre-cutover: la fila viene de evaluation_tests → key por test_id.
+          // Post-cutover / nuevas: key por plan_exercise_id.
+          const keyField = pe.__legacyTest ? 'test_id' : 'plan_exercise_id'
           const { data: upsertedResp } = await supabase
             .from('evaluation_test_responses')
             .upsert(
               {
                 evaluation_result_id: resultId,
-                test_id: prueba.id,
-                student_response: {
-                  value: resp?.value || '',
-                  unit: resp?.unit || pruebaTypeInfo(prueba.test_type)?.unit || '',
-                },
+                [keyField]: pe.id,
+                student_response: studentResponse,
                 updated_at: new Date().toISOString(),
               },
-              { onConflict: 'evaluation_result_id,test_id' }
+              { onConflict: `evaluation_result_id,${keyField}` }
             )
             .select('id')
             .single()
 
           if (upsertedResp?.id) {
-            const { error: noteErr } = await postEvalCommentNote({
+            const { error: cErr } = await postEvalCommentNote({
               studentId: user.id,
               responseId: upsertedResp.id,
-              body: resp?.comment || '',
+              body: resp.comment || '',
               role: 'student',
               visibility: 'shared',
             })
-            if (noteErr) {
-              console.warn('[saveEval] no se pudo guardar el comment en el panel:', noteErr)
+            if (cErr) {
+              console.warn('[saveEval] no se pudo guardar el comment en el panel:', cErr)
             }
           }
         }
@@ -490,6 +384,13 @@ export default function EvalWorkoutPage() {
     }
   }
 
+  function updateExResponse(peId, field, value) {
+    setExResponses((prev) => ({
+      ...prev,
+      [peId]: { ...(prev[peId] || {}), [field]: value },
+    }))
+  }
+
   if (loading)
     return (
       <div className="flex justify-center py-12">
@@ -498,7 +399,7 @@ export default function EvalWorkoutPage() {
     )
 
   if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
-  if (!results && plan.eval_type !== 'custom') return null
+  if (!exerciseBased && !results) return null
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -578,24 +479,21 @@ export default function EvalWorkoutPage() {
       {/* Eval form */}
       <div className="card space-y-4">
         <h2 className="font-semibold text-gray-900">Registro</h2>
-        <EvalForm
-          evalType={plan.eval_type}
-          results={results}
-          onChange={setResults}
-          planMethod={plan.eval_method || ''}
-          planExercises={planExercises}
-          pruebas={pruebas}
-          pruebaResponses={pruebaResponses}
-          onChangePrueba={(testId, field, value) =>
-            setPruebaResponses((prev) => ({
-              ...prev,
-              [testId]: {
-                ...(prev[testId] || { value: '', unit: '', comment: '' }),
-                [field]: value,
-              },
-            }))
-          }
-        />
+        {exerciseBased ? (
+          <EvalByDayForm
+            exercisesByDay={exByDay}
+            sessionsPerWeek={plan.sessions_per_week || 1}
+            responses={exResponses}
+            onChange={updateExResponse}
+          />
+        ) : (
+          <ProtocolForm
+            evalType={plan.eval_type}
+            results={results}
+            onChange={setResults}
+            planMethod={plan.eval_method || ''}
+          />
+        )}
       </div>
 
       {/* General notes */}

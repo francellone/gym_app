@@ -1,6 +1,6 @@
 // ============================================================
 // Evaluation System Helpers – v2
-// Tipos: one_rm | max_reps | power | cardio | body_comp | scored | custom
+// Tipos: one_rm | max_reps | mixed | power | cardio | body_comp | scored | custom
 // ============================================================
 
 export const EVAL_TYPES = [
@@ -17,6 +17,13 @@ export const EVAL_TYPES = [
     description: 'Máximas repeticiones hasta el fallo o en tiempo fijo',
     icon: '💪',
     color: 'orange',
+  },
+  {
+    key: 'mixed',
+    label: 'Mixta / Por ejercicio',
+    description: 'Combina métodos por ejercicio (1RM, fuerza-resistencia, pruebas)',
+    icon: '🔀',
+    color: 'indigo',
   },
   {
     key: 'power',
@@ -99,6 +106,216 @@ export const METHODS = {
     { key: 'y_balance', label: 'Y-Balance test', note: '3 vectores por lado' },
   ],
   custom: [{ key: 'libre', label: 'Libre', note: 'Campos personalizables' }],
+  // `mixed` no lleva método a nivel plan: el método se elige por ejercicio.
+  mixed: [],
+}
+
+// ============================================================
+// Evaluaciones basadas en ejercicios (doc 38 — fase 1)
+// ------------------------------------------------------------
+// Estos tipos organizan los ejercicios por días (Día A/B/C…) y guardan
+// cada ejercicio como una fila de `plan_exercises` con su propio
+// `eval_type` + `eval_method`. Los demás tipos (power/cardio/body_comp/
+// scored) son tests de protocolo entero y NO usan este flujo.
+// ============================================================
+
+// Subconjunto de EVAL_TYPES elegible a nivel ejercicio dentro de una eval mixta.
+export const EXERCISE_EVAL_TYPES = EVAL_TYPES.filter((e) =>
+  ['one_rm', 'max_reps', 'custom'].includes(e.key)
+)
+
+/**
+ * ¿La evaluación se organiza por ejercicios tipados por día?
+ * @param {string} evalType - eval_type del plan
+ * @returns {boolean}
+ */
+export function isExerciseBasedEval(evalType) {
+  return ['one_rm', 'max_reps', 'custom', 'mixed'].includes(evalType)
+}
+
+/**
+ * Agrupa filas de plan_exercises (de una eval exercise-based) por su `section`
+ * (day_a/day_b/…), ordenando cada grupo por `order_index`.
+ *
+ * @param {Array<Object>} planExercises - filas de plan_exercises
+ * @returns {Object<string, Array<Object>>} map section → filas ordenadas
+ */
+export function groupEvalExercisesByDay(planExercises = []) {
+  const bySection = {}
+  for (const pe of planExercises || []) {
+    const sec = pe.section || 'day_a'
+    if (!bySection[sec]) bySection[sec] = []
+    bySection[sec].push(pe)
+  }
+  for (const sec of Object.keys(bySection)) {
+    bySection[sec].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+  }
+  return bySection
+}
+
+/**
+ * Tipo de prueba por defecto para custom (cuando una fila arranca como custom).
+ */
+export const DEFAULT_CUSTOM_METHOD = 'libre'
+
+/**
+ * Ejercicio vacío para una eval exercise-based. Reusa la forma de
+ * plan_exercise (sets/reps/peso) y agrega los campos de evaluación.
+ *
+ * @param {string} section - day_a/day_b/…
+ * @param {string} defaultEvalType - tipo por fila por defecto (heredado del plan)
+ * @returns {Object} fila UI
+ */
+export function emptyEvalExercise(section, defaultEvalType = 'one_rm') {
+  return {
+    id: null,
+    exercise_id: '',
+    section,
+    order_index: 0,
+    // Campos de carga (reusados para one_rm/max_reps).
+    suggested_sets: '',
+    suggested_reps_array: [''],
+    suggested_weights_array: [''],
+    suggested_weight: '',
+    rest_time: '',
+    extra_notes: '',
+    video_url: '',
+    // Campos de evaluación (doc 38).
+    eval_type: defaultEvalType,
+    eval_method:
+      defaultEvalType === 'one_rm'
+        ? 'brzycki'
+        : defaultEvalType === 'max_reps'
+          ? 'pushup'
+          : DEFAULT_CUSTOM_METHOD,
+    expected_value: '',
+    expected_unit: '',
+    mandatory: false,
+    instructions: '',
+  }
+}
+
+/**
+ * Convierte una fila de plan_exercises (DB) de una eval exercise-based a UI.
+ * @param {Object} pe - fila de plan_exercises (puede traer join exercise/exercises)
+ * @returns {Object} fila UI
+ */
+export function dbEvalExerciseToUI(pe) {
+  const setsCount = parseInt(pe.suggested_sets) || 1
+  let repsArray
+  try {
+    const parsed = JSON.parse(pe.suggested_reps)
+    repsArray = Array.isArray(parsed) ? parsed : Array(setsCount).fill(pe.suggested_reps || '')
+  } catch {
+    repsArray = Array(setsCount).fill(pe.suggested_reps || '')
+  }
+  const legacyWeight = pe.suggested_weight
+    ? String(pe.suggested_weight).replace(/[^\d.]/g, '') || pe.suggested_weight
+    : ''
+  let weightsArray
+  try {
+    const parsed = JSON.parse(pe.suggested_weights)
+    weightsArray = Array.isArray(parsed)
+      ? parsed
+      : Array(setsCount).fill(pe.suggested_weights || legacyWeight)
+  } catch {
+    weightsArray = Array(setsCount).fill(legacyWeight)
+  }
+  return {
+    id: pe.id,
+    exercise_id: pe.exercise_id || '',
+    section: pe.section || 'day_a',
+    order_index: pe.order_index || 0,
+    suggested_sets: pe.suggested_sets?.toString() || '',
+    suggested_reps_array: repsArray,
+    suggested_weights_array: weightsArray,
+    suggested_weight: pe.suggested_weight || '',
+    rest_time: pe.rest_time || '',
+    extra_notes: pe.extra_notes || '',
+    video_url: pe.exercise?.video_url || pe.exercises?.video_url || '',
+    eval_type: pe.eval_type || 'one_rm',
+    eval_method: pe.eval_method || '',
+    expected_value: pe.expected_value || '',
+    expected_unit: pe.expected_unit || '',
+    mandatory: pe.mandatory || false,
+    instructions: pe.instructions || '',
+  }
+}
+
+/**
+ * Convierte una fila UI de eval exercise-based a payload de plan_exercises (DB).
+ * @param {Object} ex - fila UI
+ * @param {string} planId
+ * @param {string} section
+ * @param {number} index - order_index
+ * @returns {Object} payload para insert/update en plan_exercises
+ */
+export function uiEvalExerciseToDB(ex, planId, section, index) {
+  const weightsArr = ex.suggested_weights_array || []
+  const validWeights = weightsArr.filter((w) => w !== '' && w !== null && w !== undefined)
+  const serializedWeights =
+    validWeights.length === 0
+      ? null
+      : validWeights.length === 1 || new Set(validWeights).size === 1
+        ? String(validWeights[0])
+        : JSON.stringify(weightsArr)
+  const firstWeight = weightsArr.find((w) => w !== '' && w !== null && w !== undefined)
+  const legacyWeight = firstWeight != null ? String(firstWeight) : ex.suggested_weight || null
+
+  const repsArr = (ex.suggested_reps_array || []).filter(Boolean)
+  const serializedReps =
+    repsArr.length === 0
+      ? null
+      : repsArr.length === 1 || new Set(repsArr).size === 1
+        ? String(repsArr[0])
+        : JSON.stringify(ex.suggested_reps_array)
+
+  return {
+    plan_id: planId,
+    exercise_id: ex.exercise_id,
+    section,
+    block_id: null,
+    block_label: null,
+    order_index: index,
+    suggested_sets: ex.suggested_sets ? parseInt(ex.suggested_sets) : null,
+    suggested_reps: serializedReps,
+    suggested_weights: serializedWeights,
+    suggested_weight: legacyWeight,
+    rest_time: ex.rest_time || null,
+    extra_notes: ex.extra_notes || null,
+    // Campos de evaluación (doc 38).
+    eval_type: ex.eval_type || null,
+    eval_method: ex.eval_method || null,
+    expected_value: ex.expected_value || null,
+    expected_unit: ex.expected_unit || null,
+    mandatory: !!ex.mandatory,
+    instructions: ex.instructions || null,
+  }
+}
+
+/**
+ * Construye el jsonb `student_response` para una fila de eval exercise-based
+ * según su `eval_type`. Sirve para guardar una response por ejercicio
+ * (keyed por plan_exercise_id).
+ *
+ * @param {string} evalType - 'one_rm' | 'max_reps' | 'custom'
+ * @param {Object} input - datos crudos del formulario de la alumna
+ * @returns {Object} jsonb a persistir en evaluation_test_responses.student_response
+ */
+export function buildExerciseResponseJson(evalType, input = {}) {
+  switch (evalType) {
+    case 'one_rm':
+      return {
+        weight_kg: input.weight_kg ?? '',
+        reps: input.reps ?? '',
+        one_rm_estimated: input.one_rm_estimated ?? null,
+      }
+    case 'max_reps':
+      return { reps: input.reps ?? '' }
+    case 'custom':
+    default:
+      return { value: input.value ?? '', unit: input.unit ?? '' }
+  }
 }
 
 // FMS patterns
@@ -537,6 +754,7 @@ export function evalTypeColor(key) {
   const map = {
     one_rm: 'bg-red-100 text-red-700',
     max_reps: 'bg-orange-100 text-orange-700',
+    mixed: 'bg-indigo-100 text-indigo-700',
     power: 'bg-yellow-100 text-yellow-700',
     cardio: 'bg-blue-100 text-blue-700',
     body_comp: 'bg-green-100 text-green-700',

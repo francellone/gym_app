@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { EVAL_TYPES, METHODS, evalTypeColor, evalTypeLabel, evalTypeIcon } from '../helpers'
+import {
+  EVAL_TYPES,
+  METHODS,
+  evalTypeColor,
+  evalTypeLabel,
+  evalTypeIcon,
+  isExerciseBasedEval,
+  pruebaTypeInfo,
+} from '../helpers'
 import {
   ArrowLeft,
   Users,
@@ -350,6 +358,81 @@ function CustomView({ results }) {
   )
 }
 
+// ============================================================
+// Vista de resultados exercise-based (doc 38): una fila por ejercicio,
+// agrupada por día. Lee de res._exResponses (response jsonb + plan_exercise).
+// ============================================================
+function ExerciseBasedView({ result }) {
+  const responses = result._exResponses || []
+  if (responses.length === 0) return <p className="text-sm text-gray-400">Sin datos</p>
+
+  // Agrupar por día (section del plan_exercise).
+  const byDay = {}
+  for (const r of responses) {
+    const sec = r.plan_exercise?.section || 'day_a'
+    if (!byDay[sec]) byDay[sec] = []
+    byDay[sec].push(r)
+  }
+  const dayKeys = Object.keys(byDay).sort()
+  const multiDay = dayKeys.length > 1
+
+  return (
+    <div className="space-y-3">
+      {dayKeys.map((sec) => (
+        <div key={sec} className="space-y-1.5">
+          {multiDay && (
+            <p className="text-xs font-bold text-gray-400 uppercase">
+              Día {sec.replace('day_', '').toUpperCase()}
+            </p>
+          )}
+          {byDay[sec]
+            .sort(
+              (a, b) => (a.plan_exercise?.order_index ?? 0) - (b.plan_exercise?.order_index ?? 0)
+            )
+            .map((r) => (
+              <ExerciseResponseRow key={r.id} resp={r} />
+            ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ExerciseResponseRow({ resp }) {
+  const pe = resp.plan_exercise || {}
+  const evalType = pe.eval_type || 'custom'
+  const name = pe.exercises?.name || pe.exercise?.name || 'Ejercicio'
+  const sr = resp.student_response || {}
+
+  let valueLabel = ''
+  if (evalType === 'one_rm') {
+    const parts = []
+    if (sr.weight_kg) parts.push(`${sr.weight_kg} kg`)
+    if (sr.reps) parts.push(`× ${sr.reps}`)
+    if (sr.one_rm_estimated) parts.push(`1RM ${sr.one_rm_estimated} kg`)
+    valueLabel = parts.join(' · ')
+  } else if (evalType === 'max_reps') {
+    valueLabel = sr.reps ? `${sr.reps} reps` : ''
+  } else {
+    valueLabel = [sr.value, sr.unit].filter(Boolean).join(' ')
+  }
+
+  const methodLabel =
+    evalType === 'custom'
+      ? pruebaTypeInfo(pe.eval_method).label
+      : (METHODS[evalType] || []).find((m) => m.key === pe.eval_method)?.label || ''
+
+  return (
+    <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+        {methodLabel && <p className="text-xs text-gray-400">{methodLabel}</p>}
+      </div>
+      <span className="text-sm font-semibold text-gray-900">{valueLabel || '—'}</span>
+    </div>
+  )
+}
+
 function ResultViewer({ evalType, results }) {
   switch (evalType) {
     case 'one_rm':
@@ -432,7 +515,11 @@ function StudentResultCard({ assignment, allResults, evalType }) {
                   day: 'numeric',
                 })}
               </p>
-              <ResultViewer evalType={evalType} results={res.results} />
+              {isExerciseBasedEval(evalType) ? (
+                <ExerciseBasedView result={res} />
+              ) : (
+                <ResultViewer evalType={evalType} results={res.results} />
+              )}
               {res.notes && (
                 <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">💬 {res.notes}</p>
               )}
@@ -530,6 +617,27 @@ export default function EvaluationDetailPage() {
           results: { ...(r.results || {}), notes: panelBody },
         }
       })
+
+      // Doc 38: para evals exercise-based, cargar las responses por ejercicio
+      // (join plan_exercises) y adosarlas a cada resultado. Compat: respuestas
+      // viejas keyean por test_id (sin plan_exercise_id) → su plan_exercise
+      // queda null y caen al render legacy de CustomView vía results jsonb.
+      if (isExerciseBasedEval(planRes.data?.eval_type) && resultsWithPanel.length > 0) {
+        const resultIds = resultsWithPanel.map((r) => r.id)
+        const { data: respData } = await supabase
+          .from('evaluation_test_responses')
+          .select('*, plan_exercise:plan_exercises!plan_exercise_id(*, exercises(name, video_url))')
+          .in('evaluation_result_id', resultIds)
+        const byResult = {}
+        for (const r of respData || []) {
+          if (!byResult[r.evaluation_result_id]) byResult[r.evaluation_result_id] = []
+          byResult[r.evaluation_result_id].push(r)
+        }
+        for (const res of resultsWithPanel) {
+          res._exResponses = byResult[res.id] || []
+        }
+      }
+
       setResults(resultsWithPanel)
     } catch (err) {
       console.error(err)
