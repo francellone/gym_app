@@ -817,7 +817,9 @@ Estas 4 sesiones pueden intercalarse entre las del backlog anterior según urgen
 - Resultado: la query del template devuelve 0 filas → "Sin datos / ningún resultado".
 - Los resultados SÍ se ven entrando desde la ficha del alumno (que apunta al clon). El bug es solo desde la vista template/biblioteca.
 
-**Fix aplicado (30/05):** en `EvaluationDetailPage.fetchData` se calcula `planIds = [template_id, ...clones]` (clones = `plans WHERE cloned_from_plan_id = template_id`) y tanto `plan_assignments` como `evaluation_results` se consultan con `.in('plan_id', planIds)` en vez de `.eq('plan_id', id)`. Se deduplican las asignaciones por alumno (un alumno puede tener varios clones). `StudentResultCard` ya matchea por `student_id`, así que agrupa bien. Sin migración. Tests 257/257, lint 0 err, build OK.
+**Fix aplicado (30/05):** en `EvaluationDetailPage.fetchData` se calcula `planIds = [template_id, ...clones]` (clones = `plans WHERE cloned_from_plan_id = template_id`) y tanto `plan_assignments` como `evaluation_results` se consultan con `.in('plan_id', planIds)` en vez de `.eq('plan_id', id)`. `StudentResultCard` matchea por `student_id`, así que agrupa bien.
+
+**Gotcha que atrapó el smoke a nivel datos (NO el code review):** el render dibuja una card por cada `assignment`, y la query original filtraba `active=true`. Pero al COMPLETAR una eval, el trigger `fn_close_eval_on_result` pasa la asignación a `status='completed'` y `active=false`. O sea: justo el caso que el coach quiere ver (eval completada) tenía 0 asignaciones activas → la página mostraría "No hay alumnos" y los resultados traídos NO se renderizaban. **Fix 2:** se sacó el filtro `active=true` y el set de alumnos a mostrar se arma como "asignación activa O alumno con ≥1 resultado", deduplicado por alumno. Verificado por SQL: template one_rm `3ff300a6` pasa de 0 → 1 alumno (anto almanza) con 2 resultados visibles. Sin migración. Tests 257/257, lint 0 err, build OK.
 
 #### B7 (🐞 bug) — La alumna no puede ver los videos en la evaluación asignada
 

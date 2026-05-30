@@ -480,11 +480,14 @@ export default function EvaluationDetailPage() {
 
       const [planRes, assignmentsRes, resultsRes] = await Promise.all([
         supabase.from('plans').select('*').eq('id', id).single(),
+        // Sin filtro de active: al completar una eval el trigger pone la
+        // asignación en status 'completed'/'archived' (active=false). Si
+        // filtráramos active=true no veríamos al alumno que justamente la
+        // completó. El filtrado fino se hace abajo (active O con resultado).
         supabase
           .from('plan_assignments')
           .select('*, student:profiles!student_id(id, name)')
-          .in('plan_id', planIds)
-          .eq('active', true),
+          .in('plan_id', planIds),
         supabase
           .from('evaluation_results')
           .select('*')
@@ -492,11 +495,17 @@ export default function EvaluationDetailPage() {
           .order('eval_date', { ascending: false }),
       ])
       setPlan(planRes.data)
-      // Un alumno puede tener más de un clon del mismo template (varias
-      // asignaciones). Deduplicamos por alumno para mostrar una sola card por
-      // alumno; StudentResultCard ya agrega todos sus resultados por student_id.
+
+      const rawResults = resultsRes.data || []
+      // Alumnos a mostrar = los que tienen asignación activa O los que ya
+      // cargaron un resultado (su asignación queda completed/archived al
+      // completar la eval). Deduplicamos por alumno —un alumno puede tener
+      // varios clones del mismo template— mostrando una sola card; cada
+      // StudentResultCard ya agrega todos sus resultados por student_id.
+      const studentsWithResults = new Set(rawResults.map((r) => r.student_id))
       const byStudent = new Map()
       for (const a of assignmentsRes.data || []) {
+        if (!a.active && !studentsWithResults.has(a.student_id)) continue
         if (!byStudent.has(a.student_id)) byStudent.set(a.student_id, a)
       }
       setAssignments([...byStudent.values()])
@@ -507,7 +516,6 @@ export default function EvaluationDetailPage() {
       // y agregamos res.notes (que ya no existe en DB) para que los
       // viewers legacy que leen `results.notes` muestren la versión
       // del panel.
-      const rawResults = resultsRes.data || []
       const resultIds = rawResults.map((r) => r.id)
       const panelBodies = await fetchSingleMirrorBodies({
         contextType: 'evaluation_result',
