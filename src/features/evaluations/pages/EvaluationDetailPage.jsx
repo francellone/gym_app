@@ -465,21 +465,41 @@ export default function EvaluationDetailPage() {
 
   async function fetchData() {
     try {
+      // B6 (30/05): los plan_assignments y evaluation_results se guardan SIEMPRE
+      // contra el CLON del alumno (is_template=false), no contra el template.
+      // Cuando el coach abre el template desde la biblioteca, hay que agregar los
+      // datos de todos sus clones (cloned_from_plan_id = template.id); de lo
+      // contrario la query del template devuelve 0 filas y no se ve ningún
+      // resultado. Si se abre un clon/eval standalone directamente, planIds queda
+      // = [id] y el comportamiento es el de antes.
+      const { data: cloneRows } = await supabase
+        .from('plans')
+        .select('id')
+        .eq('cloned_from_plan_id', id)
+      const planIds = [id, ...(cloneRows || []).map((c) => c.id)]
+
       const [planRes, assignmentsRes, resultsRes] = await Promise.all([
         supabase.from('plans').select('*').eq('id', id).single(),
         supabase
           .from('plan_assignments')
           .select('*, student:profiles!student_id(id, name)')
-          .eq('plan_id', id)
+          .in('plan_id', planIds)
           .eq('active', true),
         supabase
           .from('evaluation_results')
           .select('*')
-          .eq('plan_id', id)
+          .in('plan_id', planIds)
           .order('eval_date', { ascending: false }),
       ])
       setPlan(planRes.data)
-      setAssignments(assignmentsRes.data || [])
+      // Un alumno puede tener más de un clon del mismo template (varias
+      // asignaciones). Deduplicamos por alumno para mostrar una sola card por
+      // alumno; StudentResultCard ya agrega todos sus resultados por student_id.
+      const byStudent = new Map()
+      for (const a of assignmentsRes.data || []) {
+        if (!byStudent.has(a.student_id)) byStudent.set(a.student_id, a)
+      }
+      setAssignments([...byStudent.values()])
 
       // v26f: la columna evaluation_results.notes fue dropeada. Las
       // observaciones generales viven en el panel con context_type=
