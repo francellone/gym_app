@@ -785,3 +785,80 @@ Sumar al final del orden sugerido:
 | **15** | **F11** — plan documentado `24_plan_F11_autocierre_bloques.md` + implementación | 1-1.5 días |
 
 Estas 4 sesiones pueden intercalarse entre las del backlog anterior según urgencia que defina Anto. **Sugerencia**: meter sesión 12 antes que sesión 8-9 (eval refactor + autosave), porque son items chicos y visibles que Anto va a notar inmediatamente.
+
+---
+
+## Ronda 4 (2026-05-30) — chequeo de estado + pedidos nuevos de Anto
+
+> Franco pasó una nueva tanda de Anto. Se chequeó cada item contra el código y la DB (Supabase MCP, proyecto `bvexjanqmfypmtgoapbt`). Resultado: 2 ya estaban hechos (Anto ve versión vieja), 4 ya estaban en backlog sin hacer, y 4 son nuevos (2 bugs de evaluación con causa raíz confirmada + 1 feature de registro + 1 nota compartida).
+
+### ✅ Ya hechos (en código y pusheados a prod) — Anto ve versión cacheada
+
+- **B5** — botón "Agregar ejercicio" muerto en header de plan. **Resuelto el 24/05**: se eliminó el botón (`PlanDetailPage.jsx:857` tiene el comentario del cambio). Commit en `main`, sincronizado con `origin/main`. → Acción: pedir a Anto que recargue/limpie caché. No hay nada que codear.
+- **Q10** — cartel "sin alumno" en plan ya hecho con CTA "Asignar alumno". **Resuelto el 24/05**: `PlanDetailPage.jsx:942-956` tiene el botón "Asignar alumno" + `AssignModal`. En prod. → Mismo caso que B5: versión vieja.
+
+### 🔁 Ya en backlog, sin hacer (confirmado por código/DB)
+
+- **B2** — notif de asignación de plan/evaluación no clickeables. **CONFIRMADO no hecho**: `NotificationBell.jsx:getNotificationTargetUrl` solo mapea `coach_comment`, `student_note`, `profile_change`. `plan_assigned` y la asignación de eval caen en `default → null` (no navegan). Cubre los pedidos "evaluación asignada no me lleva a ningún lado" y "assignation de plan/eval no me lleva a nada". Esf: 2-3h.
+- **F1** — notif al dashboard cuando el alumno cumple la evaluación. **CONFIRMADO no hecho**: `fn_close_eval_on_result` solo hace `UPDATE plan_assignments SET status='completed'`; NO inserta en `notifications`. Hay que sumar el `INSERT INTO notifications` (kind `evaluation_completed`) + su handler de navegación en el front (depende de B2). El pedido suma "que sea linkeable así me lleva directo". Esf: ~4h.
+- **Q11** — badge en lista de ejercicios cuando falta video/nota. **CONFIRMADO no hecho**: en `ExercisesLibraryPage.jsx`, `video_url`/`description` solo existen como campos del form de alta/edición; no hay indicador en las filas de la lista. Esf: 2-3h.
+- **F11** — autocierre + notif si un bloque queda abierto >24hs. **CONFIRMADO no hecho**: no existe `fn_autoclose_stale_blocks` ni cron equivalente en la DB. Requiere doc plan (decisiones a/b/c + ventana 24h vs 48h + interacción con drafts F4). Esf: 6-8h.
+
+### 🆕 Nuevos
+
+#### B6 (🐞 bug crítico) — El coach no ve NINGÚN resultado al abrir un test que la alumna ya completó
+
+> *"La foto de abajo es la imagen cuando abro un test: como alumna ya está completado, pero cuando entro como coach no veo ningún resultado."*
+
+**Causa raíz CONFIRMADA (Supabase MCP, 30/05):** efecto colateral de la arquitectura template-clon.
+- `EvaluationDetailPage.jsx:466-480` (`fetchData`) consulta `evaluation_results WHERE plan_id = <id de la URL>`.
+- Cuando el coach abre la evaluación desde la **biblioteca**, ese `id` es el del **template** (`is_template=true`).
+- Pero los `evaluation_results` se guardan SIEMPRE contra el **clon** del alumno (`is_template=false`). Verificado: los 5 results existentes apuntan a clones (ej. result `bf9cb04d…` → `TEST PLAN 1 ANTO DIA B — anto almanza`, `is_template=false`, `cloned_from_plan_id=3ff300a6…`).
+- Resultado: la query del template devuelve 0 filas → "Sin datos / ningún resultado".
+- Los resultados SÍ se ven entrando desde la ficha del alumno (que apunta al clon). El bug es solo desde la vista template/biblioteca.
+
+**Fix aplicado (30/05):** en `EvaluationDetailPage.fetchData` se calcula `planIds = [template_id, ...clones]` (clones = `plans WHERE cloned_from_plan_id = template_id`) y tanto `plan_assignments` como `evaluation_results` se consultan con `.in('plan_id', planIds)` en vez de `.eq('plan_id', id)`. Se deduplican las asignaciones por alumno (un alumno puede tener varios clones). `StudentResultCard` ya matchea por `student_id`, así que agrupa bien. Sin migración. Tests 257/257, lint 0 err, build OK.
+
+#### B7 (🐞 bug) — La alumna no puede ver los videos en la evaluación asignada
+
+> *"Cuando entro a la evaluación asignada como alumna no puedo ver videos."*
+
+**Causa raíz CONFIRMADA (30/05) + RESUELTO:** el problema estaba en las evaluaciones tipo **`custom`** (la "EVALUACION INICIAL", la más asignada). Los tipos `one_rm`/`max_reps` ya renderizaban el video (OneRMForm:105, MaxRepsForm:65). Pero en `custom`:
+- `EvalWorkoutPage.fetchPlan` cargaba las pruebas con `evaluation_tests.select('*')` sin joinear `exercises`, así que el `video_url` nunca llegaba al front.
+- `CustomForm` solo mostraba `exercise_name` como texto.
+- Las 8 pruebas de "EVALUACION INICIAL" SÍ tienen `exercise_id` + `video_url` (links de Drive cargados por Anto) — verificado por SQL.
+
+**Fix aplicado (30/05):** join `exercises(video_url)` en `fetchPlan` (custom) + normalización a `prueba.video_url` + botón `PlayCircle` en `CustomForm`. Sin migración. Tests 257/257, lint 0 err, build OK.
+
+#### F12 (🟡 feature) — Marcar el día de evaluación en el registro + avisar en dashboard que se completó
+
+> *"En la vista esa tampoco puedo ver cuándo un día es de evaluación, no queda marcado en el registro como que se hizo algo en el día. ¿Se puede agregar en el dashboard que se completó la evaluación?"*
+
+**Diagnóstico (30/05):** por diseño las evaluaciones NO generan `workout_sessions` (trigger `workout_sessions_block_evaluations` las bloquea), por eso nunca aparecen en el registro/calendario de entrenamiento. `fn_close_eval_on_result` tampoco deja rastro en el registro. Hay 2 sub-pedidos:
+- **a)** que el día con evaluación cumplida quede marcado en el "registro" (el calendario/historial del alumno y/o del coach).
+- **b)** un aviso en el dashboard de que la evaluación se completó (se solapa con F1; F1 es la notif, esto es la marca visible en el registro/calendario).
+
+**A definir:** dónde vive el "registro" que menciona Anto (¿`MonthlyCalendar` del dashboard? ¿historial del alumno?) y si se modela como un marcador derivado (sin tocar `workout_sessions`) o se permite un tipo de sesión "evaluación". Requiere mini-decisión antes de codear. Esf estimado: 4-6h.
+
+#### F13 (🟡 feature) — Cuadro de texto compartido en evaluaciones para pegar link de Drive
+
+> *"En la parte de evaluaciones: poder agregar un cuadro de texto que sea compartido, que se pueda ver, para yo pegar un link de Drive y poner evaluaciones ahí con las imágenes."*
+
+Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto es pago, puede ser en la parte de evaluación una nota de texto donde yo pueda copiar un link de Drive… tipo en el perfil del alumno en evaluaciones"*). Reemplaza a F10 (fotos nativas) como alternativa más barata: en vez de subir imágenes a Storage, el coach pega un link de Drive en una nota de texto visible para ambos. Modelo: campo de texto compartido a nivel asignación de evaluación (o nota con `context_type='evaluation'`). Esf estimado: 3-4h.
+
+### Resumen Ronda 4
+
+| Item | Estado | Esf |
+|---|---|---|
+| B5 (agregar ejercicio muerto) | ✅ hecho (prod) — Anto ve versión vieja | 0 |
+| Q10 (cartel sin alumno + CTA) | ✅ hecho (prod) — Anto ve versión vieja | 0 |
+| B2 (notif asignación clickeable) | 🔁 backlog, no hecho | 2-3h |
+| F1 (notif eval cumplida + linkeable) | 🔁 backlog, no hecho | ~4h |
+| Q11 (badge falta video/nota) | 🔁 backlog, no hecho | 2-3h |
+| F11 (autocierre bloque 24h) | 🔁 backlog, no hecho | 6-8h |
+| **B6** (coach no ve resultados de test) | ✅ resuelto 30/05 (local, falta push) | hecho |
+| **B7** (alumna no ve videos en eval) | ✅ resuelto 30/05 (local, falta push) | hecho |
+| **F12** (día eval en registro + dashboard) | 🆕 feature, requiere mini-decisión | 4-6h |
+| **F13** (cuadro texto + link Drive en eval) | 🆕 feature (decisión 12) | 3-4h |
+
+**Sugerencia de orden:** B7 (1-2h, render trivial, alumna afectada hoy) → B6 (bug crítico, el coach no puede leer resultados) → B2 (desbloquea F1) → F1 → Q11 → F13 → F12 → F11.
