@@ -95,7 +95,27 @@ export default function EvalWorkoutPage() {
   const [exByDay, setExByDay] = useState({}) // { day_a: [pe], ... }
   const [exResponses, setExResponses] = useState({}) // { peId: { ...jsonb, comment } }
 
+  // doc 43 (Modelo B): guardado por día con fecha propia (solo multi-día).
+  // Una sola eval (un result); cada día con su fecha en results.day_dates.
+  const [dayDates, setDayDates] = useState({}) // { day_a: 'YYYY-MM-DD', ... }
+  const [resultDayDates, setResultDayDates] = useState({}) // day_dates persistido
+  const [savingSection, setSavingSection] = useState(null)
+  const [savedSections, setSavedSections] = useState(() => new Set())
+
   const exerciseBased = plan ? isExerciseBasedEval(plan.eval_type) : false
+
+  // Días con ejercicios + si la eval es de varios días (→ guardado por día).
+  const dayKeys = Object.keys(exByDay).filter((k) => (exByDay[k] || []).length > 0)
+  const multiDay = exerciseBased && dayKeys.length > 1
+
+  // Secciones-día cubiertas por las responses cargadas.
+  function computeCoveredSections(responsesMap, byDay) {
+    const cov = new Set()
+    for (const [sec, rows] of Object.entries(byDay)) {
+      if ((rows || []).some((pe) => responsesMap[pe.id])) cov.add(sec)
+    }
+    return cov
+  }
 
   useEffect(() => {
     fetchPlan()
@@ -168,8 +188,49 @@ export default function EvalWorkoutPage() {
           }))
         }
 
-        setExByDay(groupEvalExercisesByDay(rows))
+        const grouped = groupEvalExercisesByDay(rows)
+        setExByDay(grouped)
+        const dayKeysLocal = Object.keys(grouped).filter((k) => (grouped[k] || []).length > 0)
+        const multiDayLocal = dayKeysLocal.length > 1
 
+        if (multiDayLocal) {
+          // Modelo B (doc 43): una sola eval; cargar el intento EN CURSO
+          // (el result más reciente que aún no completó todos los días). Si el
+          // más reciente está completo, arrancar un intento nuevo (vacío).
+          const defaults = {}
+          for (const k of dayKeysLocal) defaults[k] = today
+
+          const { data: recents } = await supabase
+            .from('evaluation_results')
+            .select('*')
+            .eq('plan_id', planId)
+            .eq('student_id', user.id)
+            .order('eval_date', { ascending: false })
+            .limit(1)
+          const recent = recents?.[0]
+          if (recent) {
+            const respMap = await loadExerciseResponses(recent.id)
+            const covered = computeCoveredSections(respMap, grouped)
+            if (covered.size < dayKeysLocal.length) {
+              // intento en curso → continuar
+              const savedDates = recent.results?.day_dates || {}
+              setExistingResultId(recent.id)
+              setResultDayDates(savedDates)
+              setDayDates({ ...defaults, ...savedDates })
+              setSavedSections(covered)
+              setExResponses(respMap)
+              setNotes(await loadResultNotesFromPanel(recent.id))
+            } else {
+              // el último intento está completo → intento nuevo, vacío
+              setDayDates(defaults)
+            }
+          } else {
+            setDayDates(defaults)
+          }
+          return
+        }
+
+        // Eval de un solo día: flujo clásico (fecha global + un guardar).
         const { data: existing } = await supabase
           .from('evaluation_results')
           .select('*')
@@ -391,6 +452,102 @@ export default function EvalWorkoutPage() {
     }))
   }
 
+  function handleDayDateChange(section, dateStr) {
+    setDayDates((prev) => ({ ...prev, [section]: dateStr }))
+  }
+
+  // doc 43 (Modelo B): guardar UN día. Una sola eval (un result); la fecha de
+  // cada día va en results.day_dates. La eval queda completa (trigger) cuando
+  // todos los días tienen responses.
+  async function handleSaveDay(section) {
+    setSavingSection(section)
+    setError(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const dayDate = dayDates[section] || today
+      const newDayDates = { ...resultDayDates, [section]: dayDate }
+
+      // 1. Asegurar el result del intento en curso.
+      let resultId = existingResultId
+      if (!resultId) {
+        const { data: ins, error: insErr } = await supabase
+          .from('evaluation_results')
+          .insert({
+            student_id: user.id,
+            plan_id: planId,
+            eval_date: dayDate,
+            eval_type: plan.eval_type,
+            results: { day_dates: newDayDates },
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single()
+        if (insErr) throw insErr
+        resultId = ins.id
+        setExistingResultId(resultId)
+      } else {
+        const { error: updErr } = await supabase
+          .from('evaluation_results')
+          .update({ results: { day_dates: newDayDates }, updated_at: new Date().toISOString() })
+          .eq('id', resultId)
+        if (updErr) throw updErr
+      }
+      setResultDayDates(newDayDates)
+
+      // 2. Nota general (una sola para toda la eval).
+      const { error: noteErr } = await postEvalResultNote({
+        studentId: user.id,
+        resultId,
+        body: notes || '',
+      })
+      if (noteErr) console.warn('[handleSaveDay] nota general:', noteErr)
+
+      // 3. Responses de ESTE día.
+      for (const pe of exByDay[section] || []) {
+        const resp = exResponses[pe.id]
+        if (!resp) continue
+        const evalType = pe.eval_type || 'custom'
+        const input = { ...resp }
+        if (evalType === 'one_rm') {
+          input.one_rm_estimated = calc1RM(pe.eval_method || 'brzycki', resp.weight_kg, resp.reps)
+        }
+        const studentResponse = buildExerciseResponseJson(evalType, input)
+        const keyField = pe.__legacyTest ? 'test_id' : 'plan_exercise_id'
+        const { data: upsertedResp } = await supabase
+          .from('evaluation_test_responses')
+          .upsert(
+            {
+              evaluation_result_id: resultId,
+              [keyField]: pe.id,
+              student_response: studentResponse,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: `evaluation_result_id,${keyField}` }
+          )
+          .select('id')
+          .single()
+        if (upsertedResp?.id) {
+          const { error: cErr } = await postEvalCommentNote({
+            studentId: user.id,
+            responseId: upsertedResp.id,
+            body: resp.comment || '',
+            role: 'student',
+            visibility: 'shared',
+          })
+          if (cErr) console.warn('[handleSaveDay] comment:', cErr)
+        }
+      }
+
+      setSavedSections((prev) => new Set(prev).add(section))
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(err.message || 'Error al guardar el día')
+    } finally {
+      setSavingSection(null)
+    }
+  }
+
   if (loading)
     return (
       <div className="flex justify-center py-12">
@@ -464,27 +621,43 @@ export default function EvalWorkoutPage() {
         </div>
       </div>
 
-      {/* Date selector */}
-      <div className="card">
-        <label className="label">Fecha de evaluación</label>
-        <input
-          type="date"
-          className="input"
-          value={evalDate}
-          max={new Date().toISOString().slice(0, 10)}
-          onChange={(e) => handleDateChange(e.target.value)}
-        />
-      </div>
+      {/* Date selector — global solo para 1 día/protocolos. En multi-día cada
+          día tiene su propia fecha dentro del formulario (Modelo B, doc 43). */}
+      {!multiDay && (
+        <div className="card">
+          <label className="label">Fecha de evaluación</label>
+          <input
+            type="date"
+            className="input"
+            value={evalDate}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => handleDateChange(e.target.value)}
+          />
+        </div>
+      )}
 
       {/* Eval form */}
       <div className="card space-y-4">
         <h2 className="font-semibold text-gray-900">Registro</h2>
+        {multiDay && (
+          <p className="text-xs text-gray-500 -mt-1">
+            Cada día se guarda por separado con su fecha. La evaluación queda completa cuando cargás
+            todos los días.
+          </p>
+        )}
         {exerciseBased ? (
           <EvalByDayForm
             exercisesByDay={exByDay}
             sessionsPerWeek={plan.sessions_per_week || 1}
             responses={exResponses}
             onChange={updateExResponse}
+            perDaySave={multiDay}
+            dayDates={dayDates}
+            onDayDateChange={handleDayDateChange}
+            onSaveDay={handleSaveDay}
+            savingSection={savingSection}
+            savedSections={savedSections}
+            maxDate={new Date().toISOString().slice(0, 10)}
           />
         ) : (
           <ProtocolForm
@@ -526,7 +699,8 @@ export default function EvalWorkoutPage() {
           </div>
         )}
 
-        {existingResultId && !editing ? (
+        {multiDay ? /* Multi-día (Modelo B): el guardado es por día, dentro del formulario. */
+        null : existingResultId && !editing ? (
           /* ── Resultado guardado: banner con Editar / Desmarcar ── */
           <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
             <div className="flex items-center gap-3">

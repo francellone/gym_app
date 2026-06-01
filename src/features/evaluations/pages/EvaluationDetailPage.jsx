@@ -375,6 +375,7 @@ function ExerciseBasedView({ result }) {
   }
   const dayKeys = Object.keys(byDay).sort()
   const multiDay = dayKeys.length > 1
+  const dayDates = result.results?.day_dates || {}
 
   return (
     <div className="space-y-3">
@@ -383,6 +384,15 @@ function ExerciseBasedView({ result }) {
           {multiDay && (
             <p className="text-xs font-bold text-gray-400 uppercase">
               Día {sec.replace('day_', '').toUpperCase()}
+              {dayDates[sec] && (
+                <span className="ml-1.5 normal-case font-normal text-gray-400">
+                  ·{' '}
+                  {new Date(dayDates[sec] + 'T12:00:00').toLocaleDateString('es-AR', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </span>
+              )}
             </p>
           )}
           {byDay[sec]

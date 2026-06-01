@@ -877,110 +877,118 @@ function UltimoRegistro({
         </p>
       )}
 
-      {dayKeys.map((sec) => (
-        <div key={sec} className="space-y-3">
-          {multiDay && (
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-              Día {sec.replace('day_', '').toUpperCase()}
-            </p>
-          )}
-          {(byDay[sec] || []).map((pe) => {
-            const resp = responses[pe.id]
-            const evalType = pe.eval_type || 'custom'
-            const comment = getComment(pe.id)
-            const ejercicioNombre = pe.exercises?.name || '—'
-            const valueStr = resp?.student_response
-              ? formatExerciseResponseValue(evalType, resp.student_response)
-              : ''
-            const actualNum = resp?.student_response
-              ? exerciseResponseNumericValue(evalType, resp.student_response)
-              : null
-
-            return (
-              <div key={pe.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-                {/* Header ejercicio */}
-                <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{ejercicioNombre}</p>
-                    {pe.instructions && (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{pe.instructions}</p>
-                    )}
-                  </div>
-                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
-                    {evalMethodLabel(evalType, pe.eval_method)}
+      {dayKeys.map((sec) => {
+        const dayDate = resultado.results?.day_dates?.[sec]
+        return (
+          <div key={sec} className="space-y-3">
+            {multiDay && (
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                Día {sec.replace('day_', '').toUpperCase()}
+                {dayDate && (
+                  <span className="normal-case font-normal text-gray-400">
+                    · {format(parseISO(dayDate + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
                   </span>
-                  {pe.mandatory && (
-                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                      Oblig.
-                    </span>
-                  )}
-                </div>
+                )}
+              </p>
+            )}
+            {(byDay[sec] || []).map((pe) => {
+              const resp = responses[pe.id]
+              const evalType = pe.eval_type || 'custom'
+              const comment = getComment(pe.id)
+              const ejercicioNombre = pe.exercises?.name || '—'
+              const valueStr = resp?.student_response
+                ? formatExerciseResponseValue(evalType, resp.student_response)
+                : ''
+              const actualNum = resp?.student_response
+                ? exerciseResponseNumericValue(evalType, resp.student_response)
+                : null
 
-                {/* Respuesta del alumno */}
-                <div className="px-4 py-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {pe.expected_value && (
-                      <div className="bg-blue-50 rounded-xl p-2.5 text-center">
-                        <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
-                        <p className="text-base font-bold text-blue-700">
-                          {pe.expected_value}
-                          <span className="text-xs font-normal ml-1">{pe.expected_unit}</span>
-                        </p>
-                      </div>
-                    )}
-                    <div
-                      className={`rounded-xl p-2.5 text-center ${valueStr ? 'bg-green-50' : 'bg-gray-50'}`}
-                    >
-                      <p
-                        className={`text-xs font-medium mb-0.5 ${valueStr ? 'text-green-500' : 'text-gray-400'}`}
-                      >
-                        Resultado
-                      </p>
-                      {valueStr ? (
-                        <p className="text-base font-bold text-green-700">{valueStr}</p>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic">Sin registro</p>
+              return (
+                <div key={pe.id} className="border border-gray-200 rounded-2xl overflow-hidden">
+                  {/* Header ejercicio */}
+                  <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{ejercicioNombre}</p>
+                      {pe.instructions && (
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{pe.instructions}</p>
                       )}
                     </div>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      {evalMethodLabel(evalType, pe.eval_method)}
+                    </span>
+                    {pe.mandatory && (
+                      <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                        Oblig.
+                      </span>
+                    )}
                   </div>
 
-                  {/* Indicador mejoró/igual/bajó (si hay expected numérico) */}
-                  {actualNum != null &&
-                    pe.expected_value &&
-                    !isNaN(parseFloat(pe.expected_value)) && (
-                      <ComparisonBadge
-                        actual={actualNum}
-                        expected={parseFloat(pe.expected_value)}
-                        testType={pe.eval_method}
-                      />
+                  {/* Respuesta del alumno */}
+                  <div className="px-4 py-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {pe.expected_value && (
+                        <div className="bg-blue-50 rounded-xl p-2.5 text-center">
+                          <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
+                          <p className="text-base font-bold text-blue-700">
+                            {pe.expected_value}
+                            <span className="text-xs font-normal ml-1">{pe.expected_unit}</span>
+                          </p>
+                        </div>
+                      )}
+                      <div
+                        className={`rounded-xl p-2.5 text-center ${valueStr ? 'bg-green-50' : 'bg-gray-50'}`}
+                      >
+                        <p
+                          className={`text-xs font-medium mb-0.5 ${valueStr ? 'text-green-500' : 'text-gray-400'}`}
+                        >
+                          Resultado
+                        </p>
+                        {valueStr ? (
+                          <p className="text-base font-bold text-green-700">{valueStr}</p>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Sin registro</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Indicador mejoró/igual/bajó (si hay expected numérico) */}
+                    {actualNum != null &&
+                      pe.expected_value &&
+                      !isNaN(parseFloat(pe.expected_value)) && (
+                        <ComparisonBadge
+                          actual={actualNum}
+                          expected={parseFloat(pe.expected_value)}
+                          testType={pe.eval_method}
+                        />
+                      )}
+
+                    {/* Comentario del alumno */}
+                    {resp?.student_comment && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                        <p className="text-xs text-amber-600 font-medium mb-0.5 flex items-center gap-1">
+                          <MessageSquare size={11} /> Observación del alumno
+                        </p>
+                        <p className="text-sm text-amber-800">{resp.student_comment}</p>
+                      </div>
                     )}
 
-                  {/* Comentario del alumno */}
-                  {resp?.student_comment && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                      <p className="text-xs text-amber-600 font-medium mb-0.5 flex items-center gap-1">
-                        <MessageSquare size={11} /> Observación del alumno
-                      </p>
-                      <p className="text-sm text-amber-800">{resp.student_comment}</p>
-                    </div>
-                  )}
-
-                  {/* Comentarios del coach */}
-                  <CoachCommentEditor
-                    testId={pe.id}
-                    publicComment={comment.public}
-                    privateComment={comment.private}
-                    onUpdatePublic={(v) => updateComment(pe.id, 'public', v)}
-                    onUpdatePrivate={(v) => updateComment(pe.id, 'private', v)}
-                    onSave={() => saveComments(pe)}
-                    saving={savingComment === pe.id}
-                  />
+                    {/* Comentarios del coach */}
+                    <CoachCommentEditor
+                      testId={pe.id}
+                      publicComment={comment.public}
+                      privateComment={comment.private}
+                      onUpdatePublic={(v) => updateComment(pe.id, 'public', v)}
+                      onUpdatePrivate={(v) => updateComment(pe.id, 'private', v)}
+                      onSave={() => saveComments(pe)}
+                      saving={savingComment === pe.id}
+                    />
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      ))}
+              )
+            })}
+          </div>
+        )
+      })}
     </div>
   )
 }

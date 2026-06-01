@@ -1,4 +1,4 @@
-import { MessageSquare, PlayCircle } from 'lucide-react'
+import { MessageSquare, PlayCircle, CheckCircle, Save } from 'lucide-react'
 import { calc1RM, METHODS, pruebaTypeInfo } from '../../helpers'
 import { getDynamicSections } from '@/features/plans/helpers'
 
@@ -15,7 +15,21 @@ import { getDynamicSections } from '@/features/plans/helpers'
 //   responses        map plan_exercise_id → { ...jsonb, comment }
 //   onChange(peId, field, value)
 // ============================================================
-export default function EvalByDayForm({ exercisesByDay, sessionsPerWeek, responses, onChange }) {
+export default function EvalByDayForm({
+  exercisesByDay,
+  sessionsPerWeek,
+  responses,
+  onChange,
+  // doc 43 (Modelo B): guardado por día. Cuando perDaySave=true, cada día
+  // muestra su propia fecha + botón Guardar.
+  perDaySave = false,
+  dayDates = {},
+  onDayDateChange,
+  onSaveDay,
+  savingSection = null,
+  savedSections = null, // Set de sections ya guardadas (tienen datos)
+  maxDate,
+}) {
   const sections = getDynamicSections(sessionsPerWeek, false).filter(
     (s) => (exercisesByDay[s.id] || []).length > 0
   )
@@ -28,23 +42,66 @@ export default function EvalByDayForm({ exercisesByDay, sessionsPerWeek, respons
     )
   }
 
+  const multi = sections.length > 1
+
   return (
     <div className="space-y-6">
-      {sections.map((s) => (
-        <div key={s.id} className="space-y-3">
-          {sections.length > 1 && (
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">{s.label}</h3>
-          )}
-          {(exercisesByDay[s.id] || []).map((pe) => (
-            <ExerciseEvalCard
-              key={pe.id}
-              pe={pe}
-              resp={responses[pe.id] || {}}
-              onChange={(field, value) => onChange(pe.id, field, value)}
-            />
-          ))}
-        </div>
-      ))}
+      {sections.map((s) => {
+        const isSaved = savedSections?.has?.(s.id)
+        return (
+          <div
+            key={s.id}
+            className={
+              perDaySave ? 'border-2 border-gray-100 rounded-2xl p-3 space-y-3' : 'space-y-3'
+            }
+          >
+            {(multi || perDaySave) && (
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                  {s.label}
+                  {perDaySave && isSaved && (
+                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-600 normal-case">
+                      <CheckCircle size={13} /> guardado
+                    </span>
+                  )}
+                </h3>
+                {perDaySave && (
+                  <input
+                    type="date"
+                    className="input !w-auto text-sm py-1"
+                    value={dayDates[s.id] || ''}
+                    max={maxDate}
+                    onChange={(e) => onDayDateChange?.(s.id, e.target.value)}
+                  />
+                )}
+              </div>
+            )}
+            {(exercisesByDay[s.id] || []).map((pe) => (
+              <ExerciseEvalCard
+                key={pe.id}
+                pe={pe}
+                resp={responses[pe.id] || {}}
+                onChange={(field, value) => onChange(pe.id, field, value)}
+              />
+            ))}
+            {perDaySave && (
+              <button
+                onClick={() => onSaveDay?.(s.id)}
+                disabled={savingSection === s.id}
+                className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
+              >
+                {savingSection === s.id ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Save size={15} /> {isSaved ? `Actualizar ${s.label}` : `Guardar ${s.label}`}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
