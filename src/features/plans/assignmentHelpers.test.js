@@ -12,7 +12,7 @@
 //   - bucketeo de evaluaciones (groupEvaluationAssignments)
 //   - date math (getExpectedSessionDates, computeWeekAdherence)
 // ============================================================
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   canTransition,
   actionsForStatus,
@@ -29,6 +29,8 @@ import {
   computeWeekAdherence,
   startOfWeekMonday,
   endOfWeekSunday,
+  fetchTemplateAssignees,
+  reassignTemplate,
 } from './assignmentHelpers'
 
 describe('máquina de estados de plan_assignments', () => {
@@ -397,5 +399,216 @@ describe('computeWeekAdherence', () => {
       const result = computeWeekAdherence(earlyEnd, sessions, monday, today)
       expect(result.completedCount).toBe(1)
     })
+  })
+})
+
+// ============================================================
+// doc 40 — re-asignación de templates editados
+// ============================================================
+function thenable(result) {
+  return {
+    select() {
+      return this
+    },
+    eq() {
+      return this
+    },
+    in() {
+      return this
+    },
+    then(res, rej) {
+      return Promise.resolve(result).then(res, rej)
+    },
+  }
+}
+
+describe('fetchTemplateAssignees (doc 40)', () => {
+  it('mapea, excluye alumnas inactivas, cuenta resultados y ordena por nombre', async () => {
+    const supabase = {
+      from: vi.fn((table) => {
+        if (table === 'plans')
+          return thenable({ data: [{ id: 'clone-1' }, { id: 'clone-2' }], error: null })
+        if (table === 'plan_assignments')
+          return thenable({
+            data: [
+              {
+                id: 'a2',
+                student_id: 's2',
+                plan_id: 'clone-2',
+                plan_type: 'evaluation',
+                status: 'active',
+                start_date: '2026-05-01',
+                end_date: null,
+                schedule_mode: 'flexible',
+                preferred_days: null,
+                linked_assignment_id: null,
+                student: { id: 's2', name: 'Beto', active: true },
+              },
+              {
+                id: 'a1',
+                student_id: 's1',
+                plan_id: 'clone-1',
+                plan_type: 'evaluation',
+                status: 'paused',
+                start_date: null,
+                end_date: null,
+                schedule_mode: 'flexible',
+                preferred_days: null,
+                linked_assignment_id: 'link',
+                student: { id: 's1', name: 'Ana', active: true },
+              },
+              {
+                id: 'a3',
+                student_id: 's3',
+                plan_id: 'clone-1',
+                plan_type: 'evaluation',
+                status: 'active',
+                start_date: null,
+                end_date: null,
+                schedule_mode: 'flexible',
+                preferred_days: null,
+                linked_assignment_id: null,
+                student: { id: 's3', name: 'Zoe', active: false },
+              },
+            ],
+            error: null,
+          })
+        if (table === 'evaluation_results')
+          return thenable({ data: [{ plan_id: 'clone-2' }, { plan_id: 'clone-2' }], error: null })
+        return thenable({ data: [], error: null })
+      }),
+    }
+    const res = await fetchTemplateAssignees(supabase, 'tpl-1')
+    expect(res.map((r) => r.studentName)).toEqual(['Ana', 'Beto']) // Zoe inactiva excluida + orden alfabético
+    expect(res.find((r) => r.studentName === 'Beto').resultCount).toBe(2)
+    const ana = res.find((r) => r.studentName === 'Ana')
+    expect(ana.resultCount).toBe(0)
+    expect(ana.linkedAssignmentId).toBe('link')
+  })
+
+  it('devuelve [] si el template no tiene clones', async () => {
+    const supabase = { from: vi.fn(() => thenable({ data: [], error: null })) }
+    expect(await fetchTemplateAssignees(supabase, 'tpl-1')).toEqual([])
+  })
+
+  it('devuelve [] sin templateId', async () => {
+    expect(await fetchTemplateAssignees({}, null)).toEqual([])
+  })
+})
+
+describe('reassignTemplate (doc 40)', () => {
+  it('archiva el clon viejo ANTES de re-clonar y preserva metadata', async () => {
+    const calls = []
+    const eqMock = vi.fn(() => {
+      calls.push('archive')
+      return Promise.resolve({ error: null })
+    })
+    const updateMock = vi.fn(() => ({ eq: eqMock }))
+    const supabase = {
+      from: vi.fn(() => ({ update: updateMock })),
+      rpc: vi.fn(() => {
+        calls.push('rpc')
+        return Promise.resolve({ data: { assignment_id: 'new-a', plan_id: 'new-p' }, error: null })
+      }),
+    }
+    const assignee = {
+      assignmentId: 'old-a',
+      studentId: 'stu-1',
+      startDate: '2026-05-01',
+      endDate: '2026-12-31',
+      scheduleMode: 'fixed',
+      preferredDays: [1, 3],
+      linkedAssignmentId: 'link-1',
+    }
+    const res = await reassignTemplate(supabase, { templateId: 'tpl-1', assignee })
+    expect(calls).toEqual(['archive', 'rpc']) // archive-then-assign
+    expect(updateMock).toHaveBeenCalledWith({ active: false, status: 'archived' })
+    expect(eqMock).toHaveBeenCalledWith('id', 'old-a')
+    const payload = supabase.rpc.mock.calls[0][1]
+    expect(payload.p_template_id).toBe('tpl-1')
+    expect(payload.p_student_id).toBe('stu-1')
+    expect(payload.p_start_date).toBe('2026-05-01')
+    expect(payload.p_schedule_mode).toBe('fixed')
+    expect(payload.p_preferred_days).toEqual([1, 3])
+    expect(payload.p_linked_assignment_id).toBe('link-1')
+    expect(res.assignment_id).toBe('new-a')
+  })
+
+  it('lanza si falla el archive y NO re-clona', async () => {
+    const supabase = {
+      from: vi.fn(() => ({
+        update: () => ({ eq: () => Promise.resolve({ error: { message: 'boom' } }) }),
+      })),
+      rpc: vi.fn(),
+    }
+    await expect(
+      reassignTemplate(supabase, {
+        templateId: 't',
+        assignee: { assignmentId: 'a', studentId: 's' },
+      })
+    ).rejects.toThrow('boom')
+    expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+
+  it('valida argumentos', async () => {
+    await expect(
+      reassignTemplate({}, { templateId: null, assignee: { assignmentId: 'a' } })
+    ).rejects.toThrow('templateId')
+    await expect(reassignTemplate({}, { templateId: 't', assignee: {} })).rejects.toThrow(
+      'assignee'
+    )
+  })
+
+  it('#3 revierte el archive si el re-clonado falla y NO deja la asignación archivada', async () => {
+    const updateCalls = []
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn((payload) => ({
+          eq: vi.fn((col, val) => {
+            updateCalls.push({ payload, col, val })
+            return Promise.resolve({ error: null })
+          }),
+        })),
+      })),
+      // 23505 → assignTemplateToStudent lanza (enrichRpcError)
+      rpc: vi.fn(() => Promise.resolve({ data: null, error: { code: '23505', message: 'dup' } })),
+    }
+    await expect(
+      reassignTemplate(supabase, {
+        templateId: 'tpl',
+        assignee: { assignmentId: 'old-a', studentId: 's', status: 'active' },
+      })
+    ).rejects.toBeTruthy()
+    // archive + revert
+    expect(updateCalls).toEqual([
+      { payload: { active: false, status: 'archived' }, col: 'id', val: 'old-a' },
+      { payload: { active: true, status: 'active' }, col: 'id', val: 'old-a' },
+    ])
+  })
+
+  it('#2 preserva el estado pausado en la nueva asignación', async () => {
+    const updateCalls = []
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn((payload) => ({
+          eq: vi.fn((col, val) => {
+            updateCalls.push({ payload, col, val })
+            return Promise.resolve({ error: null })
+          }),
+        })),
+      })),
+      rpc: vi.fn(() =>
+        Promise.resolve({ data: { assignment_id: 'new-a', plan_id: 'new-p' }, error: null })
+      ),
+    }
+    await reassignTemplate(supabase, {
+      templateId: 'tpl',
+      assignee: { assignmentId: 'old-a', studentId: 's', status: 'paused' },
+    })
+    // archive del viejo + pausa del nuevo
+    expect(updateCalls).toEqual([
+      { payload: { active: false, status: 'archived' }, col: 'id', val: 'old-a' },
+      { payload: { status: 'paused' }, col: 'id', val: 'new-a' },
+    ])
   })
 })

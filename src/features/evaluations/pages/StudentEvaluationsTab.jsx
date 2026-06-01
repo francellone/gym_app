@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { evalTypeIcon, evalTypeLabel, evalTypeColor, pruebaTypeInfo } from '../helpers'
+import {
+  evalTypeIcon,
+  evalTypeLabel,
+  evalTypeColor,
+  isExerciseBasedEval,
+  evalMethodLabel,
+  formatExerciseResponseValue,
+  exerciseResponseNumericValue,
+  groupEvalExercisesByDay,
+} from '../helpers'
+import { getDynamicSections } from '@/features/plans/helpers'
 import {
   ClipboardList,
   ChevronDown,
@@ -376,12 +386,16 @@ function EvaluationCard({
     !historical && (assignmentStatus === 'active' || assignmentStatus === 'paused')
 
   // Datos cargados al expandir
-  const [pruebas, setPruebas] = useState([]) // evaluation_tests
+  // doc 41: planExercises = filas de plan_exercises (modelo nuevo, por día).
+  const [planExercises, setPlanExercises] = useState([])
   const [resultados, setResultados] = useState([]) // evaluation_results con responses
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  const isCustom = plan?.eval_type === 'custom'
+  // doc 41: evals basadas en ejercicios (one_rm/max_reps/custom/mixed) leen
+  // plan_exercises + responses por plan_exercise_id. Los protocolos enteros
+  // (power/cardio/body_comp/scored) mantienen el jsonb en results.
+  const exerciseBased = isExerciseBasedEval(plan?.eval_type)
   const colorClass = evalTypeColor(plan?.eval_type)
   const tags = plan?.eval_tags || []
 
@@ -409,14 +423,38 @@ function EvaluationCard({
     if (loaded || loading) return
     setLoading(true)
     try {
-      // Para evaluaciones custom: cargar pruebas
-      if (isCustom) {
-        const { data: pruebasData } = await supabase
-          .from('evaluation_tests')
-          .select('*')
+      // doc 41: evals exercise-based → cargar plan_exercises (por día).
+      if (exerciseBased) {
+        const { data: peData } = await supabase
+          .from('plan_exercises')
+          .select('*, exercises(name, video_url)')
           .eq('plan_id', plan.id)
           .order('order_index')
-        setPruebas(pruebasData || [])
+        let peRows = peData || []
+
+        // Compat: custom pre-cutover puede vivir todavía en evaluation_tests.
+        if (peRows.length === 0 && plan.eval_type === 'custom') {
+          const { data: testsData } = await supabase
+            .from('evaluation_tests')
+            .select('*, exercises(name, video_url)')
+            .eq('plan_id', plan.id)
+            .order('order_index')
+          peRows = (testsData || []).map((t) => ({
+            id: t.id, // se keyea por test_id en este caso
+            exercise_id: t.exercise_id,
+            section: 'day_a',
+            order_index: t.order_index || 0,
+            eval_type: 'custom',
+            eval_method: t.test_type || 'libre',
+            instructions: t.instructions,
+            expected_value: t.expected_value,
+            expected_unit: t.expected_unit,
+            mandatory: t.mandatory,
+            exercises: t.exercises || { name: t.exercise_name },
+            __legacyTest: true,
+          }))
+        }
+        setPlanExercises(peRows)
       }
 
       // Cargar todos los resultados del alumno para este plan
@@ -447,8 +485,8 @@ function EvaluationCard({
         }
       }
 
-      // Si hay pruebas custom, cargar responses para cada resultado
-      if (isCustom && results.length > 0) {
+      // Cargar responses por ejercicio para cada resultado (modelo nuevo).
+      if (exerciseBased && results.length > 0) {
         const resultIds = results.map((r) => r.id)
         const { data: responsesData } = await supabase
           .from('evaluation_test_responses')
@@ -496,6 +534,15 @@ function EvaluationCard({
   }
 
   const latestResult = resultados[0] || null
+
+  // doc 41: las evals one_rm/max_reps completadas ANTES del modelo nuevo
+  // (doc 38, 30/05) guardaron en results.exercises jsonb (0 responses) →
+  // se siguen mostrando con ResultadosCientificos para no regresionar.
+  // La vista nueva por ejercicio aplica a custom/mixed (siempre nuevas) o
+  // a cualquier eval que ya tenga responses cargadas (modelo nuevo).
+  const hasNewResponses = resultados.some((r) => (r._responses || []).length > 0)
+  const showExerciseView =
+    exerciseBased && (['custom', 'mixed'].includes(plan?.eval_type) || hasNewResponses)
 
   return (
     <div className={`card space-y-0 p-0 overflow-hidden ${historical ? 'opacity-80' : ''}`}>
@@ -587,7 +634,7 @@ function EvaluationCard({
             </div>
           )}
 
-          {!loading && isCustom && (
+          {!loading && showExerciseView && (
             <>
               {/* Sub-navegación */}
               <div className="flex gap-1 bg-gray-50 p-2 border-b border-gray-100">
@@ -615,7 +662,7 @@ function EvaluationCard({
 
               {view === 'ultimo' && (
                 <UltimoRegistro
-                  pruebas={pruebas}
+                  planExercises={planExercises}
                   resultado={latestResult}
                   planId={plan.id}
                   studentId={studentId}
@@ -627,13 +674,15 @@ function EvaluationCard({
               )}
 
               {view === 'historial' && (
-                <HistorialComparativo pruebas={pruebas} resultados={resultados} />
+                <HistorialComparativo planExercises={planExercises} resultados={resultados} />
               )}
             </>
           )}
 
-          {/* Para tipos científicos: vista simple de resultados */}
-          {!loading && !isCustom && <ResultadosCientificos resultados={resultados} plan={plan} />}
+          {/* Protocolos enteros + one_rm/max_reps legacy (jsonb): vista científica */}
+          {!loading && !showExerciseView && (
+            <ResultadosCientificos resultados={resultados} plan={plan} />
+          )}
         </div>
       )}
     </div>
@@ -643,15 +692,19 @@ function EvaluationCard({
 // ─────────────────────────────────────────────────────────────
 // UltimoRegistro — tabla con último resultado + comentarios coach
 // ─────────────────────────────────────────────────────────────
-function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _studentId, onSaved }) {
+function UltimoRegistro({
+  planExercises,
+  resultado,
+  planId: _planId,
+  studentId: _studentId,
+  onSaved,
+}) {
   // multi-coach v31: necesitamos profile.id como coachId al postear comentarios.
-  // Antes de 2026-05-21 esto faltaba acá (sólo estaba en el componente padre
-  // StudentEvaluationsTab) y `profile?.id` era ReferenceError en saveComments.
   const { profile } = useAuth()
-  // Map de test_id → response
+  // doc 41: map keyado por plan_exercise_id (o test_id en legacy custom).
   const [responses, setResponses] = useState({})
-  const [savingComment, setSavingComment] = useState(null) // test_id que se está guardando
-  const [editingComments, setEditingComments] = useState({}) // test_id → { public, private }
+  const [savingComment, setSavingComment] = useState(null) // peId que se está guardando
+  const [editingComments, setEditingComments] = useState({}) // peId → { public, private }
 
   useEffect(() => {
     if (!resultado) {
@@ -659,49 +712,50 @@ function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _stude
       return
     }
     const map = {}
-    for (const r of resultado._responses || []) {
-      map[r.test_id] = r
-    }
-    setResponses(map)
-    // Inicializar edición de comentarios
     const initial = {}
     for (const r of resultado._responses || []) {
-      initial[r.test_id] = {
+      const key = r.plan_exercise_id || r.test_id
+      if (!key) continue
+      map[key] = r
+      initial[key] = {
         public: r.coach_comment_public || '',
         private: r.coach_comment_private || '',
       }
     }
+    setResponses(map)
     setEditingComments(initial)
   }, [resultado])
 
-  function getComment(testId) {
-    return editingComments[testId] || { public: '', private: '' }
+  function getComment(peId) {
+    return editingComments[peId] || { public: '', private: '' }
   }
 
-  function updateComment(testId, field, value) {
+  function updateComment(peId, field, value) {
     setEditingComments((prev) => ({
       ...prev,
-      [testId]: { ...(prev[testId] || { public: '', private: '' }), [field]: value },
+      [peId]: { ...(prev[peId] || { public: '', private: '' }), [field]: value },
     }))
   }
 
-  async function saveComments(testId) {
+  // pe: fila de plan_exercises (o pseudo-fila legacy con __legacyTest).
+  async function saveComments(pe) {
     if (!resultado) return
-    setSavingComment(testId)
+    const peId = pe.id
+    setSavingComment(peId)
     try {
-      const comment = getComment(testId)
-      const existing = responses[testId]
-      // Round 2b: las columnas coach_comment_* fueron dropeadas en v26d.
-      // Ahora los comentarios viven en el panel. Necesitamos el response_id
-      // para asociarlas; si no existe la response, la creamos vacía para
-      // tener un context_id estable.
+      const comment = getComment(peId)
+      const existing = responses[peId]
+      // Los comentarios viven en el panel; necesitamos un response_id estable.
+      // Si no existe la response, la creamos vacía keyada por plan_exercise_id
+      // (o test_id para custom legacy).
       let responseId = existing?.id
       if (!responseId) {
+        const keyField = pe.__legacyTest ? 'test_id' : 'plan_exercise_id'
         const { data: inserted } = await supabase
           .from('evaluation_test_responses')
           .insert({
             evaluation_result_id: resultado.id,
-            test_id: testId,
+            [keyField]: peId,
           })
           .select('id')
           .single()
@@ -709,7 +763,6 @@ function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _stude
       }
 
       if (resultado.student_id && responseId) {
-        // Public + private en paralelo
         const [pubRes, privRes] = await Promise.all([
           postEvalCommentNote({
             studentId: resultado.student_id,
@@ -740,46 +793,56 @@ function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _stude
     }
   }
 
+  // Agrupar ejercicios por día (section). Header de día solo si hay más de uno.
+  const byDay = groupEvalExercisesByDay(planExercises || [])
+  const dayKeys = getDynamicSections(7, false)
+    .map((s) => s.id)
+    .filter((id) => (byDay[id] || []).length > 0)
+  const multiDay = dayKeys.length > 1
+
+  // ── Sin registro del alumno: preview de los ejercicios asignados ──
   if (!resultado) {
-    // Iteración 2 doc 32 (2026-05-26 PM): cuando no hay registro del
-    // alumno, mostrar las pruebas asignadas en modo preview (sin valores)
-    // para que el coach vea qué pruebas le tocan al alumno. Antes solo
-    // aparecía el placeholder "El alumno aún no registró…" y daba la
-    // impresión de eval vacía aunque los tests sí estaban en BD.
-    if (pruebas && pruebas.length > 0) {
+    if (planExercises && planExercises.length > 0) {
       return (
         <div className="p-4 space-y-3">
           <div className="text-center text-xs text-gray-400 py-2 border-b border-gray-100">
             <ClipboardList size={20} className="mx-auto mb-1 text-gray-300" />
             El alumno todavía no registró esta evaluación.
             <br />
-            <span className="text-gray-400">{pruebas.length} pruebas asignadas:</span>
+            <span className="text-gray-400">{planExercises.length} ejercicios asignados:</span>
           </div>
-          <div className="space-y-1.5">
-            {pruebas.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
-              >
-                <span className="w-5 h-5 flex-shrink-0 rounded-full bg-gray-200 text-gray-500 text-xs font-semibold flex items-center justify-center mt-0.5">
-                  {p.order_index + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 truncate">
-                    {p.exercise_name || 'Ejercicio sin nombre'}
-                  </p>
-                  {p.instructions && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{p.instructions}</p>
-                  )}
-                  {(p.expected_value || p.expected_unit) && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Esperado: {p.expected_value || '—'} {p.expected_unit || ''}
+          {dayKeys.map((sec) => (
+            <div key={sec} className="space-y-1.5">
+              {multiDay && (
+                <p className="text-xs font-bold text-gray-400 uppercase">
+                  Día {sec.replace('day_', '').toUpperCase()}
+                </p>
+              )}
+              {(byDay[sec] || []).map((pe) => (
+                <div
+                  key={pe.id}
+                  className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 truncate">
+                      {pe.exercises?.name || 'Ejercicio sin nombre'}
+                      <span className="ml-1.5 text-xs font-normal text-gray-400">
+                        {evalMethodLabel(pe.eval_type || 'custom', pe.eval_method)}
+                      </span>
                     </p>
-                  )}
+                    {pe.instructions && (
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{pe.instructions}</p>
+                    )}
+                    {(pe.expected_value || pe.expected_unit) && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Esperado: {pe.expected_value || '—'} {pe.expected_unit || ''}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ))}
         </div>
       )
     }
@@ -808,106 +871,116 @@ function UltimoRegistro({ pruebas, resultado, planId: _planId, studentId: _stude
         )}
       </div>
 
-      {pruebas.length === 0 && (
+      {(planExercises || []).length === 0 && (
         <p className="text-sm text-gray-400 text-center py-4">
-          Esta evaluación no tiene pruebas definidas.
+          Esta evaluación no tiene ejercicios definidos.
         </p>
       )}
 
-      {pruebas.map((prueba) => {
-        const resp = responses[prueba.id]
-        const typeInfo = pruebaTypeInfo(prueba.test_type)
-        const comment = getComment(prueba.id)
-        const ejercicioNombre = prueba.exercise_name || '—'
+      {dayKeys.map((sec) => (
+        <div key={sec} className="space-y-3">
+          {multiDay && (
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+              Día {sec.replace('day_', '').toUpperCase()}
+            </p>
+          )}
+          {(byDay[sec] || []).map((pe) => {
+            const resp = responses[pe.id]
+            const evalType = pe.eval_type || 'custom'
+            const comment = getComment(pe.id)
+            const ejercicioNombre = pe.exercises?.name || '—'
+            const valueStr = resp?.student_response
+              ? formatExerciseResponseValue(evalType, resp.student_response)
+              : ''
+            const actualNum = resp?.student_response
+              ? exerciseResponseNumericValue(evalType, resp.student_response)
+              : null
 
-        return (
-          <div key={prueba.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-            {/* Header prueba */}
-            <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{ejercicioNombre}</p>
-                {prueba.instructions && (
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">{prueba.instructions}</p>
-                )}
-              </div>
-              <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
-                {typeInfo.label}
-                {typeInfo.unit ? ` (${typeInfo.unit})` : ''}
-              </span>
-              {prueba.mandatory && (
-                <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                  Oblig.
-                </span>
-              )}
-            </div>
-
-            {/* Respuesta del alumno */}
-            <div className="px-4 py-3 space-y-3">
-              {/* Fila: expected / alumno */}
-              <div className="grid grid-cols-2 gap-3">
-                {prueba.expected_value && (
-                  <div className="bg-blue-50 rounded-xl p-2.5 text-center">
-                    <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
-                    <p className="text-base font-bold text-blue-700">
-                      {prueba.expected_value}
-                      <span className="text-xs font-normal ml-1">{prueba.expected_unit}</span>
-                    </p>
+            return (
+              <div key={pe.id} className="border border-gray-200 rounded-2xl overflow-hidden">
+                {/* Header ejercicio */}
+                <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{ejercicioNombre}</p>
+                    {pe.instructions && (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{pe.instructions}</p>
+                    )}
                   </div>
-                )}
-                <div
-                  className={`rounded-xl p-2.5 text-center ${resp?.student_response ? 'bg-green-50' : 'bg-gray-50'}`}
-                >
-                  <p
-                    className={`text-xs font-medium mb-0.5 ${resp?.student_response ? 'text-green-500' : 'text-gray-400'}`}
-                  >
-                    Resultado
-                  </p>
-                  {resp?.student_response ? (
-                    <p className="text-base font-bold text-green-700">
-                      {resp.student_response.value}
-                      <span className="text-xs font-normal ml-1">{resp.student_response.unit}</span>
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-400 italic">Sin registro</p>
+                  <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {evalMethodLabel(evalType, pe.eval_method)}
+                  </span>
+                  {pe.mandatory && (
+                    <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                      Oblig.
+                    </span>
                   )}
                 </div>
-              </div>
 
-              {/* Indicador mejoró/igual/bajó (si hay expected) */}
-              {resp?.student_response &&
-                prueba.expected_value &&
-                !isNaN(parseFloat(resp.student_response.value)) && (
-                  <ComparisonBadge
-                    actual={parseFloat(resp.student_response.value)}
-                    expected={parseFloat(prueba.expected_value)}
-                    testType={prueba.test_type}
+                {/* Respuesta del alumno */}
+                <div className="px-4 py-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    {pe.expected_value && (
+                      <div className="bg-blue-50 rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
+                        <p className="text-base font-bold text-blue-700">
+                          {pe.expected_value}
+                          <span className="text-xs font-normal ml-1">{pe.expected_unit}</span>
+                        </p>
+                      </div>
+                    )}
+                    <div
+                      className={`rounded-xl p-2.5 text-center ${valueStr ? 'bg-green-50' : 'bg-gray-50'}`}
+                    >
+                      <p
+                        className={`text-xs font-medium mb-0.5 ${valueStr ? 'text-green-500' : 'text-gray-400'}`}
+                      >
+                        Resultado
+                      </p>
+                      {valueStr ? (
+                        <p className="text-base font-bold text-green-700">{valueStr}</p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Sin registro</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Indicador mejoró/igual/bajó (si hay expected numérico) */}
+                  {actualNum != null &&
+                    pe.expected_value &&
+                    !isNaN(parseFloat(pe.expected_value)) && (
+                      <ComparisonBadge
+                        actual={actualNum}
+                        expected={parseFloat(pe.expected_value)}
+                        testType={pe.eval_method}
+                      />
+                    )}
+
+                  {/* Comentario del alumno */}
+                  {resp?.student_comment && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      <p className="text-xs text-amber-600 font-medium mb-0.5 flex items-center gap-1">
+                        <MessageSquare size={11} /> Observación del alumno
+                      </p>
+                      <p className="text-sm text-amber-800">{resp.student_comment}</p>
+                    </div>
+                  )}
+
+                  {/* Comentarios del coach */}
+                  <CoachCommentEditor
+                    testId={pe.id}
+                    publicComment={comment.public}
+                    privateComment={comment.private}
+                    onUpdatePublic={(v) => updateComment(pe.id, 'public', v)}
+                    onUpdatePrivate={(v) => updateComment(pe.id, 'private', v)}
+                    onSave={() => saveComments(pe)}
+                    saving={savingComment === pe.id}
                   />
-                )}
-
-              {/* Comentario del alumno */}
-              {resp?.student_comment && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                  <p className="text-xs text-amber-600 font-medium mb-0.5 flex items-center gap-1">
-                    <MessageSquare size={11} /> Observación del alumno
-                  </p>
-                  <p className="text-sm text-amber-800">{resp.student_comment}</p>
                 </div>
-              )}
-
-              {/* Comentarios del coach */}
-              <CoachCommentEditor
-                testId={prueba.id}
-                publicComment={comment.public}
-                privateComment={comment.private}
-                onUpdatePublic={(v) => updateComment(prueba.id, 'public', v)}
-                onUpdatePrivate={(v) => updateComment(prueba.id, 'private', v)}
-                onSave={() => saveComments(prueba.id)}
-                saving={savingComment === prueba.id}
-              />
-            </div>
-          </div>
-        )
-      })}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
@@ -1029,8 +1102,8 @@ function ComparisonBadge({ actual, expected, testType }) {
 // ─────────────────────────────────────────────────────────────
 // HistorialComparativo
 // ─────────────────────────────────────────────────────────────
-function HistorialComparativo({ pruebas, resultados }) {
-  const [selectedTestId, setSelectedTestId] = useState(pruebas[0]?.id || null)
+function HistorialComparativo({ planExercises, resultados }) {
+  const [selectedPeId, setSelectedPeId] = useState(planExercises[0]?.id || null)
 
   if (resultados.length === 0) {
     return (
@@ -1040,16 +1113,24 @@ function HistorialComparativo({ pruebas, resultados }) {
     )
   }
 
-  const selectedTest = pruebas.find((p) => p.id === selectedTestId)
+  const selectedPe = planExercises.find((p) => p.id === selectedPeId)
+  const selectedType = selectedPe?.eval_type || 'custom'
 
-  // Datos históricos para la prueba seleccionada
+  // Datos históricos para el ejercicio seleccionado (keyado por plan_exercise_id).
   const historico = resultados
     .map((resultado) => {
-      const resp = (resultado._responses || []).find((r) => r.test_id === selectedTestId)
+      const resp = (resultado._responses || []).find(
+        (r) => (r.plan_exercise_id || r.test_id) === selectedPeId
+      )
+      const num = resp?.student_response
+        ? exerciseResponseNumericValue(selectedType, resp.student_response)
+        : null
       return {
         fecha: resultado.eval_date,
-        value: resp?.student_response?.value ?? null,
-        unit: resp?.student_response?.unit ?? selectedTest?.expected_unit ?? '',
+        value: num,
+        label: resp?.student_response
+          ? formatExerciseResponseValue(selectedType, resp.student_response)
+          : '',
         resultadoId: resultado.id,
       }
     })
@@ -1058,18 +1139,19 @@ function HistorialComparativo({ pruebas, resultados }) {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Selector de prueba */}
-      {pruebas.length > 1 && (
+      {/* Selector de ejercicio */}
+      {planExercises.length > 1 && (
         <div>
           <label className="label text-xs">Ver evolución de</label>
           <select
             className="input text-sm"
-            value={selectedTestId || ''}
-            onChange={(e) => setSelectedTestId(e.target.value)}
+            value={selectedPeId || ''}
+            onChange={(e) => setSelectedPeId(e.target.value)}
           >
-            {pruebas.map((p) => (
+            {planExercises.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.exercise_name || 'Prueba sin nombre'} — {pruebaTypeInfo(p.test_type).label}
+                {p.exercises?.name || 'Ejercicio'} —{' '}
+                {evalMethodLabel(p.eval_type || 'custom', p.eval_method)}
               </option>
             ))}
           </select>
@@ -1078,17 +1160,17 @@ function HistorialComparativo({ pruebas, resultados }) {
 
       {/* Timeline de valores */}
       {historico.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-4">Sin datos para esta prueba.</p>
+        <p className="text-sm text-gray-400 text-center py-4">Sin datos para este ejercicio.</p>
       ) : (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            {selectedTest?.exercise_name || 'Prueba'} — evolución
+            {selectedPe?.exercises?.name || 'Ejercicio'} — evolución
           </p>
           {historico.map((h, i) => {
             const prev = historico[i - 1]
-            const prevVal = prev ? parseFloat(prev.value) : null
-            const currVal = parseFloat(h.value)
-            const lowerIsBetter = selectedTest?.test_type === 'tiempo'
+            const prevVal = prev ? prev.value : null
+            const currVal = h.value
+            const lowerIsBetter = selectedType === 'custom' && selectedPe?.eval_method === 'tiempo'
 
             let trend = null
             if (prevVal !== null && !isNaN(currVal) && !isNaN(prevVal)) {
@@ -1108,8 +1190,7 @@ function HistorialComparativo({ pruebas, resultados }) {
                   {format(parseISO(h.fecha + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
                 </div>
                 <div className="flex-1">
-                  <span className="text-base font-bold text-gray-900">{h.value}</span>
-                  <span className="text-xs text-gray-400 ml-1">{h.unit}</span>
+                  <span className="text-base font-bold text-gray-900">{h.label}</span>
                 </div>
                 {trend === 'up' && (
                   <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
@@ -1146,7 +1227,7 @@ function HistorialComparativo({ pruebas, resultados }) {
               })}
             </span>
             <span className="text-xs text-gray-400">
-              {(resultado._responses || []).length} pruebas completadas
+              {(resultado._responses || []).length} ejercicios completados
             </span>
           </div>
         ))}

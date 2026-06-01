@@ -318,6 +318,49 @@ export function buildExerciseResponseJson(evalType, input = {}) {
   }
 }
 
+// ============================================================
+// Helpers de presentación de respuestas exercise-based (doc 38/41)
+// Compartidos entre EvalByDayForm, EvaluationDetailPage y StudentEvaluationsTab.
+// ============================================================
+
+// Etiqueta del método de un ejercicio según su eval_type.
+export function evalMethodLabel(evalType, methodKey) {
+  if (evalType === 'custom') return pruebaTypeInfo(methodKey).label
+  const m = (METHODS[evalType] || []).find((x) => x.key === methodKey)
+  return m?.label || methodKey || ''
+}
+
+// Formatea el student_response jsonb de un ejercicio a un string legible.
+//   one_rm   → "80 kg · ×6 · 1RM 92 kg"
+//   max_reps → "12 reps"
+//   custom   → "<value> <unit>"
+export function formatExerciseResponseValue(evalType, studentResponse = {}) {
+  const sr = studentResponse || {}
+  if (evalType === 'one_rm') {
+    const parts = []
+    if (sr.weight_kg) parts.push(`${sr.weight_kg} kg`)
+    if (sr.reps) parts.push(`× ${sr.reps}`)
+    if (sr.one_rm_estimated) parts.push(`1RM ${sr.one_rm_estimated} kg`)
+    return parts.join(' · ')
+  }
+  if (evalType === 'max_reps') {
+    return sr.reps ? `${sr.reps} reps` : ''
+  }
+  return [sr.value, sr.unit].filter(Boolean).join(' ')
+}
+
+// Valor numérico "principal" de un ejercicio (para comparativa/evolución).
+//   one_rm → 1RM estimado (o peso); max_reps → reps; custom → value.
+export function exerciseResponseNumericValue(evalType, studentResponse = {}) {
+  const sr = studentResponse || {}
+  let raw
+  if (evalType === 'one_rm') raw = sr.one_rm_estimated ?? sr.weight_kg
+  else if (evalType === 'max_reps') raw = sr.reps
+  else raw = sr.value
+  const n = parseFloat(raw)
+  return isNaN(n) ? null : n
+}
+
 // FMS patterns
 export const FMS_PATTERNS = [
   { key: 'deep_squat', label: 'Deep Squat', bilateral: false },

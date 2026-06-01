@@ -88,6 +88,133 @@ export function enrichRpcError(error) {
   return wrapped
 }
 
+// ============================================================
+// Re-asignación de un template editado (doc 40)
+// ------------------------------------------------------------
+// El modelo template-clon congela una foto del template al asignar:
+// editar el template NO actualiza las copias ya asignadas. Estas dos
+// helpers permiten detectar las asignaciones vivas de un template y
+// "re-asignarlo" (archivar el clon viejo + re-clonar la versión actual).
+// ============================================================
+
+// Devuelve las asignaciones VIVAS (active/paused) de clones de un template,
+// con datos del alumno y el conteo de resultados de evaluación (para avisar
+// que la copia nueva arranca vacía y los registros viejos quedan en histórico).
+export async function fetchTemplateAssignees(supabase, templateId) {
+  if (!templateId) return []
+
+  const { data: clones, error: clonesErr } = await supabase
+    .from('plans')
+    .select('id')
+    .eq('cloned_from_plan_id', templateId)
+  if (clonesErr) throw clonesErr
+  const cloneIds = (clones || []).map((c) => c.id)
+  if (cloneIds.length === 0) return []
+
+  const { data: asgs, error: asgErr } = await supabase
+    .from('plan_assignments')
+    .select(
+      'id, student_id, plan_id, plan_type, status, start_date, end_date, schedule_mode, preferred_days, linked_assignment_id, student:profiles!student_id(id, name, active)'
+    )
+    .in('plan_id', cloneIds)
+    .in('status', ['active', 'paused'])
+  if (asgErr) throw asgErr
+
+  const live = (asgs || []).filter((a) => a.student?.active !== false)
+
+  // Conteo de resultados por clon (solo evals; training no tiene este concepto).
+  const evalCloneIds = live.filter((a) => a.plan_type === 'evaluation').map((a) => a.plan_id)
+  const resultCountByPlan = {}
+  if (evalCloneIds.length > 0) {
+    const { data: results } = await supabase
+      .from('evaluation_results')
+      .select('plan_id')
+      .in('plan_id', evalCloneIds)
+    for (const r of results || []) {
+      resultCountByPlan[r.plan_id] = (resultCountByPlan[r.plan_id] || 0) + 1
+    }
+  }
+
+  return live
+    .map((a) => ({
+      assignmentId: a.id,
+      studentId: a.student_id,
+      studentName: a.student?.name || 'Alumno',
+      cloneId: a.plan_id,
+      planType: a.plan_type,
+      status: a.status,
+      startDate: a.start_date,
+      endDate: a.end_date,
+      scheduleMode: a.schedule_mode,
+      preferredDays: a.preferred_days,
+      linkedAssignmentId: a.linked_assignment_id,
+      resultCount: resultCountByPlan[a.plan_id] || 0,
+    }))
+    .sort((a, b) => a.studentName.localeCompare(b.studentName))
+}
+
+// Re-asigna el template a una alumna que ya tiene una copia vieja:
+// archiva el clon viejo (conserva sus resultados como histórico) y crea un
+// clon nuevo con la estructura actual del template, preservando la metadata
+// de la asignación original (fechas, modo, días, vínculo a plan).
+//
+// Archive-then-assign: evita el unique de "plan activo" y deja el estado
+// consistente si el assign falla (la vieja ya quedó archivada).
+//
+// Returns: { assignment_id, plan_id, template_id, student_id } del clon nuevo.
+export async function reassignTemplate(supabase, { templateId, assignee }) {
+  if (!templateId) throw new Error('reassignTemplate: templateId requerido')
+  if (!assignee?.assignmentId) throw new Error('reassignTemplate: assignee inválido')
+
+  // status previo (active/paused) — para preservarlo (#2) y para revertir (#3).
+  const prevStatus = assignee.status || 'active'
+
+  // 1. Archivar el clon viejo (conserva sus resultados como histórico).
+  const { error: archErr } = await supabase
+    .from('plan_assignments')
+    .update({ active: false, status: 'archived' })
+    .eq('id', assignee.assignmentId)
+  if (archErr) throw archErr
+
+  // 2. Re-clonar la versión actual del template. Si falla, revertir el archive
+  //    para no dejar a la alumna sin asignación activa (#3, doc 41).
+  let result
+  try {
+    result = await assignTemplateToStudent(supabase, {
+      templateId,
+      studentId: assignee.studentId,
+      startDate: assignee.startDate || null,
+      endDate: assignee.endDate || null,
+      scheduleMode: assignee.scheduleMode || 'flexible',
+      preferredDays: assignee.preferredDays || null,
+      linkedAssignmentId: assignee.linkedAssignmentId || null,
+    })
+  } catch (assignErr) {
+    const { error: revertErr } = await supabase
+      .from('plan_assignments')
+      .update({ active: true, status: prevStatus })
+      .eq('id', assignee.assignmentId)
+    if (revertErr) {
+      console.warn('[reassignTemplate] no se pudo revertir el archive:', revertErr)
+    }
+    throw assignErr
+  }
+
+  // 3. Preservar 'paused' (#2): el RPC siempre crea la asignación como 'active'.
+  //    Si la vieja estaba pausada, dejar la nueva también pausada.
+  if (prevStatus === 'paused' && result?.assignment_id) {
+    const { error: pauseErr } = await supabase
+      .from('plan_assignments')
+      .update({ status: 'paused' })
+      .eq('id', result.assignment_id)
+    if (pauseErr) {
+      console.warn('[reassignTemplate] no se pudo preservar el estado en pausa:', pauseErr)
+    }
+  }
+
+  return result
+}
+
 export const ASSIGNMENT_STATUSES = ['active', 'paused', 'replaced', 'completed', 'archived']
 
 export const ASSIGNMENT_STATUS = {

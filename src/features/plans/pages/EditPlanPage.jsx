@@ -27,6 +27,8 @@ import EvaluationParentPlanField, {
   EvaluationsLinkedPanel,
 } from '../components/EvaluationParentPlanField'
 import EvalDaysEditor from '../components/EvalDaysEditor'
+import ReassignTemplateModal from '../components/ReassignTemplateModal'
+import { fetchTemplateAssignees } from '../assignmentHelpers'
 
 // ============================================================
 export default function EditPlanPage() {
@@ -38,6 +40,9 @@ export default function EditPlanPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  // doc 40: tras editar un template con asignaciones vivas, ofrecer re-asignar.
+  const [reassignAssignees, setReassignAssignees] = useState(null)
 
   const [plan, setPlan] = useState({
     title: '',
@@ -373,6 +378,11 @@ export default function EditPlanPage() {
   // ============================================================
   // Guardar
   // ============================================================
+  function goToDetail() {
+    if (plan.plan_type === 'evaluation') navigate(`/coach/evaluations/${id}`)
+    else navigate(`/coach/plans/${id}`)
+  }
+
   async function handleSave() {
     if (!plan.title.trim()) {
       setError('El nombre del plan es obligatorio')
@@ -515,8 +525,23 @@ export default function EditPlanPage() {
       setToDeleteBlocks([])
       setToDeleteExercises([])
 
-      if (plan.plan_type === 'evaluation') navigate(`/coach/evaluations/${id}`)
-      else navigate(`/coach/plans/${id}`)
+      // doc 40: si es template, chequear asignaciones vivas. Los cambios no
+      // se propagan a las copias ya asignadas → ofrecer re-asignar.
+      if (plan.is_template) {
+        try {
+          const assignees = await fetchTemplateAssignees(supabase, id)
+          if (assignees.length > 0) {
+            setReassignAssignees(assignees)
+            setSaving(false)
+            return // el modal maneja la navegación
+          }
+        } catch (reErr) {
+          // Si el chequeo falla, no bloqueamos el guardado: navegamos normal.
+          console.warn('[EditPlanPage] fetchTemplateAssignees falló:', reErr)
+        }
+      }
+
+      goToDetail()
     } catch (err) {
       console.error(err)
       setError(err.message || 'Error al guardar los cambios')
@@ -975,6 +1000,23 @@ export default function EditPlanPage() {
           )}
         </button>
       </div>
+
+      {/* doc 40: aviso + circuito de re-asignación tras editar un template */}
+      {reassignAssignees && (
+        <ReassignTemplateModal
+          templateId={id}
+          templateTitle={plan.title}
+          assignees={reassignAssignees}
+          onClose={() => {
+            setReassignAssignees(null)
+            goToDetail()
+          }}
+          onDone={() => {
+            setReassignAssignees(null)
+            goToDetail()
+          }}
+        />
+      )}
     </div>
   )
 }
