@@ -1,4 +1,5 @@
-import { MessageSquare, PlayCircle, CheckCircle, Save } from 'lucide-react'
+import { useState } from 'react'
+import { MessageSquare, PlayCircle, CheckCircle, Save, Pencil } from 'lucide-react'
 import { calc1RM, METHODS, pruebaTypeInfo } from '../../helpers'
 import { getDynamicSections } from '@/features/plans/helpers'
 
@@ -34,6 +35,16 @@ export default function EvalByDayForm({
     (s) => (exercisesByDay[s.id] || []).length > 0
   )
 
+  // doc 43 iter: al guardar, el día se colapsa a un resumen. "Editar" lo reabre.
+  const [manualExpand, setManualExpand] = useState(() => new Set())
+  const expandDay = (id) => setManualExpand((prev) => new Set(prev).add(id))
+  const collapseDay = (id) =>
+    setManualExpand((prev) => {
+      const n = new Set(prev)
+      n.delete(id)
+      return n
+    })
+
   if (sections.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-4">
@@ -43,11 +54,41 @@ export default function EvalByDayForm({
   }
 
   const multi = sections.length > 1
+  const fmtDate = (d) =>
+    d
+      ? new Date(d + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+      : ''
 
   return (
     <div className="space-y-6">
       {sections.map((s) => {
         const isSaved = savedSections?.has?.(s.id)
+        // En perDaySave, un día guardado se muestra colapsado salvo que se reabra.
+        const collapsed = perDaySave && isSaved && !manualExpand.has(s.id)
+
+        if (collapsed) {
+          return (
+            <div
+              key={s.id}
+              className="border-2 border-green-200 bg-green-50/40 rounded-2xl px-4 py-3 flex items-center gap-2"
+            >
+              <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800">{s.label} guardado</p>
+                {dayDates[s.id] && (
+                  <p className="text-xs text-gray-500">{fmtDate(dayDates[s.id])}</p>
+                )}
+              </div>
+              <button
+                onClick={() => expandDay(s.id)}
+                className="text-sm text-primary-600 font-medium hover:text-primary-700 flex items-center gap-1"
+              >
+                <Pencil size={13} /> Editar
+              </button>
+            </div>
+          )
+        }
+
         return (
           <div
             key={s.id}
@@ -57,13 +98,8 @@ export default function EvalByDayForm({
           >
             {(multi || perDaySave) && (
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide">
                   {s.label}
-                  {perDaySave && isSaved && (
-                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-600 normal-case">
-                      <CheckCircle size={13} /> guardado
-                    </span>
-                  )}
                 </h3>
                 {perDaySave && (
                   <input
@@ -86,7 +122,10 @@ export default function EvalByDayForm({
             ))}
             {perDaySave && (
               <button
-                onClick={() => onSaveDay?.(s.id)}
+                onClick={() => {
+                  collapseDay(s.id) // tras guardar, colapsar
+                  onSaveDay?.(s.id)
+                }}
                 disabled={savingSection === s.id}
                 className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
               >
@@ -117,6 +156,12 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
   const name = pe.exercises?.name || pe.exercise?.name || 'Ejercicio'
   const videoUrl = pe.exercises?.video_url || pe.exercise?.video_url || null
 
+  // Recomendación del coach (si la cargó al armar la eval).
+  const sug = []
+  if (pe.suggested_sets) sug.push(`${pe.suggested_sets} series`)
+  if (pe.suggested_reps) sug.push(`${pe.suggested_reps} reps`)
+  if (pe.suggested_weight) sug.push(`${pe.suggested_weight} kg`)
+
   return (
     <div className="border-2 border-gray-100 rounded-2xl overflow-hidden">
       <div className="bg-gray-50 px-4 py-2.5 flex items-start gap-2">
@@ -144,6 +189,11 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
             )}
           </div>
           {pe.instructions && <p className="text-xs text-gray-500 mt-0.5">{pe.instructions}</p>}
+          {sug.length > 0 && (
+            <p className="text-xs text-purple-600 mt-0.5">
+              Recomendado por tu coach: <strong>{sug.join(' · ')}</strong>
+            </p>
+          )}
           {pe.expected_value && (
             <p className="text-xs text-blue-500 mt-0.5">
               Esperado:{' '}

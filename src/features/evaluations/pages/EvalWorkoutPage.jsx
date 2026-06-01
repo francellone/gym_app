@@ -101,6 +101,8 @@ export default function EvalWorkoutPage() {
   const [resultDayDates, setResultDayDates] = useState({}) // day_dates persistido
   const [savingSection, setSavingSection] = useState(null)
   const [savedSections, setSavedSections] = useState(() => new Set())
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
 
   const exerciseBased = plan ? isExerciseBasedEval(plan.eval_type) : false
 
@@ -548,6 +550,46 @@ export default function EvalWorkoutPage() {
     }
   }
 
+  // doc 43 iter: guardar la observación general (multi-día). Distinta de los
+  // comentarios por ejercicio; va al result del intento en curso.
+  async function handleSaveNote() {
+    setSavingNote(true)
+    setError(null)
+    try {
+      let resultId = existingResultId
+      if (!resultId) {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: ins, error: insErr } = await supabase
+          .from('evaluation_results')
+          .insert({
+            student_id: user.id,
+            plan_id: planId,
+            eval_date: today,
+            eval_type: plan.eval_type,
+            results: { day_dates: resultDayDates },
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single()
+        if (insErr) throw insErr
+        resultId = ins.id
+        setExistingResultId(resultId)
+      }
+      const { error: noteErr } = await postEvalResultNote({
+        studentId: user.id,
+        resultId,
+        body: notes || '',
+      })
+      if (noteErr) throw noteErr
+      setNoteSaved(true)
+      setTimeout(() => setNoteSaved(false), 3000)
+    } catch (err) {
+      setError(err.message || 'Error al guardar la observación')
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
   if (loading)
     return (
       <div className="flex justify-center py-12">
@@ -671,7 +713,14 @@ export default function EvalWorkoutPage() {
 
       {/* General notes */}
       <div className="card space-y-3">
-        <h2 className="font-semibold text-gray-900">Observaciones del alumno</h2>
+        <h2 className="font-semibold text-gray-900">
+          {multiDay ? 'Observación general de la evaluación' : 'Observaciones del alumno'}
+        </h2>
+        {multiDay && (
+          <p className="text-xs text-gray-500 -mt-1">
+            Una nota para toda la evaluación (aparte del comentario de cada ejercicio).
+          </p>
+        )}
         <textarea
           className="input resize-none"
           rows={3}
@@ -679,6 +728,28 @@ export default function EvalWorkoutPage() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
+        {multiDay && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveNote}
+              disabled={savingNote}
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
+              {savingNote ? (
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save size={15} /> Guardar observación
+                </>
+              )}
+            </button>
+            {noteSaved && (
+              <span className="text-sm text-green-600 flex items-center gap-1">
+                <CheckCircle size={15} /> Guardada
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Zona de acción: varía según estado */}
@@ -699,8 +770,8 @@ export default function EvalWorkoutPage() {
           </div>
         )}
 
-        {multiDay ? /* Multi-día (Modelo B): el guardado es por día, dentro del formulario. */
-        null : existingResultId && !editing ? (
+        {multiDay /* Multi-día (Modelo B): el guardado es por día, dentro del formulario. */ ? null : existingResultId &&
+          !editing ? (
           /* ── Resultado guardado: banner con Editar / Desmarcar ── */
           <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
             <div className="flex items-center gap-3">
