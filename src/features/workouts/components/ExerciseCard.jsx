@@ -22,10 +22,7 @@ import {
 } from '@/features/plans/helpers'
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
-import {
-  ExerciseHistoryHeaderLine,
-  ExerciseHistoryBodyBlock,
-} from './ExerciseHistoryPreview'
+import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
 import { buildDraftKey } from '../draftStorage'
 import { formatRelativeDate } from '../exerciseHistoryLogic'
@@ -218,10 +215,12 @@ export default function ExerciseCard({
         ...payload,
         completed: false,
       }))
-      // Si el alumno tenía algo cargado, lo más probable es que quiera
-      // seguir editando — abrimos directo el form.
+      // Dejamos el form listo para editar, pero NO auto-expandimos la tarjeta:
+      // el autosave escribe un draft de cada ejercicio aunque el alumno no
+      // toque nada, y auto-abrir hacía que al volver al día salieran TODOS
+      // los ejercicios abiertos (confuso). El alumno abre el que quiere; al
+      // abrirlo ve sus datos restaurados + el hint de recuperación.
       setEditing(true)
-      setExpanded(true)
     },
   })
 
