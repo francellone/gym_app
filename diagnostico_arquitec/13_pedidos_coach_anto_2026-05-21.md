@@ -904,3 +904,19 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 |---|---|---|
 | **F14** (ejercicios de eval por días) | 🆕 feature — plan doc 37 | ~ ver doc 37 |
 | **F15** (método de eval por ejercicio) | 🆕 feature — plan doc 37, Franco eligió Opción A | ~ ver doc 37 |
+
+---
+
+## Ronda 6 — Descanso entre series no visible para el alumno (2026-06-09)
+
+> Pedido de Anto (vía Franco): *"No sale del lado del alumno el tiempo de espera que cargo entre las series de un ejercicio."*
+
+#### B8 (🐞 bug) — El `rest_time` de fuerza que carga el coach no se muestra en el flujo del alumno
+
+**Diagnóstico (09/06, verificado con Supabase MCP + lectura de código):** confirmado, es bug de UI del lado del alumno (no de datos ni de guardado).
+
+- El descanso entre series de un ejercicio de **fuerza** vive en `plan_exercises.rest_time` (text). El coach lo carga desde el campo "Descanso" en `PlanExerciseRow.jsx`. **Hay dato real:** 178 de 294 `plan_exercises` tienen `rest_time` cargado.
+- El dato **llega** al alumno: `StrengthBlockRunCard` pasa el `plan_exercise` completo (`planEx={ex}`) a `ExerciseCard`. Pero `ExerciseCard.jsx` solo renderizaba `suggested_sets`/`suggested_reps`/`suggested_weight` en la línea "Sugerido:" — nunca `rest_time`. Por eso el alumno no lo veía.
+- **Circuito y aeróbico NO están afectados:** ahí el descanso/trabajo es parte del formato del bloque (`circuit_work_seconds`/`circuit_rest_seconds`/`circuit_rounds`, idem aeróbico por intervalos) y **ya se renderiza** en `CircuitBlockRunCard`/`AerobicBlockRunCard` ("5× (30s trabajo / 15s descanso)" + minutos totales). Conceptualmente es distinto: en fuerza el descanso es por ejercicio; en los otros es por bloque. Por eso el fix queda acotado a fuerza.
+
+**Fix aplicado (09/06):** en `ExerciseCard.jsx`, la línea "Sugerido:" ahora suma `· descanso {planEx.rest_time}` cuando el campo tiene valor (guardando contra `'None'` igual que el peso). Cambio de solo-lectura, sin migración. Pendiente: push a prod + smoke con browser francellone.

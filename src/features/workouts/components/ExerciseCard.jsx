@@ -571,6 +571,9 @@ export default function ExerciseCard({
                 planEx.suggested_weight &&
                   planEx.suggested_weight !== 'None' &&
                   `· ${planEx.suggested_weight}`,
+                planEx.rest_time &&
+                  planEx.rest_time !== 'None' &&
+                  `· descanso ${planEx.rest_time}`,
               ]
                 .filter(Boolean)
                 .join(' ')}
