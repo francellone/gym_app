@@ -927,4 +927,13 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 
 **Causa:** el fix de B8 mostró el `rest_time` por ejercicio. Pero cuando hay grupo (misma letra), la pausa es del grupo (al terminar la vuelta), no entre series — y además se repetía en A1, A2, A3 (heredan el mismo valor).
 
-**Fix aplicado (10/06):** el run-side del alumno ahora **reagrupa** los supersets: A1/A2/… se muestran dentro de un sub-bloque "Bloque A · sin pausa entre ejercicios" y la pausa aparece **una sola vez al pie** ("al terminar el bloque: descansá X y repetí la vuelta"). Los ejercicios sueltos muestran "descanso X entre series". Además se agregó un **cartel al coach** en el editor (al asignar letra) explicando la convención. Doc completo: `45_convencion_agrupaciones.md`. Helper `groupStrengthExercises` + tests (8 verdes), lint 0 err, build OK. Sin migración. Pendiente: push + smoke.
+**Fix aplicado (10/06):** el run-side del alumno ahora **reagrupa** los supersets: A1/A2/… se muestran dentro de un sub-bloque "Bloque A · sin pausa entre ejercicios" y la pausa aparece **una sola vez al pie** ("al terminar el bloque: descansá X y repetí la vuelta"). Los ejercicios sueltos muestran "descanso X entre series". Además se agregó un **cartel al coach** en el editor (al asignar letra) explicando la convención. Doc completo: `45_convencion_agrupaciones.md`. Helper `groupStrengthExercises` + tests (8 verdes), lint 0 err, build OK. Sin migración. **PUSHEADO (1cb53ea) + smoke OK en prod en AMBOS lados (10/06):** alumno (PLAN 12 FRANCO día A: A1 suelto muestra "descanso 2MIN entre series"; grupos B y C reagrupados con la pausa 1MIN30SEG al pie) + coach (cartel visible en el editor al tener letra asignada).
+
+### Resumen Ronda 6
+
+| Item | Estado | Esf |
+|---|---|---|
+| **B8** (descanso de fuerza no se veía en el alumno) | ✅ cerrado + validado prod (539d99e, 09/06) | hecho |
+| **B9** (la pausa del superset parecía entre series) | ✅ cerrado + validado prod ambos lados (1cb53ea, 10/06) | hecho |
+
+Ambos derivados de un mismo pedido de Anto ("no sale el tiempo de espera entre series"). B8 lo hizo visible; B9 corrigió la semántica (pausa del grupo, no entre series). Convención documentada en doc 45 para futuros coaches.
