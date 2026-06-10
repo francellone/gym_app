@@ -55,6 +55,9 @@ export default function ExerciseCard({
   onSaveLog,
   onDeleteLog,
   suggestedSets,
+  // restScope: 'set' (suelto, pausa entre series) | 'group' (superset, la pausa
+  // la muestra el pie del grupo en StrengthBlockRunCard, no acá).
+  restScope = 'set',
   // Q1 — preview "Última vez" + chat del ejercicio
   lastLog = null,
   lastCoachNote = null,
@@ -571,9 +574,10 @@ export default function ExerciseCard({
                 planEx.suggested_weight &&
                   planEx.suggested_weight !== 'None' &&
                   `· ${planEx.suggested_weight}`,
-                planEx.rest_time &&
+                restScope === 'set' &&
+                  planEx.rest_time &&
                   planEx.rest_time !== 'None' &&
-                  `· descanso ${planEx.rest_time}`,
+                  `· descanso ${planEx.rest_time} entre series`,
               ]
                 .filter(Boolean)
                 .join(' ')}

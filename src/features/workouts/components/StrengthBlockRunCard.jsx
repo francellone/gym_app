@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle, ChevronUp, ChevronDown } from 'lucide-react'
+import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
+import { groupStrengthExercises } from '../helpers'
 
 // ============================================================
 // Bloque STRENGTH colapsable (wrapper con header rico)
@@ -51,6 +52,34 @@ export default function StrengthBlockRunCard({
   }
 
   const title = titleFor()
+
+  // Agrupar supersets (A1/A2/…) para mostrar la pausa a nivel grupo.
+  const items = groupStrengthExercises(exercises)
+
+  // Render de un ExerciseCard. `restScope`:
+  //   'group' → no muestra la pausa por ejercicio (la muestra el pie del grupo)
+  //   'set'   → muestra la pausa como "entre series" (ejercicio suelto)
+  function renderCard(ex, restScope) {
+    return (
+      <ExerciseCard
+        key={ex.id}
+        planEx={ex}
+        log={logs[ex.id]}
+        onSaveLog={saveLog}
+        onDeleteLog={deleteLog}
+        suggestedSets={ex.suggested_sets}
+        restScope={restScope}
+        // Q1 — preview "Última vez" + chat del ejercicio
+        lastLog={lastLogByExercise?.get?.(ex.exercise_id) || null}
+        lastCoachNote={lastCoachNoteByExercise?.get?.(ex.exercise_id) || null}
+        noteCount={noteCountByExercise?.get?.(ex.exercise_id) || 0}
+        onOpenChat={onOpenChat}
+        // F4 — draft local
+        studentId={studentId}
+        loggedDate={loggedDate}
+      />
+    )
+  }
 
   return (
     <div
@@ -103,7 +132,7 @@ export default function StrengthBlockRunCard({
         )}
       </button>
 
-      {/* Body: lista de ejercicios */}
+      {/* Body: lista de ejercicios (agrupando supersets A1/A2/…) */}
       {expanded && (
         <div className="border-t border-gray-100 p-3 space-y-2 bg-gray-50/50">
           {exercises.length === 0 && (
@@ -111,24 +140,33 @@ export default function StrengthBlockRunCard({
               Este bloque todavía no tiene ejercicios.
             </p>
           )}
-          {exercises.map((ex) => (
-            <ExerciseCard
-              key={ex.id}
-              planEx={ex}
-              log={logs[ex.id]}
-              onSaveLog={saveLog}
-              onDeleteLog={deleteLog}
-              suggestedSets={ex.suggested_sets}
-              // Q1 — preview "Última vez" + chat del ejercicio
-              lastLog={lastLogByExercise?.get?.(ex.exercise_id) || null}
-              lastCoachNote={lastCoachNoteByExercise?.get?.(ex.exercise_id) || null}
-              noteCount={noteCountByExercise?.get?.(ex.exercise_id) || 0}
-              onOpenChat={onOpenChat}
-              // F4 — draft local
-              studentId={studentId}
-              loggedDate={loggedDate}
-            />
-          ))}
+          {items.map((item, idx) =>
+            item.type === 'group' ? (
+              <div
+                key={`grp-${item.letter}-${idx}`}
+                className="rounded-2xl border border-primary-100 bg-primary-50/40 p-2 space-y-2"
+              >
+                <div className="flex items-center gap-1.5 px-1 pt-0.5">
+                  <Link2 size={14} className="text-primary-600 flex-shrink-0" />
+                  <span className="text-xs font-medium text-primary-700">
+                    Bloque {item.letter} · sin pausa entre ejercicios
+                  </span>
+                </div>
+                {item.exercises.map((ex) => renderCard(ex, 'group'))}
+                {item.restTime && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-dashed border-primary-200 bg-white">
+                    <Timer size={14} className="text-primary-600 flex-shrink-0" />
+                    <span className="text-xs text-gray-700">
+                      Al terminar el bloque: descansá{' '}
+                      <strong className="font-medium">{item.restTime}</strong> y repetí la vuelta
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              renderCard(item.exercise, 'set')
+            )
+          )}
         </div>
       )}
     </div>

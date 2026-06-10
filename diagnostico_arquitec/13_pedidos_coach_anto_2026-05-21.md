@@ -919,4 +919,12 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 - El dato **llega** al alumno: `StrengthBlockRunCard` pasa el `plan_exercise` completo (`planEx={ex}`) a `ExerciseCard`. Pero `ExerciseCard.jsx` solo renderizaba `suggested_sets`/`suggested_reps`/`suggested_weight` en la línea "Sugerido:" — nunca `rest_time`. Por eso el alumno no lo veía.
 - **Circuito y aeróbico NO están afectados:** ahí el descanso/trabajo es parte del formato del bloque (`circuit_work_seconds`/`circuit_rest_seconds`/`circuit_rounds`, idem aeróbico por intervalos) y **ya se renderiza** en `CircuitBlockRunCard`/`AerobicBlockRunCard` ("5× (30s trabajo / 15s descanso)" + minutos totales). Conceptualmente es distinto: en fuerza el descanso es por ejercicio; en los otros es por bloque. Por eso el fix queda acotado a fuerza.
 
-**Fix aplicado (09/06):** en `ExerciseCard.jsx`, la línea "Sugerido:" ahora suma `· descanso {planEx.rest_time}` cuando el campo tiene valor (guardando contra `'None'` igual que el peso). Cambio de solo-lectura, sin migración. Pendiente: push a prod + smoke con browser francellone.
+**Fix aplicado (09/06):** en `ExerciseCard.jsx`, la línea "Sugerido:" ahora suma `· descanso {planEx.rest_time}` cuando el campo tiene valor (guardando contra `'None'` igual que el peso). Cambio de solo-lectura, sin migración. **PUSHEADO** (539d99e) + smoke OK en prod (Franco, 09/06).
+
+#### B9 (🐞 bug de modelo/UX) — La pausa de un superset se mostraba como si fuera entre series
+
+> Pedido de Anto (vía Franco, 10/06): *"Las agrupaciones (letra A = A1/A2/A3) marcan que esos ejercicios van encadenados sin pausa entre ellos; la pausa es del mini-bloque. Mostrándola colgada de cada ejercicio parece que es entre serie y serie."*
+
+**Causa:** el fix de B8 mostró el `rest_time` por ejercicio. Pero cuando hay grupo (misma letra), la pausa es del grupo (al terminar la vuelta), no entre series — y además se repetía en A1, A2, A3 (heredan el mismo valor).
+
+**Fix aplicado (10/06):** el run-side del alumno ahora **reagrupa** los supersets: A1/A2/… se muestran dentro de un sub-bloque "Bloque A · sin pausa entre ejercicios" y la pausa aparece **una sola vez al pie** ("al terminar el bloque: descansá X y repetí la vuelta"). Los ejercicios sueltos muestran "descanso X entre series". Además se agregó un **cartel al coach** en el editor (al asignar letra) explicando la convención. Doc completo: `45_convencion_agrupaciones.md`. Helper `groupStrengthExercises` + tests (8 verdes), lint 0 err, build OK. Sin migración. Pendiente: push + smoke.

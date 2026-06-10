@@ -62,3 +62,60 @@ export function isSectionCompleted(sectionBlocks, logs, blockLogs) {
   if (!sectionBlocks || sectionBlocks.length === 0) return false
   return sectionBlocks.every((b) => isBlockCompleted(b, logs, blockLogs))
 }
+
+// ============================================================
+// Agrupación de supersets en el run-side (fuerza)
+// ============================================================
+// Convención del coach: ejercicios con la MISMA letra (A1, A2, A3) forman
+// una serie compuesta (superset). Se hacen encadenados, SIN pausa entre
+// ellos; la pausa (`rest_time`, que el coach carga en el nº1 y los demás
+// heredan) es del GRUPO, al terminar la vuelta — no entre series de cada
+// ejercicio. Ver diagnostico_arquitec/45_convencion_agrupaciones.md.
+//
+// `block_label` tiene forma "A1"/"B2" (letra + número) cuando el ejercicio
+// pertenece a un grupo. Otros valores (null, "Activación", texto libre) →
+// ejercicio suelto, cuya pausa SÍ es entre series.
+
+const GROUP_LABEL_RE = /^([A-Za-z])(\d+)$/
+
+// Devuelve la letra de grupo (mayúscula) de un block_label "A1" → "A",
+// o null si el label no sigue el patrón letra+número.
+export function parseBlockLetter(label) {
+  if (!label) return null
+  const m = String(label).trim().match(GROUP_LABEL_RE)
+  return m ? m[1].toUpperCase() : null
+}
+
+// Parte la lista (ya ordenada) de ejercicios de un bloque strength en items:
+//   { type: 'solo', exercise }                      → ejercicio suelto
+//   { type: 'group', letter, exercises, restTime }  → superset (2+ ejercicios)
+// Sólo agrupa ejercicios CONSECUTIVOS con la misma letra. Una letra que
+// aparece una sola vez queda como 'solo'. `restTime` es el primer rest_time
+// no vacío del grupo (el del nº1 por orden).
+export function groupStrengthExercises(exercises) {
+  const list = exercises || []
+  const items = []
+  let i = 0
+  while (i < list.length) {
+    const letter = parseBlockLetter(list[i].block_label)
+    if (!letter) {
+      items.push({ type: 'solo', exercise: list[i] })
+      i += 1
+      continue
+    }
+    const members = [list[i]]
+    let j = i + 1
+    while (j < list.length && parseBlockLetter(list[j].block_label) === letter) {
+      members.push(list[j])
+      j += 1
+    }
+    if (members.length > 1) {
+      const restTime = members.map((m) => m.rest_time).find((r) => r && r !== 'None') || null
+      items.push({ type: 'group', letter, exercises: members, restTime })
+    } else {
+      items.push({ type: 'solo', exercise: members[0] })
+    }
+    i = j
+  }
+  return items
+}

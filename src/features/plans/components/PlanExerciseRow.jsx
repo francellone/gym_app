@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Tag } from 'lucide-react'
+import { Trash2, Tag, Info } from 'lucide-react'
 import {
   BLOCK_LETTERS,
   BLOCK_NUMBERS,
@@ -355,6 +355,19 @@ export default function PlanExerciseRow({
               )}
             </div>
           </div>
+
+          {/* Aviso de agrupación: la pausa de un bloque (misma letra) es del grupo */}
+          {ex.block_letter && (
+            <div className="flex items-start gap-1.5 text-[11px] text-primary-700 bg-primary-50 border border-primary-100 rounded-lg px-2 py-1.5">
+              <Info size={13} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Bloque {ex.block_letter}: los ejercicios con la misma letra van encadenados,{' '}
+                <strong className="font-medium">sin pausa entre ellos</strong>. El descanso que
+                cargues es la pausa del grupo (al terminar la vuelta), no entre serie y serie. Se
+                muestra una sola vez al alumno.
+              </span>
+            </div>
+          )}
 
           {/* Series, descanso, PSE */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
