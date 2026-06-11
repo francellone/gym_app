@@ -17,6 +17,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import QuestionField from './QuestionField'
 import {
   getVisibleQuestions,
@@ -33,6 +34,7 @@ export default function FormRenderer({
   onSaveDraft,
   onFinish, // fn() opcional → botón "Ir al inicio" en pantalla de éxito
 }) {
+  const { t } = useTranslation()
   const config = assignment?.form_snapshot
   const isFollowUp = assignment?.form_kind === 'follow_up' || config?.kind === 'follow_up'
 
@@ -82,7 +84,7 @@ export default function FormRenderer({
       const newErrors = {}
       missing.forEach((id) => {
         const q = visible.find((qq) => qq.id === id)
-        newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
+        newErrors[id] = q?.requiredMessage || t('forms.requiredField')
       })
       setErrors(newErrors)
       return false
@@ -90,7 +92,7 @@ export default function FormRenderer({
 
     setErrors({})
     return true
-  }, [currentModule, responses])
+  }, [currentModule, responses, t])
 
   const handleNext = () => {
     if (!validateCurrentModule()) {
@@ -137,7 +139,7 @@ export default function FormRenderer({
         const newErrors = {}
         errorsByModule[errorModule.id].forEach((id) => {
           const q = (errorModule.questions || []).find((qq) => qq.id === id)
-          newErrors[id] = q?.requiredMessage || 'Este campo es obligatorio'
+          newErrors[id] = q?.requiredMessage || t('forms.requiredField')
         })
         setErrors(newErrors)
       }
@@ -179,16 +181,14 @@ export default function FormRenderer({
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center space-y-4 max-w-sm">
           <div className="text-6xl">🎉</div>
-          <h1 className="text-2xl font-bold text-gray-900">¡Listo!</h1>
-          <p className="text-gray-500">
-            Tu formulario fue enviado. Tu coach lo revisará y se pondrá en contacto pronto.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('forms.successTitle')}</h1>
+          <p className="text-gray-500">{t('forms.successBody')}</p>
           {onFinish && (
             <button
               onClick={onFinish}
               className="mt-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
             >
-              Ir al inicio →
+              {t('forms.goHome')}
             </button>
           )}
         </div>
@@ -199,7 +199,7 @@ export default function FormRenderer({
   if (!config) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">No hay formulario disponible.</p>
+        <p className="text-gray-400">{t('forms.noFormAvailable')}</p>
       </div>
     )
   }
@@ -228,7 +228,7 @@ export default function FormRenderer({
             />
           </div>
           <span className="text-xs text-gray-400 flex-shrink-0">
-            {currentStep === 0 ? 'Inicio' : `${currentStep} / ${totalSteps - 1}`}
+            {currentStep === 0 ? t('forms.progressStart') : `${currentStep} / ${totalSteps - 1}`}
           </span>
         </div>
       </div>
@@ -242,8 +242,8 @@ export default function FormRenderer({
               <div className="text-5xl">{isFollowUp ? '📝' : '📋'}</div>
               <h1 className="text-2xl font-bold text-gray-900">
                 {isFollowUp
-                  ? assignment?.template_name || 'Formulario de seguimiento'
-                  : 'Formulario de ingreso'}
+                  ? assignment?.template_name || t('forms.followUpDefaultName')
+                  : t('forms.intakeDefaultName')}
               </h1>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -256,7 +256,7 @@ export default function FormRenderer({
               onClick={handleNext}
               className="w-full py-4 bg-blue-600 text-white text-base font-semibold rounded-2xl hover:bg-blue-700 active:scale-95 transition-all shadow-md"
             >
-              ¡Empezar! →
+              {t('forms.startButton')}
             </button>
           </div>
         )}
@@ -282,7 +282,7 @@ export default function FormRenderer({
                     <span className="text-sm font-medium text-gray-800 leading-snug">
                       {question.label}
                       {isQuestionRequired(question, responses) && (
-                        <span className="text-red-500 ml-1" title="Obligatorio">
+                        <span className="text-red-500 ml-1" title={t('forms.required')}>
                           *
                         </span>
                       )}
@@ -320,7 +320,7 @@ export default function FormRenderer({
                 onClick={handleBack}
                 className="px-5 py-3 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                ← Atrás
+                {t('forms.back')}
               </button>
             )}
 
@@ -329,7 +329,7 @@ export default function FormRenderer({
                 onClick={handleNext}
                 className="flex-1 py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
               >
-                Continuar →
+                {t('forms.continue')}
               </button>
             ) : (
               <button
@@ -337,7 +337,7 @@ export default function FormRenderer({
                 disabled={submitting}
                 className="flex-1 py-3 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 active:scale-95 transition-all shadow-sm"
               >
-                {submitting ? 'Enviando...' : '✅ Enviar formulario'}
+                {submitting ? t('forms.submitting') : t('forms.submit')}
               </button>
             )}
 
@@ -346,7 +346,7 @@ export default function FormRenderer({
                 onClick={handleSaveDraft}
                 className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
               >
-                Guardar borrador
+                {t('forms.saveDraft')}
               </button>
             )}
           </div>

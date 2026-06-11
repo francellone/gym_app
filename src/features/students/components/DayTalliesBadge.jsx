@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { formatTallyForDisplay } from '../dayTalliesLogic'
 
 // ============================================================
@@ -25,34 +26,37 @@ import { formatTallyForDisplay } from '../dayTalliesLogic'
 
 const DEFAULT_SECTIONS = ['day_a', 'day_b', 'day_c', 'day_d']
 
-const DEFAULT_DAY_LABELS = {
-  day_a: 'Día A',
-  day_b: 'Día B',
-  day_c: 'Día C',
-  day_d: 'Día D',
-}
-
 export default function DayTalliesBadge({
   tallies,
   sections = DEFAULT_SECTIONS,
-  dayLabels = DEFAULT_DAY_LABELS,
+  dayLabels = null,
   variant = 'default',
   showLegend = false,
   className = '',
-  emptyText = 'Todavía no hay registros de este plan',
+  emptyText = null,
 }) {
+  // i18n (doc 46): defaults traducidos. El coach siempre está en 'es', así
+  // que su vista no cambia; las props siguen permitiendo override.
+  const { t } = useTranslation()
+  const resolvedDayLabels = dayLabels || {
+    day_a: t('tallies.dayA'),
+    day_b: t('tallies.dayB'),
+    day_c: t('tallies.dayC'),
+    day_d: t('tallies.dayD'),
+  }
+  const resolvedEmptyText = emptyText ?? t('tallies.empty')
   const safeTallies = tallies || {}
 
   // Filtramos secciones que efectivamente tienen registros.
   const visibleSections = sections.filter((s) => {
-    const t = safeTallies[s]
-    return t && (t.entero > 0 || t.parcial > 0)
+    const tally = safeTallies[s]
+    return tally && (tally.entero > 0 || tally.parcial > 0)
   })
 
   if (visibleSections.length === 0) {
     return (
       <p className={`text-xs text-gray-400 italic ${className}`} role="status">
-        {emptyText}
+        {resolvedEmptyText}
       </p>
     )
   }
@@ -65,20 +69,18 @@ export default function DayTalliesBadge({
   return (
     <div className={containerClasses}>
       {visibleSections.map((section) => {
-        const t = safeTallies[section]
-        const label = dayLabels[section] || section
-        const display = formatTallyForDisplay(t)
-        const hasParcial = t.parcial > 0
+        const tally = safeTallies[section]
+        const label = resolvedDayLabels[section] || section
+        const display = formatTallyForDisplay(tally)
+        const hasParcial = tally.parcial > 0
 
         if (isCompact) {
           return (
             <span
               key={section}
               className="text-xs font-medium text-gray-700 whitespace-nowrap"
-              title={`${label}: ${t.entero} entero${t.entero === 1 ? '' : 's'}${
-                hasParcial
-                  ? `, ${t.parcial} parcial${t.parcial === 1 ? '' : 'es'}`
-                  : ''
+              title={`${label}: ${t('tallies.full', { count: tally.entero })}${
+                hasParcial ? `, ${t('tallies.partial', { count: tally.parcial })}` : ''
               }`}
             >
               <span className="text-gray-500">{label}</span>{' '}
@@ -91,10 +93,8 @@ export default function DayTalliesBadge({
           <span
             key={section}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-50 border border-primary-100 text-sm"
-            title={`${label}: ${t.entero} entero${t.entero === 1 ? '' : 's'}${
-              hasParcial
-                ? `, ${t.parcial} parcial${t.parcial === 1 ? '' : 'es'}`
-                : ''
+            title={`${label}: ${t('tallies.full', { count: tally.entero })}${
+              hasParcial ? `, ${t('tallies.partial', { count: tally.parcial })}` : ''
             }`}
           >
             <span className="font-semibold text-primary-700">{label}</span>
@@ -109,8 +109,8 @@ export default function DayTalliesBadge({
 
       {showLegend && (
         <span className="text-[11px] text-gray-400 ml-1">
-          <span className="text-primary-600">✓</span> entero ·{' '}
-          <span className="text-amber-700">◐</span> parcial
+          <span className="text-primary-600">✓</span> {t('tallies.legendFull')} ·{' '}
+          <span className="text-amber-700">◐</span> {t('tallies.legendPartial')}
         </span>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PSE_SHORT, pseColor } from '../helpers'
 
 // ============================================================
@@ -8,6 +9,7 @@ import { PSE_SHORT, pseColor } from '../helpers'
 // El alumno elige un PSE 1-10 y, opcionalmente, escribe una nota.
 // `onSave(effort, notes)` persiste vía RPC en el padre.
 export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose }) {
+  const { t } = useTranslation()
   const [effort, setEffort] = useState(currentEffort ?? null)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -26,16 +28,18 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
           {/* Encabezado */}
           <div className="text-center">
             <p className="text-3xl mb-1">💪</p>
-            <h2 className="font-bold text-gray-900 text-lg">¡{dayLabel} completado!</h2>
+            <h2 className="font-bold text-gray-900 text-lg">
+              {t('workout.dayCompletedExcl', { day: dayLabel })}
+            </h2>
             <p className="text-sm text-gray-500 mt-1">
-              ¿Cómo fue el esfuerzo general de {dayLabel}?
+              {t('workout.howWasEffortForDay', { day: dayLabel })}
             </p>
           </div>
 
           {/* Selector PSE 1–10 */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-600 text-center uppercase tracking-wide">
-              Esfuerzo percibido — {dayLabel}
+              {t('workout.perceivedEffortForDay', { day: dayLabel })}
             </p>
             <div className="grid grid-cols-5 gap-2">
               {PSE_SHORT.map(({ value, label }) => (
@@ -54,27 +58,27 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
               ))}
             </div>
             <div className="flex justify-between text-[10px] text-gray-400 px-1">
-              <span>😌 Muy fácil</span>
-              <span>💀 Máximo</span>
+              <span>{t('workout.veryEasy')}</span>
+              <span>{t('workout.maxEffort')}</span>
             </div>
           </div>
 
           {/* Muestra la selección */}
           {effort !== null && (
             <div className={`rounded-xl p-2 text-center text-sm font-medium ${pseColor(effort)}`}>
-              PSE {effort} — {PSE_SHORT[effort - 1]?.label}
+              {t('workout.pseValue', { value: effort })} — {PSE_SHORT[effort - 1]?.label}
             </div>
           )}
 
           {/* Observaciones */}
           <div>
             <label className="text-xs text-gray-500 mb-1 block">
-              Observaciones de {dayLabel} (opcional)
+              {t('workout.observationsForDay', { day: dayLabel })}
             </label>
             <textarea
               className="input resize-none text-sm"
               rows={2}
-              placeholder={`¿Cómo te fue en ${dayLabel}?`}
+              placeholder={t('workout.howWasYourDayPlaceholder', { day: dayLabel })}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -82,7 +86,7 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
 
           <div className="flex gap-2">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">
-              Omitir
+              {t('workout.skip')}
             </button>
             <button
               onClick={handleSave}
@@ -92,7 +96,7 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
               {saving ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                'Guardar'
+                t('common.save')
               )}
             </button>
           </div>

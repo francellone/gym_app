@@ -19,6 +19,7 @@
  */
 
 import { useMemo, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Filter, Search, Tag as TagIcon, X, Calendar } from 'lucide-react'
 
 // ── Helpers de fechas ─────────────────────────────────────────
@@ -36,15 +37,30 @@ function isoEndOfToday() {
 }
 
 const TIME_PRESETS = [
-  { key: 'today', label: 'Hoy', from: () => isoStartOfDay(0), to: () => isoEndOfToday() },
-  { key: '7d', label: '7 días', from: () => isoStartOfDay(7), to: () => isoEndOfToday() },
-  { key: '30d', label: '30 días', from: () => isoStartOfDay(30), to: () => isoEndOfToday() },
+  {
+    key: 'today',
+    labelKey: 'notes.filterToday',
+    from: () => isoStartOfDay(0),
+    to: () => isoEndOfToday(),
+  },
+  {
+    key: '7d',
+    labelKey: 'notes.filter7d',
+    from: () => isoStartOfDay(7),
+    to: () => isoEndOfToday(),
+  },
+  {
+    key: '30d',
+    labelKey: 'notes.filter30d',
+    from: () => isoStartOfDay(30),
+    to: () => isoEndOfToday(),
+  },
 ]
 
 const BLOCK_TYPE_PRESETS = [
-  { key: 'strength', label: 'Fuerza' },
-  { key: 'aerobic', label: 'Aeróbico' },
-  { key: 'circuit', label: 'Circuito' },
+  { key: 'strength', labelKey: 'workout.strength' },
+  { key: 'aerobic', labelKey: 'workout.aerobic' },
+  { key: 'circuit', labelKey: 'workout.circuit' },
 ]
 
 // Comparar por YYYY-MM-DD evita drift de milisegundos entre el momento
@@ -74,6 +90,7 @@ export default function NotesFilters({
   availableMuscleGroups = null, // si viene null, se deriva de exercises
   availableBlockTypes = null, // si viene null, se muestran los 3 presets
 }) {
+  const { t } = useTranslation()
   const [customOpen, setCustomOpen] = useState(false)
   const [tagInput, setTagInput] = useState('')
   // Estado local del preset activo. Se setea explícitamente cuando el
@@ -140,7 +157,7 @@ export default function NotesFilters({
     const q = tagInput.trim().toLowerCase()
     if (!q) return []
     return availableTags
-      .filter((t) => !currentTags.includes(t) && t.toLowerCase().includes(q))
+      .filter((tag) => !currentTags.includes(tag) && tag.toLowerCase().includes(q))
       .slice(0, 6)
   }, [tagInput, availableTags, currentTags])
 
@@ -178,10 +195,10 @@ export default function NotesFilters({
   }
 
   function addTag(tag) {
-    const t = (tag || '').trim()
-    if (!t) return
-    if (currentTags.includes(t)) return
-    patch({ tags: [...currentTags, t] })
+    const clean = (tag || '').trim()
+    if (!clean) return
+    if (currentTags.includes(clean)) return
+    patch({ tags: [...currentTags, clean] })
     setTagInput('')
   }
 
@@ -213,7 +230,7 @@ export default function NotesFilters({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Filter size={14} className="text-gray-400" />
-          <span className="text-sm font-semibold text-gray-700">Filtros</span>
+          <span className="text-sm font-semibold text-gray-700">{t('notes.filters')}</span>
         </div>
         {hasActiveFilters && (
           <button
@@ -221,7 +238,7 @@ export default function NotesFilters({
             onClick={clearAll}
             className="text-xs text-primary-600 hover:text-primary-700 font-medium"
           >
-            Limpiar
+            {t('notes.clear')}
           </button>
         )}
       </div>
@@ -232,7 +249,7 @@ export default function NotesFilters({
         <input
           type="text"
           className="input pl-9 text-sm"
-          placeholder="Buscar en el texto…"
+          placeholder={t('notes.searchPlaceholder')}
           value={value.search || ''}
           onChange={(e) => patch({ search: e.target.value || undefined })}
         />
@@ -241,7 +258,7 @@ export default function NotesFilters({
             type="button"
             onClick={() => patch({ search: undefined })}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-            aria-label="Limpiar búsqueda"
+            aria-label={t('notes.clearSearchAria')}
           >
             <X size={13} />
           </button>
@@ -251,7 +268,7 @@ export default function NotesFilters({
       {/* ── Chips temporales ── */}
       <div>
         <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
-          Fecha
+          {t('notes.date')}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {TIME_PRESETS.map((p) => (
@@ -265,7 +282,7 @@ export default function NotesFilters({
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
           <button
@@ -277,14 +294,14 @@ export default function NotesFilters({
                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
             }`}
           >
-            <Calendar size={11} /> Custom
+            <Calendar size={11} /> {t('notes.custom')}
           </button>
         </div>
 
         {customOpen && (
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
-              <label className="label text-[11px]">Desde</label>
+              <label className="label text-[11px]">{t('notes.from')}</label>
               <input
                 type="date"
                 className="input text-xs"
@@ -292,7 +309,7 @@ export default function NotesFilters({
               />
             </div>
             <div>
-              <label className="label text-[11px]">Hasta</label>
+              <label className="label text-[11px]">{t('notes.to')}</label>
               <input
                 type="date"
                 className="input text-xs"
@@ -307,10 +324,10 @@ export default function NotesFilters({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div>
           <label className="label text-[11px]">
-            Ejercicio
+            {t('notes.exercise')}
             {value.muscleGroup && (
               <span className="ml-1 text-[10px] font-normal text-gray-400">
-                · filtrado por {value.muscleGroup}
+                {t('notes.filteredBy', { group: value.muscleGroup })}
               </span>
             )}
           </label>
@@ -320,7 +337,7 @@ export default function NotesFilters({
               <input
                 list="notes-exercises-datalist"
                 className="input text-xs"
-                placeholder="Buscar ejercicio…"
+                placeholder={t('notes.searchExercisePlaceholder')}
                 defaultValue={
                   value.exerciseId
                     ? exercisesToShow.find((e) => e.id === value.exerciseId)?.name || ''
@@ -344,7 +361,7 @@ export default function NotesFilters({
               onChange={(e) => patch({ exerciseId: e.target.value || undefined })}
               disabled={exercisesToShow.length === 0}
             >
-              <option value="">Todos</option>
+              <option value="">{t('notes.all')}</option>
               {exercisesToShow.map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {ex.name}
@@ -355,13 +372,13 @@ export default function NotesFilters({
         </div>
 
         <div>
-          <label className="label text-[11px]">Grupo muscular</label>
+          <label className="label text-[11px]">{t('notes.muscleGroup')}</label>
           <select
             className="input text-xs"
             value={value.muscleGroup || ''}
             onChange={(e) => patch({ muscleGroup: e.target.value || undefined })}
           >
-            <option value="">Todos</option>
+            <option value="">{t('notes.all')}</option>
             {muscleGroups.map((mg) => (
               <option key={mg} value={mg}>
                 {mg}
@@ -375,7 +392,7 @@ export default function NotesFilters({
       {blockTypesToShow.length > 0 && (
         <div>
           <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">
-            Tipo de bloque
+            {t('notes.blockType')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {blockTypesToShow.map((b) => (
@@ -389,7 +406,7 @@ export default function NotesFilters({
                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                 }`}
               >
-                {b.label}
+                {t(b.labelKey)}
               </button>
             ))}
           </div>
@@ -399,22 +416,22 @@ export default function NotesFilters({
       {/* ── Tags ── */}
       <div>
         <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5 flex items-center gap-1">
-          <TagIcon size={11} /> Tags
+          <TagIcon size={11} /> {t('notes.tags')}
         </p>
 
         {currentTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-1.5">
-            {currentTags.map((t) => (
+            {currentTags.map((tag) => (
               <span
-                key={t}
+                key={tag}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs font-medium"
               >
-                {t}
+                {tag}
                 <button
                   type="button"
-                  onClick={() => removeTag(t)}
+                  onClick={() => removeTag(tag)}
                   className="hover:text-primary-900"
-                  aria-label={`Quitar tag ${t}`}
+                  aria-label={t('notes.removeTagAria', { tag })}
                 >
                   <X size={11} />
                 </button>
@@ -427,7 +444,7 @@ export default function NotesFilters({
           <input
             type="text"
             className="input text-xs"
-            placeholder="Agregar tag…"
+            placeholder={t('notes.addTagPlaceholder')}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => {

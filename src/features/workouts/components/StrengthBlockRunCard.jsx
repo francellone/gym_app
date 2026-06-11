@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
 import { groupStrengthExercises } from '../helpers'
@@ -25,6 +26,7 @@ export default function StrengthBlockRunCard({
   studentId = null,
   loggedDate = null,
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const exercises = (block.plan_exercises || [])
@@ -46,9 +48,9 @@ export default function StrengthBlockRunCard({
       const letter =
         ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][strengthIndexInSection] ||
         strengthIndexInSection + 1
-      return `Fuerza ${letter}`
+      return t('workout.strengthLetter', { letter })
     }
-    return 'Fuerza'
+    return t('workout.strength')
   }
 
   const title = titleFor()
@@ -110,7 +112,7 @@ export default function StrengthBlockRunCard({
             </p>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            {done} / {total} hechos
+            {t('workout.doneOfTotal', { done, total })}
             {total > 0 && (
               <span className="ml-2 text-gray-400">· {Math.round((done / total) * 100)}%</span>
             )}
@@ -137,7 +139,7 @@ export default function StrengthBlockRunCard({
         <div className="border-t border-gray-100 p-3 space-y-2 bg-gray-50/50">
           {exercises.length === 0 && (
             <p className="text-xs text-gray-400 italic text-center py-3">
-              Este bloque todavía no tiene ejercicios.
+              {t('workout.blockNoExercises')}
             </p>
           )}
           {items.map((item, idx) =>
@@ -149,7 +151,7 @@ export default function StrengthBlockRunCard({
                 <div className="flex items-center gap-1.5 px-1 pt-0.5">
                   <Link2 size={14} className="text-primary-600 flex-shrink-0" />
                   <span className="text-xs font-medium text-primary-700">
-                    Bloque {item.letter} · sin pausa entre ejercicios
+                    {t('workout.supersetHeader', { letter: item.letter })}
                   </span>
                 </div>
                 {item.exercises.map((ex) => renderCard(ex, 'group'))}
@@ -157,8 +159,9 @@ export default function StrengthBlockRunCard({
                   <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-dashed border-primary-200 bg-white">
                     <Timer size={14} className="text-primary-600 flex-shrink-0" />
                     <span className="text-xs text-gray-700">
-                      Al terminar el bloque: descansá{' '}
-                      <strong className="font-medium">{item.restTime}</strong> y repetí la vuelta
+                      {t('workout.groupRestPrefix')}{' '}
+                      <strong className="font-medium">{item.restTime}</strong>{' '}
+                      {t('workout.groupRestSuffix')}
                     </span>
                   </div>
                 )}

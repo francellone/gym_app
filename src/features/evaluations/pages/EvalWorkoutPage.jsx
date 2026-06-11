@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation, Trans } from 'react-i18next'
+import { format } from 'date-fns'
+import { dateLocale } from '@/i18n/dateLocale'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
@@ -49,6 +52,7 @@ async function loadResultNotesFromPanel(resultId) {
 // con EvalByDayForm fuera de este dispatcher (doc 38).
 // ============================================================
 function ProtocolForm({ evalType, results, onChange, planMethod }) {
+  const { t } = useTranslation()
   const props = { results, onChange, planMethod }
   switch (evalType) {
     case 'power':
@@ -60,7 +64,7 @@ function ProtocolForm({ evalType, results, onChange, planMethod }) {
     case 'scored':
       return <ScoredForm {...props} />
     default:
-      return <p className="text-sm text-gray-400">Tipo de evaluación no reconocido.</p>
+      return <p className="text-sm text-gray-400">{t('evalWorkout.unknownType')}</p>
   }
 }
 
@@ -68,6 +72,7 @@ function ProtocolForm({ evalType, results, onChange, planMethod }) {
 // Main page
 // ============================================================
 export default function EvalWorkoutPage() {
+  const { t } = useTranslation()
   const { planId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -347,7 +352,7 @@ export default function EvalWorkoutPage() {
       setConfirmDelete(false)
       setEditing(false)
     } catch (err) {
-      setError(err.message || 'Error al desmarcar')
+      setError(err.message || t('evalWorkout.errorUnmark'))
     } finally {
       setDeleting(false)
     }
@@ -441,7 +446,7 @@ export default function EvalWorkoutPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setError(err.message || 'Error al guardar')
+      setError(err.message || t('evalWorkout.errorSave'))
     } finally {
       setSaving(false)
     }
@@ -544,7 +549,7 @@ export default function EvalWorkoutPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setError(err.message || 'Error al guardar el día')
+      setError(err.message || t('evalWorkout.errorSaveDay'))
     } finally {
       setSavingSection(null)
     }
@@ -584,7 +589,7 @@ export default function EvalWorkoutPage() {
       setNoteSaved(true)
       setTimeout(() => setNoteSaved(false), 3000)
     } catch (err) {
-      setError(err.message || 'Error al guardar la observación')
+      setError(err.message || t('evalWorkout.errorSaveNote'))
     } finally {
       setSavingNote(false)
     }
@@ -597,7 +602,8 @@ export default function EvalWorkoutPage() {
       </div>
     )
 
-  if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
+  if (!plan)
+    return <div className="text-center py-12 text-gray-500">{t('evalWorkout.notFound')}</div>
   if (!exerciseBased && !results) return null
 
   return (
@@ -611,16 +617,17 @@ export default function EvalWorkoutPage() {
                 <Trash2 size={20} className="text-red-500" />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">¿Desmarcar evaluación?</p>
+                <p className="font-semibold text-gray-900">{t('evalWorkout.unmarkTitle')}</p>
                 <p className="text-sm text-gray-600 mt-0.5">
-                  Se borrarán los datos del{' '}
-                  <strong>
-                    {new Date(evalDate + 'T12:00:00').toLocaleDateString('es-AR', {
-                      day: 'numeric',
-                      month: 'long',
-                    })}
-                  </strong>
-                  . Esta acción no se puede deshacer.
+                  <Trans
+                    i18nKey="evalWorkout.deleteWarningBody"
+                    values={{
+                      date: format(new Date(evalDate + 'T12:00:00'), t('dates.dayMonthLong'), {
+                        locale: dateLocale(),
+                      }),
+                    }}
+                    components={{ bold: <strong /> }}
+                  />
                 </p>
               </div>
             </div>
@@ -629,7 +636,7 @@ export default function EvalWorkoutPage() {
                 onClick={() => setConfirmDelete(false)}
                 className="btn-secondary flex-1 text-sm"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
@@ -640,7 +647,7 @@ export default function EvalWorkoutPage() {
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    <Trash2 size={14} /> Sí, desmarcar
+                    <Trash2 size={14} /> {t('workout.yesUnmark')}
                   </>
                 )}
               </button>
@@ -659,7 +666,9 @@ export default function EvalWorkoutPage() {
             <span className="text-lg">{evalTypeIcon(plan.eval_type)}</span>
             <h1 className="text-lg font-bold text-gray-900 truncate">{plan.title}</h1>
           </div>
-          <p className="text-sm text-gray-500">{evalTypeLabel(plan.eval_type)}</p>
+          <p className="text-sm text-gray-500">
+            {t(`evalType.${plan.eval_type}`, { defaultValue: evalTypeLabel(plan.eval_type) })}
+          </p>
         </div>
       </div>
 
@@ -667,7 +676,7 @@ export default function EvalWorkoutPage() {
           día tiene su propia fecha dentro del formulario (Modelo B, doc 43). */}
       {!multiDay && (
         <div className="card">
-          <label className="label">Fecha de evaluación</label>
+          <label className="label">{t('evalWorkout.evalDateLabel')}</label>
           <input
             type="date"
             className="input"
@@ -680,13 +689,8 @@ export default function EvalWorkoutPage() {
 
       {/* Eval form */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Registro</h2>
-        {multiDay && (
-          <p className="text-xs text-gray-500 -mt-1">
-            Cada día se guarda por separado con su fecha. La evaluación queda completa cuando cargás
-            todos los días.
-          </p>
-        )}
+        <h2 className="font-semibold text-gray-900">{t('evalWorkout.recordTitle')}</h2>
+        {multiDay && <p className="text-xs text-gray-500 -mt-1">{t('evalWorkout.multiDayHint')}</p>}
         {exerciseBased ? (
           <EvalByDayForm
             exercisesByDay={exByDay}
@@ -714,17 +718,15 @@ export default function EvalWorkoutPage() {
       {/* General notes */}
       <div className="card space-y-3">
         <h2 className="font-semibold text-gray-900">
-          {multiDay ? 'Observación general de la evaluación' : 'Observaciones del alumno'}
+          {multiDay ? t('evalWorkout.generalNoteTitle') : t('evalWorkout.studentNotesTitle')}
         </h2>
         {multiDay && (
-          <p className="text-xs text-gray-500 -mt-1">
-            Una nota para toda la evaluación (aparte del comentario de cada ejercicio).
-          </p>
+          <p className="text-xs text-gray-500 -mt-1">{t('evalWorkout.generalNoteHint')}</p>
         )}
         <textarea
           className="input resize-none"
           rows={3}
-          placeholder="¿Cómo te sentiste? Algún dato adicional..."
+          placeholder={t('evalWorkout.notesPlaceholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -739,13 +741,13 @@ export default function EvalWorkoutPage() {
                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Save size={15} /> Guardar observación
+                  <Save size={15} /> {t('evalWorkout.saveNote')}
                 </>
               )}
             </button>
             {noteSaved && (
               <span className="text-sm text-green-600 flex items-center gap-1">
-                <CheckCircle size={15} /> Guardada
+                <CheckCircle size={15} /> {t('evalWorkout.noteSaved')}
               </span>
             )}
           </div>
@@ -766,7 +768,7 @@ export default function EvalWorkoutPage() {
         {saved && (
           <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl p-3 text-sm">
             <CheckCircle size={16} />
-            <span>{editing ? '¡Cambios guardados!' : '¡Evaluación guardada!'}</span>
+            <span>{editing ? t('evalWorkout.changesSaved') : t('evalWorkout.evalSaved')}</span>
           </div>
         )}
 
@@ -776,19 +778,21 @@ export default function EvalWorkoutPage() {
           <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
             <div className="flex items-center gap-3">
               <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
-              <p className="text-sm font-semibold text-green-800 flex-1">Evaluación registrada</p>
+              <p className="text-sm font-semibold text-green-800 flex-1">
+                {t('evalWorkout.evalRecorded')}
+              </p>
               <button
                 onClick={() => setEditing(true)}
                 className="text-sm text-primary-600 font-medium hover:text-primary-700 transition-colors"
               >
-                Editar
+                {t('workout.edit')}
               </button>
               <span className="text-gray-300 select-none">·</span>
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="text-sm text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
               >
-                <Trash2 size={13} /> Desmarcar
+                <Trash2 size={13} /> {t('workout.unmark')}
               </button>
             </div>
           </div>
@@ -799,7 +803,7 @@ export default function EvalWorkoutPage() {
               onClick={handleCancelEdit}
               className="btn-secondary flex-1 flex items-center justify-center gap-2"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -810,7 +814,7 @@ export default function EvalWorkoutPage() {
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Save size={16} /> Guardar cambios
+                  <Save size={16} /> {t('evalWorkout.saveChanges')}
                 </>
               )}
             </button>
@@ -826,7 +830,7 @@ export default function EvalWorkoutPage() {
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <Save size={16} /> Guardar evaluación
+                <Save size={16} /> {t('evalWorkout.saveEvaluation')}
               </>
             )}
           </button>

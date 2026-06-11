@@ -16,6 +16,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../hooks/useNotifications'
 import {
@@ -34,7 +35,7 @@ import {
   UserCog,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 
 // ── Ícono y color por tipo de notificación ────────────────────
 const TYPE_CONFIG = {
@@ -175,7 +176,7 @@ function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread 
 
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
     addSuffix: true,
-    locale: es,
+    locale: dateLocale(),
   })
 
   // `highlightAsUnread` permite mantener el destacado visual aunque la notif
@@ -222,6 +223,7 @@ function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread 
 }
 
 export default function NotificationBell({ userId, theme = 'dark', placement = 'bottom-right' }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   // Set de IDs que estaban unread cuando se abrió el panel.
   // Sirve para mantener el destacado visual mientras el panel está abierto,
@@ -291,7 +293,11 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
         ref={buttonRef}
         onClick={() => setOpen((prev) => !prev)}
         className={`relative p-2 rounded-lg transition-colors ${btnBase}`}
-        aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} nuevas)` : ''}`}
+        aria-label={
+          unreadCount > 0
+            ? t('notifications.bellAriaUnread', { count: unreadCount })
+            : t('notifications.bellAria')
+        }
       >
         {unreadCount > 0 ? <BellDot size={18} /> : <Bell size={18} />}
 
@@ -318,7 +324,9 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
           {/* Header del panel */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900 text-sm">Notificaciones</span>
+              <span className="font-semibold text-gray-900 text-sm">
+                {t('notifications.title')}
+              </span>
               {unreadCount > 0 && (
                 <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">
                   {unreadCount}
@@ -331,10 +339,10 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                   onClick={markAllAsRead}
                   className="p-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors
                              flex items-center gap-1 font-medium"
-                  title="Marcar todas como leídas"
+                  title={t('notifications.markAllTitle')}
                 >
                   <CheckCheck size={14} />
-                  <span className="hidden sm:inline">Marcar todo</span>
+                  <span className="hidden sm:inline">{t('notifications.markAll')}</span>
                 </button>
               )}
               <button
@@ -357,8 +365,10 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                   <Bell size={20} className="text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-600">Sin notificaciones</p>
-                <p className="text-xs text-gray-400 mt-1">Acá vas a ver la actividad importante</p>
+                <p className="text-sm font-medium text-gray-600">
+                  {t('notifications.emptyTitle')}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{t('notifications.emptyBody')}</p>
               </div>
             ) : (
               notifications.map((n) => (
@@ -377,7 +387,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
           {notifications.length > 0 && (
             <div className="px-4 py-2.5 border-t border-gray-100 flex-shrink-0 bg-gray-50/50">
               <p className="text-[11px] text-gray-400 text-center">
-                Mostrando las últimas {notifications.length} notificaciones
+                {t('notifications.showingLast', { count: notifications.length })}
               </p>
             </div>
           )}

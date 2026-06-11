@@ -23,6 +23,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, MessageCircle, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import NoteCard from '@/features/notes/components/NoteCard'
@@ -37,6 +38,7 @@ export default function ExerciseChatDrawer({
   coachName,
   notesCache = null,
 }) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [notes, setNotes] = useState([])
   const [error, setError] = useState(null)
@@ -73,7 +75,7 @@ export default function ExerciseChatDrawer({
 
       if (cancelled) return
       if (err) {
-        setError(err.message || 'No se pudo cargar el chat.')
+        setError(err.message || t('errors.chatLoadFailed'))
         setNotes([])
       } else {
         setNotes(data || [])
@@ -102,7 +104,7 @@ export default function ExerciseChatDrawer({
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label={`Chat del ejercicio ${exerciseName || ''}`}
+      aria-label={t('workout.exerciseChatAria', { name: exerciseName || '' })}
     >
       {/* Overlay */}
       <div
@@ -120,17 +122,19 @@ export default function ExerciseChatDrawer({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-gray-900 truncate">
-              {exerciseName || 'Chat del ejercicio'}
+              {exerciseName || t('workout.exerciseChat')}
             </p>
             {coachName && (
-              <p className="text-[11px] text-gray-500 truncate">Con {coachName}</p>
+              <p className="text-[11px] text-gray-500 truncate">
+                {t('workout.withCoach', { name: coachName })}
+              </p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>
@@ -146,14 +150,14 @@ export default function ExerciseChatDrawer({
 
           {!loading && error && (
             <div className="text-center py-6 text-xs text-red-600">
-              No pudimos cargar el chat. Probá cerrar y abrir de nuevo.
+              {t('errors.chatLoadRetry')}
               <p className="mt-1 text-[10px] text-red-500/70">{error}</p>
             </div>
           )}
 
           {!loading && !error && notes.length === 0 && (
             <div className="text-center py-12 text-xs text-gray-400">
-              Todavía no hay mensajes sobre este ejercicio.
+              {t('workout.noMessagesYet')}
             </div>
           )}
 
@@ -174,7 +178,7 @@ export default function ExerciseChatDrawer({
 
         {/* Footer placeholder — V2 podría sumar composer */}
         <div className="px-4 py-2.5 border-t border-gray-100 bg-white text-[11px] text-gray-400 text-center flex-shrink-0">
-          Para responder, abrí el panel de Notas desde el menú.
+          {t('workout.replyHint')}
         </div>
       </div>
     </div>

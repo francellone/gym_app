@@ -10,12 +10,14 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { FileText, ChevronRight, CheckCircle, Clock } from 'lucide-react'
 
 export default function FormsListPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [pending, setPending] = useState([])
@@ -61,12 +63,14 @@ export default function FormsListPage() {
   function badgeFor(assignment) {
     if (assignment.form_kind === 'intake') {
       return (
-        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Alta</span>
+        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+          {t('forms.intakeBadge')}
+        </span>
       )
     }
     return (
       <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
-        Seguimiento
+        {t('forms.followUpBadge')}
       </span>
     )
   }
@@ -74,7 +78,9 @@ export default function FormsListPage() {
   function templateNameOf(assignment) {
     return (
       assignment.intake_form_templates?.name ||
-      (assignment.form_kind === 'intake' ? 'Formulario de ingreso' : 'Formulario de seguimiento')
+      (assignment.form_kind === 'intake'
+        ? t('forms.intakeDefaultName')
+        : t('forms.followUpDefaultName'))
     )
   }
 
@@ -89,11 +95,11 @@ export default function FormsListPage() {
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Formularios</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('forms.title')}</h1>
         <p className="text-sm text-gray-500 mt-1">
           {pending.length === 0
-            ? 'No tenés formularios pendientes'
-            : `${pending.length} pendiente${pending.length !== 1 ? 's' : ''}`}
+            ? t('forms.noPending')
+            : t('forms.pendingCount', { count: pending.length })}
         </p>
       </div>
 
@@ -117,10 +123,10 @@ export default function FormsListPage() {
                 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                   {a.status === 'in_progress' ? (
                     <>
-                      <Clock size={11} /> En progreso
+                      <Clock size={11} /> {t('forms.inProgress')}
                     </>
                   ) : (
-                    'Pendiente de respuesta'
+                    t('forms.pendingResponse')
                   )}
                 </p>
               </div>
@@ -133,7 +139,7 @@ export default function FormsListPage() {
       {/* Completados (referencia) */}
       {completed.length > 0 && (
         <div>
-          <h2 className="text-sm font-medium text-gray-500 mb-2">Completados</h2>
+          <h2 className="text-sm font-medium text-gray-500 mb-2">{t('forms.completed')}</h2>
           <div className="space-y-1.5">
             {completed.map((a) => (
               <div key={a.id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
@@ -154,9 +160,7 @@ export default function FormsListPage() {
       {pending.length === 0 && completed.length === 0 && (
         <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400">
           <FileText size={32} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm">
-            No tenés formularios todavía. Cuando tu coach te envíe alguno, aparecerá acá.
-          </p>
+          <p className="text-sm">{t('forms.emptyState')}</p>
         </div>
       )}
     </div>

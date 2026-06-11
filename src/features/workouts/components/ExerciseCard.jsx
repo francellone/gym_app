@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
   Circle,
@@ -70,6 +71,7 @@ export default function ExerciseCard({
   studentId = null,
   loggedDate = null,
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -357,8 +359,7 @@ export default function ExerciseCard({
     if (!data.p_perceived_difficulty) {
       return {
         type: 'warning',
-        message:
-          'No registraste el esfuerzo percibido (PSE). Tu coach lo usa para ajustar el plan.',
+        message: t('workout.warnMissingPse'),
       }
     }
     // Pesos demasiado altos (solo si no es BW)
@@ -367,15 +368,14 @@ export default function ExerciseCard({
       if (nums.some((w) => w > 500)) {
         return {
           type: 'warning',
-          message: 'Algún peso registrado parece muy alto. ¿Son correctos?',
+          message: t('workout.warnWeightTooHigh'),
         }
       }
       // Soft-warning "Solo con barra" + peso > 20kg
       if (data.p_weight_mode === 'barbell_only' && nums.some((w) => w > 20)) {
         return {
           type: 'warning',
-          message:
-            'Cargaste "Solo con barra" pero el peso supera los 20kg (peso de la barra). ¿Es correcto?',
+          message: t('workout.warnBarbellHeavy'),
         }
       }
     }
@@ -495,10 +495,10 @@ export default function ExerciseCard({
                 <Trash2 size={20} className="text-red-500" />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">¿Desmarcar ejercicio?</p>
+                <p className="font-semibold text-gray-900">{t('workout.unmarkExerciseTitle')}</p>
                 <p className="text-sm text-gray-600 mt-0.5">
-                  Se borrarán los datos registrados de <strong>{planEx.exercise?.name}</strong>.
-                  Esta acción no se puede deshacer.
+                  {t('workout.unmarkExerciseBody')} <strong>{planEx.exercise?.name}</strong>.{' '}
+                  {t('workout.actionCannotBeUndone')}
                 </p>
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function ExerciseCard({
                 onClick={() => setConfirmDelete(false)}
                 className="btn-secondary flex-1 text-sm"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
@@ -519,7 +519,7 @@ export default function ExerciseCard({
                 ) : (
                   <>
                     <Trash2 size={14} />
-                    Sí, desmarcar
+                    {t('workout.yesUnmark')}
                   </>
                 )}
               </button>
@@ -567,9 +567,10 @@ export default function ExerciseCard({
             </div>
             {/* Sugerido por el coach */}
             <p className="text-xs text-gray-400 mt-0.5">
-              Sugerido:{' '}
+              {t('workout.suggestedLabel')}{' '}
               {[
-                planEx.suggested_sets && `${planEx.suggested_sets} series`,
+                planEx.suggested_sets &&
+                  t('workout.series', { count: Number(planEx.suggested_sets) }),
                 suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
                 planEx.suggested_weight &&
                   planEx.suggested_weight !== 'None' &&
@@ -577,7 +578,7 @@ export default function ExerciseCard({
                 restScope === 'set' &&
                   planEx.rest_time &&
                   planEx.rest_time !== 'None' &&
-                  `· descanso ${planEx.rest_time} entre series`,
+                  `· ${t('workout.restBetweenSets', { time: planEx.rest_time })}`,
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -592,14 +593,16 @@ export default function ExerciseCard({
               !expanded &&
               (() => {
                 const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
-                const wDisplay = wArr.length > 0 ? `${wArr.join(', ')}kg` : null
+                const wDisplay =
+                  wArr.length > 0 ? t('workout.weightKg', { value: wArr.join(', ') }) : null
                 return (
                   <p className="text-xs text-green-600 mt-0.5 font-medium">
                     ✓{' '}
                     {[
-                      log.actual_sets && `${log.actual_sets}s`,
+                      log.actual_sets && t('workout.setsShort', { value: log.actual_sets }),
                       wDisplay,
-                      log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                      log.perceived_difficulty &&
+                        t('workout.pseValue', { value: log.perceived_difficulty }),
                     ]
                       .filter(Boolean)
                       .join(' · ')}
@@ -652,7 +655,7 @@ export default function ExerciseCard({
 
             {planEx.suggested_pse && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">PSE sugerida:</span>
+                <span className="text-xs text-gray-500">{t('workout.suggestedPse')}</span>
                 <span className="badge bg-orange-100 text-orange-700">{planEx.suggested_pse}</span>
               </div>
             )}
@@ -660,7 +663,7 @@ export default function ExerciseCard({
             {/* Log form */}
             {!completed || editing ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-700">Registrar entrenamiento</p>
+                <p className="text-xs font-semibold text-gray-700">{t('workout.logWorkout')}</p>
 
                 {/* F4 (doc 23) — hint de restauración del draft local.
                     Aparece cuando el hook restaura datos desde localStorage
@@ -670,14 +673,14 @@ export default function ExerciseCard({
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
                     <RotateCcw size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
                     <p className="text-[11px] text-amber-800 flex-1 leading-tight">
-                      Recuperamos lo que estabas cargando ({formatRelativeDate(restoredAt)}).
+                      {t('workout.draftRestored', { date: formatRelativeDate(restoredAt) })}
                     </p>
                     <button
                       type="button"
                       onClick={discardDraft}
                       className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"
                     >
-                      Descartar
+                      {t('workout.discard')}
                     </button>
                   </div>
                 )}
@@ -685,11 +688,11 @@ export default function ExerciseCard({
                 {/* Series */}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                    Series realizadas
+                    {t('workout.setsPerformed')}
                     {maxSets < 99 && (
                       <span className="flex items-center gap-0.5 text-gray-400">
                         <Lock size={10} />
-                        máx. {maxSets}
+                        {t('workout.maxShort', { value: maxSets })}
                       </span>
                     )}
                   </label>
@@ -706,7 +709,7 @@ export default function ExerciseCard({
                   />
                   {setsLimitHit && (
                     <p className="text-[11px] text-orange-500 mt-0.5 flex items-center gap-1">
-                      <Lock size={10} /> Límite del plan: {maxSets} series
+                      <Lock size={10} /> {t('workout.planLimitSets', { value: maxSets })}
                     </p>
                   )}
                 </div>
@@ -715,7 +718,9 @@ export default function ExerciseCard({
                 <div className="rounded-xl bg-white border border-gray-200 p-2.5 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] text-gray-500 mb-1 block">Tipo de peso</label>
+                      <label className="text-[11px] text-gray-500 mb-1 block">
+                        {t('workout.weightType')}
+                      </label>
                       <select
                         className="input text-xs py-1.5"
                         value={logData.weight_mode}
@@ -729,7 +734,9 @@ export default function ExerciseCard({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] text-gray-500 mb-1 block">Unidad reps</label>
+                      <label className="text-[11px] text-gray-500 mb-1 block">
+                        {t('workout.repsUnit')}
+                      </label>
                       <select
                         className="input text-xs py-1.5"
                         value={logData.reps_unit || ''}
@@ -737,7 +744,7 @@ export default function ExerciseCard({
                           setLogData((p) => ({ ...p, reps_unit: e.target.value || null }))
                         }
                       >
-                        <option value="">reps (default)</option>
+                        <option value="">{t('workout.repsDefault')}</option>
                         {REPS_UNITS.filter((u) => u.key !== 'reps').map((u) => (
                           <option key={u.key} value={u.key}>
                             {u.label}
@@ -754,10 +761,10 @@ export default function ExerciseCard({
                       onChange={(e) => setLogData((p) => ({ ...p, unilateral: e.target.checked }))}
                     />
                     <span className="text-xs text-gray-700">
-                      Unilateral (cada lado)
+                      {t('workout.unilateralEachSide')}
                       {logData.unilateral && (
                         <span className="block text-[10px] text-violet-600 font-bold">
-                          Las reps van POR LADO, no como total.
+                          {t('workout.repsPerSideNote')}
                         </span>
                       )}
                     </span>
@@ -769,11 +776,11 @@ export default function ExerciseCard({
                   <label className="text-xs text-gray-500 mb-2 block font-medium">
                     {showWeightInputs
                       ? logData.unilateral
-                        ? 'Reps por lado y peso por serie'
-                        : 'Repeticiones y peso por serie'
+                        ? t('workout.repsPerSideAndWeightPerSet')
+                        : t('workout.repsAndWeightPerSet')
                       : logData.unilateral
-                        ? 'Reps por lado por serie'
-                        : 'Repeticiones por serie'}
+                        ? t('workout.repsPerSidePerSet')
+                        : t('workout.repsPerSet')}
                   </label>
                   {/* Encabezados */}
                   <div
@@ -782,22 +789,25 @@ export default function ExerciseCard({
                     <div />
                     <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
                       {logData.unilateral
-                        ? 'Reps × lado'
+                        ? t('workout.repsPerSideHeader')
                         : logData.reps_unit && logData.reps_unit !== 'reps'
-                          ? REPS_UNITS.find((u) => u.key === logData.reps_unit)?.short || 'Reps'
-                          : 'Reps'}
+                          ? REPS_UNITS.find((u) => u.key === logData.reps_unit)?.short ||
+                            t('workout.repsHeader')
+                          : t('workout.repsHeader')}
                       {suggestedRepsRaw && (
                         <span className="block font-normal normal-case text-primary-400">
-                          sug: {displayReps(suggestedRepsRaw)}
+                          {t('workout.suggestedShort', { value: displayReps(suggestedRepsRaw) })}
                         </span>
                       )}
                     </div>
                     {showWeightInputs && (
                       <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                        Peso (kg)
+                        {t('workout.weightKgHeader')}
                         {suggestedWeightsArr.some(Boolean) && (
                           <span className="block font-normal normal-case text-primary-400">
-                            sug: {suggestedWeightsArr.filter(Boolean).join(', ')}
+                            {t('workout.suggestedShort', {
+                              value: suggestedWeightsArr.filter(Boolean).join(', '),
+                            })}
                           </span>
                         )}
                       </div>
@@ -831,7 +841,7 @@ export default function ExerciseCard({
                   ))}
                   {!showWeightInputs && (
                     <p className="text-[11px] text-emerald-600 mt-1.5 px-0.5">
-                      Sin peso · solo se cargan reps.
+                      {t('workout.bodyweightOnlyReps')}
                     </p>
                   )}
                   {/* Soft-warning inline si barbell_only + algún peso > 20 */}
@@ -841,8 +851,8 @@ export default function ExerciseCard({
                       <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
                         <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
                         <p className="text-[11px] text-amber-700 leading-relaxed">
-                          Marcaste <strong>"Solo con barra"</strong> pero hay pesos &gt; 20kg. La
-                          barra olímpica suele pesar 20kg. ¿Querés cambiar a "Con peso"?
+                          {t('workout.barbellWarnPrefix')} <strong>{t('workout.barbellWarnMode')}</strong>{' '}
+                          {t('workout.barbellWarnSuffix')}
                         </p>
                       </div>
                     )}
@@ -851,7 +861,7 @@ export default function ExerciseCard({
                 {/* PSE por ejercicio */}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">
-                    Esfuerzo percibido (PSE)
+                    {t('workout.perceivedEffortPSE')}
                   </label>
                   <div className="flex gap-1.5 flex-wrap">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -876,11 +886,13 @@ export default function ExerciseCard({
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Observaciones</label>
+                  <label className="text-xs text-gray-500 mb-1 block">
+                    {t('workout.observations')}
+                  </label>
                   <textarea
                     className="input text-sm resize-none"
                     rows={2}
-                    placeholder="¿Cómo te salió? ¿Alguna dificultad?"
+                    placeholder={t('workout.howDidItGoPlaceholder')}
                     value={logData.notes}
                     onChange={(e) => setLogData((p) => ({ ...p, notes: e.target.value }))}
                   />
@@ -896,29 +908,35 @@ export default function ExerciseCard({
                   ) : (
                     <>
                       <CheckCircle2 size={16} />
-                      Marcar como completado
+                      {t('workout.markCompleted')}
                     </>
                   )}
                 </button>
               </div>
             ) : (
               <div className="bg-green-50 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-green-700">✓ Completado</p>
+                <p className="text-xs font-semibold text-green-700">
+                  {t('workout.completedCheck')}
+                </p>
                 {(() => {
                   const repsArr = readLogReps(log).filter((r) => r != null && r !== '')
                   const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
-                  const repsLabel = log?.unilateral ? ' por lado' : ''
+                  const repsLabel = log?.unilateral ? ` ${t('workout.perSide')}` : ''
                   const unitLabel =
                     log?.reps_unit && log.reps_unit !== 'reps' ? ` ${log.reps_unit}` : ''
                   return (
                     <p className="text-xs text-green-600">
                       {[
-                        log?.actual_sets && `${log.actual_sets} series`,
+                        log?.actual_sets &&
+                          t('workout.series', { count: Number(log.actual_sets) }),
                         repsArr.length > 0 && `× ${repsArr.join(', ')}${unitLabel}${repsLabel}`,
-                        wArr.length > 0 && `${wArr.join(', ')}kg`,
-                        log?.weight_mode === 'bodyweight' && wArr.length === 0 && 'sin peso',
-                        log?.weight_mode === 'barbell_only' && 'solo barra',
-                        log?.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                        wArr.length > 0 && t('workout.weightKg', { value: wArr.join(', ') }),
+                        log?.weight_mode === 'bodyweight' &&
+                          wArr.length === 0 &&
+                          t('workout.noWeight'),
+                        log?.weight_mode === 'barbell_only' && t('workout.barbellOnlyShort'),
+                        log?.perceived_difficulty &&
+                          t('workout.pseValue', { value: log.perceived_difficulty }),
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -931,7 +949,7 @@ export default function ExerciseCard({
                     onClick={() => setEditing(true)}
                     className="text-xs text-green-700 underline"
                   >
-                    Editar
+                    {t('workout.edit')}
                   </button>
                   <span className="text-green-300 text-xs">·</span>
                   <button
@@ -939,7 +957,7 @@ export default function ExerciseCard({
                     className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
                   >
                     <Trash2 size={11} />
-                    Desmarcar
+                    {t('workout.unmark')}
                   </button>
                 </div>
               </div>

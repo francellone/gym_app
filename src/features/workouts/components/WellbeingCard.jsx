@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
 
@@ -9,6 +10,7 @@ import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/componen
 // promedio "ponderado" (positivos cuentan tal cual, negativos
 // invertidos `11 - v`). Si no, muestra estado pendiente.
 export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
+  const { t } = useTranslation()
   const completed = !!wellbeing
 
   // Promedio "ponderado": los positivos cuentan tal cual; los negativos invertidos
@@ -48,14 +50,14 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm text-gray-900">Wellbeing diario</p>
+            <p className="font-semibold text-sm text-gray-900">{t('workout.dailyWellbeing')}</p>
             {completed ? (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">
-                ✓ Completado
+                {t('workout.completedCheck')}
               </span>
             ) : (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 font-bold">
-                Pendiente
+                {t('workout.pending')}
               </span>
             )}
           </div>
@@ -68,7 +70,7 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
                 return (
                   <span
                     key={m.key}
-                    title={`${m.label}: ${val}/10`}
+                    title={`${t(m.labelKey)}: ${val}/10`}
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${wellbeingColor(val, m.positive)}`}
                   >
                     {m.emoji} {val}
@@ -77,15 +79,13 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
               })}
               {avgScore !== null && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 ml-1">
-                  promedio {avgScore}/10
+                  {t('workout.averageScore', { value: avgScore })}
                 </span>
               )}
             </div>
           ) : (
             <p className="text-xs text-amber-700/90 mt-0.5">
-              {isToday
-                ? 'Tomate 30 segundos para contar cómo llegás hoy'
-                : 'Registrá cómo te sentías ese día (opcional)'}
+              {isToday ? t('workout.wellbeingPromptToday') : t('workout.wellbeingPromptPast')}
             </p>
           )}
         </div>

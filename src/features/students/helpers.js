@@ -20,6 +20,8 @@ export const FIELD_LABELS = {
   tiene_lesiones: 'Tiene lesiones',
   descripcion_lesiones: 'Descripción de lesiones',
   patologias: 'Patologías',
+  // Doc 46: idioma de la UI de la vista del alumno
+  language: 'Idioma de la app',
 }
 
 // Opciones canónicas de patologías. Coincide con el catálogo del intake
@@ -47,10 +49,18 @@ export const GENDER_LABELS = {
   other: 'Otro',
 }
 
+// Doc 46: idioma de la UI del alumno (profiles.language). Labels en español
+// porque el panel del coach queda en español a propósito.
+export const LANGUAGE_LABELS = {
+  es: 'Español',
+  en: 'Inglés',
+}
+
 export function displayValue(field, value) {
   if (value === null || value === undefined || value === '') return '—'
   if (field === 'gender') return GENDER_LABELS[value] || value
   if (field === 'level') return LEVEL_LABELS[value] || value
+  if (field === 'language') return LANGUAGE_LABELS[value] || value
   if (field === 'tiene_lesiones') {
     if (value === true || value === 'true') return 'Sí'
     if (value === false || value === 'false') return 'No'

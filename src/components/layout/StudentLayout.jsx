@@ -1,20 +1,23 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 
+// i18n (doc 46): labels como keys de traducción, se resuelven con t() en render
 const navItems = [
-  { to: '/student', label: 'Inicio', icon: Home, end: true },
-  { to: '/student/workout', label: 'Hoy', icon: Dumbbell },
-  { to: '/student/notes', label: 'Notas', icon: MessageSquare, key: 'notes' },
-  { to: '/student/progress', label: 'Progreso', icon: BarChart2 },
-  { to: '/student/history', label: 'Historial', icon: Clock },
-  { to: '/student/profile', label: 'Perfil', icon: User },
+  { to: '/student', label: 'nav.home', icon: Home, end: true },
+  { to: '/student/workout', label: 'nav.today', icon: Dumbbell },
+  { to: '/student/notes', label: 'nav.notes', icon: MessageSquare, key: 'notes' },
+  { to: '/student/progress', label: 'nav.progress', icon: BarChart2 },
+  { to: '/student/history', label: 'nav.history', icon: Clock },
+  { to: '/student/profile', label: 'nav.profile', icon: User },
 ]
 
 export default function StudentLayout() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   // Badge de no-leídas en el item Notas (suscripción realtime a note_threads)
   const { count: unreadNotes } = useNoteThreadUnread(profile?.id, 'student')
 
@@ -69,7 +72,7 @@ export default function StudentLayout() {
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] font-medium">{item.label}</span>
+                    <span className="text-[11px] font-medium">{t(item.label)}</span>
                   </>
                 )}
               </NavLink>

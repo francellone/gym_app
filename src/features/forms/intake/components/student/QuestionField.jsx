@@ -5,9 +5,11 @@
  * Soporta: text, textarea, select, multiselect, boolean, scale, email, phone, number, date
  */
 
+import { useTranslation } from 'react-i18next'
 import { QUESTION_TYPES } from '../../schema/question-types.js'
 
 export default function QuestionField({ question, value, onChange, error }) {
+  const { t } = useTranslation()
   const baseInput = `w-full text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 transition-colors ${
     error
       ? 'border-red-300 focus:ring-red-400 bg-red-50'
@@ -146,8 +148,8 @@ export default function QuestionField({ question, value, onChange, error }) {
       return (
         <div className="flex gap-3">
           {[
-            { val: true, label: '✅ Sí' },
-            { val: false, label: '❌ No' },
+            { val: true, label: `✅ ${t('common.yes')}` },
+            { val: false, label: `❌ ${t('common.no')}` },
           ].map(({ val, label }) => (
             <button
               key={String(val)}

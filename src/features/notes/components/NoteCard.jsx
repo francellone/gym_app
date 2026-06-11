@@ -26,8 +26,9 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { format, parseISO, formatDistanceToNow } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import {
   Lock,
   Tag,
@@ -43,10 +44,10 @@ import {
 } from 'lucide-react'
 import { contextTypeLabel, editNote, deleteNote } from '../api'
 
-const BLOCK_TYPE_LABELS = {
-  strength: 'Fuerza',
-  aerobic: 'Aeróbico',
-  circuit: 'Circuito',
+const BLOCK_TYPE_LABEL_KEYS = {
+  strength: 'workout.strength',
+  aerobic: 'workout.aerobic',
+  circuit: 'workout.circuit',
 }
 
 // Notas que pueden editarse/borrarse desde el panel:
@@ -86,23 +87,28 @@ function prettyDate(isoDate) {
   return `${d}/${m}/${y}`
 }
 
-function buildContextLabel(note, exercisesMap) {
+function buildContextLabel(note, exercisesMap, t) {
   // Free + note_date: mostrar etiqueta "Día"
   if (note?.context_type === 'free' && note?.note_date) {
-    return `Día: ${prettyDate(note.note_date)}`
+    return t('notes.dayLabel', { date: prettyDate(note.note_date) })
   }
   // Free + muscle_group (sin exercise): mostrar grupo muscular
   if (note?.context_type === 'free' && note?.muscle_group && !note?.exercise_id) {
-    return `Grupo: ${note.muscle_group}`
+    return t('notes.groupLabel', { group: note.muscle_group })
   }
   if (!note?.context_type || note.context_type === 'free') return null
-  const baseLabel = contextTypeLabel(note.context_type)
+  // i18n (doc 46): el label canónico vive en notes/api.js (español); acá solo
+  // se traduce el display. defaultValue cubre context_types nuevos sin clave.
+  const baseLabel = t(`notes.contextType.${note.context_type}`, {
+    defaultValue: contextTypeLabel(note.context_type),
+  })
   if (note.exercise_id && exercisesMap?.get?.(note.exercise_id)) {
     const ex = exercisesMap.get(note.exercise_id)
     return `${baseLabel}: ${ex.name}`
   }
   if (note.context_type === 'workout_block_log' && note.block_type) {
-    return `${baseLabel}: ${BLOCK_TYPE_LABELS[note.block_type] || note.block_type}`
+    const blockKey = BLOCK_TYPE_LABEL_KEYS[note.block_type]
+    return `${baseLabel}: ${blockKey ? t(blockKey) : note.block_type}`
   }
   return baseLabel
 }
@@ -126,6 +132,7 @@ export default function NoteCard({
   currentUserId,
   onDeleted,
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editBody, setEditBody] = useState('')
   const [saving, setSaving] = useState(false)
@@ -164,10 +171,14 @@ export default function NoteCard({
   const isCoach = note.author_role === 'coach'
   const isPrivate = note.visibility === 'coach_private'
   const dateObj = safeDate(note.created_at)
-  const relativeTime = dateObj ? formatDistanceToNow(dateObj, { addSuffix: true, locale: es }) : ''
-  const fullDate = dateObj ? format(dateObj, "d 'de' MMMM yyyy, HH:mm", { locale: es }) : ''
+  const relativeTime = dateObj
+    ? formatDistanceToNow(dateObj, { addSuffix: true, locale: dateLocale() })
+    : ''
+  const fullDate = dateObj
+    ? format(dateObj, t('dates.dayMonthYearTime'), { locale: dateLocale() })
+    : ''
 
-  const contextLabel = buildContextLabel(note, exercisesMap)
+  const contextLabel = buildContextLabel(note, exercisesMap, t)
   const tags = Array.isArray(note.tags) ? note.tags : []
   const edited = wasEdited(note)
 
@@ -202,7 +213,7 @@ export default function NoteCard({
   async function saveEdit() {
     const clean = editBody.trim()
     if (!clean) {
-      setError({ message: 'La nota no puede estar vacía.' })
+      setError({ message: t('notes.emptyNoteError') })
       return
     }
     if (clean === note.body) {
@@ -225,7 +236,7 @@ export default function NoteCard({
   }
   async function handleDelete() {
     setMenuOpen(false)
-    const ok = window.confirm('¿Borrar esta nota? Esta acción no se puede deshacer.')
+    const ok = window.confirm(t('notes.deleteConfirm'))
     if (!ok) return
     setError(null)
     const { error: err } = await deleteNote(note)
@@ -259,19 +270,19 @@ export default function NoteCard({
         {isUnread && (
           <span
             className={`absolute -top-1 ${isCoach ? '-left-1' : '-right-1'} w-2.5 h-2.5 rounded-full bg-orange-500 ring-2 ring-white`}
-            aria-label="Sin leer"
-            title="Sin leer"
+            aria-label={t('notes.unread')}
+            title={t('notes.unread')}
           />
         )}
 
         {/* ── Header: rol + privada + contexto + menú ── */}
         <div className={`flex items-center gap-1.5 flex-wrap mb-1 ${metaAlignment}`}>
           <span className="text-[11px] font-semibold text-gray-500">
-            {isCoach ? 'Coach' : 'Alumno'}
+            {isCoach ? t('notes.roleCoach') : t('notes.roleStudent')}
           </span>
           {isPrivate && (
             <span className="badge bg-gray-200 text-gray-700 text-[10px] flex items-center gap-1">
-              <Lock size={10} /> Privada
+              <Lock size={10} /> {t('notes.private')}
             </span>
           )}
           {contextLabel && (
@@ -287,7 +298,7 @@ export default function NoteCard({
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-                aria-label="Acciones"
+                aria-label={t('notes.actionsAria')}
               >
                 <MoreVertical size={13} />
               </button>
@@ -298,14 +309,14 @@ export default function NoteCard({
                     onClick={startEdit}
                     className="block w-full text-left text-xs px-3 py-2 hover:bg-gray-50 flex items-center gap-1.5 text-gray-700"
                   >
-                    <Edit2 size={12} /> Editar
+                    <Edit2 size={12} /> {t('common.edit')}
                   </button>
                   <button
                     type="button"
                     onClick={handleDelete}
                     className="block w-full text-left text-xs px-3 py-2 hover:bg-red-50 flex items-center gap-1.5 text-red-600 border-t border-gray-100"
                   >
-                    <Trash2 size={12} /> Borrar
+                    <Trash2 size={12} /> {t('notes.delete')}
                   </button>
                 </div>
               )}
@@ -318,7 +329,7 @@ export default function NoteCard({
           <div className="mb-1.5 pl-2 border-l-2 border-gray-300 text-xs text-gray-500 italic">
             <div className="flex items-center gap-1 mb-0.5 text-gray-400">
               <CornerDownRight size={11} />
-              <span className="text-[10px] uppercase tracking-wide">En respuesta a</span>
+              <span className="text-[10px] uppercase tracking-wide">{t('notes.inReplyTo')}</span>
             </div>
             <p className="line-clamp-2">
               {parentNote ? (
@@ -327,7 +338,7 @@ export default function NoteCard({
                   return txt.length > 140 ? `${txt.slice(0, 140).trimEnd()}…` : txt
                 })()
               ) : (
-                <span className="text-gray-400">Mensaje eliminado</span>
+                <span className="text-gray-400">{t('notes.deletedMessage')}</span>
               )}
             </p>
           </div>
@@ -346,9 +357,7 @@ export default function NoteCard({
               disabled={saving}
             />
             {error && (
-              <p className="text-[11px] text-red-600">
-                {error.message || 'No se pudo actualizar.'}
-              </p>
+              <p className="text-[11px] text-red-600">{error.message || t('notes.updateFailed')}</p>
             )}
             <div className="flex items-center justify-end gap-1.5">
               <button
@@ -357,7 +366,7 @@ export default function NoteCard({
                 className="text-[11px] text-gray-500 hover:text-gray-700 inline-flex items-center gap-0.5 font-medium px-2 py-1"
                 disabled={saving}
               >
-                <X size={11} /> Cancelar
+                <X size={11} /> {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -366,12 +375,10 @@ export default function NoteCard({
                 className="text-[11px] inline-flex items-center gap-0.5 font-semibold px-2 py-1 rounded-full bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-                Guardar
+                {t('common.save')}
               </button>
             </div>
-            <p className="text-[10px] text-gray-400">
-              Cmd/Ctrl + Enter para guardar · Esc para cancelar
-            </p>
+            <p className="text-[10px] text-gray-400">{t('notes.editShortcuts')}</p>
           </div>
         ) : (
           <>
@@ -380,7 +387,7 @@ export default function NoteCard({
                 del bloque editing para que un fallo no quede invisible. */}
             {error && !editing && (
               <p className="mt-2 text-[11px] text-red-600">
-                {error.message || 'No se pudo completar la acción.'}
+                {error.message || t('notes.actionFailed')}
               </p>
             )}
           </>
@@ -389,15 +396,15 @@ export default function NoteCard({
         {/* ── Tags ── */}
         {tags.length > 0 && !editing && (
           <div className={`flex flex-wrap gap-1 mt-2 ${metaAlignment}`}>
-            {tags.map((t) => (
+            {tags.map((tag) => (
               <button
-                key={t}
+                key={tag}
                 type="button"
-                onClick={() => onTagClick?.(t)}
+                onClick={() => onTagClick?.(tag)}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-medium hover:bg-gray-200 transition-colors"
               >
                 <Tag size={9} />
-                {t}
+                {tag}
               </button>
             ))}
           </div>
@@ -412,12 +419,12 @@ export default function NoteCard({
             onClick={() => onReply(note)}
             className="text-[10px] text-gray-400 hover:text-primary-600 flex items-center gap-0.5 font-medium"
           >
-            <Reply size={10} /> Responder
+            <Reply size={10} /> {t('notes.reply')}
           </button>
         )}
         <span className="text-[10px] text-gray-400" title={fullDate}>
           {relativeTime}
-          {edited && <span className="ml-1 italic">· editada</span>}
+          {edited && <span className="ml-1 italic">{t('notes.editedSuffix')}</span>}
         </span>
       </div>
     </div>

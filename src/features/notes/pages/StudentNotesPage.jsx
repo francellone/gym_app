@@ -11,12 +11,14 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertCircle, Loader2, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { getStudentThread } from '../api'
 import NotesPanel from '../components/NotesPanel'
 
 export default function NotesPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [thread, setThread] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -32,17 +34,17 @@ export default function NotesPage() {
         const { data, error: err } = await getStudentThread(profile.id)
         if (cancelled) return
         if (err) {
-          setError(err.message || 'No se pudo abrir tu hilo de notas.')
+          setError(err.message || t('notes.openThreadError'))
           setThread(null)
         } else if (!data) {
           // No debería pasar tras el backfill, pero por las dudas.
-          setError('Tu hilo de notas todavía no fue inicializado. Avisale a tu coach.')
+          setError(t('notes.threadNotInitialized'))
           setThread(null)
         } else {
           setThread(data)
         }
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Error inesperado abriendo el hilo.')
+        if (!cancelled) setError(err.message || t('notes.unexpectedThreadError'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -61,8 +63,8 @@ export default function NotesPage() {
           <MessageSquare size={18} className="text-primary-600" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-gray-900 leading-tight">Notas con tu coach</h1>
-          <p className="text-xs text-gray-500">Mensajes, observaciones y respuestas</p>
+          <h1 className="text-lg font-bold text-gray-900 leading-tight">{t('notes.pageTitle')}</h1>
+          <p className="text-xs text-gray-500">{t('notes.pageSubtitle')}</p>
         </div>
       </div>
 

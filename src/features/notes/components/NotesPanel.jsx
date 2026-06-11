@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
 import { listFilterOptions, markThreadRead, listAllExercises } from '../api'
@@ -29,6 +30,7 @@ import NoteComposer from './NoteComposer'
 const FILTER_REFETCH_DEBOUNCE_MS = 1500
 
 export default function NotesPanel({ threadId, viewerRole = 'coach', authorId }) {
+  const { t } = useTranslation()
   const [filters, setFilters] = useState({})
   const [availableTags, setAvailableTags] = useState([])
   const [exercises, setExercises] = useState([])
@@ -126,11 +128,11 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
   useEffect(() => {
     if (!threadId || notes.length === 0 || hasMarkedRef.current) return
     if (unreadCount === 0) return
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       hasMarkedRef.current = true
       await markThreadRead(threadId, viewerRole)
     }, 1500)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [threadId, notes.length, unreadCount, viewerRole])
 
   // ── Mapa id → ejercicio (para resolver contexto en NoteCard) ──
@@ -186,13 +188,9 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
           <div className="flex items-center gap-2 text-orange-700 text-sm">
             <span className="inline-block w-2 h-2 rounded-full bg-orange-500" />
-            <span className="font-medium">
-              {unreadCount} {unreadCount === 1 ? 'nota nueva' : 'notas nuevas'}
-            </span>
+            <span className="font-medium">{t('notes.newNotes', { count: unreadCount })}</span>
           </div>
-          <span className="text-[11px] text-orange-600/80">
-            Se marcarán como leídas en unos segundos
-          </span>
+          <span className="text-[11px] text-orange-600/80">{t('notes.willMarkRead')}</span>
         </div>
       )}
 
@@ -215,7 +213,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             onClick={reload}
             className="text-xs font-semibold text-red-700 hover:text-red-900"
           >
-            Reintentar
+            {t('notes.retry')}
           </button>
         </div>
       )}
@@ -231,11 +229,9 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         {!loading && notes.length === 0 && !error && (
           <div className="card text-center py-10 text-gray-400">
             <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm font-medium text-gray-500">Sin notas</p>
+            <p className="text-sm font-medium text-gray-500">{t('notes.emptyTitle')}</p>
             <p className="text-xs text-gray-400 mt-1">
-              {viewerRole === 'coach'
-                ? 'Todavía no se intercambiaron notas con este alumno.'
-                : 'Todavía no hay notas en este hilo.'}
+              {viewerRole === 'coach' ? t('notes.emptyCoach') : t('notes.emptyStudent')}
             </p>
           </div>
         )}
@@ -264,7 +260,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
               className="btn-secondary text-xs flex items-center gap-1.5"
             >
               {loading ? <Loader2 size={12} className="animate-spin" /> : null}
-              Cargar más
+              {t('notes.loadMore')}
             </button>
           </div>
         )}

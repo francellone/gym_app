@@ -19,6 +19,7 @@
 //   - Drawer = read-only V1.
 // ============================================================
 
+import { useTranslation } from 'react-i18next'
 import { History, MessageCircle, ChevronRight } from 'lucide-react'
 import { formatLastLogSummary, formatLastBlockLogSummary, formatRelativeDate } from '../exerciseHistoryLogic'
 
@@ -42,6 +43,7 @@ export function ExerciseHistoryHeaderLine({
   onOpenChat,
   isCompact = false,
 }) {
+  const { t } = useTranslation()
   const log = lastLog || lastBlockLog
   const hasLog = !!log
   const hasChat = noteCount > 0
@@ -60,7 +62,10 @@ export function ExerciseHistoryHeaderLine({
   return (
     <div className={`flex items-center gap-1.5 mt-0.5 ${textSize} text-gray-500`}>
       {hasLog && summary && (
-        <span className="flex items-center gap-1 truncate" title={`Última vez ${relDate}`}>
+        <span
+          className="flex items-center gap-1 truncate"
+          title={t('workout.lastTimeTitle', { date: relDate })}
+        >
           <History size={isCompact ? 9 : 11} className="text-gray-400 flex-shrink-0" />
           <span className="truncate">
             {relDate && <span className="text-gray-400">{relDate}: </span>}
@@ -78,7 +83,7 @@ export function ExerciseHistoryHeaderLine({
           className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 font-semibold transition-colors flex-shrink-0 ${
             isCompact ? 'text-[10px]' : 'text-[10px]'
           }`}
-          aria-label={`Ver chat del ejercicio (${noteCount} mensajes)`}
+          aria-label={t('workout.seeExerciseChatAria', { count: noteCount })}
         >
           <MessageCircle size={isCompact ? 9 : 10} />
           {noteCount}
@@ -101,6 +106,7 @@ export function ExerciseHistoryBodyBlock({
   noteCount = 0,
   onOpenChat,
 }) {
+  const { t } = useTranslation()
   const hasNote = !!lastCoachNote
   const hasChat = noteCount > 0
   if (!hasNote && !hasChat) return null
@@ -109,7 +115,7 @@ export function ExerciseHistoryBodyBlock({
     <div className="bg-primary-50 border border-primary-200 rounded-xl p-3 space-y-2">
       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary-700">
         <MessageCircle size={13} />
-        <span>Última nota del coach</span>
+        <span>{t('workout.lastCoachNote')}</span>
         {hasNote && lastCoachNote.created_at && (
           <span className="text-primary-500/80 font-normal">
             · {formatRelativeDate(lastCoachNote.created_at.slice(0, 10))}
@@ -122,7 +128,7 @@ export function ExerciseHistoryBodyBlock({
         </p>
       ) : (
         <p className="text-sm text-gray-400 italic">
-          Sin notas del coach. El chat tiene {noteCount} mensaje{noteCount === 1 ? '' : 's'}.
+          {t('workout.noCoachNotes', { count: noteCount })}
         </p>
       )}
       {hasChat && (
@@ -134,10 +140,10 @@ export function ExerciseHistoryBodyBlock({
           }}
           className="text-xs text-primary-700 hover:text-primary-800 font-semibold flex items-center gap-1"
         >
-          Ver chat completo
+          {t('workout.seeFullChat')}
           <ChevronRight size={13} />
           <span className="text-primary-500/80 font-normal">
-            ({noteCount} mensaje{noteCount === 1 ? '' : 's'})
+            {t('workout.messagesCount', { count: noteCount })}
           </span>
         </button>
       )}

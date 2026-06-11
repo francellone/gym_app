@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import { TrendingUp, Tag } from 'lucide-react'
 import {
   LineChart,
@@ -34,7 +35,7 @@ const PERIODS = [
   { label: '1m', days: 30 },
   { label: '3m', days: 90 },
   { label: '6m', days: 180 },
-  { label: 'Todo', days: 365 },
+  { labelKey: 'progress.periodAll', days: 365 },
 ]
 
 function Card({ children, className = '' }) {
@@ -58,6 +59,7 @@ function CustomTooltip({ active, payload, label }) {
 
 // Heatmap de asistencia (últimas 8 semanas)
 function AttendanceHeatmap({ logs }) {
+  const { t } = useTranslation()
   const today = new Date()
   const weeks = Array.from({ length: 8 }, (_, wi) => {
     const weekStart = startOfWeek(subDays(today, wi * 7), { weekStartsOn: 1 })
@@ -66,13 +68,13 @@ function AttendanceHeatmap({ logs }) {
   }).reverse()
 
   const logDates = new Set(logs.filter((l) => l.completed).map((l) => l.logged_date))
-  const dayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  const dayLabels = t('dates.dayInitials').split(',')
 
   return (
     <div className="space-y-2">
       <div className="flex gap-1">
-        {dayLabels.map((d) => (
-          <div key={d} className="flex-1 text-center text-xs text-gray-400">
+        {dayLabels.map((d, di) => (
+          <div key={di} className="flex-1 text-center text-xs text-gray-400">
             {d}
           </div>
         ))}
@@ -97,9 +99,9 @@ function AttendanceHeatmap({ logs }) {
       ))}
       <div className="flex items-center gap-2 text-xs text-gray-400 justify-end">
         <div className="w-3 h-3 rounded bg-gray-100" />
-        Sin entrenamiento
+        {t('progress.noTraining')}
         <div className="w-3 h-3 rounded bg-primary-500" />
-        Con entrenamiento
+        {t('progress.withTraining')}
       </div>
     </div>
   )
@@ -120,7 +122,20 @@ const WELLBEING_LINE_COLORS = {
 // sobre las columnas legacy.
 
 export default function ProgressPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
+
+  // Nombres de series de los gráficos: son también las keys de los objetos
+  // de datos que consume recharts (legend/tooltip los muestran tal cual).
+  const sWeight = t('progress.seriesWeight')
+  const sPse = t('progress.seriesPse')
+  const sVolume = t('progress.seriesVolume')
+  const sPseAvg = t('progress.seriesPseAvg')
+  const sIntensity = t('progress.seriesIntensity')
+  const sMinutes = t('progress.seriesMinutes')
+  const sActualSets = t('progress.seriesActualSets')
+  const sSuggestedSets = t('progress.seriesSuggestedSets')
+  const sActualWeight = t('progress.seriesActualWeight')
   const [logs, setLogs] = useState([])
   const [sessions, setSessions] = useState([])
   const [wellbeingLogs, setWellbeingLogs] = useState([])
@@ -269,10 +284,10 @@ export default function ProgressPage() {
     .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise && hasWeightOrReps(l))
     .map((l) => ({
       date: format(parseISO(l.logged_date), 'dd/MM'),
-      Peso: maxWeightOfLog(l),
-      PSE: l.perceived_difficulty,
+      [sWeight]: maxWeightOfLog(l),
+      [sPse]: l.perceived_difficulty,
     }))
-    .filter((d) => d.Peso > 0)
+    .filter((d) => d[sWeight] > 0)
 
   // 2. Volumen por sesión (filtrado por etiqueta)
   // Bodyweight sin weight_kg → bandera para mostrar CTA.
@@ -289,7 +304,7 @@ export default function ProgressPage() {
   })
   const volumeData = Object.entries(volumeByDate).map(([date, vol]) => ({
     date,
-    Volumen: Math.round(vol),
+    [sVolume]: Math.round(vol),
   }))
 
   // 2b. Volumen agrupado por etiqueta (para el agrupador)
@@ -335,7 +350,7 @@ export default function ProgressPage() {
   })
   const pseData = Object.entries(pseByDate).map(([date, values]) => ({
     date,
-    'PSE promedio': Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10,
+    [sPseAvg]: Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10,
   }))
 
   // 4. Intensidad general (borg_value)
@@ -343,7 +358,7 @@ export default function ProgressPage() {
     .filter((s) => s.borg_value !== null && s.borg_value !== undefined)
     .map((s) => ({
       date: format(parseISO(s.logged_date), 'dd/MM'),
-      Intensidad: Number(s.borg_value),
+      [sIntensity]: Number(s.borg_value),
       label: BORG_LABELS[Math.round(Number(s.borg_value))],
     }))
 
@@ -353,13 +368,13 @@ export default function ProgressPage() {
     .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
     .map((s) => {
       const mins = Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000)
-      return { date: format(parseISO(s.logged_date), 'dd/MM'), Minutos: mins }
+      return { date: format(parseISO(s.logged_date), 'dd/MM'), [sMinutes]: mins }
     })
-    .filter((d) => d.Minutos > 0)
+    .filter((d) => d[sMinutes] > 0)
 
   const medianDuration = (() => {
     if (!durationData.length) return null
-    const sorted = [...durationData].map((d) => d.Minutos).sort((a, b) => a - b)
+    const sorted = [...durationData].map((d) => d[sMinutes]).sort((a, b) => a - b)
     const mid = Math.floor(sorted.length / 2)
     return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
   })()
@@ -369,9 +384,9 @@ export default function ProgressPage() {
     .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
     .map((l) => ({
       date: format(parseISO(l.logged_date), 'dd/MM'),
-      'Series reales': l.actual_sets || 0,
-      'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
-      'Peso real': maxWeightOfLog(l),
+      [sActualSets]: l.actual_sets || 0,
+      [sSuggestedSets]: l.plan_exercise?.suggested_sets || 0,
+      [sActualWeight]: maxWeightOfLog(l),
     }))
 
   // 7. Stats resumen
@@ -391,7 +406,7 @@ export default function ProgressPage() {
 
   const avgBorg =
     borgData.length > 0
-      ? Math.round((borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length) * 10) / 10
+      ? Math.round((borgData.reduce((a, d) => a + d[sIntensity], 0) / borgData.length) * 10) / 10
       : null
 
   const maxWeight = logs
@@ -399,12 +414,12 @@ export default function ProgressPage() {
     .reduce((max, l) => Math.max(max, maxWeightOfLog(l)), 0)
 
   const CHARTS = [
-    { id: 'weight', label: 'Peso' },
-    { id: 'volume', label: 'Volumen' },
-    { id: 'pse', label: 'PSE' },
-    { id: 'borg', label: 'Intensidad' },
-    { id: 'duration', label: 'Duración' },
-    { id: 'compare', label: 'Sugerido vs Real' },
+    { id: 'weight', label: t('progress.chartWeight') },
+    { id: 'volume', label: t('progress.chartVolume') },
+    { id: 'pse', label: t('progress.chartPse') },
+    { id: 'borg', label: t('progress.chartIntensity') },
+    { id: 'duration', label: t('progress.chartDuration') },
+    { id: 'compare', label: t('progress.chartCompare') },
   ]
 
   // Etiquetas que tienen ejercicios presentes en los logs del período
@@ -419,7 +434,7 @@ export default function ProgressPage() {
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-5 pt-12 pb-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Mi progreso</h1>
+        <h1 className="text-xl font-bold text-gray-900">{t('progress.title')}</h1>
         <div className="flex gap-1 mt-3 bg-gray-100 p-1 rounded-xl">
           {PERIODS.map((p) => (
             <button
@@ -429,7 +444,7 @@ export default function ProgressPage() {
                 period === p.days ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
               }`}
             >
-              {p.label}
+              {p.labelKey ? t(p.labelKey) : p.label}
             </button>
           ))}
         </div>
@@ -443,10 +458,8 @@ export default function ProgressPage() {
         ) : logs.length === 0 ? (
           <div className="text-center py-12">
             <TrendingUp className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">Sin datos aún</p>
-            <p className="text-gray-400 text-sm mt-1">
-              Completá entrenamientos para ver tu progreso
-            </p>
+            <p className="text-gray-500 font-medium">{t('progress.noDataTitle')}</p>
+            <p className="text-gray-400 text-sm mt-1">{t('progress.noDataBody')}</p>
           </div>
         ) : (
           <>
@@ -455,19 +468,19 @@ export default function ProgressPage() {
               <Card>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900">{totalSessions}</p>
-                  <p className="text-xs text-gray-500">Sesiones</p>
+                  <p className="text-xs text-gray-500">{t('progress.sessions')}</p>
                 </div>
               </Card>
               <Card>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900">{totalCompleted}</p>
-                  <p className="text-xs text-gray-500">Ejercicios</p>
+                  <p className="text-xs text-gray-500">{t('progress.exercises')}</p>
                 </div>
               </Card>
               <Card>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900">{avgPSE ?? '—'}</p>
-                  <p className="text-xs text-gray-500">PSE prom.</p>
+                  <p className="text-xs text-gray-500">{t('progress.avgPseShort')}</p>
                 </div>
               </Card>
             </div>
@@ -477,9 +490,9 @@ export default function ProgressPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">
-                      Intensidad general promedio
+                      {t('progress.avgBorgTitle')}
                     </p>
-                    <p className="text-xs text-gray-500">Escala de Borg (0-10)</p>
+                    <p className="text-xs text-gray-500">{t('progress.borgScaleSubtitle')}</p>
                   </div>
                   <span
                     className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(avgBorg))}`}
@@ -494,7 +507,9 @@ export default function ProgressPage() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Peso máximo registrado</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {t('progress.maxWeightTitle')}
+                    </p>
                     {exercises.find((e) => e.id === selectedExercise) && (
                       <p className="text-xs text-gray-500">
                         {exercises.find((e) => e.id === selectedExercise)?.name}
@@ -511,7 +526,7 @@ export default function ProgressPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                   <Tag className="w-3.5 h-3.5" />
-                  Filtrar por etiqueta
+                  {t('progress.filterByTag')}
                 </div>
                 <div className="overflow-x-auto -mx-4 px-4">
                   <div className="flex gap-2 w-max pb-0.5">
@@ -523,7 +538,7 @@ export default function ProgressPage() {
                           : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      Todas
+                      {t('progress.allTags')}
                     </button>
                     {tagsInLogs.map((tag) => (
                       <button
@@ -588,8 +603,8 @@ export default function ProgressPage() {
             {activeChart === 'weight' && (
               <Card>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Progresión de peso</h3>
-                  <p className="text-xs text-gray-500">Peso levantado por sesión</p>
+                  <h3 className="font-semibold text-gray-900">{t('progress.weightProgressTitle')}</h3>
+                  <p className="text-xs text-gray-500">{t('progress.weightProgressSubtitle')}</p>
                 </div>
                 {weightData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
@@ -608,7 +623,7 @@ export default function ProgressPage() {
                       <Area
                         yAxisId="left"
                         type="monotone"
-                        dataKey="Peso"
+                        dataKey={sWeight}
                         fill="#fde68a"
                         stroke="#ea580c"
                         strokeWidth={2.5}
@@ -618,7 +633,7 @@ export default function ProgressPage() {
                       <Line
                         yAxisId="right"
                         type="monotone"
-                        dataKey="PSE"
+                        dataKey={sPse}
                         stroke="#8b5cf6"
                         strokeWidth={1.5}
                         dot={false}
@@ -628,7 +643,7 @@ export default function ProgressPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    Sin datos de peso para este ejercicio
+                    {t('progress.noWeightDataForExercise')}
                   </p>
                 )}
               </Card>
@@ -638,8 +653,8 @@ export default function ProgressPage() {
             {activeChart === 'compare' && (
               <Card>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Sugerido vs Real</h3>
-                  <p className="text-xs text-gray-500">Series planificadas vs ejecutadas</p>
+                  <h3 className="font-semibold text-gray-900">{t('progress.chartCompare')}</h3>
+                  <p className="text-xs text-gray-500">{t('progress.compareSubtitle')}</p>
                 </div>
                 {compareData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
@@ -649,13 +664,13 @@ export default function ProgressPage() {
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="Series sugeridas" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Series reales" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={sSuggestedSets} fill="#e0e7ff" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={sActualSets} fill="#6366f1" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    Sin datos para este ejercicio
+                    {t('progress.noDataForExercise')}
                   </p>
                 )}
               </Card>
@@ -666,18 +681,19 @@ export default function ProgressPage() {
               <Card>
                 {bwUncomputable && !bodyWeightKg && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                    <strong>Peso corporal sin registrar.</strong> Para calcular el volumen de
-                    ejercicios sin peso necesitamos tu peso corporal. Pedile a tu coach que lo
-                    cargue desde tu perfil.
+                    <strong>{t('progress.bodyWeightMissingTitle')}</strong>{' '}
+                    {t('progress.bodyWeightMissingBody')}
                   </div>
                 )}
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Volumen total por sesión</h3>
+                    <h3 className="font-semibold text-gray-900">{t('progress.volumeTitle')}</h3>
                     <p className="text-xs text-gray-500">
                       {selectedTag
-                        ? `Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
-                        : 'Reps × peso (peso corporal en BW). Unilateral × 2.'}
+                        ? t('progress.volumeTagSubtitle', {
+                            name: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
+                          })
+                        : t('progress.volumeSubtitle')}
                     </p>
                   </div>
                   {tagsWithVolume.length > 1 && !selectedTag && (
@@ -690,7 +706,7 @@ export default function ProgressPage() {
                       }`}
                     >
                       <Tag className="w-3 h-3" />
-                      Por etiqueta
+                      {t('progress.byTag')}
                     </button>
                   )}
                 </div>
@@ -721,7 +737,9 @@ export default function ProgressPage() {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen</p>
+                    <p className="text-center text-sm text-gray-400 py-6">
+                      {t('progress.noVolumeData')}
+                    </p>
                   )
                 ) : volumeData.length > 0 ? (
                   /* Modo normal (una sola serie) */
@@ -733,7 +751,7 @@ export default function ProgressPage() {
                       <Tooltip content={<CustomTooltip />} />
                       <Area
                         type="monotone"
-                        dataKey="Volumen"
+                        dataKey={sVolume}
                         fill="#fed7aa"
                         stroke="#fb923c"
                         strokeWidth={2}
@@ -742,7 +760,7 @@ export default function ProgressPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    Sin datos de volumen para este período
+                    {t('progress.noVolumeDataPeriod')}
                   </p>
                 )}
               </Card>
@@ -753,11 +771,15 @@ export default function ProgressPage() {
               <Card>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Esfuerzo percibido (PSE)</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      {t('workout.perceivedEffortPSE')}
+                    </h3>
                     <p className="text-xs text-gray-500">
                       {selectedTag
-                        ? `Promedio · Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
-                        : 'Promedio por sesión'}
+                        ? t('progress.pseTagSubtitle', {
+                            name: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
+                          })
+                        : t('progress.pseSubtitle')}
                     </p>
                   </div>
                 </div>
@@ -770,7 +792,7 @@ export default function ProgressPage() {
                       <Tooltip content={<CustomTooltip />} />
                       <Line
                         type="monotone"
-                        dataKey="PSE promedio"
+                        dataKey={sPseAvg}
                         stroke="#8b5cf6"
                         strokeWidth={2}
                         dot={{ fill: '#8b5cf6', r: 3 }}
@@ -779,7 +801,7 @@ export default function ProgressPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    Sin datos de PSE para este período
+                    {t('progress.noPseDataPeriod')}
                   </p>
                 )}
               </Card>
@@ -789,8 +811,8 @@ export default function ProgressPage() {
             {activeChart === 'borg' && borgData.length > 0 && (
               <Card>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Intensidad general (Borg)</h3>
-                  <p className="text-xs text-gray-500">Percepción del entrenamiento completo</p>
+                  <h3 className="font-semibold text-gray-900">{t('progress.borgTitle')}</h3>
+                  <p className="text-xs text-gray-500">{t('progress.borgSubtitle')}</p>
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={borgData}>
@@ -798,16 +820,16 @@ export default function ProgressPage() {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="Intensidad" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey={sIntensity} radius={[4, 4, 0, 0]}>
                       {borgData.map((entry, i) => (
                         <rect
                           key={i}
                           fill={
-                            entry.Intensidad >= 8
+                            entry[sIntensity] >= 8
                               ? '#ef4444'
-                              : entry.Intensidad >= 6
+                              : entry[sIntensity] >= 6
                                 ? '#f97316'
-                                : entry.Intensidad >= 4
+                                : entry[sIntensity] >= 4
                                   ? '#eab308'
                                   : '#22c55e'
                           }
@@ -824,15 +846,13 @@ export default function ProgressPage() {
               <Card>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Duración de sesiones</h3>
-                    <p className="text-xs text-gray-500">
-                      Minutos por entrenamiento · solo sesiones del día
-                    </p>
+                    <h3 className="font-semibold text-gray-900">{t('progress.durationTitle')}</h3>
+                    <p className="text-xs text-gray-500">{t('progress.durationSubtitle')}</p>
                   </div>
                   {medianDuration !== null && (
                     <div className="flex flex-col items-end">
                       <span className="text-2xl font-bold text-primary-600">{medianDuration}</span>
-                      <span className="text-xs text-gray-400">min · mediana</span>
+                      <span className="text-xs text-gray-400">{t('progress.medianMin')}</span>
                     </div>
                   )}
                 </div>
@@ -843,13 +863,12 @@ export default function ProgressPage() {
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} unit="min" />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="Minutos" fill="#14b8a6" radius={[4, 4, 0, 0]} unit="min" />
+                      <Bar dataKey={sMinutes} fill="#14b8a6" radius={[4, 4, 0, 0]} unit="min" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    No hay datos de duración aún. Se registran automáticamente cuando finalizás el
-                    entrenamiento.
+                    {t('progress.noDurationData')}
                   </p>
                 )}
               </Card>
@@ -858,8 +877,8 @@ export default function ProgressPage() {
             {/* Heatmap de asistencia */}
             <Card>
               <div>
-                <h3 className="font-semibold text-gray-900">Asistencia</h3>
-                <p className="text-xs text-gray-500">Últimas 8 semanas</p>
+                <h3 className="font-semibold text-gray-900">{t('progress.attendanceTitle')}</h3>
+                <p className="text-xs text-gray-500">{t('progress.attendanceSubtitle')}</p>
               </div>
               <AttendanceHeatmap logs={logs} />
             </Card>
@@ -871,13 +890,15 @@ export default function ProgressPage() {
           <>
             <div className="flex items-center gap-2 pt-2">
               <span className="text-xl">🌟</span>
-              <h2 className="text-base font-bold text-gray-900">Wellbeing</h2>
-              <span className="text-xs text-gray-400 ml-1">{wellbeingLogs.length} registros</span>
+              <h2 className="text-base font-bold text-gray-900">{t('progress.wellbeingTitle')}</h2>
+              <span className="text-xs text-gray-400 ml-1">
+                {t('progress.logsCount', { count: wellbeingLogs.length })}
+              </span>
             </div>
 
             {/* Promedios en grilla 2×3 */}
             <div className="grid grid-cols-2 gap-2">
-              {WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
+              {WELLBEING_METRICS.map(({ key, labelKey, emoji, positive }) => {
                 const vals = wellbeingLogs.map((l) => l[key]).filter((v) => v != null)
                 const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
                 const colorClass = avg
@@ -887,7 +908,7 @@ export default function ProgressPage() {
                   <div key={key} className="card p-3 flex items-center gap-3">
                     <span className="text-xl">{emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 truncate">{label}</p>
+                      <p className="text-xs text-gray-500 truncate">{t(labelKey)}</p>
                     </div>
                     <div className={`text-sm font-bold px-2.5 py-1 rounded-xl ${colorClass}`}>
                       {avg ? avg.toFixed(1) : '—'}
@@ -900,13 +921,17 @@ export default function ProgressPage() {
             {/* Gráfico de evolución wellbeing */}
             <Card>
               <div>
-                <h3 className="font-semibold text-gray-900">Evolución wellbeing</h3>
-                <p className="text-xs text-gray-500">Escala 1–10</p>
+                <h3 className="font-semibold text-gray-900">
+                  {t('progress.wellbeingEvolutionTitle')}
+                </h3>
+                <p className="text-xs text-gray-500">{t('progress.scale1to10')}</p>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart
                   data={wellbeingLogs.map((l) => ({
-                    date: format(parseISO(l.date), 'd MMM', { locale: es }),
+                    date: format(parseISO(l.date), t('dates.dayMonthShort'), {
+                      locale: dateLocale(),
+                    }),
                     ...WELLBEING_METRICS.reduce((acc, { key }) => ({ ...acc, [key]: l[key] }), {}),
                   }))}
                   margin={{ top: 4, right: 8, left: -24, bottom: 0 }}
@@ -934,12 +959,12 @@ export default function ProgressPage() {
                       )
                     }}
                   />
-                  {WELLBEING_METRICS.map(({ key, label }) => (
+                  {WELLBEING_METRICS.map(({ key, labelKey }) => (
                     <Line
                       key={key}
                       type="monotone"
                       dataKey={key}
-                      name={label}
+                      name={t(labelKey)}
                       stroke={WELLBEING_LINE_COLORS[key]}
                       strokeWidth={2}
                       dot={{ r: 2.5, fill: WELLBEING_LINE_COLORS[key] }}

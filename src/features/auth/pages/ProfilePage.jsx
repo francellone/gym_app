@@ -12,9 +12,11 @@ import {
   Pencil,
   AlertCircle,
   CheckCircle2,
+  Globe,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 
 // ── Opciones del form ──────────────────────────────────────────────────────────
 // Tomadas del intake form (intake_form_submissions.form_snapshot) para mantener
@@ -41,6 +43,30 @@ const PATOLOGIAS_OPTIONS = [
   'Ninguna',
 ]
 
+// i18n (doc 46): los VALORES que se guardan en BD siguen siendo los strings en
+// español de arriba; estos mapas sólo traducen el DISPLAY. Si una opción no
+// está en el mapa (valor custom en BD), se muestra tal cual (defaultValue).
+const GOAL_I18N_KEYS = {
+  'Perder grasa': 'loseFat',
+  'Ganar músculo': 'gainMuscle',
+  'Mejorar resistencia': 'improveEndurance',
+  Tonificar: 'tone',
+  'Mejorar salud general': 'improveHealth',
+  'Preparación deportiva': 'sportsPrep',
+  Rehabilitación: 'rehab',
+}
+
+const PATOLOGIA_I18N_KEYS = {
+  Hipertensión: 'hypertension',
+  'Diabetes tipo 1': 'diabetes1',
+  'Diabetes tipo 2': 'diabetes2',
+  Obesidad: 'obesity',
+  'Problemas cardíacos': 'heartProblems',
+  'Problemas respiratorios': 'respiratoryProblems',
+  'Problemas articulares': 'jointProblems',
+  Ninguna: 'none',
+}
+
 // Q6 (handoff 13/16, 2026-05-23): valores que el alumno puede editar y que
 // disparan notif al coach vía trigger fn_notify_profile_change. La lista vive
 // también en la migración SQL (debe matchear). height_cm es editable pero NO
@@ -53,6 +79,35 @@ const PATOLOGIAS_OPTIONS = [
 export default function ProfilePage() {
   const { profile, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
+
+  // Display traducido de opciones cuyo VALOR persistido queda en español (BD).
+  const goalDisplay = (val) =>
+    val ? t(`profile.goalOptions.${GOAL_I18N_KEYS[val]}`, { defaultValue: val }) : val
+  const patologiaDisplay = (val) =>
+    t(`profile.pathologyOptions.${PATOLOGIA_I18N_KEYS[val]}`, { defaultValue: val })
+
+  // ── Idioma de la app (doc 46) ────────────────────────────────────────────────
+  // Guarda profiles.language y refresca el profile; AuthContext.fetchProfile
+  // hace el i18n.changeLanguage, así el idioma queda consistente en toda la app.
+  const [langSaving, setLangSaving] = useState(false)
+
+  async function changeAppLanguage(lang) {
+    if (!profile?.id || lang === (profile?.language || 'es') || langSaving) return
+    setLangSaving(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ language: lang })
+        .eq('id', profile.id)
+      if (error) throw error
+      await refreshProfile()
+    } catch (err) {
+      console.error('[i18n] change language error:', err)
+    } finally {
+      setLangSaving(false)
+    }
+  }
 
   // ── Estado de edición y feedback ─────────────────────────────────────────────
   const [editing, setEditing] = useState(false)
@@ -136,7 +191,7 @@ export default function ProfilePage() {
 
   function formatIntakeResponse(value) {
     if (value === null || value === undefined || value === '') return '—'
-    if (typeof value === 'boolean') return value ? 'Sí' : 'No'
+    if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
     if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—'
     return String(value)
   }
@@ -155,29 +210,29 @@ export default function ProfilePage() {
       const hasDesc = form.descripcion_lesiones?.trim().length > 0
       const hasNonNingunaPat = form.patologias?.some((p) => p !== 'Ninguna')
       if (!hasDesc && !hasNonNingunaPat) {
-        return 'Si marcaste que tenés lesiones, describilas o sumá una patología distinta a "Ninguna".'
+        return t('profile.validation.injuriesDetail')
       }
     }
     if (form.weight_kg !== '' && (form.weight_kg < 20 || form.weight_kg > 300)) {
-      return 'El peso debe estar entre 20 y 300 kg.'
+      return t('profile.validation.weightRange')
     }
     if (form.height_cm !== '' && (form.height_cm < 50 || form.height_cm > 250)) {
-      return 'La altura debe estar entre 50 y 250 cm.'
+      return t('profile.validation.heightRange')
     }
     if (
       form.target_weight_kg !== '' &&
       (form.target_weight_kg < 20 || form.target_weight_kg > 300)
     ) {
-      return 'El objetivo de peso debe estar entre 20 y 300 kg.'
+      return t('profile.validation.targetWeightRange')
     }
     if (
       form.weekly_frequency !== '' &&
       (form.weekly_frequency < 1 || form.weekly_frequency > 7)
     ) {
-      return 'La frecuencia debe estar entre 1 y 7 días por semana.'
+      return t('profile.validation.frequencyRange')
     }
     if (form.goal_choice === 'Otro' && form.goal_other_text.trim().length === 0) {
-      return 'Especificá tu objetivo en el campo "Otro".'
+      return t('profile.validation.goalOtherRequired')
     }
     return null
   }
@@ -227,7 +282,7 @@ export default function ProfilePage() {
       setTimeout(() => setSaveSuccess(false), 2500)
     } catch (err) {
       console.error('[Q6] save profile error:', err)
-      setSaveError(err.message || 'No se pudo guardar. Probá de nuevo.')
+      setSaveError(err.message || t('profile.saveError'))
     } finally {
       setSaving(false)
     }
@@ -257,11 +312,11 @@ export default function ProfilePage() {
   async function changePassword() {
     setPwError(null)
     if (passwordForm.new !== passwordForm.confirm) {
-      setPwError('Las contraseñas no coinciden')
+      setPwError(t('profile.validation.passwordsMismatch'))
       return
     }
     if (passwordForm.new.length < 6) {
-      setPwError('La contraseña debe tener al menos 6 caracteres')
+      setPwError(t('profile.validation.passwordTooShort'))
       return
     }
     setSaving(true)
@@ -301,10 +356,10 @@ export default function ProfilePage() {
         {profile?.level && (
           <span className="inline-block mt-2 badge bg-white/20 text-white capitalize">
             {profile.level === 'beginner'
-              ? 'Principiante'
+              ? t('profile.levelBeginner')
               : profile.level === 'intermediate'
-                ? 'Intermedio'
-                : 'Avanzado'}
+                ? t('profile.levelIntermediate')
+                : t('profile.levelAdvanced')}
           </span>
         )}
       </div>
@@ -313,10 +368,16 @@ export default function ProfilePage() {
         {/* Stats compactos (siempre visibles, no editables — vista rápida) */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Altura', value: profile?.height_cm ? `${profile.height_cm} cm` : '—' },
-            { label: 'Peso', value: profile?.weight_kg ? `${profile.weight_kg} kg` : '—' },
             {
-              label: 'Objetivo',
+              label: t('profile.height'),
+              value: profile?.height_cm ? `${profile.height_cm} cm` : '—',
+            },
+            {
+              label: t('profile.weight'),
+              value: profile?.weight_kg ? `${profile.weight_kg} kg` : '—',
+            },
+            {
+              label: t('profile.target'),
               value: profile?.target_weight_kg ? `${profile.target_weight_kg} kg` : '—',
             },
           ].map((item) => (
@@ -330,7 +391,7 @@ export default function ProfilePage() {
         {/* Card Mis datos — modo lectura / edición */}
         <div className="card">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Mis datos</h3>
+            <h3 className="font-semibold text-gray-900">{t('profile.myData')}</h3>
             {!editing && (
               <button
                 onClick={() => {
@@ -340,7 +401,7 @@ export default function ProfilePage() {
                 className="text-primary-600 text-sm font-medium flex items-center gap-1"
               >
                 <Pencil size={14} />
-                Editar
+                {t('common.edit')}
               </button>
             )}
           </div>
@@ -349,42 +410,52 @@ export default function ProfilePage() {
           {saveSuccess && !editing && (
             <div className="mb-3 flex items-center gap-2 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
               <CheckCircle2 size={14} />
-              Datos actualizados. {profile?.coach_id && 'Tu coach fue notificado.'}
+              {t('profile.dataUpdated')} {profile?.coach_id && t('profile.coachNotified')}
             </div>
           )}
 
           {/* ── Vista lectura ──────────────────────────────────────────────── */}
           {!editing && (
             <dl className="space-y-2 text-sm">
-              <Row label="Peso actual" value={fmtNum(profile?.weight_kg, 'kg')} />
-              <Row label="Altura" value={fmtNum(profile?.height_cm, 'cm')} />
-              <Row label="Objetivo de peso" value={fmtNum(profile?.target_weight_kg, 'kg')} />
-              <Row label="Objetivo entrenamiento" value={profile?.goal || '—'} />
+              <Row label={t('profile.currentWeight')} value={fmtNum(profile?.weight_kg, 'kg')} />
+              <Row label={t('profile.height')} value={fmtNum(profile?.height_cm, 'cm')} />
               <Row
-                label="Frecuencia"
+                label={t('profile.targetWeight')}
+                value={fmtNum(profile?.target_weight_kg, 'kg')}
+              />
+              <Row label={t('profile.trainingGoal')} value={goalDisplay(profile?.goal) || '—'} />
+              <Row
+                label={t('profile.frequency')}
                 value={
-                  profile?.weekly_frequency ? `${profile.weekly_frequency} días/semana` : '—'
+                  profile?.weekly_frequency
+                    ? t('profile.daysPerWeek', { count: profile.weekly_frequency })
+                    : '—'
                 }
               />
               <Row
-                label="¿Tenés lesiones?"
+                label={t('profile.haveInjuries')}
                 value={
                   profile?.tiene_lesiones === true
-                    ? 'Sí'
+                    ? t('common.yes')
                     : profile?.tiene_lesiones === false
-                      ? 'No'
+                      ? t('common.no')
                       : '—'
                 }
               />
               {profile?.tiene_lesiones && (
                 <>
                   <Row
-                    label="Patologías"
+                    label={t('profile.pathologies')}
                     value={
-                      profile?.patologias?.length ? profile.patologias.join(', ') : '—'
+                      profile?.patologias?.length
+                        ? profile.patologias.map(patologiaDisplay).join(', ')
+                        : '—'
                     }
                   />
-                  <Row label="Descripción" value={profile?.descripcion_lesiones || '—'} />
+                  <Row
+                    label={t('profile.description')}
+                    value={profile?.descripcion_lesiones || '—'}
+                  />
                 </>
               )}
             </dl>
@@ -404,7 +475,7 @@ export default function ProfilePage() {
               {/* Peso y altura en grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label text-xs">Peso (kg)</label>
+                  <label className="label text-xs">{t('profile.weightKgLabel')}</label>
                   <input
                     type="number"
                     step="0.1"
@@ -419,7 +490,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label className="label text-xs">Altura (cm)</label>
+                  <label className="label text-xs">{t('profile.heightCmLabel')}</label>
                   <input
                     type="number"
                     step="0.5"
@@ -438,7 +509,7 @@ export default function ProfilePage() {
               {/* Objetivo de peso + frecuencia */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label text-xs">Objetivo de peso (kg)</label>
+                  <label className="label text-xs">{t('profile.targetWeightKgLabel')}</label>
                   <input
                     type="number"
                     step="0.1"
@@ -453,7 +524,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label className="label text-xs">Frecuencia (días/semana)</label>
+                  <label className="label text-xs">{t('profile.frequencyLabel')}</label>
                   <input
                     type="number"
                     min="1"
@@ -471,7 +542,7 @@ export default function ProfilePage() {
 
               {/* Objetivo entrenamiento (goal) */}
               <div>
-                <label className="label text-xs">Objetivo de entrenamiento</label>
+                <label className="label text-xs">{t('profile.trainingGoalFull')}</label>
                 <select
                   className="input"
                   value={form.goal_choice}
@@ -479,18 +550,18 @@ export default function ProfilePage() {
                     setForm((p) => ({ ...p, goal_choice: e.target.value }))
                   }
                 >
-                  <option value="">— Sin definir —</option>
+                  <option value="">{t('profile.goalUndefined')}</option>
                   {GOAL_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
-                      {opt}
+                      {goalDisplay(opt)}
                     </option>
                   ))}
-                  <option value="Otro">Otro…</option>
+                  <option value="Otro">{t('profile.goalOtherOption')}</option>
                 </select>
                 {form.goal_choice === 'Otro' && (
                   <textarea
                     className="input mt-2 min-h-[60px]"
-                    placeholder="Describí tu objetivo"
+                    placeholder={t('profile.describeGoalPlaceholder')}
                     value={form.goal_other_text}
                     onChange={(e) =>
                       setForm((p) => ({ ...p, goal_other_text: e.target.value }))
@@ -502,7 +573,9 @@ export default function ProfilePage() {
               {/* Lesiones (switch + condicional) */}
               <div className="border-t border-gray-100 pt-3 space-y-3">
                 <label className="flex items-center justify-between text-sm">
-                  <span className="text-gray-900 font-medium">¿Tenés alguna lesión?</span>
+                  <span className="text-gray-900 font-medium">
+                    {t('profile.anyInjuryQuestion')}
+                  </span>
                   <input
                     type="checkbox"
                     className="w-5 h-5 accent-primary-600"
@@ -516,7 +589,7 @@ export default function ProfilePage() {
                 {form.tiene_lesiones && (
                   <>
                     <div>
-                      <label className="label text-xs">Patologías</label>
+                      <label className="label text-xs">{t('profile.pathologies')}</label>
                       <div className="grid grid-cols-2 gap-1.5">
                         {PATOLOGIAS_OPTIONS.map((p) => (
                           <label
@@ -533,16 +606,16 @@ export default function ProfilePage() {
                               checked={form.patologias.includes(p)}
                               onChange={() => togglePatologia(p)}
                             />
-                            {p}
+                            {patologiaDisplay(p)}
                           </label>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="label text-xs">Descripción de la lesión</label>
+                      <label className="label text-xs">{t('profile.injuryDescriptionLabel')}</label>
                       <textarea
                         className="input min-h-[60px]"
-                        placeholder="Contale al coach qué te molesta, desde cuándo, qué movimientos te limitan."
+                        placeholder={t('profile.injuryDescriptionPlaceholder')}
                         value={form.descripcion_lesiones}
                         onChange={(e) =>
                           setForm((p) => ({ ...p, descripcion_lesiones: e.target.value }))
@@ -560,7 +633,7 @@ export default function ProfilePage() {
                   className="btn-secondary text-sm py-2.5 flex-1"
                   disabled={saving}
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={saveProfile}
@@ -572,14 +645,14 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <Save size={14} />
-                      {isDirty ? 'Guardar' : 'Cerrar'}
+                      {isDirty ? t('common.save') : t('common.close')}
                     </>
                   )}
                 </button>
               </div>
               {!isDirty && (
                 <p className="text-[11px] text-gray-400 text-center -mt-1">
-                  No hiciste cambios.
+                  {t('profile.noChanges')}
                 </p>
               )}
             </div>
@@ -592,39 +665,38 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ClipboardList size={15} className="text-primary-500" />
-                <h3 className="font-semibold text-gray-900 text-sm">Mis datos de ingreso</h3>
+                <h3 className="font-semibold text-gray-900 text-sm">{t('profile.intakeTitle')}</h3>
               </div>
               {formSubmission && (
                 <span className="badge bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                  <FileCheck size={11} /> Completado
+                  <FileCheck size={11} /> {t('profile.completedBadge')}
                 </span>
               )}
             </div>
 
             {!formSubmission && formPending && (
               <div className="space-y-2">
-                <p className="text-sm text-gray-600">Tu coach te envió el formulario de ingreso.</p>
+                <p className="text-sm text-gray-600">{t('profile.intakeSentBody')}</p>
                 <button
                   onClick={() => navigate('/student/intake')}
                   className="btn-primary text-sm w-full"
                 >
-                  Completar formulario
+                  {t('profile.completeFormButton')}
                 </button>
               </div>
             )}
 
             {!formSubmission && !formPending && (
-              <p className="text-sm text-gray-400 italic">
-                Tu coach todavía no te envió el formulario de ingreso.
-              </p>
+              <p className="text-sm text-gray-400 italic">{t('profile.intakeNotSent')}</p>
             )}
 
             {formSubmission && (
               <div className="space-y-4">
                 <p className="text-xs text-gray-400">
-                  Enviado el{' '}
-                  {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", {
-                    locale: es,
+                  {t('profile.submittedOn', {
+                    date: format(parseISO(formSubmission.submitted_at), t('dates.dayMonthYear'), {
+                      locale: dateLocale(),
+                    }),
                   })}
                 </p>
 
@@ -666,6 +738,39 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Idioma de la app (doc 46) */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <Globe size={16} className="text-gray-500" />
+            <span className="text-sm font-medium text-gray-900">
+              {t('profile.language.title')}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { code: 'es', label: t('common.spanish') },
+              { code: 'en', label: t('common.english') },
+            ].map((opt) => {
+              const active = (profile?.language || 'es') === opt.code
+              return (
+                <button
+                  key={opt.code}
+                  onClick={() => changeAppLanguage(opt.code)}
+                  disabled={langSaving}
+                  className={`text-sm py-2.5 rounded-xl border font-medium transition-colors ${
+                    active
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  } ${langSaving ? 'opacity-60' : ''}`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2">{t('profile.language.hint')}</p>
+        </div>
+
         {/* Cambiar contraseña (sin cambios) */}
         <div className="card">
           <button
@@ -674,7 +779,9 @@ export default function ProfilePage() {
           >
             <div className="flex items-center gap-2">
               <Lock size={16} className="text-gray-500" />
-              <span className="text-sm font-medium text-gray-900">Cambiar contraseña</span>
+              <span className="text-sm font-medium text-gray-900">
+                {t('profile.changePassword')}
+              </span>
             </div>
             <ChevronRight
               size={16}
@@ -685,27 +792,27 @@ export default function ProfilePage() {
           {changingPassword && (
             <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
               <div>
-                <label className="label text-xs">Nueva contraseña</label>
+                <label className="label text-xs">{t('profile.newPassword')}</label>
                 <input
                   type="password"
                   className="input"
                   value={passwordForm.new}
                   onChange={(e) => setPasswordForm((p) => ({ ...p, new: e.target.value }))}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={t('profile.min6CharsPlaceholder')}
                 />
               </div>
               <div>
-                <label className="label text-xs">Confirmar contraseña</label>
+                <label className="label text-xs">{t('profile.confirmPassword')}</label>
                 <input
                   type="password"
                   className="input"
                   value={passwordForm.confirm}
                   onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))}
-                  placeholder="Repetir contraseña"
+                  placeholder={t('profile.repeatPasswordPlaceholder')}
                 />
               </div>
               {pwError && <p className="text-xs text-red-600">{pwError}</p>}
-              {pwSuccess && <p className="text-xs text-green-600">✓ Contraseña actualizada</p>}
+              {pwSuccess && <p className="text-xs text-green-600">{t('profile.passwordUpdated')}</p>}
               <button
                 onClick={changePassword}
                 disabled={saving}
@@ -714,7 +821,7 @@ export default function ProfilePage() {
                 {saving ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  'Actualizar contraseña'
+                  t('profile.updatePassword')
                 )}
               </button>
             </div>
@@ -727,7 +834,7 @@ export default function ProfilePage() {
           className="btn-secondary w-full flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
         >
           <LogOut size={16} />
-          Cerrar sesión
+          {t('profile.signOut')}
         </button>
       </div>
     </div>

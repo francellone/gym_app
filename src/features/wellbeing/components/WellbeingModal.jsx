@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 
 // ─────────────────────────────────────────────────────────────
@@ -6,54 +7,76 @@ import { supabase } from '@/lib/supabase'
 // positive: true  → 10 es óptimo (sueño, nutrición, hidratación, energía)
 // positive: false → 10 es crítico (estrés, fatiga muscular)
 // ─────────────────────────────────────────────────────────────
+// `label`/`lowLabel`/`highLabel` quedan en español como fallback para las
+// vistas del coach (StudentWellbeingTab) que no pasan por i18n.
+// Las vistas del alumno (este modal, ProgressPage, WellbeingCard) usan
+// `labelKey`/`lowLabelKey`/`highLabelKey` con t(...).
 export const WELLBEING_METRICS = [
   {
     key: 'sleep_quality',
     label: 'Calidad de sueño',
+    labelKey: 'wellbeing.sleepQuality',
     emoji: '😴',
     positive: true,
     lowLabel: 'Muy malo',
+    lowLabelKey: 'wellbeing.sleepLow',
     highLabel: 'Excelente',
+    highLabelKey: 'wellbeing.sleepHigh',
   },
   {
     key: 'nutrition_quality',
     label: 'Calidad de alimentación',
+    labelKey: 'wellbeing.nutritionQuality',
     emoji: '🥗',
     positive: true,
     lowLabel: 'Muy mala',
+    lowLabelKey: 'wellbeing.nutritionLow',
     highLabel: 'Excelente',
+    highLabelKey: 'wellbeing.nutritionHigh',
   },
   {
     key: 'hydration_quality',
     label: 'Hidratación',
+    labelKey: 'wellbeing.hydrationQuality',
     emoji: '💧',
     positive: true,
     lowLabel: 'Muy poca',
+    lowLabelKey: 'wellbeing.hydrationLow',
     highLabel: 'Perfecta',
+    highLabelKey: 'wellbeing.hydrationHigh',
   },
   {
     key: 'energy_level',
     label: 'Nivel de energía',
+    labelKey: 'wellbeing.energyLevel',
     emoji: '⚡',
     positive: true,
     lowLabel: 'Sin energía',
+    lowLabelKey: 'wellbeing.energyLow',
     highLabel: 'Muy energizado',
+    highLabelKey: 'wellbeing.energyHigh',
   },
   {
     key: 'stress_level',
     label: 'Nivel de estrés',
+    labelKey: 'wellbeing.stressLevel',
     emoji: '😓',
     positive: false,
     lowLabel: 'Sin estrés',
+    lowLabelKey: 'wellbeing.stressLow',
     highLabel: 'Muy estresado',
+    highLabelKey: 'wellbeing.stressHigh',
   },
   {
     key: 'muscle_fatigue',
     label: 'Dolor / fatiga muscular',
+    labelKey: 'wellbeing.muscleFatigue',
     emoji: '🦵',
     positive: false,
     lowLabel: 'Sin fatiga',
+    lowLabelKey: 'wellbeing.fatigueLow',
     highLabel: 'Muy fatigado',
+    highLabelKey: 'wellbeing.fatigueHigh',
   },
 ]
 
@@ -95,6 +118,7 @@ function ringColor(value, positive) {
 //   onSkip  – callback cuando el alumno omite la encuesta
 // ─────────────────────────────────────────────────────────────
 export default function WellbeingModal({ userId, date, onSave, onSkip }) {
+  const { t } = useTranslation()
   const [values, setValues] = useState({})
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -127,7 +151,7 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
       onSave(data)
     } catch (e) {
       console.error('[WellbeingModal]', e)
-      setError('No se pudo guardar. Intentá de nuevo.')
+      setError(t('wellbeing.saveError'))
     } finally {
       setSaving(false)
     }
@@ -140,8 +164,8 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
         <div className="p-5 pb-3 border-b border-gray-100 flex-shrink-0">
           <div className="text-center">
             <div className="text-3xl mb-1">🌟</div>
-            <h2 className="font-bold text-gray-900 text-lg">¿Cómo llegás hoy?</h2>
-            <p className="text-sm text-gray-500 mt-1">Contanos cómo estás antes de entrenar</p>
+            <h2 className="font-bold text-gray-900 text-lg">{t('wellbeing.modalTitle')}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t('wellbeing.modalSubtitle')}</p>
           </div>
           {/* Barra de progreso */}
           <div className="mt-3">
@@ -152,21 +176,24 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
               />
             </div>
             <p className="text-[11px] text-gray-400 text-right mt-1">
-              {filledCount} / {WELLBEING_METRICS.length} completados
+              {t('wellbeing.completedCount', {
+                filled: filledCount,
+                total: WELLBEING_METRICS.length,
+              })}
             </p>
           </div>
         </div>
 
         {/* Métricas con scroll */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {WELLBEING_METRICS.map(({ key, label, emoji, positive, lowLabel, highLabel }) => {
+          {WELLBEING_METRICS.map(({ key, labelKey, emoji, positive, lowLabelKey, highLabelKey }) => {
             const val = values[key]
             return (
               <div key={key}>
                 {/* Fila: emoji + label + badge valor */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg leading-none">{emoji}</span>
-                  <span className="text-sm font-semibold text-gray-800 flex-1">{label}</span>
+                  <span className="text-sm font-semibold text-gray-800 flex-1">{t(labelKey)}</span>
                   {val !== undefined && (
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${wellbeingColor(val, positive)}`}
@@ -195,8 +222,8 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
 
                 {/* Etiquetas extremos */}
                 <div className="flex justify-between text-[10px] text-gray-400 px-0.5 mt-1">
-                  <span>{lowLabel}</span>
-                  <span>{highLabel}</span>
+                  <span>{t(lowLabelKey)}</span>
+                  <span>{t(highLabelKey)}</span>
                 </div>
               </div>
             )
@@ -205,12 +232,13 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
           {/* Observaciones */}
           <div>
             <label className="text-xs text-gray-500 mb-1.5 block font-medium">
-              Observaciones <span className="font-normal">(opcional)</span>
+              {t('workout.observations')}{' '}
+              <span className="font-normal">{t('wellbeing.optional')}</span>
             </label>
             <textarea
               className="input resize-none text-sm"
               rows={2}
-              placeholder="¿Algo que quieras agregar sobre cómo te sentís hoy?"
+              placeholder={t('wellbeing.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -222,7 +250,7 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
         {/* Botones fijos abajo */}
         <div className="p-5 pt-3 border-t border-gray-100 flex gap-2 flex-shrink-0">
           <button onClick={onSkip} className="btn-secondary flex-1 text-sm">
-            Omitir
+            {t('workout.skip')}
           </button>
           <button
             onClick={handleSave}
@@ -232,7 +260,7 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
             {saving ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              'Guardar wellbeing'
+              t('wellbeing.saveButton')
             )}
           </button>
         </div>

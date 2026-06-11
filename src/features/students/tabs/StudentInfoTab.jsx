@@ -21,6 +21,7 @@ import { buildFormConfig } from '@/features/forms/intake/schema/default-form.js'
 import {
   FIELD_LABELS,
   GENDER_LABELS,
+  LANGUAGE_LABELS,
   displayValue,
   PATOLOGIAS_OPTIONS,
   validateLesionesConsistency,
@@ -466,6 +467,18 @@ export default function StudentInfoTab({
                 onChange={(e) => setEditData((p) => ({ ...p, weekly_frequency: e.target.value }))}
               />
             </div>
+            {/* Doc 46: idioma de la UI que ve este alumno */}
+            <div>
+              <label className="label text-xs">Idioma de la app</label>
+              <select
+                className="input text-sm"
+                value={editData.language || 'es'}
+                onChange={(e) => setEditData((p) => ({ ...p, language: e.target.value }))}
+              >
+                <option value="es">Español</option>
+                <option value="en">Inglés</option>
+              </select>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -489,6 +502,7 @@ export default function StudentInfoTab({
                 value: student.weekly_frequency ? `${student.weekly_frequency} días/sem` : '—',
               },
               { label: 'Objetivo', value: student.goal || '—' },
+              { label: 'Idioma de la app', value: LANGUAGE_LABELS[student.language] || 'Español' },
             ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-500">{item.label}</p>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 // ============================================================
@@ -136,10 +137,17 @@ export default function RPEScale({
   value,
   onChange,
   variant = 'cardio',
-  label = 'Esfuerzo percibido (PSE)',
+  label,
   helpOpen: helpOpenProp,
   onToggleHelp,
 }) {
+  const { t } = useTranslation()
+  // Las descripciones cortas/largas de la escala viven en los locales
+  // (workout.rpe.cardio.N / workout.rpe.circuit.N); las constantes
+  // RPE_CARDIO / RPE_CIRCUIT siguen aportando n, zone y pct.
+  const rpeShort = (n) => t(`workout.rpe.${variant === 'cardio' ? 'cardio' : 'circuit'}.${n}.short`)
+  const rpeDesc = (n) => t(`workout.rpe.${variant === 'cardio' ? 'cardio' : 'circuit'}.${n}.desc`)
+  const labelText = label || t('workout.perceivedEffortPSE')
   const [helpOpenLocal, setHelpOpenLocal] = useState(false)
   const helpOpen = helpOpenProp != null ? helpOpenProp : helpOpenLocal
   const toggleHelp = () => {
@@ -157,7 +165,7 @@ export default function RPEScale({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs text-gray-500">{label}</label>
+        <label className="text-xs text-gray-500">{labelText}</label>
         {showDescriptors && (
           <button
             type="button"
@@ -165,7 +173,7 @@ export default function RPEScale({
             className="text-[11px] text-gray-500 hover:text-gray-700 underline flex items-center gap-1"
           >
             {helpOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-            Ver escala
+            {t('workout.seeScale')}
           </button>
         )}
       </div>
@@ -181,7 +189,7 @@ export default function RPEScale({
               type="button"
               onClick={() => onChange(isSelected ? null : n)}
               className={`relative w-8 h-8 rounded-lg text-sm font-bold transition-all ${rpeColor(n, isSelected)}`}
-              title={item ? `${item.short}` : ''}
+              title={item ? rpeShort(item.n) : ''}
             >
               {n}
               {showZones && item && (
@@ -216,9 +224,9 @@ export default function RPEScale({
           )}
           <span className="leading-snug">
             <strong>
-              {selected} — {selectedItem.short}
+              {selected} — {rpeShort(selectedItem.n)}
             </strong>
-            <span className="opacity-80"> · {selectedItem.desc}</span>
+            <span className="opacity-80"> · {rpeDesc(selectedItem.n)}</span>
           </span>
         </div>
       )}
@@ -231,8 +239,12 @@ export default function RPEScale({
               <thead className="bg-gray-50 text-gray-500 uppercase tracking-wide">
                 <tr>
                   <th className="text-center py-1.5 px-1.5 font-semibold">#</th>
-                  <th className="text-center py-1.5 px-1.5 font-semibold">Zona</th>
-                  <th className="text-left py-1.5 px-1.5 font-semibold">Sensación</th>
+                  <th className="text-center py-1.5 px-1.5 font-semibold">
+                    {t('workout.zoneHeader')}
+                  </th>
+                  <th className="text-left py-1.5 px-1.5 font-semibold">
+                    {t('workout.sensationHeader')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -247,9 +259,9 @@ export default function RPEScale({
                       </span>
                     </td>
                     <td className="py-1.5 px-1.5 text-gray-700 leading-tight">
-                      <span className="font-semibold">{r.short}</span>
+                      <span className="font-semibold">{t(`workout.rpe.cardio.${r.n}.short`)}</span>
                       <span className="text-gray-400"> · </span>
-                      <span className="text-gray-500">{r.desc}</span>
+                      <span className="text-gray-500">{t(`workout.rpe.cardio.${r.n}.desc`)}</span>
                     </td>
                   </tr>
                 ))}
@@ -260,26 +272,29 @@ export default function RPEScale({
               <thead className="bg-gray-50 text-gray-500 uppercase tracking-wide">
                 <tr>
                   <th className="text-center py-1.5 px-1.5 font-semibold">#</th>
-                  <th className="text-left py-1.5 px-1.5 font-semibold">Sensación</th>
+                  <th className="text-left py-1.5 px-1.5 font-semibold">
+                    {t('workout.sensationHeader')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {/* Para circuito agrupamos visualmente: 1–3, 4–5, 6–7, 8–9, 10 */}
+                {/* Para circuito agrupamos visualmente: 1–3, 4–5, 6–7, 8–9, 10
+                    (n = valor representativo del grupo para las claves i18n) */}
                 {[
-                  { range: '1–3', short: 'muy suave', desc: 'calentamiento' },
-                  { range: '4–5', short: 'podrías seguir más', desc: 'bastante margen' },
-                  { range: '6–7', short: 'desafiante', desc: 'controlado' },
-                  { range: '8–9', short: 'muy exigente', desc: 'cuesta sostener' },
-                  { range: '10', short: 'al límite', desc: 'no podés más' },
+                  { range: '1–3', n: 1 },
+                  { range: '4–5', n: 4 },
+                  { range: '6–7', n: 6 },
+                  { range: '8–9', n: 8 },
+                  { range: '10', n: 10 },
                 ].map((r) => (
                   <tr key={r.range}>
                     <td className="text-center py-1.5 px-1.5 font-mono font-semibold text-gray-600">
                       {r.range}
                     </td>
                     <td className="py-1.5 px-1.5 text-gray-700 leading-tight">
-                      <span className="font-semibold">{r.short}</span>
+                      <span className="font-semibold">{t(`workout.rpe.circuit.${r.n}.short`)}</span>
                       <span className="text-gray-400"> · </span>
-                      <span className="text-gray-500">{r.desc}</span>
+                      <span className="text-gray-500">{t(`workout.rpe.circuit.${r.n}.desc`)}</span>
                     </td>
                   </tr>
                 ))}

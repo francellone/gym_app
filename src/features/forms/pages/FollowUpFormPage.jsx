@@ -8,12 +8,14 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import FormRenderer from '@/features/forms/intake/components/student/FormRenderer'
 
 export default function FollowUpFormPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const { assignmentId } = useParams()
   const navigate = useNavigate()
@@ -110,15 +112,13 @@ export default function FollowUpFormPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center space-y-4 max-w-sm">
           <div className="text-5xl">📋</div>
-          <h1 className="text-xl font-bold text-gray-900">Formulario no disponible</h1>
-          <p className="text-gray-500 text-sm">
-            Este formulario ya fue completado o no está disponible para vos.
-          </p>
+          <h1 className="text-xl font-bold text-gray-900">{t('forms.notAvailableTitle')}</h1>
+          <p className="text-gray-500 text-sm">{t('forms.notAvailableBody')}</p>
           <button
             onClick={() => navigate('/student/forms')}
             className="text-sm text-primary-600 hover:underline"
           >
-            Ver mis formularios
+            {t('forms.seeMyForms')}
           </button>
         </div>
       </div>

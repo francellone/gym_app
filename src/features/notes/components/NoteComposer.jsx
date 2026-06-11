@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Send,
   Lock,
@@ -42,10 +43,10 @@ import {
 import { createNote, replyNote } from '../api'
 
 const CONTEXT_TABS = [
-  { key: 'free', label: 'Observación', Icon: MessageCircle },
-  { key: 'exercise', label: 'Ejercicio', Icon: Dumbbell },
-  { key: 'muscle_group', label: 'Grupo muscular', Icon: Layers },
-  { key: 'day', label: 'Día', Icon: Calendar },
+  { key: 'free', labelKey: 'notes.tabObservation', Icon: MessageCircle },
+  { key: 'exercise', labelKey: 'notes.exercise', Icon: Dumbbell },
+  { key: 'muscle_group', labelKey: 'notes.muscleGroup', Icon: Layers },
+  { key: 'day', labelKey: 'workout.day', Icon: Calendar },
 ]
 
 // Formatea Date → 'YYYY-MM-DD' en zona local (para que el date picker
@@ -70,6 +71,7 @@ export default function NoteComposer({
   onCancelReply,
   onCreated,
 }) {
+  const { t } = useTranslation()
   const [body, setBody] = useState('')
   const [visibility, setVisibility] = useState('shared')
   const [submitting, setSubmitting] = useState(false)
@@ -154,7 +156,7 @@ export default function NoteComposer({
     if (disabled) return
     const clean = body.trim()
     if (!clean) {
-      setError({ message: 'La nota no puede estar vacía.' })
+      setError({ message: t('notes.emptyNoteError') })
       return
     }
 
@@ -248,13 +250,15 @@ export default function NoteComposer({
   }
 
   const placeholder = (() => {
-    if (isReply) return 'Escribir tu respuesta…'
+    if (isReply) return t('notes.replyPlaceholder')
     if (contextTab === 'exercise' && attachedExercise)
-      return `Comentar sobre ${attachedExercise.name}…`
-    if (contextTab === 'muscle_group' && muscleGroup) return `Comentar sobre ${muscleGroup}…`
-    if (contextTab === 'day' && noteDate) return `Comentar sobre el ${prettyDate(noteDate)}…`
-    if (isCoach) return 'Escribir nota para el alumno…'
-    return 'Escribir nota para tu coach…'
+      return t('notes.commentOnPlaceholder', { name: attachedExercise.name })
+    if (contextTab === 'muscle_group' && muscleGroup)
+      return t('notes.commentOnPlaceholder', { name: muscleGroup })
+    if (contextTab === 'day' && noteDate)
+      return t('notes.commentOnDayPlaceholder', { date: prettyDate(noteDate) })
+    if (isCoach) return t('notes.noteForStudentPlaceholder')
+    return t('notes.noteForCoachPlaceholder')
   })()
 
   // ── Render ───────────────────────────────────────────────────
@@ -266,7 +270,10 @@ export default function NoteComposer({
           <CornerDownRight size={12} className="flex-shrink-0 mt-0.5 text-gray-400" />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
-              Respondiendo a {parentNote.author_role === 'coach' ? 'Coach' : 'Alumno'}
+              {t('notes.replyingTo', {
+                role:
+                  parentNote.author_role === 'coach' ? t('notes.roleCoach') : t('notes.roleStudent'),
+              })}
             </p>
             <p className="italic line-clamp-2">
               {(() => {
@@ -279,7 +286,7 @@ export default function NoteComposer({
             type="button"
             onClick={onCancelReply}
             className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-            aria-label="Cancelar respuesta"
+            aria-label={t('notes.cancelReplyAria')}
           >
             <X size={13} />
           </button>
@@ -301,7 +308,7 @@ export default function NoteComposer({
               }`}
             >
               <tab.Icon size={11} />
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -324,7 +331,7 @@ export default function NoteComposer({
                   type="button"
                   onClick={() => setExerciseId(null)}
                   className="hover:text-blue-900"
-                  aria-label="Quitar ejercicio"
+                  aria-label={t('notes.removeExerciseAria')}
                 >
                   <X size={11} />
                 </button>
@@ -334,7 +341,7 @@ export default function NoteComposer({
                 onClick={() => setExercisePickerOpen((v) => !v)}
                 className="text-[11px] text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
               >
-                Cambiar <ChevronDown size={10} />
+                {t('notes.change')} <ChevronDown size={10} />
               </button>
             </div>
           ) : (
@@ -343,7 +350,7 @@ export default function NoteComposer({
               onClick={() => setExercisePickerOpen((v) => !v)}
               className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-1"
             >
-              <Paperclip size={11} /> Elegir ejercicio del catálogo
+              <Paperclip size={11} /> {t('notes.pickExercise')}
               <ChevronDown
                 size={11}
                 className={
@@ -359,13 +366,13 @@ export default function NoteComposer({
                 type="text"
                 value={exerciseQuery}
                 onChange={(e) => setExerciseQuery(e.target.value)}
-                placeholder="Buscar ejercicio…"
+                placeholder={t('notes.searchExercisePlaceholder')}
                 className="input text-xs border-0 rounded-b-none focus:ring-0"
                 autoFocus
               />
               <div className="max-h-44 overflow-y-auto border-t border-gray-100">
                 {exerciseSuggestions.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+                  <p className="px-3 py-2 text-xs text-gray-400">{t('notes.noResults')}</p>
                 ) : (
                   exerciseSuggestions.map((ex) => (
                     <button
@@ -398,7 +405,7 @@ export default function NoteComposer({
       {!isReply && contextTab === 'day' && (
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-xs text-gray-500 inline-flex items-center gap-1">
-            <Calendar size={11} /> Día:
+            <Calendar size={11} /> {t('workout.day')}:
           </label>
           <input
             type="date"
@@ -417,7 +424,7 @@ export default function NoteComposer({
                 type="button"
                 onClick={() => setNoteDate(null)}
                 className="hover:text-amber-900"
-                aria-label="Quitar fecha"
+                aria-label={t('notes.removeDateAria')}
               >
                 <X size={11} />
               </button>
@@ -437,15 +444,15 @@ export default function NoteComposer({
                   type="button"
                   onClick={() => setMuscleGroup(null)}
                   className="hover:text-green-900"
-                  aria-label="Quitar grupo muscular"
+                  aria-label={t('notes.removeMuscleGroupAria')}
                 >
                   <X size={11} />
                 </button>
               </span>
-              <span className="text-[11px] text-gray-400">Cambiá clickeando otro:</span>
+              <span className="text-[11px] text-gray-400">{t('notes.changeByClicking')}</span>
             </div>
           ) : (
-            <p className="text-xs text-gray-500">Elegí un grupo muscular:</p>
+            <p className="text-xs text-gray-500">{t('notes.pickMuscleGroup')}</p>
           )}
 
           {allMuscleGroups.length > 0 ? (
@@ -466,9 +473,7 @@ export default function NoteComposer({
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-gray-400 mt-1">
-              No hay grupos musculares cargados todavía en el catálogo.
-            </p>
+            <p className="text-[11px] text-gray-400 mt-1">{t('notes.noMuscleGroups')}</p>
           )}
         </div>
       )}
@@ -497,11 +502,13 @@ export default function NoteComposer({
                 ? 'bg-gray-700 text-white border-gray-700'
                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
             }`}
-            title={visibility === 'coach_private' ? 'Solo vos la ves' : 'El alumno la va a ver'}
+            title={
+              visibility === 'coach_private' ? t('notes.privateTooltip') : t('notes.sharedTooltip')
+            }
             disabled={submitting}
           >
             {visibility === 'coach_private' ? <Lock size={11} /> : null}
-            {visibility === 'coach_private' ? 'Privada' : 'Compartida'}
+            {visibility === 'coach_private' ? t('notes.private') : t('notes.shared')}
           </button>
         )}
 
@@ -512,17 +519,17 @@ export default function NoteComposer({
           className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-          {isReply ? 'Responder' : 'Enviar'}
+          {isReply ? t('notes.reply') : t('notes.send')}
         </button>
       </div>
 
       {/* ── Error inline ── */}
       {error && (
-        <p className="text-xs text-red-600">{error.message || 'No se pudo enviar la nota.'}</p>
+        <p className="text-xs text-red-600">{error.message || t('notes.sendFailed')}</p>
       )}
 
       {!error && (
-        <p className="text-[10px] text-gray-400 text-right">Cmd/Ctrl + Enter para enviar</p>
+        <p className="text-[10px] text-gray-400 text-right">{t('notes.sendShortcut')}</p>
       )}
     </div>
   )

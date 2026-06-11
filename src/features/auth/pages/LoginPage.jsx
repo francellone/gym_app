@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../AuthContext'
 import { Dumbbell, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const { signIn } = useAuth()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -17,7 +19,7 @@ export default function LoginPage() {
     try {
       await signIn(email, password)
     } catch {
-      setError('Email o contraseña incorrectos')
+      setError(t('loginPage.invalidCredentials'))
     } finally {
       setLoading(false)
     }
@@ -32,7 +34,7 @@ export default function LoginPage() {
             <Dumbbell className="w-8 h-8 text-primary-600" />
           </div>
           <h1 className="text-3xl font-bold text-white">GymCoach</h1>
-          <p className="text-primary-200 mt-1">Tu entrenamiento, organizado</p>
+          <p className="text-primary-200 mt-1">{t('loginPage.tagline')}</p>
         </div>
 
         {/* Form */}
@@ -40,13 +42,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="login-email" className="label">
-                Email
+                {t('loginPage.email')}
               </label>
               <input
                 id="login-email"
                 type="email"
                 className="input"
-                placeholder="tu@email.com"
+                placeholder={t('loginPage.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -56,7 +58,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="login-password" className="label">
-                Contraseña
+                {t('loginPage.password')}
               </label>
               <div className="relative">
                 <input
@@ -94,15 +96,13 @@ export default function LoginPage() {
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                'Ingresar'
+                t('loginPage.signIn')
               )}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-primary-200 text-xs mt-6">
-          ¿No tenés cuenta? Pedile al coach que te registre.
-        </p>
+        <p className="text-center text-primary-200 text-xs mt-6">{t('loginPage.noAccount')}</p>
       </div>
     </div>
   )

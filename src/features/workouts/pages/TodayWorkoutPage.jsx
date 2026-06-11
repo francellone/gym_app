@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import { Dumbbell, Calendar, AlertTriangle, Clock } from 'lucide-react'
 import {
   DAY_SECTION_IDS,
@@ -74,7 +75,12 @@ const SECTION_EMOJIS = {
 // Página principal
 // ============================================================
 export default function TodayWorkoutPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
+  // Label de día traducida para display (la constante DAY_SHORT_LABELS se
+  // mantiene para los textos que van a la DB, ej. prefijo de notas PSE).
+  const dayShortLabel = (id) =>
+    t('workout.dayShort', { letter: (id?.split('_')[1] || '').toUpperCase() })
   const [loading, setLoading] = useState(true)
   const [assignment, setAssignment] = useState(null)
   const [planExercises, setPlanExercises] = useState([])
@@ -462,7 +468,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveLog: upsertSession error:', err)
-        showSaveError('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
+        showSaveError(t('errors.sessionStartFailed'), err)
         throw err
       }
     }
@@ -557,7 +563,7 @@ export default function TodayWorkoutPage() {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
         console.error('saveBlockLog: upsertSession error:', err)
-        showSaveError('No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.', err)
+        showSaveError(t('errors.sessionStartFailed'), err)
         throw err
       }
     }
@@ -781,7 +787,7 @@ export default function TodayWorkoutPage() {
       setShowPSEForDay(null)
     } catch (err) {
       console.error('saveDayPSE error:', err)
-      showSaveError('No pudimos guardar tu PSE del día. Probá de nuevo en un momento.', err)
+      showSaveError(t('errors.dayPseSaveFailed'), err)
       // No cerramos el modal: dejamos que el alumno reintente sin perder lo que cargó.
     }
   }
@@ -853,10 +859,8 @@ export default function TodayWorkoutPage() {
         <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Dumbbell className="w-8 h-8 text-gray-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">Sin plan asignado</h2>
-        <p className="text-gray-500 text-sm">
-          Tu coach todavía no te asignó un plan de entrenamiento.
-        </p>
+        <h2 className="text-lg font-bold text-gray-900 mb-2">{t('workout.noPlanTitle')}</h2>
+        <p className="text-gray-500 text-sm">{t('workout.noPlanBody')}</p>
       </div>
     )
 
@@ -882,7 +886,11 @@ export default function TodayWorkoutPage() {
       {/* Modal PSE del día activo */}
       {showPSEForDay && (
         <DailyPSEModal
-          dayLabel={DAY_SHORT_LABELS[showPSEForDay] || SECTION_LABELS[showPSEForDay] || 'Día'}
+          dayLabel={
+            DAY_SHORT_LABELS[showPSEForDay]
+              ? dayShortLabel(showPSEForDay)
+              : SECTION_LABELS[showPSEForDay] || t('workout.day')
+          }
           currentEffort={borgPerDay[showPSEForDay] ?? null}
           onSave={(effort, notes) => saveDayPSE(showPSEForDay, effort, notes)}
           onClose={() => {
@@ -909,7 +917,7 @@ export default function TodayWorkoutPage() {
         {/* Header */}
         <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-6">
           <p className="text-primary-200 text-sm capitalize">
-            {format(parseISO(selectedDate), "EEEE d 'de' MMMM", { locale: es })}
+            {format(parseISO(selectedDate), t('dates.fullDate'), { locale: dateLocale() })}
           </p>
           <h1 className="text-xl font-bold text-white mt-1">{assignment.plan?.title}</h1>
 
@@ -918,19 +926,20 @@ export default function TodayWorkoutPage() {
             <div className="flex items-center gap-3 mt-2 text-primary-200 text-xs">
               <span className="flex items-center gap-1">
                 <Clock size={12} />
-                Inicio: {format(new Date(session.started_at), 'HH:mm')}
+                {t('workout.startTime', { time: format(new Date(session.started_at), 'HH:mm') })}
               </span>
               {session.finished_at && (
                 <>
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
-                    Fin: {format(new Date(session.finished_at), 'HH:mm')}
+                    {t('workout.endTime', { time: format(new Date(session.finished_at), 'HH:mm') })}
                   </span>
                   <span className="flex items-center gap-1 bg-white/15 rounded-full px-2 py-0.5 font-semibold text-white">
-                    {Math.round(
-                      (new Date(session.finished_at) - new Date(session.started_at)) / 60000
-                    )}{' '}
-                    min
+                    {t('workout.minutesShort', {
+                      value: Math.round(
+                        (new Date(session.finished_at) - new Date(session.started_at)) / 60000
+                      ),
+                    })}
                   </span>
                 </>
               )}
@@ -944,17 +953,17 @@ export default function TodayWorkoutPage() {
                 .filter((id) => borgPerDay[id] !== undefined)
                 .map((id) => (
                   <div key={id} className="flex items-center gap-1.5">
-                    <span className="text-primary-200 text-xs">{DAY_SHORT_LABELS[id]}:</span>
+                    <span className="text-primary-200 text-xs">{dayShortLabel(id)}:</span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}
                     >
-                      PSE {borgPerDay[id]}
+                      {t('workout.pseValue', { value: borgPerDay[id] })}
                     </span>
                     <button
                       onClick={() => setShowPSEForDay(id)}
                       className="text-primary-300 text-xs underline"
                     >
-                      Editar
+                      {t('workout.edit')}
                     </button>
                   </div>
                 ))}
@@ -965,7 +974,7 @@ export default function TodayWorkoutPage() {
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-primary-200 text-xs">
-                {completedCount} / {totalCount} unidades
+                {t('workout.unitsProgress', { completed: completedCount, total: totalCount })}
               </span>
               <span className="text-primary-200 text-xs">
                 {Math.round((completedCount / Math.max(totalCount, 1)) * 100)}%
@@ -992,7 +1001,9 @@ export default function TodayWorkoutPage() {
               onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
             />
             {!isToday && (
-              <span className="badge bg-orange-100 text-orange-700 text-xs">Editando pasado</span>
+              <span className="badge bg-orange-100 text-orange-700 text-xs">
+                {t('workout.editingPast')}
+              </span>
             )}
           </div>
 
@@ -1017,7 +1028,7 @@ export default function TodayWorkoutPage() {
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      {DAY_SHORT_LABELS[id]}
+                      {dayShortLabel(id)}
                       {isDone && (
                         <span
                           className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`}
@@ -1053,8 +1064,8 @@ export default function TodayWorkoutPage() {
             <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 flex items-start gap-2">
               <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 flex-1 leading-relaxed">
-                <strong>Recordá:</strong> aún no cargaste tu wellbeing de hoy. Podés hacerlo desde
-                la tarjeta de arriba cuando quieras.
+                <strong>{t('workout.wellbeingReminderTitle')}</strong>{' '}
+                {t('workout.wellbeingReminderBody')}
               </p>
             </div>
           )}
@@ -1099,7 +1110,7 @@ export default function TodayWorkoutPage() {
           {(blocksBySection[activeDay] || []).length > 0 && (
             <div>
               <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {SECTION_EMOJIS[activeDay] || '🏋️'} {SECTION_LABELS[activeDay] || 'Día'}
+                {SECTION_EMOJIS[activeDay] || '🏋️'} {SECTION_LABELS[activeDay] || t('workout.day')}
               </h2>
               <div className="space-y-2">
                 {(blocksBySection[activeDay] || []).map((block) => (
@@ -1143,25 +1154,27 @@ export default function TodayWorkoutPage() {
               >
                 <p className="text-white font-bold">
                   {isFinalBanner
-                    ? '🎉 ¡Entrenamiento completo!'
-                    : `✅ ${DAY_SHORT_LABELS[id]} completado`}
+                    ? t('workout.workoutComplete')
+                    : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
                 </p>
                 {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
                 {isFinalBanner && isToday && !wellbeing && (
-                  <p className="text-white/90 text-xs mt-1.5">⚠️ No cargaste tu wellbeing de hoy</p>
+                  <p className="text-white/90 text-xs mt-1.5">
+                    {t('workout.wellbeingNotLoggedToday')}
+                  </p>
                 )}
                 {borgPerDay[id] !== undefined ? (
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}
                     >
-                      PSE {borgPerDay[id]}
+                      {t('workout.pseValue', { value: borgPerDay[id] })}
                     </span>
                     <button
                       onClick={() => setShowPSEForDay(id)}
                       className="text-white/70 text-xs underline"
                     >
-                      Editar
+                      {t('workout.edit')}
                     </button>
                   </div>
                 ) : (
@@ -1169,7 +1182,7 @@ export default function TodayWorkoutPage() {
                     onClick={() => setShowPSEForDay(id)}
                     className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
                   >
-                    Registrar esfuerzo {DAY_SHORT_LABELS[id]}
+                    {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
                   </button>
                 )}
               </div>

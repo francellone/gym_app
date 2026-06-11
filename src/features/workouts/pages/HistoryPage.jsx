@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 import { readLogReps, readLogWeights } from '@/features/plans/helpers'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
 function SessionGroup({ date, logs, session }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const completedCount = logs.filter((l) => l.completed).length
 
@@ -22,18 +24,18 @@ function SessionGroup({ date, logs, session }) {
       <button className="w-full flex items-center gap-3" onClick={() => setExpanded(!expanded)}>
         <div className="flex-1 text-left">
           <p className="font-semibold text-sm text-gray-900 capitalize">
-            {format(parseISO(date), "EEEE d 'de' MMMM", { locale: es })}
+            {format(parseISO(date), t('dates.fullDate'), { locale: dateLocale() })}
           </p>
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
             <span>
-              {completedCount}/{logs.length} ejercicios completados
+              {t('history.exercisesCompleted', { completed: completedCount, total: logs.length })}
             </span>
             {sessionDuration !== null && (
               <>
                 <span className="text-gray-300">·</span>
                 <span className="inline-flex items-center gap-0.5 text-primary-500 font-medium">
                   <Clock size={10} />
-                  {sessionDuration} min
+                  {t('workout.minutesShort', { value: sessionDuration })}
                 </span>
               </>
             )}
@@ -72,7 +74,9 @@ function SessionGroup({ date, logs, session }) {
                 {format(new Date(session.started_at), 'HH:mm')} →{' '}
                 {format(new Date(session.finished_at), 'HH:mm')}
               </span>
-              <span className="font-medium text-primary-500">{sessionDuration} min</span>
+              <span className="font-medium text-primary-500">
+                {t('workout.minutesShort', { value: sessionDuration })}
+              </span>
             </div>
           )}
           {logs.map((log) => (
@@ -84,28 +88,34 @@ function SessionGroup({ date, logs, session }) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {log.plan_exercise?.exercise?.name || 'Ejercicio'}
+                  {log.plan_exercise?.exercise?.name || t('history.exerciseFallback')}
                 </p>
                 {(() => {
                   const reps = readLogReps(log).filter((r) => r != null && r !== '')
                   const weights = readLogWeights(log).filter((w) => w != null && w !== '')
                   const repsDisplay =
-                    reps.length > 0 ? `× ${reps.join(',')}${log.unilateral ? '/lado' : ''}` : null
-                  const wDisplay = weights.length > 0 ? `${weights.join(',')}kg` : null
+                    reps.length > 0
+                      ? t(log.unilateral ? 'history.repsListPerSide' : 'history.repsList', {
+                          reps: reps.join(','),
+                        })
+                      : null
+                  const wDisplay =
+                    weights.length > 0 ? t('workout.weightKg', { value: weights.join(',') }) : null
                   const modeDisplay =
                     log.weight_mode === 'bodyweight'
                       ? 'BW'
                       : log.weight_mode === 'barbell_only'
-                        ? 'solo barra'
+                        ? t('workout.barbellOnlyShort')
                         : null
                   return (
                     <p className="text-xs text-gray-500">
                       {[
-                        log.actual_sets && `${log.actual_sets} series`,
+                        log.actual_sets && t('workout.series', { count: log.actual_sets }),
                         repsDisplay,
                         wDisplay,
                         !wDisplay && modeDisplay,
-                        log.perceived_difficulty && `PSE ${log.perceived_difficulty}`,
+                        log.perceived_difficulty &&
+                          t('workout.pseValue', { value: log.perceived_difficulty }),
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -130,6 +140,7 @@ function SessionGroup({ date, logs, session }) {
 }
 
 export default function HistoryPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [logs, setLogs] = useState([])
   const [sessions, setSessions] = useState({}) // keyed by logged_date
@@ -211,8 +222,8 @@ export default function HistoryPage() {
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-5 pt-12 pb-4">
-        <h1 className="text-xl font-bold text-gray-900">Historial</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Todos tus entrenamientos</p>
+        <h1 className="text-xl font-bold text-gray-900">{t('nav.history')}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t('history.subtitle')}</p>
       </div>
 
       <div className="px-4 py-4 space-y-3">
@@ -223,8 +234,8 @@ export default function HistoryPage() {
         ) : Object.keys(groupedLogs).length === 0 ? (
           <div className="text-center py-12">
             <Clock className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">Sin historial aún</p>
-            <p className="text-gray-400 text-sm mt-1">Acá verás todos tus entrenamientos</p>
+            <p className="text-gray-500 font-medium">{t('history.emptyTitle')}</p>
+            <p className="text-gray-400 text-sm mt-1">{t('history.emptyBody')}</p>
           </div>
         ) : (
           <>
@@ -242,7 +253,7 @@ export default function HistoryPage() {
                 onClick={() => setPage((p) => p + 1)}
                 className="btn-secondary w-full text-sm"
               >
-                Cargar más
+                {t('history.loadMore')}
               </button>
             )}
           </>

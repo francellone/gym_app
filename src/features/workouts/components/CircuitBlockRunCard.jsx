@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
   Circle,
@@ -58,6 +59,7 @@ export default function CircuitBlockRunCard({
   noteCountByExercise,
   onOpenChat,
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -188,20 +190,20 @@ export default function CircuitBlockRunCard({
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4">
-            <p className="font-semibold text-gray-900">¿Desmarcar circuito?</p>
-            <p className="text-sm text-gray-600">Se borrará tu registro del bloque completo.</p>
+            <p className="font-semibold text-gray-900">{t('workout.unmarkCircuitTitle')}</p>
+            <p className="text-sm text-gray-600">{t('workout.unmarkCircuitBody')}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="btn-secondary flex-1 text-sm"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
                 className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition"
               >
-                Sí, desmarcar
+                {t('workout.yesUnmark')}
               </button>
             </div>
           </div>
@@ -249,9 +251,10 @@ export default function CircuitBlockRunCard({
             <p className="text-xs text-gray-400 mt-0.5">
               {[
                 (block.plan_exercises?.length || 0) > 0 &&
-                  `${block.plan_exercises.length} ejercicios`,
-                block.circuit_rounds && `${block.circuit_rounds} rondas`,
-                block.circuit_total_minutes && `${block.circuit_total_minutes} min`,
+                  t('workout.exercisesCount', { count: block.plan_exercises.length }),
+                block.circuit_rounds && t('workout.rounds', { count: block.circuit_rounds }),
+                block.circuit_total_minutes &&
+                  t('workout.minutesShort', { value: block.circuit_total_minutes }),
                 intensity?.label,
               ]
                 .filter(Boolean)
@@ -263,9 +266,12 @@ export default function CircuitBlockRunCard({
               <p className="text-xs text-orange-600 mt-0.5 font-medium">
                 ✓{' '}
                 {[
-                  blockLog.actual_minutes && `${blockLog.actual_minutes} min`,
-                  blockLog.actual_rounds != null && `${blockLog.actual_rounds} rondas`,
-                  blockLog.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
+                  blockLog.actual_minutes &&
+                    t('workout.minutesShort', { value: blockLog.actual_minutes }),
+                  blockLog.actual_rounds != null &&
+                    t('workout.rounds', { count: blockLog.actual_rounds }),
+                  blockLog.perceived_difficulty &&
+                    t('workout.pseValue', { value: blockLog.perceived_difficulty }),
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -287,19 +293,22 @@ export default function CircuitBlockRunCard({
             <div className="bg-orange-50 rounded-xl p-3 space-y-2">
               <div className="flex items-center gap-2 text-orange-700 text-sm font-semibold">
                 <Flame size={14} />
-                {circuitType?.label || 'Circuito'}
+                {circuitType?.label || t('workout.circuit')}
               </div>
               {block.circuit_type === 'hiit' && (
                 <div className="text-xs text-orange-700">
-                  {block.circuit_rounds || '—'}× ({block.circuit_work_seconds || '—'}s trabajo /{' '}
-                  {block.circuit_rest_seconds || '—'}s descanso)
+                  {t('workout.workRestIntervals', {
+                    rounds: block.circuit_rounds || '—',
+                    work: block.circuit_work_seconds || '—',
+                    rest: block.circuit_rest_seconds || '—',
+                  })}
                 </div>
               )}
               {(block.circuit_type === 'amrap' || block.circuit_type === 'emom') &&
                 block.circuit_total_minutes && (
                   <div className="flex items-center gap-1 text-xs text-orange-700">
                     <Clock size={12} />
-                    {block.circuit_total_minutes} minutos
+                    {t('workout.minutes', { count: block.circuit_total_minutes })}
                   </div>
                 )}
             </div>
@@ -315,7 +324,9 @@ export default function CircuitBlockRunCard({
             {/* Lista de ejercicios */}
             {(block.plan_exercises || []).length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-gray-700">Ejercicios</p>
+                <p className="text-xs font-semibold text-gray-700">
+                  {t('workout.exercisesTitle')}
+                </p>
                 {(block.plan_exercises || []).map((ex, i) => {
                   const exWeightMode = getEffectiveWeightMode({
                     planExercise: ex,
@@ -326,7 +337,9 @@ export default function CircuitBlockRunCard({
                     exercise: ex.exercise,
                   })
                   const showWeight = exWeightMode !== 'bodyweight'
-                  const repsLabel = exUnilateral ? 'Reps × lado' : 'Reps reales'
+                  const repsLabel = exUnilateral
+                    ? t('workout.repsPerSideHeader')
+                    : t('workout.actualReps')
                   const exLastLog = lastLogByExercise?.get?.(ex.exercise_id) || null
                   const exNoteCount = noteCountByExercise?.get?.(ex.exercise_id) || 0
                   return (
@@ -338,10 +351,11 @@ export default function CircuitBlockRunCard({
                           </p>
                           <p className="text-[11px] text-gray-400">
                             {ex.exercise_mode === 'time'
-                              ? `${ex.duration_seconds || '—'} seg`
-                              : `${ex.suggested_reps || '—'} ${exUnilateral ? 'reps × lado' : 'reps'}`}
-                            {exWeightMode === 'bodyweight' && ' · sin peso'}
-                            {exWeightMode === 'barbell_only' && ' · solo barra'}
+                              ? t('workout.secondsShort', { value: ex.duration_seconds || '—' })
+                              : `${ex.suggested_reps || '—'} ${exUnilateral ? t('workout.repsPerSideLower') : t('workout.repsLower')}`}
+                            {exWeightMode === 'bodyweight' && ` · ${t('workout.noWeight')}`}
+                            {exWeightMode === 'barbell_only' &&
+                              ` · ${t('workout.barbellOnlyShort')}`}
                           </p>
                           {/* Q1 — "Última vez" del ejercicio + badge chat */}
                           <ExerciseHistoryHeaderLine
@@ -361,7 +375,7 @@ export default function CircuitBlockRunCard({
                           {ex.exercise_mode === 'time' ? (
                             <div>
                               <label className="text-[10px] text-gray-500 mb-0.5 block">
-                                Tiempo real (s)
+                                {t('workout.actualTimeSeconds')}
                               </label>
                               <input
                                 type="number"
@@ -398,7 +412,7 @@ export default function CircuitBlockRunCard({
                               {showWeight && (
                                 <div>
                                   <label className="text-[10px] text-gray-500 mb-0.5 block">
-                                    Peso (kg)
+                                    {t('workout.weightKgHeader')}
                                   </label>
                                   <input
                                     type="number"
@@ -432,11 +446,13 @@ export default function CircuitBlockRunCard({
             {/* Form del bloque */}
             {!completed || editing ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-700">Cierre del bloque</p>
+                <p className="text-xs font-semibold text-gray-700">{t('workout.blockClosure')}</p>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Duración real (min)</label>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      {t('workout.actualDurationMin')}
+                    </label>
                     <input
                       type="number"
                       min="0"
@@ -448,7 +464,9 @@ export default function CircuitBlockRunCard({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Rondas completadas</label>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      {t('workout.roundsCompleted')}
+                    </label>
                     <input
                       type="number"
                       min="0"
@@ -462,17 +480,19 @@ export default function CircuitBlockRunCard({
 
                 <RPEScale
                   variant="circuit"
-                  label="PSE del bloque"
+                  label={t('workout.blockPse')}
                   value={form.perceived_difficulty}
                   onChange={(n) => setForm((p) => ({ ...p, perceived_difficulty: n }))}
                 />
 
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Observaciones</label>
+                  <label className="text-xs text-gray-500 mb-1 block">
+                    {t('workout.observations')}
+                  </label>
                   <textarea
                     className="input text-sm resize-none"
                     rows={2}
-                    placeholder="¿Cómo fue el circuito?"
+                    placeholder={t('workout.howWasCircuitPlaceholder')}
                     value={form.notes}
                     onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   />
@@ -487,19 +507,24 @@ export default function CircuitBlockRunCard({
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <CheckCircle2 size={16} /> Marcar bloque completado
+                      <CheckCircle2 size={16} /> {t('workout.markBlockCompleted')}
                     </>
                   )}
                 </button>
               </div>
             ) : (
               <div className="bg-orange-100 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-orange-700">✓ Bloque completado</p>
+                <p className="text-xs font-semibold text-orange-700">
+                  {t('workout.blockCompletedCheck')}
+                </p>
                 <p className="text-xs text-orange-700">
                   {[
-                    blockLog?.actual_minutes && `${blockLog.actual_minutes} min`,
-                    blockLog?.actual_rounds != null && `${blockLog.actual_rounds} rondas`,
-                    blockLog?.perceived_difficulty && `PSE ${blockLog.perceived_difficulty}`,
+                    blockLog?.actual_minutes &&
+                      t('workout.minutesShort', { value: blockLog.actual_minutes }),
+                    blockLog?.actual_rounds != null &&
+                      t('workout.rounds', { count: blockLog.actual_rounds }),
+                    blockLog?.perceived_difficulty &&
+                      t('workout.pseValue', { value: blockLog.perceived_difficulty }),
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -512,7 +537,7 @@ export default function CircuitBlockRunCard({
                     onClick={() => setEditing(true)}
                     className="text-xs text-orange-700 underline"
                   >
-                    Editar
+                    {t('workout.edit')}
                   </button>
                   <span className="text-orange-300 text-xs">·</span>
                   <button
@@ -520,7 +545,7 @@ export default function CircuitBlockRunCard({
                     className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
                   >
                     <Trash2 size={11} />
-                    Desmarcar
+                    {t('workout.unmark')}
                   </button>
                 </div>
               </div>

@@ -20,6 +20,9 @@
 // ============================================================
 
 import { differenceInCalendarDays, parseISO } from 'date-fns'
+// i18n (doc 46): instancia global. Con lng 'es' (default y tests) los outputs
+// son idénticos a los strings históricos, así los tests existentes no cambian.
+import i18n from '@/i18n'
 
 // ============================================================
 // pickLastLogPerExercise
@@ -249,7 +252,7 @@ export function formatLastLogSummary(log) {
 
   // Si está el PSE, lo agregamos solo cuando ya hay algo
   if (parts.length > 0 && log.perceived_difficulty) {
-    parts.push(`PSE ${log.perceived_difficulty}`)
+    parts.push(i18n.t('workout.pseValue', { value: log.perceived_difficulty }))
   }
 
   return parts.join(' · ')
@@ -268,10 +271,10 @@ export function formatLastBlockLogSummary(blockLog) {
     parts.push(`${formatNumber(blockLog.actual_minutes)} min`)
   }
   if (blockLog.actual_rounds != null && blockLog.actual_rounds > 0) {
-    parts.push(`${blockLog.actual_rounds} rondas`)
+    parts.push(i18n.t('workout.rounds', { count: blockLog.actual_rounds }))
   }
   if (blockLog.perceived_difficulty) {
-    parts.push(`PSE ${blockLog.perceived_difficulty}`)
+    parts.push(i18n.t('workout.pseValue', { value: blockLog.perceived_difficulty }))
   }
   return parts.join(' · ')
 }
@@ -292,9 +295,9 @@ export function formatRelativeDate(loggedDate, today = new Date()) {
   try {
     const logged = parseISO(loggedDate)
     const diff = differenceInCalendarDays(today, logged)
-    if (diff === 0) return 'hoy'
-    if (diff === 1) return 'ayer'
-    if (diff > 1 && diff < 7) return `hace ${diff} días`
+    if (diff === 0) return i18n.t('dates.relToday')
+    if (diff === 1) return i18n.t('dates.relYesterday')
+    if (diff > 1 && diff < 7) return i18n.t('dates.relDaysAgo', { count: diff })
     // Más viejo: DD/MM
     const day = String(logged.getDate()).padStart(2, '0')
     const month = String(logged.getMonth() + 1).padStart(2, '0')

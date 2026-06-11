@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { registerPush, unregisterPush } from '@/features/notifications/services/pushService'
+import i18n from '@/i18n'
 
 const AuthContext = createContext(null)
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
       } else {
         setProfile(null)
         setLoading(false)
+        i18n.changeLanguage('es') // logout → volver al default (pantalla de login en es)
       }
     })
 
@@ -43,7 +45,12 @@ export function AuthProvider({ children }) {
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
 
-      if (!error) setProfile(data)
+      if (!error) {
+        setProfile(data)
+        // i18n (doc 46): el idioma de la UI sigue a profiles.language.
+        // Default 'es' — coach y alumnos sin preferencia ven todo igual que antes.
+        i18n.changeLanguage(data?.language || 'es')
+      }
     } catch (err) {
       console.error('Error fetching profile:', err)
     } finally {

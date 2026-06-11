@@ -115,6 +115,8 @@ export default function CreateStudentPage() {
     level: 'beginner',
     weekly_frequency: 3,
     goal: '',
+    language: 'es', // Doc 46: idioma de la UI que va a ver el alumno
+
     // observations + coach_notes migraron al panel de notas (Fase D /
     // round 2b). Para escribirlas: crear primero el alumno y después
     // ir al tab "Notas" en su detalle.
@@ -153,6 +155,7 @@ export default function CreateStudentPage() {
       weekly_frequency: form.weekly_frequency ? parseInt(form.weekly_frequency) : null,
       goal: form.goal || null,
       target_weight_kg: form.target_weight_kg ? parseFloat(form.target_weight_kg) : null,
+      language: form.language || 'es', // Doc 46
       coach_id: profile?.id || null,
     }
 
@@ -374,6 +377,20 @@ export default function CreateStudentPage() {
                 className="input"
                 placeholder="Ej: Hipertrofia, fuerza, salud..."
               />
+            </div>
+            {/* Doc 46: idioma de la UI que va a ver el alumno (la vista del
+                alumno está traducida; el panel del coach queda en español) */}
+            <div>
+              <label className="label">Idioma de la app</label>
+              <select
+                name="language"
+                value={form.language}
+                onChange={handleChange}
+                className="input"
+              >
+                <option value="es">Español</option>
+                <option value="en">Inglés</option>
+              </select>
             </div>
           </div>
         </div>

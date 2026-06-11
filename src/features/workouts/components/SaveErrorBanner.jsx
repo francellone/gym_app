@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 
 // Banner visible cuando hay un error de save (asociado a useSaveErrorBanner).
@@ -10,6 +11,7 @@ import { AlertTriangle } from 'lucide-react'
 // Modo recuperable (banner.persistent=false): auto-cierra a los 6s, también
 // con × en la esquina.
 export default function SaveErrorBanner({ banner, onDismiss }) {
+  const { t } = useTranslation()
   if (!banner) return null
   return (
     <div
@@ -27,7 +29,7 @@ export default function SaveErrorBanner({ banner, onDismiss }) {
             onClick={onDismiss}
             className="mt-2 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 rounded-lg transition"
           >
-            Entendido
+            {t('workout.understood')}
           </button>
         )}
       </div>
@@ -35,7 +37,7 @@ export default function SaveErrorBanner({ banner, onDismiss }) {
         <button
           onClick={onDismiss}
           className="text-rose-500 hover:text-rose-700 flex-shrink-0"
-          aria-label="Cerrar aviso"
+          aria-label={t('workout.closeNotice')}
         >
           ×
         </button>

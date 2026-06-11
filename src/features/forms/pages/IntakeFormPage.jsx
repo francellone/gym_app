@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -17,15 +18,13 @@ import { getFriendlyErrorMessage } from '@/utils/errorHelpers'
 // vive en src/utils/errorHelpers.js y es compartido con TodayWorkoutPage y
 // StudentInfoTab. Acá solo lo invocamos. Si en algún momento el back agrega
 // un nuevo CHECK, se mapea allá una sola vez y queda traducido en todos lados.
-function intakeFriendlyError(err) {
+function intakeFriendlyError(err, t) {
   if (!err) return null
-  return (
-    getFriendlyErrorMessage(err) ||
-    'No pudimos enviar el formulario. Intentá de nuevo en un momento.'
-  )
+  return getFriendlyErrorMessage(err) || t('forms.submitFallbackError')
 }
 
 export default function IntakeFormPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [assignment, setAssignment] = useState(null)
@@ -106,7 +105,7 @@ export default function IntakeFormPage() {
       .single()
 
     if (submissionError) {
-      setSubmitError(intakeFriendlyError(submissionError))
+      setSubmitError(intakeFriendlyError(submissionError, t))
       throw submissionError
     }
 
@@ -120,7 +119,7 @@ export default function IntakeFormPage() {
       .eq('id', assignment.id)
 
     if (assignmentError) {
-      setSubmitError(intakeFriendlyError(assignmentError))
+      setSubmitError(intakeFriendlyError(assignmentError, t))
       throw assignmentError
     }
 
@@ -134,7 +133,7 @@ export default function IntakeFormPage() {
         submission_id: submission.id,
       })
       if (rpcError) {
-        setSubmitError(intakeFriendlyError(rpcError))
+        setSubmitError(intakeFriendlyError(rpcError, t))
         throw rpcError
       }
     }
@@ -155,15 +154,13 @@ export default function IntakeFormPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center space-y-4 max-w-sm">
           <div className="text-5xl">📋</div>
-          <h1 className="text-xl font-bold text-gray-900">Sin formulario pendiente</h1>
-          <p className="text-gray-500 text-sm">
-            Tu coach aún no te envió el formulario de ingreso. Cuando lo recibas aparecerá aquí.
-          </p>
+          <h1 className="text-xl font-bold text-gray-900">{t('forms.noPendingTitle')}</h1>
+          <p className="text-gray-500 text-sm">{t('forms.noPendingBody')}</p>
           <button
             onClick={() => navigate('/student')}
             className="text-sm text-primary-600 hover:underline"
           >
-            Volver al inicio
+            {t('forms.backHome')}
           </button>
         </div>
       </div>
@@ -179,7 +176,7 @@ export default function IntakeFormPage() {
           <button
             onClick={() => setSubmitError(null)}
             className="text-rose-500 hover:text-rose-700 flex-shrink-0"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             ×
           </button>

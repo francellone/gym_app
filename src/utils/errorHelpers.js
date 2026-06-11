@@ -13,6 +13,10 @@
 // (RPC + constraints + RLS instalados durante el proyecto).
 // ============================================================
 
+// i18n (doc 46): los mensajes amigables se traducen vía la instancia global.
+// Con lng 'es' (default, coach, tests) el output es idéntico al histórico.
+import i18n from '@/i18n'
+
 // Códigos de error de Postgres/PostgREST que SIEMPRE requieren acción
 // del usuario o intervención del coach. No reintentar automáticamente.
 const NON_RECOVERABLE_CODES = new Set([
@@ -68,54 +72,59 @@ export function getFriendlyErrorMessage(error) {
   const details = error.details || ''
   const haystack = `${msg} ${details}`
 
+  // i18n (doc 46): T traduce el mensaje vía la instancia global; el fallback
+  // (texto histórico en español) mantiene el comportamiento exacto con lng 'es'
+  // (default, coach y tests). Claves en errors.friendly.* de los locales.
+  const T = (key, fallback) => i18n.t(`errors.friendly.${key}`, { defaultValue: fallback })
+
   // ────────────────────────────────────────────────────────────
   // 23514 — CHECK constraint violation (no recuperable)
   // ────────────────────────────────────────────────────────────
   if (code === '23514') {
     if (/bodyweight_no_weights/i.test(haystack)) {
-      return 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.'
+      return T('bodyweightNoWeights', 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.')
     }
     if (/reps_weights_same_length/i.test(haystack)) {
-      return 'La cantidad de reps no coincide con la de pesos. Revisá los sets.'
+      return T('repsWeightsMismatch', 'La cantidad de reps no coincide con la de pesos. Revisá los sets.')
     }
     if (/workout_logs_weight_mode_check/i.test(haystack)) {
-      return 'Modo de peso inválido. Recargá la página.'
+      return T('invalidWeightMode', 'Modo de peso inválido. Recargá la página.')
     }
     if (/workout_logs_reps_unit_check/i.test(haystack)) {
-      return 'Unidad de reps inválida. Recargá la página.'
+      return T('invalidRepsUnit', 'Unidad de reps inválida. Recargá la página.')
     }
     if (
       /profiles_lesiones_requires_detail/i.test(haystack) ||
       /profiles_lesiones_/i.test(haystack)
     ) {
-      return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
+      return T('injuriesRequireDetail', 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.')
     }
     if (
       /sessions_finished_requires_started/i.test(haystack) ||
       /sessions_finished_after_started/i.test(haystack)
     ) {
-      return 'Error interno de sesión. Avisá al coach.'
+      return T('sessionInternalError', 'Error interno de sesión. Avisá al coach.')
     }
     if (/apunta a una plantilla/i.test(haystack)) {
-      return 'Error técnico al asignar el plan. Avisá al coach (cod: 23514 template).'
+      return T('templateAssignError', 'Error técnico al asignar el plan. Avisá al coach (cod: 23514 template).')
     }
     // Mensajes en español del RPC save_workout_log (RAISE EXCEPTION USING ERRCODE='check_violation').
     // El RPC NO emite el nombre del constraint en el mensaje, así que los patrones de arriba
     // (que buscan workout_logs_*) no matchean. Sin estos catches, todo error de save_workout_log
     // caía al fallback "Hay un dato que no cumple las reglas".
     if (/p_reps y p_weights|misma longitud/i.test(haystack)) {
-      return 'La cantidad de reps no coincide con la de pesos. Revisá los sets.'
+      return T('repsWeightsMismatch', 'La cantidad de reps no coincide con la de pesos. Revisá los sets.')
     }
     if (/weight_mode inválido/i.test(haystack)) {
-      return 'Modo de peso inválido. Recargá la página.'
+      return T('invalidWeightMode', 'Modo de peso inválido. Recargá la página.')
     }
     if (/reps_unit inválido/i.test(haystack)) {
-      return 'Unidad de reps inválida. Recargá la página.'
+      return T('invalidRepsUnit', 'Unidad de reps inválida. Recargá la página.')
     }
     if (/bodyweight no admite p_weights|no admite p_weights/i.test(haystack)) {
-      return 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.'
+      return T('bodyweightNoWeights', 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.')
     }
-    return 'Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo.'
+    return T('checkFallback', 'Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo.')
   }
 
   // ────────────────────────────────────────────────────────────
@@ -123,71 +132,72 @@ export function getFriendlyErrorMessage(error) {
   // ────────────────────────────────────────────────────────────
   if (code === '23503') {
     if (/Plan .* no existe/i.test(haystack))
-      return 'El plan no existe o fue eliminado. Recargá la página.'
+      return T('planNotFound', 'El plan no existe o fue eliminado. Recargá la página.')
     if (/Alumno .* no existe/i.test(haystack))
-      return 'El alumno no existe o no es válido. Recargá la página.'
-    return 'Recurso no encontrado. Recargá la página.'
+      return T('studentNotFound', 'El alumno no existe o no es válido. Recargá la página.')
+    return T('resourceNotFound', 'Recurso no encontrado. Recargá la página.')
   }
 
   // ────────────────────────────────────────────────────────────
   // 23505 — Unique violation (no recuperable)
   // ────────────────────────────────────────────────────────────
   if (code === '23505') {
-    return 'Ya existe un registro similar. Archivá el anterior primero.'
+    return T('duplicateRecord', 'Ya existe un registro similar. Archivá el anterior primero.')
   }
 
   // ────────────────────────────────────────────────────────────
   // 22023 — Invalid parameter
   // ────────────────────────────────────────────────────────────
   if (code === '22023') {
-    return 'Faltan datos para guardar. Completá todos los campos.'
+    return T('missingData', 'Faltan datos para guardar. Completá todos los campos.')
   }
 
   // ────────────────────────────────────────────────────────────
   // 02000 — no_data_found
   // ────────────────────────────────────────────────────────────
   if (code === '02000') {
-    return 'El registro que querías editar fue borrado. Recargá la lista.'
+    return T('recordDeleted', 'El registro que querías editar fue borrado. Recargá la lista.')
   }
 
   // ────────────────────────────────────────────────────────────
   // 42501 — RLS denied
   // ────────────────────────────────────────────────────────────
   if (code === '42501') {
-    return 'No tenés permiso para hacer esto. Avisá al coach.'
+    return T('noPermission', 'No tenés permiso para hacer esto. Avisá al coach.')
   }
 
   // ────────────────────────────────────────────────────────────
   // P0001 — RAISE EXCEPTION custom: usar mensaje del back tal cual
   // ────────────────────────────────────────────────────────────
   if (code === 'P0001') {
-    return msg || 'Operación no permitida.'
+    // El mensaje custom del back se muestra tal cual (lo escribe el RPC).
+    return msg || T('operationNotAllowed', 'Operación no permitida.')
   }
 
   // ────────────────────────────────────────────────────────────
   // Auth / JWT expirado (recuperable, pero requiere acción)
   // ────────────────────────────────────────────────────────────
   if (code === 'PGRST301' || /jwt expired/i.test(haystack)) {
-    return 'Tu sesión expiró. Iniciá sesión de nuevo.'
+    return T('sessionExpired', 'Tu sesión expiró. Iniciá sesión de nuevo.')
   }
 
   // ────────────────────────────────────────────────────────────
   // Network / connection (recuperable)
   // ────────────────────────────────────────────────────────────
   if (/network|failed to fetch|networkerror/i.test(haystack)) {
-    return 'Sin conexión. Probá de nuevo en un momento.'
+    return T('noConnection', 'Sin conexión. Probá de nuevo en un momento.')
   }
   if (code === '429') {
-    return 'Demasiadas solicitudes. Esperá unos segundos.'
+    return T('tooManyRequests', 'Demasiadas solicitudes. Esperá unos segundos.')
   }
   if (code === '503' || code === '504') {
-    return 'Servidor lento. Reintentá en un momento.'
+    return T('serverSlow', 'Servidor lento. Reintentá en un momento.')
   }
 
   // ────────────────────────────────────────────────────────────
   // Fallback: mensaje crudo del back o genérico
   // ────────────────────────────────────────────────────────────
-  return msg || 'Algo salió mal. Probá de nuevo o avisá al coach.'
+  return msg || T('genericFallback', 'Algo salió mal. Probá de nuevo o avisá al coach.')
 }
 
 /**

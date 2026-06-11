@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, subDays, eachDayOfInterval, isToday } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import { Dumbbell, TrendingUp, Calendar, ChevronRight, Flame, BarChart2 } from 'lucide-react'
 import { evalTypeIcon, evalTypeLabel } from '@/features/evaluations/helpers'
 import {
@@ -16,6 +17,7 @@ import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const [assignments, setAssignments] = useState([])
   const [weekLogs, setWeekLogs] = useState([])
   const [streak, setStreak] = useState(0)
@@ -149,7 +151,12 @@ export default function StudentDashboard() {
   }, [profile?.id, activePlan?.plan_id, activePlan?.start_date])
 
   const hora = new Date().getHours()
-  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const saludo =
+    hora < 12
+      ? t('dashboard.greetingMorning')
+      : hora < 19
+        ? t('dashboard.greetingAfternoon')
+        : t('dashboard.greetingEvening')
 
   return (
     <div className="max-w-lg mx-auto">
@@ -162,10 +169,10 @@ export default function StudentDashboard() {
           <div className="flex items-center gap-3">
             <span className="text-2xl">📋</span>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Tenés un formulario pendiente</p>
-              <p className="text-xs text-amber-600">
-                Tu coach te envió el formulario de ingreso. Completalo para empezar.
+              <p className="text-sm font-semibold text-amber-800">
+                {t('dashboard.intakePendingTitle')}
               </p>
+              <p className="text-xs text-amber-600">{t('dashboard.intakePendingBody')}</p>
             </div>
             <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
           </div>
@@ -186,14 +193,10 @@ export default function StudentDashboard() {
             <span className="text-2xl">📝</span>
             <div className="flex-1">
               <p className="text-sm font-semibold text-purple-800">
-                {pendingFollowUps.length === 1
-                  ? 'Tu coach te envió un formulario'
-                  : `Tenés ${pendingFollowUps.length} formularios pendientes`}
+                {t('dashboard.followUpPendingTitle', { count: pendingFollowUps.length })}
               </p>
               <p className="text-xs text-purple-600">
-                {pendingFollowUps.length === 1
-                  ? 'Tomate un minuto para responderlo.'
-                  : 'Respondelos cuando tengas un momento.'}
+                {t('dashboard.followUpPendingBody', { count: pendingFollowUps.length })}
               </p>
             </div>
             <ChevronRight size={18} className="text-purple-400 flex-shrink-0" />
@@ -206,14 +209,14 @@ export default function StudentDashboard() {
         <p className="text-primary-200 text-sm">{saludo}</p>
         <h1 className="text-2xl font-bold text-white mt-0.5">{profile?.name?.split(' ')[0]} 💪</h1>
         <p className="text-primary-200 text-sm mt-1">
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          {format(new Date(), t('dates.fullDate'), { locale: dateLocale() })}
         </p>
 
         {streak > 0 && (
           <div className="flex items-center gap-2 mt-4 bg-white/10 rounded-xl px-3 py-2 w-fit">
             <Flame size={18} className="text-orange-300" />
             <span className="text-white font-semibold">
-              {streak} día{streak > 1 ? 's' : ''} seguido{streak > 1 ? 's' : ''}
+              {t('dashboard.streak', { count: streak })}
             </span>
           </div>
         )}
@@ -222,7 +225,7 @@ export default function StudentDashboard() {
       <div className="px-4 -mt-4 pb-6 space-y-4">
         {/* Weekly heatmap */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Esta semana</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('dashboard.thisWeek')}</h3>
           <div className="flex gap-2 justify-between">
             {last7Days.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd')
@@ -231,7 +234,7 @@ export default function StudentDashboard() {
               return (
                 <div key={dateStr} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-xs text-gray-400">
-                    {format(day, 'EEEEE', { locale: es })}
+                    {format(day, 'EEEEE', { locale: dateLocale() })}
                   </span>
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
@@ -253,7 +256,7 @@ export default function StudentDashboard() {
           {activePlan && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Cuántas veces hiciste cada día
+                {t('dashboard.dayTalliesTitle')}
               </h4>
               <DayTalliesBadge tallies={dayTallies} showLegend />
             </div>
@@ -270,9 +273,9 @@ export default function StudentDashboard() {
               <Dumbbell className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white">Entrenamiento de hoy</p>
+              <p className="font-bold text-white">{t('dashboard.todayWorkout')}</p>
               <p className="text-primary-200 text-sm">
-                {activePlan?.plan?.title || 'Ver tu rutina'}
+                {activePlan?.plan?.title || t('dashboard.seeYourRoutine')}
               </p>
             </div>
             <ChevronRight className="text-white/70" size={20} />
@@ -284,7 +287,7 @@ export default function StudentDashboard() {
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <BarChart2 size={14} className="text-purple-500" />
-              Mis evaluaciones
+              {t('dashboard.myEvaluations')}
             </h3>
             {evalPlans.map((a) => (
               <Link
@@ -298,7 +301,11 @@ export default function StudentDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-gray-900 truncate">{a.plan?.title}</p>
-                    <p className="text-xs text-gray-500">{evalTypeLabel(a.plan?.eval_type)}</p>
+                    <p className="text-xs text-gray-500">
+                      {t(`evalType.${a.plan?.eval_type}`, {
+                        defaultValue: evalTypeLabel(a.plan?.eval_type),
+                      })}
+                    </p>
                   </div>
                   <ChevronRight size={16} className="text-gray-400" />
                 </div>
@@ -317,8 +324,8 @@ export default function StudentDashboard() {
               <TrendingUp size={18} className="text-green-600" />
             </div>
             <div>
-              <p className="font-semibold text-sm text-gray-900">Progreso</p>
-              <p className="text-xs text-gray-500">Ver gráficos</p>
+              <p className="font-semibold text-sm text-gray-900">{t('nav.progress')}</p>
+              <p className="text-xs text-gray-500">{t('dashboard.seeCharts')}</p>
             </div>
           </Link>
           <Link
@@ -329,8 +336,8 @@ export default function StudentDashboard() {
               <Calendar size={18} className="text-blue-600" />
             </div>
             <div>
-              <p className="font-semibold text-sm text-gray-900">Historial</p>
-              <p className="text-xs text-gray-500">Todos los logs</p>
+              <p className="font-semibold text-sm text-gray-900">{t('nav.history')}</p>
+              <p className="text-xs text-gray-500">{t('dashboard.allLogs')}</p>
             </div>
           </Link>
         </div>
