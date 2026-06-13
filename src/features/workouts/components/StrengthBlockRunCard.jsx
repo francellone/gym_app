@@ -25,6 +25,8 @@ export default function StrengthBlockRunCard({
   // F4 — passthrough para draft local en ExerciseCard
   studentId = null,
   loggedDate = null,
+  // doc 48 — último cambio de objetivo del coach por plan_exercise.id
+  prescriptionByEx = {},
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -79,6 +81,8 @@ export default function StrengthBlockRunCard({
         // F4 — draft local
         studentId={studentId}
         loggedDate={loggedDate}
+        // doc 48 — cambio de objetivo del coach para este ejercicio
+        prescriptionChange={prescriptionByEx?.[ex.id] || null}
       />
     )
   }

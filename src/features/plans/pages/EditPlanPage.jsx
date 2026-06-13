@@ -28,7 +28,9 @@ import EvaluationParentPlanField, {
 } from '../components/EvaluationParentPlanField'
 import EvalDaysEditor from '../components/EvalDaysEditor'
 import ReassignTemplateModal from '../components/ReassignTemplateModal'
+import PrescriptionNoteModal from '../components/PrescriptionNoteModal'
 import { fetchTemplateAssignees } from '../assignmentHelpers'
+import { diffPrescription } from '../prescriptionHistory'
 
 // ============================================================
 export default function EditPlanPage() {
@@ -43,6 +45,13 @@ export default function EditPlanPage() {
 
   // doc 40: tras editar un template con asignaciones vivas, ofrecer re-asignar.
   const [reassignAssignees, setReassignAssignees] = useState(null)
+
+  // doc 48: trazabilidad de cambios de prescripción en el plan de una alumna.
+  // Snapshot de los valores prescritos al cargar (por plan_exercise.id) para
+  // diffear al guardar, y modal post-save para adjuntar el motivo.
+  const [originalPrescriptions, setOriginalPrescriptions] = useState({})
+  const [prescriptionModal, setPrescriptionModal] = useState(null)
+  const [savingNote, setSavingNote] = useState(false)
 
   const [plan, setPlan] = useState({
     title: '',
@@ -120,6 +129,21 @@ export default function EditPlanPage() {
         }
         setPlan(loadedPlan)
         setEvalTags(p.eval_tags || [])
+
+        // doc 48: snapshot de la prescripción cargada (por plan_exercise.id)
+        // para diffear al guardar. Solo aplica a clones de training.
+        const origPresc = {}
+        for (const ex of p.plan_exercises || []) {
+          origPresc[ex.id] = {
+            suggested_sets: ex.suggested_sets,
+            suggested_reps: ex.suggested_reps,
+            suggested_weights: ex.suggested_weights,
+            suggested_weight: ex.suggested_weight,
+            rest_time: ex.rest_time,
+            suggested_pse: ex.suggested_pse,
+          }
+        }
+        setOriginalPrescriptions(origPresc)
 
         if (loadedPlan.plan_type === 'evaluation') {
           // Eval exercise-based (doc 38): leer de plan_exercises, agrupar por día.
@@ -383,6 +407,31 @@ export default function EditPlanPage() {
     else navigate(`/coach/plans/${id}`)
   }
 
+  // doc 48: el cambio ya quedó registrado; adjuntar el motivo (si lo hay) y salir.
+  async function confirmPrescriptionNote(note) {
+    const trimmed = (note || '').trim()
+    const ids = prescriptionModal?.ids || []
+    if (trimmed && ids.length > 0) {
+      setSavingNote(true)
+      try {
+        await supabase
+          .from('plan_exercise_prescription_history')
+          .update({ note: trimmed })
+          .in('id', ids)
+      } catch (e) {
+        console.warn('[EditPlanPage] no se pudo guardar el motivo del cambio:', e)
+      }
+      setSavingNote(false)
+    }
+    setPrescriptionModal(null)
+    goToDetail()
+  }
+
+  function skipPrescriptionNote() {
+    setPrescriptionModal(null)
+    goToDetail()
+  }
+
   async function handleSave() {
     if (!plan.title.trim()) {
       setError('El nombre del plan es obligatorio')
@@ -394,6 +443,9 @@ export default function EditPlanPage() {
     }
     setError(null)
     setSaving(true)
+
+    // doc 48: cambios de prescripción detectados durante el guardado (solo clones).
+    const histChanges = []
 
     try {
       // 1. Update plan
@@ -512,6 +564,20 @@ export default function EditPlanPage() {
                   .update(dbData)
                   .eq('id', ex.id)
                 if (uErr) throw uErr
+                // doc 48: registrar cambio de prescripción (solo en clones).
+                if (!plan.is_template) {
+                  const orig = originalPrescriptions[ex.id]
+                  const changes = orig ? diffPrescription(orig, dbData) : null
+                  if (changes) {
+                    const exName =
+                      exercises.find((e) => e.id === ex.exercise_id)?.name || 'Ejercicio'
+                    histChanges.push({
+                      plan_exercise_id: ex.id,
+                      exerciseName: exName,
+                      changes,
+                    })
+                  }
+                }
               } else {
                 const { error: iErr } = await supabase.from('plan_exercises').insert(dbData)
                 if (iErr) throw iErr
@@ -524,6 +590,32 @@ export default function EditPlanPage() {
       // Limpiar buffers
       setToDeleteBlocks([])
       setToDeleteExercises([])
+
+      // doc 48: si es el plan de una alumna (clon) y cambió la prescripción de
+      // algún ejercicio, registrar el cambio y ofrecer adjuntar un motivo. El
+      // registro se inserta YA (note=null) para garantizar la trazabilidad
+      // aunque la coach cierre el modal; el modal solo agrega el motivo.
+      if (!plan.is_template && histChanges.length > 0) {
+        try {
+          const rows = histChanges.map((h) => ({
+            plan_exercise_id: h.plan_exercise_id,
+            plan_id: id,
+            changes: h.changes,
+          }))
+          const { data: ins, error: hErr } = await supabase
+            .from('plan_exercise_prescription_history')
+            .insert(rows)
+            .select('id')
+          if (!hErr && ins?.length) {
+            setPrescriptionModal({ changes: histChanges, ids: ins.map((r) => r.id) })
+            setSaving(false)
+            return // el modal maneja el motivo + navegación
+          }
+        } catch (hErr) {
+          // No bloqueamos el guardado si falla el historial: navegamos normal.
+          console.warn('[EditPlanPage] no se pudo registrar historial de prescripción:', hErr)
+        }
+      }
 
       // doc 40: si es template, chequear asignaciones vivas. Los cambios no
       // se propagan a las copias ya asignadas → ofrecer re-asignar.
@@ -1015,6 +1107,16 @@ export default function EditPlanPage() {
             setReassignAssignees(null)
             goToDetail()
           }}
+        />
+      )}
+
+      {/* doc 48: motivo opcional tras cambiar la prescripción del plan de una alumna */}
+      {prescriptionModal && (
+        <PrescriptionNoteModal
+          changes={prescriptionModal.changes}
+          saving={savingNote}
+          onConfirm={confirmPrescriptionNote}
+          onSkip={skipPrescriptionNote}
         />
       )}
     </div>

@@ -10,7 +10,9 @@ import {
   Trash2,
   AlertTriangle,
   RotateCcw,
+  TrendingUp,
 } from 'lucide-react'
+import { PRESCRIPTION_FIELD_KEYS } from '@/features/plans/prescriptionHistory'
 import {
   parseReps,
   displayReps,
@@ -70,6 +72,9 @@ export default function ExerciseCard({
   // sigue funcionando como antes, sin autosave local).
   studentId = null,
   loggedDate = null,
+  // doc 48 — último cambio de objetivo hecho por el coach para este ejercicio.
+  // { changed_at, changes: { fieldKey: {old,new} }, note } | null
+  prescriptionChange = null,
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -583,6 +588,27 @@ export default function ExerciseCard({
                 .filter(Boolean)
                 .join(' ')}
             </p>
+            {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
+            {prescriptionChange?.changes && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <TrendingUp size={11} />
+                  {t('workout.coachAdjusted')}
+                </span>
+                {PRESCRIPTION_FIELD_KEYS.filter((k) => prescriptionChange.changes[k]).map((k) => (
+                  <span key={k} className="text-emerald-600">
+                    {t(`workout.prescriptionField.${k}`)} {prescriptionChange.changes[k].old}
+                    {'→'}
+                    <strong>{prescriptionChange.changes[k].new}</strong>
+                  </span>
+                ))}
+                {prescriptionChange.note && (
+                  <span className="w-full text-emerald-600/80 italic">
+                    "{prescriptionChange.note}"
+                  </span>
+                )}
+              </div>
+            )}
             {/* Q1 — "Última vez" + badge chat (siempre visible en el header) */}
             <ExerciseHistoryHeaderLine
               lastLog={lastLog}
@@ -851,7 +877,8 @@ export default function ExerciseCard({
                       <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
                         <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
                         <p className="text-[11px] text-amber-700 leading-relaxed">
-                          {t('workout.barbellWarnPrefix')} <strong>{t('workout.barbellWarnMode')}</strong>{' '}
+                          {t('workout.barbellWarnPrefix')}{' '}
+                          <strong>{t('workout.barbellWarnMode')}</strong>{' '}
                           {t('workout.barbellWarnSuffix')}
                         </p>
                       </div>
@@ -927,8 +954,7 @@ export default function ExerciseCard({
                   return (
                     <p className="text-xs text-green-600">
                       {[
-                        log?.actual_sets &&
-                          t('workout.series', { count: Number(log.actual_sets) }),
+                        log?.actual_sets && t('workout.series', { count: Number(log.actual_sets) }),
                         repsArr.length > 0 && `× ${repsArr.join(', ')}${unitLabel}${repsLabel}`,
                         wArr.length > 0 && t('workout.weightKg', { value: wArr.join(', ') }),
                         log?.weight_mode === 'bodyweight' &&

@@ -181,6 +181,14 @@
     "yesUnmark": "Yes, unmark",
     "unmark": "Unmark",
     "suggestedLabel": "Suggested:",
+    "coachAdjusted": "Your coach adjusted the target",
+    "prescriptionField": {
+      "sets": "Sets",
+      "reps": "Reps",
+      "weight": "Weight",
+      "rest": "Rest",
+      "pse": "RPE"
+    },
     "series_one": "{{count}} set",
     "series_other": "{{count}} sets",
     "restBetweenSets": "rest {{time}} between sets",
@@ -262,15 +270,30 @@
     "sensationHeader": "Feeling",
     "rpe": {
       "cardio": {
-        "1": { "short": "very easy", "desc": "nasal breathing · you can sing · minimal activation" },
+        "1": {
+          "short": "very easy",
+          "desc": "nasal breathing · you can sing · minimal activation"
+        },
         "2": { "short": "easy", "desc": "calm breathing · you talk without pauses" },
         "3": { "short": "light", "desc": "deeper breathing · full sentences · comfortable" },
-        "4": { "short": "low moderate", "desc": "steady breathing · fluid conversation · constant pace" },
-        "5": { "short": "moderate", "desc": "noticeable breathing · sentences with pauses · sustained" },
-        "6": { "short": "moderate-high", "desc": "deep breathing · short sentences · controlled discomfort" },
+        "4": {
+          "short": "low moderate",
+          "desc": "steady breathing · fluid conversation · constant pace"
+        },
+        "5": {
+          "short": "moderate",
+          "desc": "noticeable breathing · sentences with pauses · sustained"
+        },
+        "6": {
+          "short": "moderate-high",
+          "desc": "deep breathing · short sentences · controlled discomfort"
+        },
         "7": { "short": "high", "desc": "heavy breathing · 2–3 words · mental focus" },
         "8": { "short": "very high", "desc": "agitated breathing · single words · clear fatigue" },
-        "9": { "short": "near max", "desc": "overwhelmed breathing · you can't talk · at the limit" },
+        "9": {
+          "short": "near max",
+          "desc": "overwhelmed breathing · you can't talk · at the limit"
+        },
         "10": { "short": "max", "desc": "chaotic breathing · no speech · seconds" }
       },
       "circuit": {

@@ -18,6 +18,7 @@ import {
   Repeat,
   LayoutGrid,
   TrendingUp,
+  History,
 } from 'lucide-react'
 import {
   displayReps,
@@ -33,7 +34,9 @@ import {
 import { format } from 'date-fns'
 import DeletePlanModal from '../components/DeletePlanModal'
 import PlanProgressTab from './PlanProgressTab'
+import PrescriptionHistoryTimeline from '../components/PrescriptionHistoryTimeline'
 import { assignTemplateToStudent } from '../assignmentHelpers'
+import { fetchPrescriptionHistory, groupHistoryByExercise } from '../prescriptionHistory'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
 //
@@ -255,10 +258,12 @@ function fmtWeight(ex) {
 }
 
 // ── Fila de ejercicio (tabla) ───────────────────────────────
-function ExerciseRow({ ex, onDelete }) {
+function ExerciseRow({ ex, onDelete, history = [] }) {
   const [notesOpen, setNotesOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const hasNotes = !!(ex.extra_notes || ex.exercise?.technique_notes)
+  const hasHistory = history.length > 0
   const bStyle = blockStyle(ex.block_label)
   const weight = fmtWeight(ex)
 
@@ -310,6 +315,18 @@ function ExerciseRow({ ex, onDelete }) {
               >
                 <ExternalLink size={11} />
               </a>
+            )}
+            {hasHistory && (
+              <button
+                className={`plan-ex-note-btn ${historyOpen ? 'plan-ex-note-btn--on' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setHistoryOpen((o) => !o)
+                }}
+                title={`Cambios de objetivo (${history.length})`}
+              >
+                <History size={9} strokeWidth={2.5} />
+              </button>
             )}
           </div>
         </div>
@@ -382,6 +399,20 @@ function ExerciseRow({ ex, onDelete }) {
           <div className="plan-ex-notes-inner">
             <div className="plan-ex-notes-label">Técnica / notas</div>
             {ex.extra_notes || ex.exercise?.technique_notes}
+          </div>
+        </div>
+      )}
+
+      {/* doc 48: historial de cambios de objetivo (prescripción) */}
+      {historyOpen && hasHistory && (
+        <div className="plan-ex-notes-row">
+          <div className="plan-ex-notes-inner">
+            <div className="plan-ex-notes-label flex items-center gap-1.5">
+              <History size={11} /> Cambios de objetivo
+            </div>
+            <div className="mt-1.5">
+              <PrescriptionHistoryTimeline entries={history} />
+            </div>
           </div>
         </div>
       )}
@@ -609,7 +640,7 @@ function CircuitBlockSummary({ block }) {
 }
 
 // ── Sección con tabla ────────────────────────────────────────
-function ExerciseSection({ section, exercises, onDelete }) {
+function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
   const sectionColors = {
     activation: '#8b5cf6',
     day_a: '#f97316',
@@ -644,7 +675,9 @@ function ExerciseSection({ section, exercises, onDelete }) {
           Sin ejercicios en esta sección
         </div>
       ) : (
-        exercises.map((ex) => <ExerciseRow key={ex.id} ex={ex} onDelete={onDelete} />)
+        exercises.map((ex) => (
+          <ExerciseRow key={ex.id} ex={ex} onDelete={onDelete} history={historyByEx[ex.id] || []} />
+        ))
       )}
     </div>
   )
@@ -663,6 +696,7 @@ export default function PlanDetailPage() {
   const [activeSection, setActiveSection] = useState(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [mainTab, setMainTab] = useState('structure') // 'structure' | 'progress'
+  const [historyByEx, setHistoryByEx] = useState({}) // doc 48: cambios de objetivo
 
   useEffect(() => {
     fetchPlan()
@@ -687,6 +721,11 @@ export default function PlanDetailPage() {
       setExercises(planRes.data?.plan_exercises || [])
       setPlanBlocks(blocksRes.data || [])
       setAssignments(assignmentsRes.data || [])
+
+      // doc 48: historial de cambios de objetivo (solo aplica a clones; en
+      // templates la consulta vuelve vacía y no molesta).
+      const histRows = await fetchPrescriptionHistory(supabase, id)
+      setHistoryByEx(groupHistoryByExercise(histRows))
     } catch (err) {
       console.error(err)
     } finally {
@@ -1057,6 +1096,7 @@ export default function PlanDetailPage() {
                         section={currentSection}
                         exercises={strengthExercises}
                         onDelete={deleteExercise}
+                        historyByEx={historyByEx}
                       />
                     </div>
                   )}

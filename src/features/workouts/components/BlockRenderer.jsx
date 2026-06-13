@@ -34,6 +34,8 @@ export default function BlockRenderer({
   // F4 — passthrough a ExerciseCard para draft local
   studentId = null,
   loggedDate = null,
+  // doc 48 — cambios de objetivo del coach por plan_exercise.id
+  prescriptionByEx = {},
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -88,6 +90,8 @@ export default function BlockRenderer({
       // F4 — draft local en ExerciseCard
       studentId={studentId}
       loggedDate={loggedDate}
+      // doc 48 — cambios de objetivo del coach
+      prescriptionByEx={prescriptionByEx}
     />
   )
 }

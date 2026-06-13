@@ -21,6 +21,10 @@ import {
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import BlockRenderer from '../components/BlockRenderer'
+import {
+  fetchPrescriptionHistory,
+  groupHistoryByExercise,
+} from '@/features/plans/prescriptionHistory'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
 import SaveErrorBanner from '../components/SaveErrorBanner'
@@ -100,6 +104,9 @@ export default function TodayWorkoutPage() {
   const [recentExerciseLogs, setRecentExerciseLogs] = useState([])
   // Q1 — workout_block_logs recientes del plan (aerobic + circuit).
   const [recentBlockLogs, setRecentBlockLogs] = useState([])
+  // doc 48 — último cambio de objetivo del coach por plan_exercise.id (ventana
+  // reciente). Alimenta el cartel "Tu coach ajustó el objetivo" en el card.
+  const [prescriptionByEx, setPrescriptionByEx] = useState({})
   // Q1 — notas tipo `exercise` del thread del alumno (ambos lados, shared).
   // Se usan para: última nota coach (preview), conteo badge 💬N, y como
   // cache pasada al drawer para evitar re-fetch.
@@ -288,6 +295,25 @@ export default function TodayWorkoutPage() {
       setRecentLogs(recentLogsRes.data || [])
       setRecentExerciseLogs(recentExerciseLogsRes.data || [])
       setRecentBlockLogs(recentBlockLogsRes.data || [])
+
+      // doc 48 — cambios de objetivo del coach (último por ejercicio). Solo
+      // mostramos los recientes (≤ 21 días) para que el cartel sea relevante
+      // al bloque de entrenamiento actual y no quede "pegado" para siempre.
+      try {
+        const prescRows = await fetchPrescriptionHistory(supabase, assignData.plan_id)
+        const groupedPresc = groupHistoryByExercise(prescRows) // ya viene desc por fecha
+        const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000
+        const latestPresc = {}
+        for (const peId of Object.keys(groupedPresc)) {
+          const latest = groupedPresc[peId][0]
+          if (latest?.changed_at && new Date(latest.changed_at).getTime() >= cutoff) {
+            latestPresc[peId] = latest
+          }
+        }
+        setPrescriptionByEx(latestPresc)
+      } catch {
+        setPrescriptionByEx({})
+      }
 
       // Q1 — resolver threadId del alumno y fetchear las notas tipo
       // 'exercise' del thread. La query del thread la hacemos en paralelo
@@ -1100,6 +1126,7 @@ export default function TodayWorkoutPage() {
                     onOpenChat={openChatDrawer}
                     studentId={profile?.id || null}
                     loggedDate={selectedDate}
+                    prescriptionByEx={prescriptionByEx}
                   />
                 ))}
               </div>
@@ -1131,6 +1158,7 @@ export default function TodayWorkoutPage() {
                     onOpenChat={openChatDrawer}
                     studentId={profile?.id || null}
                     loggedDate={selectedDate}
+                    prescriptionByEx={prescriptionByEx}
                   />
                 ))}
               </div>
