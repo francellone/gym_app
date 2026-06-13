@@ -13,6 +13,10 @@
 // Decisión Franco 2026-05-23 late night:
 //   - Último log por **exercise_id global** (no por plan_exercise_id).
 //     Mismo ejercicio en Día A vs Día B comparte su "última vez".
+//     doc 49: ahora también CROSS-PLAN — el ejercicio arrastra su última
+//     vez de planes anteriores (mismo exercise_id de catálogo). El caller
+//     embebe exercise_id vía join y el reductor lo prioriza sobre el mapa
+//     del plan activo.
 //   - Última nota = **coach only**.
 //   - Chat completo = ambos lados (coach + student).
 //   - Scope: strength + aerobic + circuit (cualquier card que tenga
@@ -54,9 +58,14 @@ export function pickLastLogPerExercise(logs, planExercises, options = {}) {
     if (completedOnly && !log.completed) continue
     if (excludeDate && log.logged_date === excludeDate) continue
 
+    // doc 49: resolvemos exercise_id desde el join embebido (cross-plan)
+    // con fallback al mapa de planExercises del plan activo. El embebido
+    // permite agrupar logs de plan_exercises que NO están en el plan actual
+    // (planes anteriores con el mismo ejercicio de catálogo). El fallback
+    // mantiene los tests y callers que pasan planExercises sin join.
     const planEx = planExById.get(log.plan_exercise_id)
-    if (!planEx?.exercise_id) continue
-    const exerciseId = planEx.exercise_id
+    const exerciseId = log.plan_exercise?.exercise_id || planEx?.exercise_id
+    if (!exerciseId) continue
 
     const prev = byExercise.get(exerciseId)
     if (!prev || compareLogsDesc(log, prev) < 0) {

@@ -260,13 +260,18 @@ export default function TodayWorkoutPage() {
         // Excluimos la fecha actual: queremos histórico, no reflejo del
         // log que el alumno acaba de cargar (esa info se ve en el header
         // del propio card en formato "✓ 3s · Xkg · PSE Y").
+        //
+        // doc 49: CROSS-PLAN. NO filtramos por plan_id: la "última vez" del
+        // ejercicio debe arrastrar el historial de planes anteriores (mismo
+        // exercise_id de catálogo). Embebemos exercise_id vía join para que el
+        // reductor pueda agrupar logs de plan_exercises que NO están en el
+        // plan activo.
         supabase
           .from('workout_logs')
           .select(
-            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, created_at'
+            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, created_at, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
           )
           .eq('student_id', profile.id)
-          .eq('plan_id', assignData.plan_id)
           .eq('completed', true)
           .lt('logged_date', selectedDate)
           .order('logged_date', { ascending: false })

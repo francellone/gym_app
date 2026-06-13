@@ -42,6 +42,28 @@ describe('pickLastLogPerExercise', () => {
     expect(map.get('ex-squat').id).toBe('l3')
   })
 
+  it('doc 49: agrupa cross-plan usando exercise_id embebido en el join', () => {
+    // Logs de un plan anterior cuyos plan_exercise_id NO están en PE
+    // (simula el plan activo). El reductor debe resolver el exercise_id
+    // desde log.plan_exercise.exercise_id (join embebido).
+    const logs = [
+      // Plan activo (pe-b está en PE) — más viejo
+      { id: 'l1', plan_exercise_id: 'pe-b', logged_date: '2026-05-10', completed: true },
+      // Plan anterior (pe-old NO está en PE) pero mismo ejercicio ex-squat — más reciente
+      {
+        id: 'l2',
+        plan_exercise_id: 'pe-old',
+        logged_date: '2026-05-20',
+        completed: true,
+        plan_exercise: { exercise_id: 'ex-squat' },
+      },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    // Gana l2 (más reciente) y se agrupa bajo ex-squat aunque pe-old no esté en PE
+    expect(map.get('ex-squat').id).toBe('l2')
+    expect(map.get('ex-squat')._exercise_id).toBe('ex-squat')
+  })
+
   it('omite logs no completados cuando completedOnly=true (default)', () => {
     const logs = [
       { id: 'l1', plan_exercise_id: 'pe-b', logged_date: '2026-05-22', completed: false },
