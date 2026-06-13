@@ -31,10 +31,15 @@ export const PRESCRIPTION_FIELD_LABELS_ES = {
 }
 
 // Normaliza un valor a string limpio; '' representa "sin valor".
+// Importante: un array vacío serializado (p.ej. pesos de un ejercicio sin
+// carga) puede renderizarse como ", " / ",," vía displayReps. Si tras quitar
+// separadores no queda ningún caracter alfanumérico, lo tratamos como vacío
+// para no generar falsos positivos de cambio.
 function normalizeVal(v) {
   if (v == null) return ''
   const s = String(v).trim()
   if (s === '' || s.toLowerCase() === 'none') return ''
+  if (!/[0-9a-zA-Z]/.test(s)) return ''
   return s
 }
 
