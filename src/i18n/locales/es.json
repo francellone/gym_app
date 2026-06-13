@@ -357,6 +357,7 @@
     "weightProgressTitle": "Progresión de peso",
     "weightProgressSubtitle": "Peso levantado por sesión",
     "noWeightDataForExercise": "Sin datos de peso para este ejercicio",
+    "widenPeriodHint": "Pocos registros en este período. Probá ampliar arriba (3m / 6m / Todo).",
     "compareSubtitle": "Series planificadas vs ejecutadas",
     "noDataForExercise": "Sin datos para este ejercicio",
     "bodyWeightMissingTitle": "Peso corporal sin registrar.",

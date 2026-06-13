@@ -142,7 +142,10 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState(30)
   const [selectedExercise, setSelectedExercise] = useState('')
-  const [exercises, setExercises] = useState([])
+  // doc 50: lista COMPLETA de ejercicios entrenados (independiente del período).
+  // El selector usa esta lista — antes usaba `exercises` (solo los de la ventana
+  // activa), lo que hacía parecer que progreso solo mostraba el plan actual.
+  const [allExercises, setAllExercises] = useState([])
   const [activeChart, setActiveChart] = useState('weight')
 
   // ── ETIQUETAS ────────────────────────────────────────────
@@ -155,15 +158,45 @@ export default function ProgressPage() {
     if (profile?.id) fetchData()
   }, [profile, period])
 
+  // doc 50: lista completa de ejercicios entrenados, independiente del período.
+  // Alimenta el selector para que NO dependa de la ventana temporal (antes solo
+  // mostraba los del último mes → parecía "solo el plan actual"). Corre una vez
+  // por alumno.
+  useEffect(() => {
+    if (!profile?.id) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('workout_logs')
+        .select(
+          'plan:plans!plan_id(plan_type), plan_exercise:plan_exercises!plan_exercise_id(exercise:exercises!exercise_id(id, name))'
+        )
+        .eq('student_id', profile.id)
+      if (cancelled) return
+      const map = {}
+      filterTrainingLogs(data || []).forEach((l) => {
+        const ex = l.plan_exercise?.exercise
+        if (ex) map[ex.id] = ex.name
+      })
+      const list = Object.entries(map)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+      setAllExercises(list)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id])
+
   // Cuando cambia el filtro de etiqueta, resetear el ejercicio seleccionado
   // si ya no pertenece a la nueva selección
   useEffect(() => {
-    if (!exercises.length) return
+    if (!allExercises.length) return
     const filtered = selectedTag
-      ? exercises.filter((ex) =>
+      ? allExercises.filter((ex) =>
           tagAssignments.some((ta) => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
         )
-      : exercises
+      : allExercises
     if (filtered.length > 0 && !filtered.some((e) => e.id === selectedExercise)) {
       setSelectedExercise(filtered[0].id)
     }
@@ -226,8 +259,18 @@ export default function ProgressPage() {
     const exList = Object.entries(exMap)
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
-    setExercises(exList)
-    if (!selectedExercise && exList.length > 0) setSelectedExercise(exList[0].id)
+    // doc 50: default = ejercicio con MÁS puntos de peso en la ventana, no el
+    // primero alfabético. Evita arrancar en uno con un solo registro ("una
+    // sola carga"). Fallback al primero si no hay logs con peso.
+    if (!selectedExercise && logData.length > 0) {
+      const weightCounts = {}
+      logData.forEach((l) => {
+        const id = l.plan_exercise?.exercise?.id
+        if (id && maxWeightOfLog(l) > 0) weightCounts[id] = (weightCounts[id] || 0) + 1
+      })
+      const best = Object.entries(weightCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+      setSelectedExercise(best || exList[0]?.id || '')
+    }
     setLoading(false)
   }
 
@@ -235,10 +278,10 @@ export default function ProgressPage() {
 
   // Ejercicios filtrados por etiqueta (para el selector)
   const exercisesForTag = selectedTag
-    ? exercises.filter((ex) =>
+    ? allExercises.filter((ex) =>
         tagAssignments.some((ta) => ta.exercise_id === ex.id && ta.tag_id === selectedTag)
       )
-    : exercises
+    : allExercises
 
   // Logs filtrados por etiqueta (para volumen y PSE)
   const logsForTag = selectedTag
@@ -510,9 +553,9 @@ export default function ProgressPage() {
                     <p className="text-sm font-semibold text-gray-900">
                       {t('progress.maxWeightTitle')}
                     </p>
-                    {exercises.find((e) => e.id === selectedExercise) && (
+                    {allExercises.find((e) => e.id === selectedExercise) && (
                       <p className="text-xs text-gray-500">
-                        {exercises.find((e) => e.id === selectedExercise)?.name}
+                        {allExercises.find((e) => e.id === selectedExercise)?.name}
                       </p>
                     )}
                   </div>
@@ -644,6 +687,12 @@ export default function ProgressPage() {
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
                     {t('progress.noWeightDataForExercise')}
+                  </p>
+                )}
+                {/* doc 50: aviso para ampliar el período cuando hay 0-1 puntos */}
+                {weightData.length <= 1 && period < 365 && (
+                  <p className="text-xs text-amber-600 mt-2 text-center">
+                    {t('progress.widenPeriodHint')}
                   </p>
                 )}
               </Card>

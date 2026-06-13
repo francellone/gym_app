@@ -366,6 +366,7 @@
     "weightProgressTitle": "Weight progression",
     "weightProgressSubtitle": "Weight lifted per session",
     "noWeightDataForExercise": "No weight data for this exercise",
+    "widenPeriodHint": "Few records in this period. Try widening above (3m / 6m / All).",
     "compareSubtitle": "Planned vs performed sets",
     "noDataForExercise": "No data for this exercise",
     "bodyWeightMissingTitle": "Body weight not set.",
