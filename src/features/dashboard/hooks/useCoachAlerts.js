@@ -67,7 +67,7 @@ export default function useCoachAlerts() {
               id, name, next_payment_due,
               plan_assignments:plan_assignments!student_id(
                 id, active, status, plan_type, end_date,
-                plan:plans!plan_id(plan_type, title)
+                plan:plans!plan_id(plan_type, title, sessions_per_week)
               )
             `
             )
@@ -128,16 +128,54 @@ export default function useCoachAlerts() {
     return map
   }, [logs])
 
+  // Adherencia de la semana en curso (lun-dom):
+  //   target    = sessions_per_week del plan training activo (>0)
+  //   completed = días distintos de entrenamiento logueados esta semana
+  // La lógica pura (computeLowAdherence) decide el umbral; acá solo
+  // armamos los datos, igual que con lastLogDateByStudent.
+  const adherenceByStudent = useMemo(() => {
+    const weekStart = mondayYMD(new Date())
+    const todayYmd = formatYMD(new Date())
+
+    // target por alumno desde su asignación de training activa
+    const targetByStudent = new Map()
+    for (const s of students) {
+      const a = (s.plan_assignments || []).find((x) => {
+        const pt = x.plan_type || x.plan?.plan_type || 'training'
+        if (pt !== 'training') return false
+        return x.status ? x.status === 'active' : !!x.active
+      })
+      const spw = Number(a?.plan?.sessions_per_week)
+      if (Number.isFinite(spw) && spw > 0) targetByStudent.set(s.id, spw)
+    }
+
+    // días distintos entrenados esta semana por alumno
+    const datesByStudent = new Map()
+    for (const l of logs) {
+      const ymd = String(l.logged_date).slice(0, 10)
+      if (ymd < weekStart || ymd > todayYmd) continue
+      if (!datesByStudent.has(l.student_id)) datesByStudent.set(l.student_id, new Set())
+      datesByStudent.get(l.student_id).add(ymd)
+    }
+
+    const map = new Map()
+    for (const [sid, target] of targetByStudent) {
+      map.set(sid, { target, completed: datesByStudent.get(sid)?.size || 0 })
+    }
+    return map
+  }, [students, logs])
+
   const alerts = useMemo(
     () =>
       computeAllAlerts({
         students,
         lastLogDateByStudent,
+        adherenceByStudent,
         recentLogs: logs,
         wellbeingLogs,
         today: new Date(),
       }),
-    [students, lastLogDateByStudent, logs, wellbeingLogs]
+    [students, lastLogDateByStudent, adherenceByStudent, logs, wellbeingLogs]
   )
 
   function refresh() {
@@ -159,4 +197,14 @@ function addDaysSafe(date, n) {
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + n)
   return d
+}
+
+// YMD del lunes de la semana (lun-dom) que contiene `date`.
+function mondayYMD(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const dow = d.getDay() // 0=dom..6=sáb
+  const diff = dow === 0 ? -6 : 1 - dow
+  d.setDate(d.getDate() + diff)
+  return formatYMD(d)
 }

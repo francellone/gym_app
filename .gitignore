@@ -17,3 +17,5 @@ commit_message_*.txt
 
 # Carpeta wrapper de Cowork (sólo contiene CLAUDE.md y no es código del proyecto)
 Aplicación para Gimnasio y entrenamiento/
+dist-verify*
+*.config.js.timestamp-*.mjs

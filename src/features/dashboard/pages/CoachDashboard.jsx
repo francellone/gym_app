@@ -67,61 +67,47 @@ export default function CoachDashboard() {
         return out
       }
 
-      const [
-        studentsRes,
-        plansRes,
-        logsTodayRes,
-        logsWeekRes,
-        sessionsRes,
-        sessionLogsRes,
-      ] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id', { count: 'exact' })
-          .eq('role', 'student')
-          .eq('active', true),
-        supabase.from('plans').select('id', { count: 'exact' }),
-        applyCommonLogs(
+      const [studentsRes, plansRes, logsTodayRes, logsWeekRes, sessionsRes, sessionLogsRes] =
+        await Promise.all([
           supabase
-            .from('workout_logs')
-            .select('id, plans!inner(plan_type)', { count: 'exact' })
-        ).eq('logged_date', today),
-        applyCommonLogs(
-          supabase
-            .from('workout_logs')
-            .select('id, plans!inner(plan_type)', { count: 'exact' })
-        )
-          .gte('logged_date', windowStart)
-          .lte('logged_date', windowEnd),
-        // Últimas N sesiones del coach (con datos del alumno + plan).
-        applyCommonSessions(
-          supabase
-            .from('workout_sessions')
-            .select(
+            .from('profiles')
+            .select('id', { count: 'exact' })
+            .eq('role', 'student')
+            .eq('active', true),
+          supabase.from('plans').select('id', { count: 'exact' }),
+          applyCommonLogs(
+            supabase.from('workout_logs').select('id, plans!inner(plan_type)', { count: 'exact' })
+          ).eq('logged_date', today),
+          applyCommonLogs(
+            supabase.from('workout_logs').select('id, plans!inner(plan_type)', { count: 'exact' })
+          )
+            .gte('logged_date', windowStart)
+            .lte('logged_date', windowEnd),
+          // Últimas N sesiones del coach (con datos del alumno + plan).
+          applyCommonSessions(
+            supabase.from('workout_sessions').select(
               `id, student_id, plan_id, logged_date, started_at, finished_at, borg_per_day, logged_late,
                student:profiles!student_id(name),
                plans!inner(plan_type, title)`
             )
-        )
-          .gte('logged_date', windowStart)
-          .lte('logged_date', windowEnd)
-          .order('logged_date', { ascending: false })
-          .order('finished_at', { ascending: false, nullsFirst: false })
-          .limit(10),
-        // Logs en la misma ventana para enriquecer las sesiones con
-        // section dominante + count de ejercicios completados.
-        applyCommonLogs(
-          supabase
-            .from('workout_logs')
-            .select(
+          )
+            .gte('logged_date', windowStart)
+            .lte('logged_date', windowEnd)
+            .order('logged_date', { ascending: false })
+            .order('finished_at', { ascending: false, nullsFirst: false })
+            .limit(10),
+          // Logs en la misma ventana para enriquecer las sesiones con
+          // section dominante + count de ejercicios completados.
+          applyCommonLogs(
+            supabase.from('workout_logs').select(
               `student_id, logged_date, completed,
                plans!inner(plan_type),
                plan_exercise:plan_exercises!plan_exercise_id(section)`
             )
-        )
-          .gte('logged_date', windowStart)
-          .lte('logged_date', windowEnd),
-      ])
+          )
+            .gte('logged_date', windowStart)
+            .lte('logged_date', windowEnd),
+        ])
 
       // Agrupar logs por (student_id, YMD) para enriquecer cada sesión.
       const byKey = new Map()
@@ -208,9 +194,7 @@ export default function CoachDashboard() {
   // alumno seleccionado, los KPIs se vuelven alumno-céntricos.
   const isFiltered = !!studentId
   const logsTodayLabel = isFiltered ? 'Logs hoy (alumno)' : 'Logs hoy'
-  const logsWindowLabel = isFiltered
-    ? 'Logs en período (alumno)'
-    : 'Logs esta semana'
+  const logsWindowLabel = isFiltered ? 'Logs en período (alumno)' : 'Logs esta semana'
 
   return (
     <div className="space-y-6">
@@ -353,9 +337,7 @@ export default function CoachDashboard() {
             Calendario
           </h2>
         </div>
-        <MonthlyCalendar
-          controlledSelectedIds={filters.studentId ? [filters.studentId] : null}
-        />
+        <MonthlyCalendar controlledSelectedIds={filters.studentId ? [filters.studentId] : null} />
       </div>
 
       {/* Últimas sesiones (rediseño 2026-05-23 noche).
@@ -438,9 +420,7 @@ function SessionRow({ session }) {
           </span>
         </div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap text-xs text-gray-500">
-          {dayLabel && (
-            <span className="font-medium text-primary-600">{dayLabel}</span>
-          )}
+          {dayLabel && <span className="font-medium text-primary-600">{dayLabel}</span>}
           <span>·</span>
           <span>{completedPart}</span>
           {session.pseAvg !== null && (
@@ -460,9 +440,7 @@ function SessionRow({ session }) {
             </>
           )}
           {session.logged_late && (
-            <span className="badge bg-amber-100 text-amber-700 text-[10px]">
-              Carga tardía
-            </span>
+            <span className="badge bg-amber-100 text-amber-700 text-[10px]">Carga tardía</span>
           )}
         </div>
       </div>
@@ -481,21 +459,34 @@ function AlertCard({ kind, items }) {
   const cfg = ALERT_KIND[kind]
   if (!cfg) return null
   const count = items.length
+  // Alumnos clickeables → su pestaña Progreso ("la tablita", pedido de
+  // Anto 13a: la alerta lleva al progreso, no a un chat). Mostramos hasta
+  // 6 chips; si hay más, un link al listado completo.
+  const shown = items.slice(0, 6)
+  const rest = count - shown.length
   return (
     <div className={`card border-l-4 ${cfg.borderClass} py-3`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900">
-            {cfg.icon} {buildAlertTitle(kind, count)}
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{buildAlertSubtitle(kind, items)}</p>
-        </div>
-        <Link
-          to="/coach/students"
-          className={`text-xs font-medium hover:underline flex-shrink-0 ${cfg.accentClass}`}
-        >
-          Ver
-        </Link>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900">
+          {cfg.icon} {buildAlertTitle(kind, count)}
+        </p>
+        <p className="text-xs text-gray-500 mt-0.5">{buildAlertSubtitle(kind, items)}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+        {shown.map((s) => (
+          <Link
+            key={s.studentId}
+            to={`/coach/students/${s.studentId}?tab=progress`}
+            className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 ${cfg.accentClass}`}
+          >
+            {s.name}
+          </Link>
+        ))}
+        {rest > 0 && (
+          <Link to="/coach/students" className="text-xs text-gray-500 hover:underline px-1">
+            +{rest} más
+          </Link>
+        )}
       </div>
     </div>
   )
@@ -510,8 +501,10 @@ function buildAlertTitle(kind, count) {
       return `${count} plan${plural ? 'es' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PLAN_EXPIRING_SOON_DAYS} días`
     case 'dueSoon':
       return `${count} pago${plural ? 's' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PAYMENT_DUE_SOON_DAYS} días`
+    case 'lowAdherence':
+      return `${count} alumno${plural ? 's' : ''} con baja adherencia (≤${ALERT_THRESHOLDS.LOW_ADHERENCE_PCT}%)`
     case 'inactiveStudents':
-      return `${count} alumno${plural ? 's' : ''} sin entrenar hace ${ALERT_THRESHOLDS.INACTIVE_DAYS}+ días`
+      return `${count} alumno${plural ? 's' : ''} sin entrenar hace varios días`
     case 'highRpeStudents':
       return `${count} alumno${plural ? 's' : ''} con esfuerzo alto sostenido`
     case 'noActivePlan':
@@ -535,6 +528,11 @@ function buildAlertSubtitle(kind, items) {
   // nombres separados por coma + "y N más" si hay muchos.
   const top = items.slice(0, 3)
   const rest = items.length - top.length
+
+  if (kind === 'lowAdherence') {
+    const detail = top.map((s) => `${s.name} (${s.completed}/${s.target} · ${s.pct}%)`).join(', ')
+    return rest > 0 ? `${detail} y ${rest} más` : detail
+  }
 
   if (kind === 'inactiveStudents') {
     const detail = top

@@ -20,8 +20,14 @@ export const ALERT_THRESHOLDS = {
   PAYMENT_DUE_SOON_DAYS: 7, // pago dentro de N días
   // Plan
   PLAN_EXPIRING_SOON_DAYS: 7, // plan vence dentro de N días
-  // Inactividad
-  INACTIVE_DAYS: 3, // sin loguear hace N+ días
+  // Inactividad — contada en DÍAS HÁBILES (lun-vie), no corridos.
+  // Decisión Franco 16/06: 3 días hábiles sin entrenar; el finde no
+  // cuenta, así que el umbral se "estira" naturalmente a ~4-5 corridos
+  // cuando el hueco abarca sábado/domingo.
+  INACTIVE_DAYS: 3, // sin loguear hace N+ días HÁBILES
+  // Baja adherencia semanal (G2 — decisión Anto 13a).
+  // adherencia = sesiones completadas en la semana / sessions_per_week.
+  LOW_ADHERENCE_PCT: 50, // <= N% dispara la alerta
   // RPE alto sostenido
   HIGH_RPE_THRESHOLD: 8, // PSE >= N considerado alto
   HIGH_RPE_MIN_OCCURRENCES: 3, // al menos N ocurrencias
@@ -39,7 +45,15 @@ export const ALERT_THRESHOLDS = {
   // Ventana para las alertas basadas en wellbeing.
   WELLBEING_WINDOW_DAYS: 14,
   // Dolor repetido: keyword search en wellbeing_logs.notes
-  PAIN_KEYWORDS: ['dolor', 'molestia', 'duele', 'me molesta', 'sigue molestando', 'lesion', 'lesión'],
+  PAIN_KEYWORDS: [
+    'dolor',
+    'molestia',
+    'duele',
+    'me molesta',
+    'sigue molestando',
+    'lesion',
+    'lesión',
+  ],
   PAIN_MIN_MENTIONS: 1, // bajado de 2→1 (decisión Franco 23/05 noche)
   PAIN_WINDOW_DAYS: 21,
   // Estancamiento: sin subir max(actual_weight) en N días.
@@ -68,6 +82,34 @@ function addDays(date, n) {
 function daysBetween(a, b) {
   const ms = startOfDay(a).getTime() - startOfDay(b).getTime()
   return Math.round(ms / 86400000)
+}
+
+// Cantidad de días HÁBILES (lun-vie) estrictamente posteriores a `from`
+// y hasta `to` inclusive. Ej: si entrenó el viernes y hoy es lunes,
+// el único día hábil del hueco es el lunes → 1. Si hoy es miércoles → 3
+// (lun, mar, mié). Sáb y dom no suman. Usado por la alerta de
+// inactividad para no penalizar el descanso de fin de semana.
+function businessDaysBetween(from, to) {
+  const start = startOfDay(from)
+  const end = startOfDay(to)
+  if (end <= start) return 0
+  let count = 0
+  const cursor = new Date(start)
+  cursor.setDate(cursor.getDate() + 1) // estrictamente posterior a `from`
+  while (cursor <= end) {
+    const dow = cursor.getDay() // 0=dom, 6=sáb
+    if (dow !== 0 && dow !== 6) count += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return count
+}
+
+// Lunes de la semana que contiene `date` (semana lun-dom).
+function startOfWeekMonday(date) {
+  const d = startOfDay(date)
+  const dow = d.getDay() // 0=dom..6=sáb
+  const diff = dow === 0 ? -6 : 1 - dow // retrocede al lunes
+  return addDays(d, diff)
 }
 
 function parseYMD(s) {
@@ -201,7 +243,10 @@ export function computeInactiveStudents(students, lastLogDateByStudent, today = 
 
     const lastYmd = lastLogDateByStudent?.get(s.id) || null
     const lastDate = parseYMD(lastYmd)
+    // daysSince = corridos (para mostrar "hace N días" al coach).
+    // businessDaysSince = hábiles (para el umbral — no penaliza el finde).
     const daysSince = lastDate ? daysBetween(todayD, lastDate) : null
+    const businessDaysSince = lastDate ? businessDaysBetween(lastDate, todayD) : null
 
     // Sin logs en absoluto en la ventana → tratamos como "muchos días"
     if (daysSince === null) {
@@ -209,16 +254,18 @@ export function computeInactiveStudents(students, lastLogDateByStudent, today = 
         studentId: s.id,
         name: s.name,
         daysSinceLastLog: Infinity,
+        businessDaysSinceLastLog: Infinity,
         lastLogDate: null,
       })
       continue
     }
 
-    if (daysSince >= ALERT_THRESHOLDS.INACTIVE_DAYS) {
+    if (businessDaysSince >= ALERT_THRESHOLDS.INACTIVE_DAYS) {
       out.push({
         studentId: s.id,
         name: s.name,
         daysSinceLastLog: daysSince,
+        businessDaysSinceLastLog: businessDaysSince,
         lastLogDate: lastYmd,
       })
     }
@@ -226,6 +273,45 @@ export function computeInactiveStudents(students, lastLogDateByStudent, today = 
 
   // Más inactivos primero. Infinity (nunca) primero de todos.
   out.sort((a, b) => b.daysSinceLastLog - a.daysSinceLastLog)
+  return out
+}
+
+// ============================================================
+// 4.b Baja adherencia semanal (G2 — decisión Anto 13a)
+// ------------------------------------------------------------
+// Alumnos cuya adherencia de la semana en curso (lun-dom) es <= 50%.
+//   adherencia% = sesiones completadas esta semana / sessions_per_week
+//
+// La forma de los datos la arma el hook (separación pura/efectos,
+// igual que lastLogDateByStudent):
+//   adherenceByStudent: Map<studentId, { target, completed }>
+//     target    = sessions_per_week del plan de training activo (>0)
+//     completed = días de entrenamiento completados en la semana
+//
+// Solo se evalúan alumnos presentes en el Map (= con plan training
+// activo y target válido). Sin target no hay denominador → se omite.
+// ============================================================
+export function computeLowAdherence(students, adherenceByStudent) {
+  const out = []
+  for (const s of students || []) {
+    const row = adherenceByStudent?.get(s.id)
+    if (!row) continue
+    const target = Number(row.target)
+    if (!Number.isFinite(target) || target <= 0) continue
+    const completed = Math.max(0, Number(row.completed) || 0)
+    const pct = Math.round((completed / target) * 100)
+    if (pct <= ALERT_THRESHOLDS.LOW_ADHERENCE_PCT) {
+      out.push({
+        studentId: s.id,
+        name: s.name,
+        completed,
+        target,
+        pct,
+      })
+    }
+  }
+  // Peor adherencia primero.
+  out.sort((a, b) => a.pct - b.pct)
   return out
 }
 
@@ -311,7 +397,10 @@ export function computeFatigueStudents(students, wellbeingLogs, today = new Date
       minEnergy: 10,
       maxFatigue: 0,
     }
-    if (Number(w.energy_level) > 0 && Number(w.energy_level) <= ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD) {
+    if (
+      Number(w.energy_level) > 0 &&
+      Number(w.energy_level) <= ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD
+    ) {
       prev.lowEnergyDays += 1
       if (Number(w.energy_level) < prev.minEnergy) prev.minEnergy = Number(w.energy_level)
     }
@@ -328,7 +417,9 @@ export function computeFatigueStudents(students, wellbeingLogs, today = new Date
     if (!stats) continue
     const triggers = []
     if (stats.lowEnergyDays >= ALERT_THRESHOLDS.FATIGUE_MIN_DAYS) {
-      triggers.push(`energía ≤${ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD} en ${stats.lowEnergyDays} días`)
+      triggers.push(
+        `energía ≤${ALERT_THRESHOLDS.LOW_ENERGY_THRESHOLD} en ${stats.lowEnergyDays} días`
+      )
     }
     if (stats.highFatigueDays >= ALERT_THRESHOLDS.FATIGUE_MIN_DAYS) {
       triggers.push(
@@ -346,10 +437,7 @@ export function computeFatigueStudents(students, wellbeingLogs, today = new Date
       maxFatigue: stats.maxFatigue || null,
     })
   }
-  out.sort(
-    (a, b) =>
-      b.lowEnergyDays + b.highFatigueDays - (a.lowEnergyDays + a.highFatigueDays)
-  )
+  out.sort((a, b) => b.lowEnergyDays + b.highFatigueDays - (a.lowEnergyDays + a.highFatigueDays))
   return out
 }
 
@@ -403,7 +491,9 @@ export function computeLowMotivationStudents(students, wellbeingLogs, today = ne
       triggers.push(`estrés alto + energía baja en ${stats.comboDays} días`)
     }
     if (stats.keywordHits > 0) {
-      triggers.push(`${stats.keywordHits} mención${stats.keywordHits === 1 ? '' : 'es'} desmotivacional${stats.keywordHits === 1 ? '' : 'es'} en notas`)
+      triggers.push(
+        `${stats.keywordHits} mención${stats.keywordHits === 1 ? '' : 'es'} desmotivacional${stats.keywordHits === 1 ? '' : 'es'} en notas`
+      )
     }
     if (triggers.length === 0) continue
     out.push({
@@ -452,12 +542,7 @@ export function computePainStudents(students, wellbeingLogs, today = new Date())
     }
 
     // Keyword search en notas (ventana PAIN_WINDOW_DAYS).
-    if (
-      d >= windowStart &&
-      d <= todayD &&
-      typeof w.notes === 'string' &&
-      w.notes.length > 0
-    ) {
+    if (d >= windowStart && d <= todayD && typeof w.notes === 'string' && w.notes.length > 0) {
       const lower = w.notes.toLowerCase()
       if (keywords.some((k) => lower.includes(k))) {
         prev.kwCount += 1
@@ -486,9 +571,7 @@ export function computePainStudents(students, wellbeingLogs, today = new Date())
     if (!stats) continue
     const triggers = []
     if (stats.kwCount >= ALERT_THRESHOLDS.PAIN_MIN_MENTIONS) {
-      triggers.push(
-        `${stats.kwCount} mención${stats.kwCount === 1 ? '' : 'es'} en notas`
-      )
+      triggers.push(`${stats.kwCount} mención${stats.kwCount === 1 ? '' : 'es'} en notas`)
     }
     if (stats.fatigueDays >= ALERT_THRESHOLDS.MUSCLE_FATIGUE_PAIN_MIN_DAYS) {
       triggers.push(
@@ -508,9 +591,7 @@ export function computePainStudents(students, wellbeingLogs, today = new Date())
     })
   }
   out.sort(
-    (a, b) =>
-      b.mentions + b.fatigueDays - (a.mentions + a.fatigueDays) ||
-      b.mentions - a.mentions
+    (a, b) => b.mentions + b.fatigueDays - (a.mentions + a.fatigueDays) || b.mentions - a.mentions
   )
   return out
 }
@@ -612,6 +693,7 @@ export function computeStagnationByExercise(students, recentLogs, today = new Da
 export function computeAllAlerts({
   students,
   lastLogDateByStudent,
+  adherenceByStudent,
   recentLogs,
   wellbeingLogs = [],
   today = new Date(),
@@ -620,6 +702,7 @@ export function computeAllAlerts({
   return {
     overdue,
     dueSoon,
+    lowAdherence: computeLowAdherence(students, adherenceByStudent),
     noActivePlan: computeNoActivePlan(students),
     planExpiringSoon: computePlanExpiringSoon(students, today),
     inactiveStudents: computeInactiveStudents(students, lastLogDateByStudent, today),
@@ -656,6 +739,13 @@ export const ALERT_KIND = {
     icon: '🟡',
     borderClass: 'border-l-yellow-400',
     accentClass: 'text-yellow-600',
+  },
+  lowAdherence: {
+    key: 'lowAdherence',
+    label: 'Baja adherencia semanal',
+    icon: '📉',
+    borderClass: 'border-l-rose-400',
+    accentClass: 'text-rose-600',
   },
   inactiveStudents: {
     key: 'inactiveStudents',
@@ -711,6 +801,7 @@ export const ALERT_KIND = {
 // Orden recomendado en la UI (de más urgente a menos).
 export const ALERT_RENDER_ORDER = [
   'overdue',
+  'lowAdherence', // baja adherencia — accionable, pedido explícito de Anto
   'painStudents', // dolor — atender rápido por riesgo de lesión
   'fatigueStudents', // fatiga — ajustar carga
   'planExpiringSoon',
