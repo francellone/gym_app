@@ -335,7 +335,10 @@ export default function TodayWorkoutPage() {
             'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
           )
           .eq('thread_id', resolvedThreadId)
-          .eq('context_type', 'exercise')
+          // doc 52: criterio = tener exercise_id (no context_type). Las notas
+          // cargadas entrenando son context_type='workout_log' con exercise_id;
+          // antes quedaban afuera del preview/badge/chat del ejercicio.
+          .not('exercise_id', 'is', null)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(500)

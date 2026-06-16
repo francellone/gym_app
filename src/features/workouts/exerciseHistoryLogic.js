@@ -131,7 +131,7 @@ export function pickLastBlockLogPerBlock(blockLogs, options = {}) {
 // reciente para cada ejercicio.
 //
 // Inputs:
-//   notes      Array<note> — context_type='exercise', no asume orden
+//   notes      Array<note> con exercise_id (cualquier context_type), no asume orden
 //   options?
 //     visibilityShared?  default true — descarta coach_private (V1
 //                        el alumno no debería verlas y RLS las filtra
@@ -145,7 +145,10 @@ export function pickLastCoachNotePerExercise(notes, options = {}) {
     if (!n) continue
     if (n.deleted_at) continue
     if (n.author_role !== 'coach') continue
-    if (n.context_type !== 'exercise') continue
+    // doc 52: el criterio es tener exercise_id, NO el context_type. Las notas
+    // escritas entrenando se guardan con context_type='workout_log' (mirror) y
+    // antes quedaban afuera. Cualquier nota atada a un ejercicio (exercise_id)
+    // cuenta, sin importar desde dónde se cargó.
     if (visibilityShared && n.visibility !== 'shared') continue
     if (!n.exercise_id) continue
 
@@ -186,7 +189,7 @@ export function countNotesByExercise(notes) {
   for (const n of notes || []) {
     if (!n) continue
     if (n.deleted_at) continue
-    if (n.context_type !== 'exercise') continue
+    // doc 52: cuenta toda nota con exercise_id (cualquier context_type)
     if (n.visibility !== 'shared') continue
     if (!n.exercise_id) continue
     map.set(n.exercise_id, (map.get(n.exercise_id) || 0) + 1)
@@ -208,7 +211,7 @@ export function groupNotesByExercise(notes) {
   for (const n of notes || []) {
     if (!n) continue
     if (n.deleted_at) continue
-    if (n.context_type !== 'exercise') continue
+    // doc 52: agrupa toda nota con exercise_id (cualquier context_type)
     if (n.visibility !== 'shared') continue
     if (!n.exercise_id) continue
     if (!map.has(n.exercise_id)) map.set(n.exercise_id, [])

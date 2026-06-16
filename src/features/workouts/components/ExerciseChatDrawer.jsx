@@ -67,7 +67,9 @@ export default function ExerciseChatDrawer({
           'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, muscle_group, block_type, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
         )
         .eq('thread_id', threadId)
-        .eq('context_type', 'exercise')
+        // doc 52: filtrar por exercise_id (no context_type). Incluye las notas
+        // cargadas entrenando (context_type='workout_log') que también traen
+        // exercise_id; antes el chat del ejercicio se abría vacío.
         .eq('exercise_id', exerciseId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
@@ -107,11 +109,7 @@ export default function ExerciseChatDrawer({
       aria-label={t('workout.exerciseChatAria', { name: exerciseName || '' })}
     >
       {/* Overlay */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
       {/* Sheet */}
       <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90vh] sm:max-h-[80vh]">

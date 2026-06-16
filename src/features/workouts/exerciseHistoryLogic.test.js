@@ -84,7 +84,12 @@ describe('pickLastLogPerExercise', () => {
 
   it('ignora logs con plan_exercise_id desconocido (plan_exercise borrado)', () => {
     const logs = [
-      { id: 'huerfano', plan_exercise_id: 'pe-no-existe', logged_date: '2026-05-22', completed: true },
+      {
+        id: 'huerfano',
+        plan_exercise_id: 'pe-no-existe',
+        logged_date: '2026-05-22',
+        completed: true,
+      },
     ]
     const map = pickLastLogPerExercise(logs, PE)
     expect(map.size).toBe(0)
@@ -164,7 +169,7 @@ describe('pickLastCoachNotePerExercise', () => {
       exercise_id: 'ex-press',
       visibility: 'shared',
       created_at: '2026-05-22T12:00:00Z',
-      body: 'otro context_type, descartar',
+      body: 'workout_log (doc 52: ahora SÍ cuenta, es la más reciente)',
     },
     {
       id: 'n5',
@@ -196,10 +201,10 @@ describe('pickLastCoachNotePerExercise', () => {
     },
   ]
 
-  it('toma la nota MÁS reciente del coach, ignorando alumno/privada/borrada/otro contexto', () => {
+  it('toma la nota MÁS reciente del coach (cualquier context_type con exercise_id), ignorando alumno/privada/borrada', () => {
     const map = pickLastCoachNotePerExercise(notes)
-    expect(map.get('ex-press').id).toBe('n2')
-    expect(map.get('ex-press').body).toBe('reciente')
+    // doc 52: n4 (workout_log, coach, 05-22) ahora gana sobre n2 (exercise, 05-20)
+    expect(map.get('ex-press').id).toBe('n4')
     expect(map.get('ex-squat').id).toBe('n5')
   })
 
@@ -224,17 +229,55 @@ describe('pickLastCoachNotePerExercise', () => {
 })
 
 describe('countNotesByExercise', () => {
-  it('cuenta todas las notas shared, ambos roles', () => {
+  it('cuenta todas las notas shared con exercise_id, ambos roles y cualquier context_type', () => {
     const notes = [
-      { id: 'a', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach' },
-      { id: 'b', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student' },
-      { id: 'c', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'coach_private', author_role: 'coach' },
-      { id: 'd', context_type: 'exercise', exercise_id: 'ex-2', visibility: 'shared', author_role: 'coach' },
-      { id: 'e', context_type: 'workout_log', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student' },
-      { id: 'f', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', deleted_at: 'x' },
+      {
+        id: 'a',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+      },
+      {
+        id: 'b',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'student',
+      },
+      {
+        id: 'c',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'coach_private',
+        author_role: 'coach',
+      },
+      {
+        id: 'd',
+        context_type: 'exercise',
+        exercise_id: 'ex-2',
+        visibility: 'shared',
+        author_role: 'coach',
+      },
+      {
+        id: 'e',
+        context_type: 'workout_log',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'student',
+      },
+      {
+        id: 'f',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+        deleted_at: 'x',
+      },
     ]
     const map = countNotesByExercise(notes)
-    expect(map.get('ex-1')).toBe(2) // a + b (c privada, e otro context, f borrada)
+    // doc 52: 'e' (workout_log) ahora cuenta → a + b + e (c privada, f borrada)
+    expect(map.get('ex-1')).toBe(3)
     expect(map.get('ex-2')).toBe(1)
   })
 
@@ -247,25 +290,83 @@ describe('countNotesByExercise', () => {
 describe('groupNotesByExercise', () => {
   it('agrupa por exercise_id, orden ASC cronológico', () => {
     const notes = [
-      { id: 'late', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-22T10:00:00Z' },
-      { id: 'mid', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student', created_at: '2026-05-20T10:00:00Z' },
-      { id: 'early', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-18T10:00:00Z' },
-      { id: 'other', context_type: 'exercise', exercise_id: 'ex-2', visibility: 'shared', author_role: 'coach', created_at: '2026-05-15T10:00:00Z' },
+      {
+        id: 'late',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+        created_at: '2026-05-22T10:00:00Z',
+      },
+      {
+        id: 'mid',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'student',
+        created_at: '2026-05-20T10:00:00Z',
+      },
+      {
+        id: 'early',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+        created_at: '2026-05-18T10:00:00Z',
+      },
+      {
+        id: 'other',
+        context_type: 'exercise',
+        exercise_id: 'ex-2',
+        visibility: 'shared',
+        author_role: 'coach',
+        created_at: '2026-05-15T10:00:00Z',
+      },
     ]
     const map = groupNotesByExercise(notes)
     expect(map.get('ex-1').map((n) => n.id)).toEqual(['early', 'mid', 'late'])
     expect(map.get('ex-2').length).toBe(1)
   })
 
-  it('excluye coach_private + deleted + otros context_types', () => {
+  it('excluye coach_private + deleted, pero incluye workout_log con exercise_id (doc 52)', () => {
     const notes = [
-      { id: 'priv', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'coach_private', author_role: 'coach', created_at: '2026-05-22T10:00:00Z' },
-      { id: 'del', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-21T10:00:00Z', deleted_at: 'x' },
-      { id: 'other-ctx', context_type: 'workout_log', exercise_id: 'ex-1', visibility: 'shared', author_role: 'coach', created_at: '2026-05-21T10:00:00Z' },
-      { id: 'ok', context_type: 'exercise', exercise_id: 'ex-1', visibility: 'shared', author_role: 'student', created_at: '2026-05-20T10:00:00Z' },
+      {
+        id: 'priv',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'coach_private',
+        author_role: 'coach',
+        created_at: '2026-05-22T10:00:00Z',
+      },
+      {
+        id: 'del',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+        created_at: '2026-05-21T10:00:00Z',
+        deleted_at: 'x',
+      },
+      {
+        id: 'wlog',
+        context_type: 'workout_log',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'coach',
+        created_at: '2026-05-21T10:00:00Z',
+      },
+      {
+        id: 'ok',
+        context_type: 'exercise',
+        exercise_id: 'ex-1',
+        visibility: 'shared',
+        author_role: 'student',
+        created_at: '2026-05-20T10:00:00Z',
+      },
     ]
     const map = groupNotesByExercise(notes)
-    expect(map.get('ex-1').map((n) => n.id)).toEqual(['ok'])
+    // doc 52: 'wlog' (workout_log) ahora entra; orden ASC → ok (05-20), wlog (05-21)
+    expect(map.get('ex-1').map((n) => n.id)).toEqual(['ok', 'wlog'])
   })
 })
 
