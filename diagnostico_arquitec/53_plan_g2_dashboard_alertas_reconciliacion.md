@@ -166,6 +166,10 @@ Dos alertas derivadas (decisiones Franco 16/06):
 
 Verificado con datos reales (16/06): Franco Cellone última semana cerrada (08/06) 3/3=100% → NO dispara (antes daba 33% por medir semana en curso). anto 50% → lowAdherence. Nadie con caída de 3 semanas → declive vacío. Tests 326/326, eslint 0 err, build OK.
 
+**Panel del alumno (StudentPanel) — mismo criterio (Franco 16/06):** la métrica de adherencia del panel (KPIs Esperados/Completados/Adherencia + banner) también arrastraba la semana en curso (Franco daba 67% en "últimos 14 días"). Reescrita con `computeClosedWeeksAdherence` (studentPanelLogic.js): mide sobre **semanas cerradas totalmente contenidas en el período**, contando entrenamientos de **TODOS los planes** del alumno (no solo el activo — pedido explícito de Franco "semanas cerradas totales, no del plan actual"), target = sessions_per_week del plan seleccionado, completed capeado por semana. Si el período no tiene semanas cerradas → "—" + banner neutro. Donut/tildes/PSE/progreso siguen plan-scoped por período (sin cambios). Tests studentPanel 39 (+5), suite 331/331, eslint 0 err, build OK. Cambiaron studentPanelLogic.js, studentPanelLogic.test.js, StudentPanel.jsx.
+
+**Calendario — PENDIENTE (diagnóstico 16/06):** no muestra entrenos de planes viejos porque `useCoachCalendarData` filtra los días "Cumplido" por `plan_id` SOLO del plan activo (guard deliberado del fix de overlap replaced/eval legacy, líneas ~170-184). Fix propuesto: contar sesiones de TODOS los planes training (join plan_type='training', sin restringir a activo) — muestra historial; riesgo menor de re-introducir falso "día extra" en semanas de transición de planes flexibles. Esperando OK de Franco.
+
 **Pendiente**:
 1. Commit `feat(dashboard): alerta adherencia ≤50% + inactividad por días hábiles + click al progreso (G2)` desde la Mac + push.
 2. Smoke en prod con browser francellone (sesión coach): ver alerta de baja adherencia con su %, que el chip lleve a `?tab=progress` del alumno, e inactividad sin marcar por descanso de finde.

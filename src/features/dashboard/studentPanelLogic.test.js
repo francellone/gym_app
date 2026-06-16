@@ -6,6 +6,7 @@ import {
   computeAdherencePct,
   buildMotivationalMessage,
   computeExpectedDaysInWindow,
+  computeClosedWeeksAdherence,
   computeExerciseProgress,
 } from './studentPanelLogic'
 
@@ -17,6 +18,70 @@ const plan = [
   { id: 'pe5', section: 'day_c' },
   { id: 'pe_act', section: 'activation' },
 ]
+
+describe('computeClosedWeeksAdherence', () => {
+  // Martes 16/06/2026 → lunes de la semana en curso = 15/06.
+  // Última semana cerrada = 08/06–14/06.
+  const today = new Date(2026, 5, 16)
+
+  it('excluye la semana en curso (caso Franco: 3/3 la semana cerrada)', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-10', '2026-06-11', '2026-06-13', '2026-06-15', '2026-06-16'],
+      target: 3,
+      periodStart: '2026-06-02',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(out).toEqual({ expectedDays: 3, completedDays: 3, weeks: 1 })
+    expect(computeAdherencePct(out)).toBe(100)
+  })
+
+  it('suma varias semanas cerradas dentro del período', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-02', '2026-06-04', '2026-06-10'], // 2 en sem1, 1 en sem2
+      target: 3,
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(out).toEqual({ expectedDays: 6, completedDays: 3, weeks: 2 })
+    expect(computeAdherencePct(out)).toBe(50)
+  })
+
+  it('capea por semana: extras de una semana no tapan otra', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12'], // 5 días, target 3
+      target: 3,
+      periodStart: '2026-06-08',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(out.completedDays).toBe(3) // capeado
+    expect(out.weeks).toBe(1)
+  })
+
+  it('sin semanas cerradas dentro del período → todo 0', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-15', '2026-06-16'],
+      target: 3,
+      periodStart: '2026-06-15',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(out).toEqual({ expectedDays: 0, completedDays: 0, weeks: 0 })
+  })
+
+  it('sin target → 0', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-10'],
+      target: 0,
+      periodStart: '2026-06-01',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(out).toEqual({ expectedDays: 0, completedDays: 0, weeks: 0 })
+  })
+})
 
 describe('computeDonutData', () => {
   it('vacío → []', () => {
@@ -250,9 +315,7 @@ describe('computeExerciseProgress', () => {
       log('2026-05-02', 'e1', 'Sentadilla', 80),
       log('2026-05-15', 'e1', 'Sentadilla', 85),
     ]
-    expect(
-      computeExerciseProgress({ logs, periodRange: range, minLogs: 3 })
-    ).toEqual([])
+    expect(computeExerciseProgress({ logs, periodRange: range, minLogs: 3 })).toEqual([])
   })
 
   it('orden: up → flat → down → insufficient', () => {
@@ -315,8 +378,6 @@ describe('buildMotivationalMessage', () => {
   })
 
   it('texto incluye el porcentaje', () => {
-    expect(
-      buildMotivationalMessage({ completedDays: 9, expectedDays: 10 }).text
-    ).toContain('90%')
+    expect(buildMotivationalMessage({ completedDays: 9, expectedDays: 10 }).text).toContain('90%')
   })
 })

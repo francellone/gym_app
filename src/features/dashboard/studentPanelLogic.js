@@ -163,9 +163,7 @@ export function computeExpectedDaysInWindow({
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0
     const ms = end.getTime() - start.getTime()
     const days = Math.max(1, Math.round(ms / 86400000) + 1)
-    const spw = Number(
-      assignment.plan?.sessions_per_week ?? assignment.sessions_per_week ?? 0
-    )
+    const spw = Number(assignment.plan?.sessions_per_week ?? assignment.sessions_per_week ?? 0)
     if (!spw) return 0
     return Math.round((days / 7) * spw)
   }
@@ -254,6 +252,83 @@ export function computeExerciseProgress({ logs, periodRange, minLogs = 3 } = {})
   const order = { up: 0, flat: 1, down: 2, insufficient: 3 }
   out.sort((a, b) => order[a.status] - order[b.status] || b.logsCount - a.logsCount)
   return out
+}
+
+// ============================================================
+// computeClosedWeeksAdherence (refinamiento Franco 16/06)
+// ------------------------------------------------------------
+// Adherencia medida sobre SEMANAS CERRADAS (lun-dom ya terminadas)
+// totalmente contenidas en el período. NUNCA la semana en curso
+// (evita el falso positivo de principio de semana). Cuenta los
+// entrenamientos de TODOS los planes del alumno (no solo el activo):
+// `trainingDates` es el set de fechas YMD entrenadas (training).
+//
+//   expectedDays  = target * (cantidad de semanas cerradas en el período)
+//   completedDays = suma por semana de min(díasEntrenados, target)
+//                   (cap por semana: una semana con extras no tapa otra
+//                    semana floja)
+//
+// Inputs:
+//   trainingDates   Set<YMD> | YMD[]  fechas con entrenamiento (todos los planes)
+//   target          sessions_per_week (>0); sin target → 0
+//   periodStart/End YMD del período seleccionado
+//   today           Date (para ubicar el lunes de la semana en curso)
+//
+// Output: { expectedDays, completedDays, weeks }
+// ============================================================
+export function computeClosedWeeksAdherence({
+  trainingDates,
+  target,
+  periodStart,
+  periodEnd,
+  today = new Date(),
+} = {}) {
+  const t = Number(target)
+  if (!Number.isFinite(t) || t <= 0 || !periodStart || !periodEnd) {
+    return { expectedDays: 0, completedDays: 0, weeks: 0 }
+  }
+  const dates = trainingDates instanceof Set ? trainingDates : new Set(trainingDates || [])
+
+  // Lunes de la semana en curso (las cerradas terminan antes).
+  const todayD = new Date(today)
+  todayD.setHours(0, 0, 0, 0)
+  const dow = todayD.getDay() // 0=dom..6=sáb
+  const thisMonday = new Date(todayD)
+  thisMonday.setDate(todayD.getDate() + (dow === 0 ? -6 : 1 - dow))
+
+  const fmt = (d) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  let expectedDays = 0
+  let completedDays = 0
+  let weeks = 0
+
+  // De la última semana cerrada (thisMonday-7) hacia atrás mientras
+  // siga totalmente contenida en [periodStart, periodEnd].
+  const ws = new Date(thisMonday)
+  ws.setDate(thisMonday.getDate() - 7)
+  // tope de seguridad: no más de ~3 años de semanas
+  for (let guard = 0; guard < 160; guard++) {
+    const wsY = fmt(ws)
+    const weDate = new Date(ws)
+    weDate.setDate(ws.getDate() + 6)
+    const weY = fmt(weDate)
+    if (wsY < periodStart) break // ya salimos del período por abajo
+    if (weY <= periodEnd) {
+      let c = 0
+      for (const d of dates) if (d >= wsY && d <= weY) c += 1
+      completedDays += Math.min(c, t)
+      expectedDays += t
+      weeks += 1
+    }
+    ws.setDate(ws.getDate() - 7)
+  }
+
+  return { expectedDays, completedDays, weeks }
 }
 
 // ============================================================

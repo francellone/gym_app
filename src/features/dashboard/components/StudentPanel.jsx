@@ -12,14 +12,12 @@ import {
   Minus,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getExpectedSessionDates } from '@/features/plans/assignmentHelpers'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 import {
   computeDonutData,
-  computeCompletedDays,
   computeAveragePSE,
-  computeExpectedDaysInWindow,
+  computeClosedWeeksAdherence,
   computeAdherencePct,
   buildMotivationalMessage,
   computeExerciseProgress,
@@ -66,6 +64,10 @@ export default function StudentPanel({
   const [planBlocks, setPlanBlocks] = useState([])
   const [logs, setLogs] = useState([])
   const [blockLogs, setBlockLogs] = useState([])
+  // Adherencia (semanas cerradas TOTALES): fechas entrenadas de TODOS
+  // los planes de training del alumno + sessions_per_week objetivo.
+  const [allTrainingDates, setAllTrainingDates] = useState([])
+  const [sessionsPerWeek, setSessionsPerWeek] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const planId = assignment?.plan_id || null
@@ -78,6 +80,8 @@ export default function StudentPanel({
       setPlanBlocks([])
       setLogs([])
       setBlockLogs([])
+      setAllTrainingDates([])
+      setSessionsPerWeek(null)
       return
     }
     let cancelled = false
@@ -87,34 +91,52 @@ export default function StudentPanel({
         // v29 (plan 29): además de plan_exercises + workout_logs, traemos
         // plan_blocks (para saber el block_type de cada PE) y
         // workout_block_logs (para que circuit/aerobic cuenten en el tally).
-        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
-          supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
-          supabase.from('plan_blocks').select('id, section, block_type').eq('plan_id', planId),
-          supabase
-            .from('workout_logs')
-            .select(
-              `logged_date, plan_exercise_id, completed, perceived_difficulty, actual_weight,
-               plan_exercise:plan_exercises!plan_exercise_id(
-                 exercise:exercises!exercise_id(id, name)
-               )`
-            )
-            .eq('student_id', studentId)
-            .eq('plan_id', planId)
-            .gte('logged_date', periodStart)
-            .lte('logged_date', periodEnd),
-          supabase
-            .from('workout_block_logs')
-            .select('logged_date, plan_block_id, completed')
-            .eq('student_id', studentId)
-            .eq('plan_id', planId)
-            .gte('logged_date', periodStart)
-            .lte('logged_date', periodEnd),
-        ])
+        // Adherencia por semanas cerradas TOTALES (Franco 16/06): además
+        // traemos los logs de training de TODOS los planes del alumno en
+        // el período (allLogsRes, sin filtrar por plan_id) + el
+        // sessions_per_week del plan seleccionado como objetivo semanal.
+        const [exercisesRes, blocksRes, logsRes, blockLogsRes, allLogsRes, planRes] =
+          await Promise.all([
+            supabase.from('plan_exercises').select('id, section, block_id').eq('plan_id', planId),
+            supabase.from('plan_blocks').select('id, section, block_type').eq('plan_id', planId),
+            supabase
+              .from('workout_logs')
+              .select(
+                `logged_date, plan_exercise_id, completed, perceived_difficulty, actual_weight,
+                 plan_exercise:plan_exercises!plan_exercise_id(
+                   exercise:exercises!exercise_id(id, name)
+                 )`
+              )
+              .eq('student_id', studentId)
+              .eq('plan_id', planId)
+              .gte('logged_date', periodStart)
+              .lte('logged_date', periodEnd),
+            supabase
+              .from('workout_block_logs')
+              .select('logged_date, plan_block_id, completed')
+              .eq('student_id', studentId)
+              .eq('plan_id', planId)
+              .gte('logged_date', periodStart)
+              .lte('logged_date', periodEnd),
+            supabase
+              .from('workout_logs')
+              .select('logged_date, plans!inner(plan_type)')
+              .eq('student_id', studentId)
+              .eq('plans.plan_type', 'training')
+              .gte('logged_date', periodStart)
+              .lte('logged_date', periodEnd),
+            supabase.from('plans').select('sessions_per_week').eq('id', planId).maybeSingle(),
+          ])
         if (cancelled) return
         setPlanExercises(exercisesRes.data || [])
         setPlanBlocks(blocksRes.data || [])
         setLogs(logsRes.data || [])
         setBlockLogs(blockLogsRes.data || [])
+        const dates = Array.from(
+          new Set((allLogsRes.data || []).map((r) => String(r.logged_date).slice(0, 10)))
+        )
+        setAllTrainingDates(dates)
+        setSessionsPerWeek(Number(planRes.data?.sessions_per_week) || null)
       } catch (err) {
         console.error('[StudentPanel] fetch', err)
         if (!cancelled) {
@@ -122,6 +144,8 @@ export default function StudentPanel({
           setPlanBlocks([])
           setLogs([])
           setBlockLogs([])
+          setAllTrainingDates([])
+          setSessionsPerWeek(null)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -136,31 +160,33 @@ export default function StudentPanel({
   // ── Cálculos derivados ───────────────────────────────────
   const donutData = useMemo(() => computeDonutData({ logs, planExercises }), [logs, planExercises])
 
-  const completedDays = useMemo(() => computeCompletedDays(logs), [logs])
   const pseAvg = useMemo(() => computeAveragePSE(logs), [logs])
   const tallies = useMemo(
     () => computeDayTallies({ logs, planExercises, blockLogs, planBlocks }),
     [logs, planExercises, blockLogs, planBlocks]
   )
 
-  const fixedExpectedDates = useMemo(() => {
-    if (!assignment || !periodStart || !periodEnd) return null
-    if ((assignment.schedule_mode || 'fixed') !== 'fixed') return null
-    return getExpectedSessionDates(assignment, new Date(periodStart), new Date(periodEnd))
-  }, [assignment, periodStart, periodEnd])
-
-  const expectedDays = useMemo(
+  // Adherencia por SEMANAS CERRADAS totales (Franco 16/06): cuenta los
+  // entrenamientos de todos los planes en el período, sobre semanas
+  // lun-dom ya terminadas. Excluye la semana en curso.
+  const adherence = useMemo(
     () =>
-      computeExpectedDaysInWindow({
-        assignment,
-        periodRange,
-        fixedExpectedDates,
+      computeClosedWeeksAdherence({
+        trainingDates: allTrainingDates,
+        target: sessionsPerWeek,
+        periodStart,
+        periodEnd,
       }),
-    [assignment, periodRange, fixedExpectedDates]
+    [allTrainingDates, sessionsPerWeek, periodStart, periodEnd]
   )
+  const completedDays = adherence.completedDays
+  const expectedDays = adherence.expectedDays
 
   const adherencePct = computeAdherencePct({ completedDays, expectedDays })
-  const motivation = buildMotivationalMessage({ completedDays, expectedDays })
+  const motivation =
+    adherence.weeks === 0
+      ? { tone: 'empty', text: 'Todavía no hay semanas cerradas completas en este período.' }
+      : buildMotivationalMessage({ completedDays, expectedDays })
 
   const exerciseProgress = useMemo(
     () => computeExerciseProgress({ logs, periodRange }),
