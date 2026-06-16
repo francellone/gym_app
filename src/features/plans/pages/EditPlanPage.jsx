@@ -984,6 +984,8 @@ export default function EditPlanPage() {
             evalDays={evalDays}
             onChange={setEvalDays}
             exercises={exercises}
+            exerciseTags={exerciseTags}
+            tagAssignments={tagAssignments}
             onDeleteRow={trackEvalRowDelete}
             sameMethod={evalSameMethod}
             onSameMethodChange={setEvalSameMethod}

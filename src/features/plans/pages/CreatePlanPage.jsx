@@ -664,6 +664,8 @@ export default function CreatePlanPage() {
             evalDays={evalDays}
             onChange={setEvalDays}
             exercises={exercises}
+            exerciseTags={exerciseTags}
+            tagAssignments={tagAssignments}
             sameMethod={evalSameMethod}
             onSameMethodChange={setEvalSameMethod}
             globalType={evalGlobalType}

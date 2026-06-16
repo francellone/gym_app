@@ -22,6 +22,8 @@ import {
 //   evalDays      { day_a: [row], day_b: [row], ... }
 //   onChange(nextEvalDays)
 //   exercises     catálogo de ejercicios [{id, name}]
+//   exerciseTags  etiquetas del coach [{id, name, color}] (para filtrar, Q5)
+//   tagAssignments asignaciones ejercicio↔tag [{exercise_id, tag_id}]
 //   onDeleteRow(rowId)  callback opcional para trackear filas borradas (edit)
 //   sameMethod    bool — modo "mismo para todos"
 //   onSameMethodChange(bool)
@@ -34,6 +36,8 @@ export default function EvalDaysEditor({
   evalDays,
   onChange,
   exercises,
+  exerciseTags = [],
+  tagAssignments = [],
   onDeleteRow,
   sameMethod,
   onSameMethodChange,
@@ -43,6 +47,20 @@ export default function EvalDaysEditor({
 }) {
   const sections = getDynamicSections(sessionsPerWeek, false)
   const [activeSection, setActiveSection] = useState(sections[0]?.id || 'day_a')
+
+  // Q5 — filtro por etiqueta del catálogo. Por defecto, al armar una eval
+  // se preselecciona la carpeta "EVALUACIONES" si el coach la tiene creada.
+  // `tagFilterOverride === null` significa "todavía sin tocar → usar default".
+  const defaultEvalTagId =
+    exerciseTags.find((t) => (t.name || '').trim().toUpperCase() === 'EVALUACIONES')?.id || ''
+  const [tagFilterOverride, setTagFilterOverride] = useState(null)
+  const tagFilter = tagFilterOverride === null ? defaultEvalTagId : tagFilterOverride
+
+  const filteredExercises = tagFilter
+    ? exercises.filter((e) =>
+        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
+      )
+    : exercises
 
   // Para tipos fijos (one_rm/max_reps/custom) el método es siempre el mismo
   // y no hay selección por ejercicio. El toggle sólo aplica a `mixed`.
@@ -153,6 +171,25 @@ export default function EvalDaysEditor({
         </div>
       )}
 
+      {/* Filtro por etiqueta del catálogo (Q5) */}
+      {exerciseTags.length > 0 && (
+        <div>
+          <label className="label text-xs">Filtrar ejercicios por etiqueta</label>
+          <select
+            className="input text-sm"
+            value={tagFilter}
+            onChange={(e) => setTagFilterOverride(e.target.value)}
+          >
+            <option value="">Todos los ejercicios</option>
+            {exerciseTags.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Filas de ejercicios del día activo */}
       <div className="space-y-3">
         {currentRows.length === 0 && (
@@ -167,6 +204,7 @@ export default function EvalDaysEditor({
             index={i}
             total={currentRows.length}
             exercises={exercises}
+            optionExercises={filteredExercises}
             showTypeMethod={isMixed && !sameMethod}
             onUpdate={(patch) => updateRow(activeSection, i, patch)}
             onRemove={() => removeRow(activeSection, i)}
@@ -259,6 +297,7 @@ function EvalExerciseRow({
   index,
   total,
   exercises,
+  optionExercises,
   showTypeMethod,
   onUpdate,
   onRemove,
@@ -270,6 +309,12 @@ function EvalExerciseRow({
 
   const selectedExercise = exercises.find((e) => e.id === row.exercise_id)
   const showSetsInputs = row.eval_type === 'one_rm' || row.eval_type === 'max_reps'
+
+  // Opciones del dropdown = lista filtrada por etiqueta (Q5), pero siempre
+  // incluyendo el ejercicio ya seleccionado aunque quede fuera del filtro.
+  const dropdownExercises = optionExercises || exercises
+  const selectedOutsideFilter =
+    selectedExercise && !dropdownExercises.some((e) => e.id === selectedExercise.id)
 
   async function handleCreateExercise() {
     if (!newExName.trim()) return
@@ -346,7 +391,10 @@ function EvalExerciseRow({
                   }}
                 >
                   <option value="">— Seleccionar ejercicio —</option>
-                  {exercises.map((ex) => (
+                  {selectedOutsideFilter && (
+                    <option value={selectedExercise.id}>{selectedExercise.name}</option>
+                  )}
+                  {dropdownExercises.map((ex) => (
                     <option key={ex.id} value={ex.id}>
                       {ex.name}
                     </option>

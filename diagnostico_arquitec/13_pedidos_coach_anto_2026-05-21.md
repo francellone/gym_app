@@ -937,3 +937,36 @@ Es la materialización de la **decisión 12** del cuestionario (Anto: *"si esto 
 | **B9** (la pausa del superset parecía entre series) | ✅ cerrado + validado prod ambos lados (1cb53ea, 10/06) | hecho |
 
 Ambos derivados de un mismo pedido de Anto ("no sale el tiempo de espera entre series"). B8 lo hizo visible; B9 corrigió la semántica (pausa del grupo, no entre series). Convención documentada en doc 45 para futuros coaches.
+
+---
+
+## Sesión quick wins (2026-06-16) — Q11 + Q5 + Q7
+
+> Franco eligió encarar un lote de quick wins. Resultado: 2 implementados (Q11, Q5) + 1 que **ya estaba hecho** en código (Q7, igual que B5/Q10 en ronda 4).
+
+#### Q11 — badge de video/nota faltante en lista de ejercicios — ✅ IMPLEMENTADO
+
+- `ExercisesLibraryPage.jsx`: en cada fila se muestran chips rojos **"Sin video"** (`!video_url`) y **"Sin nota"** (sin `description` Y sin `technique_notes`). Más un toggle **"Solo incompletos"** junto a los filtros existentes.
+- **Decisión 17 (qué cuenta como "nota")**: se tomó "falta nota" = no tiene ni descripción ni notas técnicas (evita falsos positivos cuando el coach cargó una sola de las dos). El ejercicio hoy tiene 3 campos de texto: Video URL, Descripción, Notas técnicas.
+- Sin migración. Cambio de solo-lectura sobre datos existentes.
+
+#### Q5 — filtrar ejercicios por tag EVALUACIONES al armar eval — ✅ IMPLEMENTADO
+
+- `EvalDaysEditor.jsx`: nuevo selector "Filtrar ejercicios por etiqueta" que **por defecto preselecciona la carpeta "EVALUACIONES"** si el coach la tiene (verificado en DB: tag `11847ce9…`, 8 ejercicios). El dropdown de cada fila usa la lista filtrada, pero siempre mantiene visible el ejercicio ya seleccionado aunque quede fuera del filtro (caso edición).
+- `CreatePlanPage.jsx` + `EditPlanPage.jsx`: ahora pasan `exerciseTags` + `tagAssignments` a `EvalDaysEditor` (antes solo se pasaban a `BlockCard` de entrenamiento — Q5 estaba a medio cablear).
+- Reutiliza el patrón de filtro por tag que ya existía en `PlanExerciseRow`. Sin migración.
+
+#### Q7 — numeración auto A1/A2 + igualar pausa/series — ✅ YA ESTABA HECHO (no requiere código)
+
+- El helper `inheritFromFirstBlockmate` (helpers.js) ya: al poner un segundo ejercicio con la misma letra, auto-numera (A→A1/A2…) y **hereda `suggested_sets` (series) + `rest_time` (pausa)** del primer ejercicio del grupo, sin pisar lo ya cargado. Existe banner de reordenar (`DayBlocksOrderWarning`). Cubierto por `helpers.test.js`.
+- Es exactamente lo que pidió Anto. → **Acción Franco**: pedir a Anto que recargue/limpie caché y mostrarle el flujo (mismo caso que B5/Q10).
+
+### Estado de cierre
+
+| Item | Estado | Notas |
+|---|---|---|
+| **Q11** | ✅ implementado (local) | lint 0 err, tests 310/310, build OK |
+| **Q5** | ✅ implementado (local) | lint 0 err, tests 310/310, build OK |
+| **Q7** | ✅ ya en prod | sólo mostrar a Anto |
+
+**Pendiente de Franco:** commit + push (hay un `.git/index.lock` huérfano del sandbox que bloquea el commit desde acá) y smoke en prod de Q11/Q5 tras el deploy de Vercel.

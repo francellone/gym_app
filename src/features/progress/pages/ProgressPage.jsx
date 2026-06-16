@@ -646,7 +646,9 @@ export default function ProgressPage() {
             {activeChart === 'weight' && (
               <Card>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{t('progress.weightProgressTitle')}</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    {t('progress.weightProgressTitle')}
+                  </h3>
                   <p className="text-xs text-gray-500">{t('progress.weightProgressSubtitle')}</p>
                 </div>
                 {weightData.length > 0 ? (

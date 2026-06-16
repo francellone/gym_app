@@ -395,6 +395,7 @@ export default function ExercisesLibraryPage() {
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
   const [filterMode, setFilterMode] = useState('') // '' | 'with_weight' | 'barbell_only' | 'bodyweight'
+  const [filterIncomplete, setFilterIncomplete] = useState(false) // solo ejercicios sin video o sin nota
   const [modalExercise, setModalExercise] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
@@ -451,7 +452,9 @@ export default function ExercisesLibraryPage() {
     const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some((t) => t.id === filterTag)
     const exMode = e.default_weight_mode || 'with_weight'
     const matchMode = !filterMode || exMode === filterMode
-    return matchSearch && matchTag && matchMode
+    const isIncomplete = !e.video_url || (!e.description && !e.technique_notes)
+    const matchIncomplete = !filterIncomplete || isIncomplete
+    return matchSearch && matchTag && matchMode && matchIncomplete
   })
 
   return (
@@ -519,6 +522,19 @@ export default function ExercisesLibraryPage() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => setFilterIncomplete((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
+            filterIncomplete
+              ? 'bg-red-50 border-red-200 text-red-600'
+              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+          title="Mostrar solo ejercicios sin video o sin nota"
+        >
+          <AlertCircle size={15} />
+          <span className="hidden sm:inline">Solo incompletos</span>
+        </button>
       </div>
 
       {loading ? (
@@ -574,6 +590,22 @@ export default function ExercisesLibraryPage() {
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700"
                       >
                         Unilat.
+                      </span>
+                    )}
+                    {!ex.video_url && (
+                      <span
+                        title="Falta video"
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"
+                      >
+                        Sin video
+                      </span>
+                    )}
+                    {!ex.description && !ex.technique_notes && (
+                      <span
+                        title="Falta descripción / nota técnica"
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"
+                      >
+                        Sin nota
                       </span>
                     )}
                   </div>
