@@ -156,7 +156,9 @@ Todo lo de A **+ rediseñar** la sección a la vista compacta del mockup: una fi
 
 **Verificación**: vitest 323/323 (antes 310, +13), eslint 0 errores (3 warnings preexistentes en `fetchStatsAndRecent`), build OK.
 
-**Definición de "completado" en adherencia (v1)**: día distinto con log de training en la semana = 1 sesión hecha (coherente con "3 de 4 entrenamientos" de Anto). Si se quiere más estricto (día con tally entero), refinar en una fase 2.
+**Definición de "completado" en adherencia (v1)**: día distinto con log de training = 1 sesión hecha (coherente con "3 de 4 entrenamientos" de Anto). Si se quiere más estricto (día con tally entero), refinar en una fase 2.
+
+**FIX 16/06 (ventana móvil)**: el cálculo inicial usaba la **semana calendario (lun-dom)** → falso positivo de principio de semana (un martes casi nadie llegó a sus N sesiones aún, disparaba para todos; Franco Cellone daba 1/3·33% siendo que entrena 4×/últimos 7d). Cambiado a **ventana móvil de últimos 7 días** (siempre semana completa). adherencia = días entrenados en últimos 7d / sessions_per_week ≤ 50%. Verificado con datos: Franco pasa de 1/3 a 4/3 → no dispara.
 
 **Pendiente**:
 1. Commit `feat(dashboard): alerta adherencia ≤50% + inactividad por días hábiles + click al progreso (G2)` desde la Mac + push.

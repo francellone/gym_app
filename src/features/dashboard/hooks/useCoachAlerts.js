@@ -128,13 +128,17 @@ export default function useCoachAlerts() {
     return map
   }, [logs])
 
-  // Adherencia de la semana en curso (lun-dom):
+  // Adherencia sobre una VENTANA MÓVIL de los últimos 7 días:
   //   target    = sessions_per_week del plan training activo (>0)
-  //   completed = días distintos de entrenamiento logueados esta semana
-  // La lógica pura (computeLowAdherence) decide el umbral; acá solo
-  // armamos los datos, igual que con lastLogDateByStudent.
+  //   completed = días distintos de entrenamiento en los últimos 7 días
+  // Usamos ventana móvil (no semana calendario lun-dom) para evitar el
+  // falso positivo de principio de semana: un martes, la "semana en
+  // curso" recién arranca y casi nadie llegó a sus N sesiones todavía,
+  // así que la alerta dispararía para todos. La ventana de 7 días
+  // siempre es una semana completa. La lógica pura (computeLowAdherence)
+  // decide el umbral; acá solo armamos los datos.
   const adherenceByStudent = useMemo(() => {
-    const weekStart = mondayYMD(new Date())
+    const windowStart = formatYMD(addDaysSafe(new Date(), -6)) // hoy + 6 días previos = 7
     const todayYmd = formatYMD(new Date())
 
     // target por alumno desde su asignación de training activa
@@ -149,11 +153,11 @@ export default function useCoachAlerts() {
       if (Number.isFinite(spw) && spw > 0) targetByStudent.set(s.id, spw)
     }
 
-    // días distintos entrenados esta semana por alumno
+    // días distintos entrenados en los últimos 7 días por alumno
     const datesByStudent = new Map()
     for (const l of logs) {
       const ymd = String(l.logged_date).slice(0, 10)
-      if (ymd < weekStart || ymd > todayYmd) continue
+      if (ymd < windowStart || ymd > todayYmd) continue
       if (!datesByStudent.has(l.student_id)) datesByStudent.set(l.student_id, new Set())
       datesByStudent.get(l.student_id).add(ymd)
     }
@@ -197,14 +201,4 @@ function addDaysSafe(date, n) {
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + n)
   return d
-}
-
-// YMD del lunes de la semana (lun-dom) que contiene `date`.
-function mondayYMD(date) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  const dow = d.getDay() // 0=dom..6=sáb
-  const diff = dow === 0 ? -6 : 1 - dow
-  d.setDate(d.getDate() + diff)
-  return formatYMD(d)
 }
