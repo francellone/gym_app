@@ -965,8 +965,8 @@ Ambos derivados de un mismo pedido de Anto ("no sale el tiempo de espera entre s
 
 | Item | Estado | Notas |
 |---|---|---|
-| **Q11** | ✅ implementado (local) | lint 0 err, tests 310/310, build OK |
-| **Q5** | ✅ implementado (local) | lint 0 err, tests 310/310, build OK |
+| **Q11** | ✅ pusheado + smoke prod OK (16/06) | badges "Sin video"/"Sin nota" + toggle "Solo incompletos" visibles en la biblioteca |
+| **Q5** | ✅ pusheado + smoke prod OK (16/06) | el filtro arranca en EVALUACIONES; dropdown filtra a los 8 ej taggeados (vs ~297) |
 | **Q7** | ✅ ya en prod | sólo mostrar a Anto |
 
-**Pendiente de Franco:** commit + push (hay un `.git/index.lock` huérfano del sandbox que bloquea el commit desde acá) y smoke en prod de Q11/Q5 tras el deploy de Vercel.
+**Smoke (16/06, browser francellone, coach):** Q11 — en /coach/exercises se ven los chips rojos y el toggle. Q5 — en nueva evaluación 1RM el selector "Filtrar ejercicios por etiqueta" = EVALUACIONES por defecto y el dropdown lista sólo ANKLE/TOBILLO, Bench Push Ups, Hinge hip, Hip Flexibility, Shoulder Mobility, SQUAT/SENTADILLA, Stability, Vertical Jump.

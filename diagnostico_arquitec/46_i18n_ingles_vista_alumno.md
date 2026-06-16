@@ -1,7 +1,7 @@
 # 46 — i18n: vista del alumno en inglés (switch ES/EN)
 
 **Fecha:** 2026-06-10
-**Estado:** Opción A aprobada por Franco. **Fases 1, 2 y 3 implementadas (2026-06-10)** — pendiente commit/push (Franco) y smoke en prod. Queda deuda menor en helpers compartidos (ver "Deuda restante").
+**Estado:** Opción A aprobada por Franco. **Fases 1, 2 y 3 implementadas + PUSHEADAS a main (commit 9e6db7f, 2026-06-13)**. Deploy de Vercel en curso. **Smoke en prod PENDIENTE** → plan paso a paso en `47_smoke_i18n_plan.md`. Queda deuda menor en helpers compartidos (ver "Deuda restante").
 **Origen:** pedido de Anto — va a tener clientes angloparlantes.
 
 ## Decisiones de Franco (2026-06-10)
