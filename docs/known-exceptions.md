@@ -4,7 +4,7 @@ Catálogo de excepciones, dragons y "esto no es como parece" que ya pisamos al m
 
 Mantener este archivo es más barato que redescubrir cada bug. Cuando algún agente (o vos del futuro) caza una nueva trampa, sumá una entrada acá.
 
-Última actualización: 2026-05-23.
+Última actualización: 2026-06-16.
 
 ---
 
@@ -98,6 +98,13 @@ No confundir: secuencia ≠ substitución. La UI las muestra distinto.
 - Reportado en commits del 17/05 y mitigado en `afb3ea7` (21/05 PM): cuando un client borra una nota propia, el `UPDATE notes SET deleted_at=now()` a veces no llegaba al realtime de los demás. Solución: `removeNoteLocally` + `onDeleted` callback en `NoteCard.jsx` para hacer optimistic remove desde el caller.
 - **No es bug propio del realtime de Supabase** — está relacionado con el problema RLS+RETURNING descrito arriba (cuando el UPDATE fallaba en BD, el cliente "veía" el optimistic delete pero nada más). Ya resuelto con la policy adicional.
 
+### Las notas "del ejercicio" se filtran por `exercise_id`, NO por `context_type` (doc 52)
+
+- **Síntoma**: en el módulo de ejercicios (vista alumno, `TodayWorkoutPage`) faltaban notas: el badge 💬, la "última nota del coach" y el chat del ejercicio mostraban solo una fracción de las notas reales, o nada.
+- **Causa**: las notas cargadas **entrenando** se guardan con `context_type='workout_log'` (con `exercise_id`), pero el preview/badge/drawer filtraba `context_type='exercise'`. Resultado: se ignoraban ~153 de 168 notas con `exercise_id`. Solo entraban las `context_type='exercise'` (creadas desde el panel).
+- **Mitigación** (doc 52, commit `7b7f950`): el criterio es **`exercise_id IS NOT NULL`** (cualquier `context_type`), no enumerar context_types. Aplica en los 2 fetch (`TodayWorkoutPage.jsx`, `ExerciseChatDrawer.jsx`) y en las 3 funciones de `exerciseHistoryLogic.js` (`pickLastCoachNotePerExercise`, `countNotesByExercise`, `groupNotesByExercise`). El resumen "última nota" sigue coach-only; el badge + chat muestran ambos lados.
+- **NO hacer**: volver a meter `.eq('context_type','exercise')` en estos fetch. Hoy solo `exercise` y `workout_log` traen `exercise_id`; filtrar por `exercise_id` es a prueba de context_types futuros.
+
 ### `UltimoRegistro` tiene su propio `useAuth()` dentro
 
 - **Síntoma**: si movés el componente `UltimoRegistro` (en `src/features/evaluations/pages/StudentEvaluationsTab.jsx` ~línea 569) a otro archivo, `saveComments` empieza a recibir `coachId: undefined`.
@@ -147,6 +154,7 @@ No confundir: secuencia ≠ substitución. La UI las muestra distinto.
 - `auth_leaked_password_protection` está **desactivado** en Supabase Auth. Es un toggle manual en Dashboard → Authentication → Password Protection. Aparece en advisors como WARN desde el 16/05.
 - 26 RPCs tienen `GRANT EXECUTE` a `anon`. La mayoría (~11) no se llaman desde el front actual — candidatas a `REVOKE EXECUTE FROM anon`. Ver `api-rpcs.md` §"Pendiente para futuro hardening".
 - Los `supabase/tests/rls_smoke_tests.sql` actuales (6 tests) sólo cubren SELECT cross-student. Pendiente sumar INSERT/UPDATE/DELETE y un caso de soft-delete student.
+- **Mejora UX (chat del ejercicio):** cuando una nota es respuesta (`parent_note_id`) a otra que fue borrada, el `NoteCard` muestra "EN RESPUESTA A — Mensaje eliminado". Visto el 16/06 en "Carpa toco pie contrario" (smoke doc 52). Es cosmético, no rompe nada. Mejora pendiente: ocultar el bloque "en respuesta a" (o mostrar un texto más suave) cuando el padre tiene `deleted_at`. Vive en `src/features/notes/components/NoteCard.jsx`.
 
 ---
 
