@@ -25,9 +25,15 @@ export const ALERT_THRESHOLDS = {
   // cuenta, así que el umbral se "estira" naturalmente a ~4-5 corridos
   // cuando el hueco abarca sábado/domingo.
   INACTIVE_DAYS: 3, // sin loguear hace N+ días HÁBILES
-  // Baja adherencia semanal (G2 — decisión Anto 13a).
-  // adherencia = sesiones completadas en la semana / sessions_per_week.
-  LOW_ADHERENCE_PCT: 50, // <= N% dispara la alerta
+  // Adherencia (G2 — decisión Anto 13a + refinamiento Franco 16/06).
+  // Se mide sobre SEMANAS CERRADAS (lun-dom ya terminadas), nunca la
+  // semana en curso. adherencia% = días entrenados esa semana /
+  // sessions_per_week (cap 100%).
+  // Alerta "baja adherencia": la última semana cerrada quedó por debajo
+  //   de este umbral. <100 = cualquier falta (decisión Franco 16/06).
+  ADHERENCE_LOW_PCT: 100, // dispara si pct última semana < N
+  // Alerta "declive": N semanas cerradas consecutivas en baja estricta.
+  ADHERENCE_DECLINE_WEEKS: 3, // 3 semanas → 2 caídas consecutivas
   // RPE alto sostenido
   HIGH_RPE_THRESHOLD: 8, // PSE >= N considerado alto
   HIGH_RPE_MIN_OCCURRENCES: 3, // al menos N ocurrencias
@@ -277,41 +283,73 @@ export function computeInactiveStudents(students, lastLogDateByStudent, today = 
 }
 
 // ============================================================
-// 4.b Baja adherencia semanal (G2 — decisión Anto 13a)
+// 4.b Adherencia por SEMANAS CERRADAS (G2 — Anto 13a + Franco 16/06)
 // ------------------------------------------------------------
-// Alumnos cuya adherencia de la semana en curso (lun-dom) es <= 50%.
-//   adherencia% = sesiones completadas esta semana / sessions_per_week
+// La adherencia se mide sobre semanas lun-dom YA TERMINADAS, nunca la
+// semana en curso (evita el falso positivo de principio de semana).
 //
-// La forma de los datos la arma el hook (separación pura/efectos,
-// igual que lastLogDateByStudent):
-//   adherenceByStudent: Map<studentId, { target, completed }>
-//     target    = sessions_per_week del plan de training activo (>0)
-//     completed = días de entrenamiento completados en la semana
+// La forma de los datos la arma el hook (separación pura/efectos):
+//   weeklyByStudent: Map<studentId, Array<{ weekStart, completed, target, pct }>>
+//     - una entrada por semana cerrada bajo el plan activo
+//     - ORDEN ASCENDENTE por weekStart (la última = más reciente)
+//     - pct = round(min(completed,target)/target*100), cap 100
 //
-// Solo se evalúan alumnos presentes en el Map (= con plan training
-// activo y target válido). Sin target no hay denominador → se omite.
+// Dos alertas derivadas:
+//   (1) computeLowAdherence       → última semana cerrada < umbral
+//   (2) computeAdherenceDecline   → N semanas consecutivas en baja
 // ============================================================
-export function computeLowAdherence(students, adherenceByStudent) {
+
+// (1) Baja adherencia: la última semana cerrada quedó por debajo del
+// umbral (ADHERENCE_LOW_PCT; <100 = cualquier falta).
+export function computeLowAdherence(students, weeklyByStudent) {
   const out = []
   for (const s of students || []) {
-    const row = adherenceByStudent?.get(s.id)
-    if (!row) continue
-    const target = Number(row.target)
-    if (!Number.isFinite(target) || target <= 0) continue
-    const completed = Math.max(0, Number(row.completed) || 0)
-    const pct = Math.round((completed / target) * 100)
-    if (pct <= ALERT_THRESHOLDS.LOW_ADHERENCE_PCT) {
+    const weeks = weeklyByStudent?.get(s.id)
+    if (!weeks || weeks.length === 0) continue
+    const last = weeks[weeks.length - 1]
+    if (last.pct < ALERT_THRESHOLDS.ADHERENCE_LOW_PCT) {
       out.push({
         studentId: s.id,
         name: s.name,
-        completed,
-        target,
-        pct,
+        completed: last.completed,
+        target: last.target,
+        pct: last.pct,
+        weekStart: last.weekStart,
       })
     }
   }
-  // Peor adherencia primero.
-  out.sort((a, b) => a.pct - b.pct)
+  out.sort((a, b) => a.pct - b.pct) // peor primero
+  return out
+}
+
+// (2) Declive sostenido: las últimas ADHERENCE_DECLINE_WEEKS semanas
+// cerradas vienen en baja ESTRICTA consecutiva (ej. 100 → 67 → 33).
+// Con 3 semanas = 2 caídas seguidas. Detecta al que se despega aunque
+// su nivel todavía no sea "bajo".
+export function computeAdherenceDecline(students, weeklyByStudent) {
+  const n = ALERT_THRESHOLDS.ADHERENCE_DECLINE_WEEKS
+  const out = []
+  for (const s of students || []) {
+    const weeks = weeklyByStudent?.get(s.id)
+    if (!weeks || weeks.length < n) continue
+    const tail = weeks.slice(-n) // últimas n, ascendente
+    let declining = true
+    for (let i = 1; i < tail.length; i++) {
+      if (tail[i].pct >= tail[i - 1].pct) {
+        declining = false
+        break
+      }
+    }
+    if (!declining) continue
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      trend: tail.map((w) => w.pct), // ej. [100, 67, 33]
+      lastPct: tail[tail.length - 1].pct,
+    })
+  }
+  // Mayor caída total primero.
+  out.sort((a, b) => b.trend[0] - b.lastPct - (a.trend[0] - a.lastPct))
   return out
 }
 
@@ -693,7 +731,7 @@ export function computeStagnationByExercise(students, recentLogs, today = new Da
 export function computeAllAlerts({
   students,
   lastLogDateByStudent,
-  adherenceByStudent,
+  weeklyByStudent,
   recentLogs,
   wellbeingLogs = [],
   today = new Date(),
@@ -702,7 +740,8 @@ export function computeAllAlerts({
   return {
     overdue,
     dueSoon,
-    lowAdherence: computeLowAdherence(students, adherenceByStudent),
+    adherenceDecline: computeAdherenceDecline(students, weeklyByStudent),
+    lowAdherence: computeLowAdherence(students, weeklyByStudent),
     noActivePlan: computeNoActivePlan(students),
     planExpiringSoon: computePlanExpiringSoon(students, today),
     inactiveStudents: computeInactiveStudents(students, lastLogDateByStudent, today),
@@ -740,9 +779,16 @@ export const ALERT_KIND = {
     borderClass: 'border-l-yellow-400',
     accentClass: 'text-yellow-600',
   },
+  adherenceDecline: {
+    key: 'adherenceDecline',
+    label: 'Adherencia en declive',
+    icon: '⬇️',
+    borderClass: 'border-l-red-400',
+    accentClass: 'text-red-600',
+  },
   lowAdherence: {
     key: 'lowAdherence',
-    label: 'Baja adherencia semanal',
+    label: 'Baja adherencia (semana pasada)',
     icon: '📉',
     borderClass: 'border-l-rose-400',
     accentClass: 'text-rose-600',
@@ -801,7 +847,8 @@ export const ALERT_KIND = {
 // Orden recomendado en la UI (de más urgente a menos).
 export const ALERT_RENDER_ORDER = [
   'overdue',
-  'lowAdherence', // baja adherencia — accionable, pedido explícito de Anto
+  'adherenceDecline', // tendencia a la baja — la señal más accionable
+  'lowAdherence', // semana cerrada por debajo del umbral
   'painStudents', // dolor — atender rápido por riesgo de lesión
   'fatigueStudents', // fatiga — ajustar carga
   'planExpiringSoon',

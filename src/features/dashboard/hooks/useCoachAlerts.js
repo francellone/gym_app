@@ -50,7 +50,9 @@ export default function useCoachAlerts() {
         const logsLookbackDays = Math.max(
           30,
           ALERT_THRESHOLDS.HIGH_RPE_WINDOW_DAYS + 1,
-          ALERT_THRESHOLDS.STAGNATION_WINDOW_DAYS + 1
+          ALERT_THRESHOLDS.STAGNATION_WINDOW_DAYS + 1,
+          // suficientes semanas cerradas para la alerta de declive
+          7 * (ALERT_THRESHOLDS.ADHERENCE_DECLINE_WEEKS + 3) + 7
         )
         const ymdSince = formatYMD(addDaysSafe(today, -logsLookbackDays))
         const wellbeingLookbackDays = Math.max(
@@ -66,7 +68,7 @@ export default function useCoachAlerts() {
               `
               id, name, next_payment_due,
               plan_assignments:plan_assignments!student_id(
-                id, active, status, plan_type, end_date,
+                id, active, status, plan_type, start_date, end_date,
                 plan:plans!plan_id(plan_type, title, sessions_per_week)
               )
             `
@@ -128,21 +130,24 @@ export default function useCoachAlerts() {
     return map
   }, [logs])
 
-  // Adherencia sobre una VENTANA MÓVIL de los últimos 7 días:
+  // Adherencia por SEMANAS CERRADAS (lun-dom ya terminadas).
   //   target    = sessions_per_week del plan training activo (>0)
-  //   completed = días distintos de entrenamiento en los últimos 7 días
-  // Usamos ventana móvil (no semana calendario lun-dom) para evitar el
-  // falso positivo de principio de semana: un martes, la "semana en
-  // curso" recién arranca y casi nadie llegó a sus N sesiones todavía,
-  // así que la alerta dispararía para todos. La ventana de 7 días
-  // siempre es una semana completa. La lógica pura (computeLowAdherence)
-  // decide el umbral; acá solo armamos los datos.
-  const adherenceByStudent = useMemo(() => {
-    const windowStart = formatYMD(addDaysSafe(new Date(), -6)) // hoy + 6 días previos = 7
-    const todayYmd = formatYMD(new Date())
+  //   completed = días distintos entrenados en esa semana (cap a target)
+  // Nunca se mide la semana en curso (evita el falso positivo de
+  // principio de semana). Devolvemos por alumno un array ascendente de
+  // semanas cerradas; la lógica pura (computeLowAdherence /
+  // computeAdherenceDecline) decide los umbrales.
+  const weeklyByStudent = useMemo(() => {
+    const WEEKS = ALERT_THRESHOLDS.ADHERENCE_DECLINE_WEEKS + 2
 
-    // target por alumno desde su asignación de training activa
-    const targetByStudent = new Map()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dow = today.getDay() // 0=dom..6=sáb
+    const thisMonday = new Date(today)
+    thisMonday.setDate(today.getDate() + (dow === 0 ? -6 : 1 - dow))
+
+    // target + start_date del plan training activo, por alumno
+    const meta = new Map()
     for (const s of students) {
       const a = (s.plan_assignments || []).find((x) => {
         const pt = x.plan_type || x.plan?.plan_type || 'training'
@@ -150,21 +155,43 @@ export default function useCoachAlerts() {
         return x.status ? x.status === 'active' : !!x.active
       })
       const spw = Number(a?.plan?.sessions_per_week)
-      if (Number.isFinite(spw) && spw > 0) targetByStudent.set(s.id, spw)
+      if (Number.isFinite(spw) && spw > 0) {
+        meta.set(s.id, {
+          target: spw,
+          start: a?.start_date ? String(a.start_date).slice(0, 10) : null,
+        })
+      }
     }
 
-    // días distintos entrenados en los últimos 7 días por alumno
+    // fechas distintas entrenadas por alumno (dentro de los logs traídos)
     const datesByStudent = new Map()
     for (const l of logs) {
       const ymd = String(l.logged_date).slice(0, 10)
-      if (ymd < windowStart || ymd > todayYmd) continue
       if (!datesByStudent.has(l.student_id)) datesByStudent.set(l.student_id, new Set())
       datesByStudent.get(l.student_id).add(ymd)
     }
 
     const map = new Map()
-    for (const [sid, target] of targetByStudent) {
-      map.set(sid, { target, completed: datesByStudent.get(sid)?.size || 0 })
+    for (const [sid, { target, start }] of meta) {
+      const dates = datesByStudent.get(sid) || new Set()
+      const weeks = []
+      // de la más vieja (i=WEEKS) a la más reciente (i=1) → ascendente
+      for (let i = WEEKS; i >= 1; i--) {
+        const ws = new Date(thisMonday)
+        ws.setDate(thisMonday.getDate() - 7 * i)
+        const we = new Date(ws)
+        we.setDate(ws.getDate() + 6)
+        const wsY = formatYMD(ws)
+        const weY = formatYMD(we)
+        // solo semanas completas bajo el plan (no penalizar pre-asignación)
+        if (start && wsY < start) continue
+        let completed = 0
+        for (const d of dates) if (d >= wsY && d <= weY) completed += 1
+        const capped = Math.min(completed, target)
+        const pct = Math.round((capped / target) * 100)
+        weeks.push({ weekStart: wsY, completed, target, pct })
+      }
+      if (weeks.length > 0) map.set(sid, weeks)
     }
     return map
   }, [students, logs])
@@ -174,12 +201,12 @@ export default function useCoachAlerts() {
       computeAllAlerts({
         students,
         lastLogDateByStudent,
-        adherenceByStudent,
+        weeklyByStudent,
         recentLogs: logs,
         wellbeingLogs,
         today: new Date(),
       }),
-    [students, lastLogDateByStudent, adherenceByStudent, logs, wellbeingLogs]
+    [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs]
   )
 
   function refresh() {

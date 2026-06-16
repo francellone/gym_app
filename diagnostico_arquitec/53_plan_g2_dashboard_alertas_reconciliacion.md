@@ -158,7 +158,13 @@ Todo lo de A **+ rediseñar** la sección a la vista compacta del mockup: una fi
 
 **Definición de "completado" en adherencia (v1)**: día distinto con log de training = 1 sesión hecha (coherente con "3 de 4 entrenamientos" de Anto). Si se quiere más estricto (día con tally entero), refinar en una fase 2.
 
-**FIX 16/06 (ventana móvil)**: el cálculo inicial usaba la **semana calendario (lun-dom)** → falso positivo de principio de semana (un martes casi nadie llegó a sus N sesiones aún, disparaba para todos; Franco Cellone daba 1/3·33% siendo que entrena 4×/últimos 7d). Cambiado a **ventana móvil de últimos 7 días** (siempre semana completa). adherencia = días entrenados en últimos 7d / sessions_per_week ≤ 50%. Verificado con datos: Franco pasa de 1/3 a 4/3 → no dispara.
+**FIX 16/06 (v2 — semanas cerradas, REEMPLAZA la v1 de semana calendario y la idea intermedia de ventana móvil)**: tras feedback de Franco, la adherencia se mide sobre **semanas cerradas (lun-dom ya terminadas) y bajo el plan activo** (`weekStart >= assignment.start_date`), nunca la semana en curso. `weeklyByStudent` (en useCoachAlerts) arma por alumno un array ascendente de semanas cerradas {weekStart, completed, target, pct}; pct = min(días,target)/target·100.
+
+Dos alertas derivadas (decisiones Franco 16/06):
+- **`lowAdherence`** — la ÚLTIMA semana cerrada quedó **< 100%** (`ADHERENCE_LOW_PCT=100`, "cualquier falta"). Franco eligió <100% sabiendo que él mismo aparece si no va perfecto.
+- **`adherenceDecline`** — **3 semanas cerradas en baja estricta consecutiva** (`ADHERENCE_DECLINE_WEEKS=3`, ej. 100→67→33). Es la señal de "se está despegando" aunque el nivel no sea bajo aún. Va primera en `ALERT_RENDER_ORDER`.
+
+Verificado con datos reales (16/06): Franco Cellone última semana cerrada (08/06) 3/3=100% → NO dispara (antes daba 33% por medir semana en curso). anto 50% → lowAdherence. Nadie con caída de 3 semanas → declive vacío. Tests 326/326, eslint 0 err, build OK.
 
 **Pendiente**:
 1. Commit `feat(dashboard): alerta adherencia ≤50% + inactividad por días hábiles + click al progreso (G2)` desde la Mac + push.

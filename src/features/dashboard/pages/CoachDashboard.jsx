@@ -501,8 +501,10 @@ function buildAlertTitle(kind, count) {
       return `${count} plan${plural ? 'es' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PLAN_EXPIRING_SOON_DAYS} días`
     case 'dueSoon':
       return `${count} pago${plural ? 's' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PAYMENT_DUE_SOON_DAYS} días`
+    case 'adherenceDecline':
+      return `${count} alumno${plural ? 's' : ''} con adherencia en declive`
     case 'lowAdherence':
-      return `${count} alumno${plural ? 's' : ''} con baja adherencia (≤${ALERT_THRESHOLDS.LOW_ADHERENCE_PCT}%)`
+      return `${count} alumno${plural ? 's' : ''} con baja adherencia la semana pasada`
     case 'inactiveStudents':
       return `${count} alumno${plural ? 's' : ''} sin entrenar hace varios días`
     case 'highRpeStudents':
@@ -528,6 +530,11 @@ function buildAlertSubtitle(kind, items) {
   // nombres separados por coma + "y N más" si hay muchos.
   const top = items.slice(0, 3)
   const rest = items.length - top.length
+
+  if (kind === 'adherenceDecline') {
+    const detail = top.map((s) => `${s.name} (${(s.trend || []).join('→')}%)`).join(', ')
+    return rest > 0 ? `${detail} y ${rest} más` : detail
+  }
 
   if (kind === 'lowAdherence') {
     const detail = top.map((s) => `${s.name} (${s.completed}/${s.target} · ${s.pct}%)`).join(', ')

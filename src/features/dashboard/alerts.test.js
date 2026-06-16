@@ -1,11 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import {
   computeLowAdherence,
+  computeAdherenceDecline,
   computeInactiveStudents,
   computeFatigueStudents,
   computeStagnationByExercise,
   ALERT_THRESHOLDS,
 } from './alerts'
+
+// Construye una semana cerrada {weekStart, completed, target, pct}
+const wk = (weekStart, completed, target) => ({
+  weekStart,
+  completed,
+  target,
+  pct: Math.round((Math.min(completed, target) / target) * 100),
+})
 
 // Helpers de fixtures
 const trainingStudent = (id, name) => ({
@@ -14,44 +23,63 @@ const trainingStudent = (id, name) => ({
   plan_assignments: [{ status: 'active', plan_type: 'training' }],
 })
 
-describe('computeLowAdherence', () => {
+describe('computeLowAdherence (última semana cerrada, umbral <100%)', () => {
   const students = [
     trainingStudent('s1', 'Ana'),
     trainingStudent('s2', 'Beto'),
     trainingStudent('s3', 'Caro'),
-    trainingStudent('s4', 'Dario'),
   ]
 
-  it('dispara cuando la adherencia es <= 50%', () => {
-    const map = new Map([
-      ['s1', { target: 4, completed: 2 }], // 50% → dispara
-      ['s2', { target: 4, completed: 3 }], // 75% → no
+  it('dispara si la última semana cerrada quedó por debajo de 100%', () => {
+    const weekly = new Map([
+      ['s1', [wk('2026-06-01', 3, 3), wk('2026-06-08', 2, 3)]], // última 67% → dispara
+      ['s2', [wk('2026-06-08', 3, 3)]], // última 100% → no
     ])
-    const out = computeLowAdherence(students, map)
+    const out = computeLowAdherence(students, weekly)
     expect(out.map((o) => o.studentId)).toEqual(['s1'])
-    expect(out[0]).toMatchObject({ completed: 2, target: 4, pct: 50 })
+    expect(out[0]).toMatchObject({ completed: 2, target: 3, pct: 67 })
   })
 
-  it('no dispara por encima del umbral', () => {
-    const map = new Map([['s2', { target: 4, completed: 3 }]])
-    expect(computeLowAdherence(students, map)).toEqual([])
+  it('no dispara con la última semana al 100%', () => {
+    const weekly = new Map([['s2', [wk('2026-06-08', 4, 4)]]])
+    expect(computeLowAdherence(students, weekly)).toEqual([])
   })
 
-  it('omite alumnos sin target válido o ausentes del map', () => {
-    const map = new Map([
-      ['s4', { target: 0, completed: 0 }], // sin denominador
+  it('omite alumnos sin semanas cerradas', () => {
+    const weekly = new Map([['s3', []]])
+    expect(computeLowAdherence(students, weekly)).toEqual([])
+  })
+
+  it('usa la ÚLTIMA semana, no las previas', () => {
+    const weekly = new Map([
+      ['s1', [wk('2026-06-01', 0, 3), wk('2026-06-08', 3, 3)]], // última 100% → no
     ])
-    // s3 ni siquiera está en el map (sin plan training activo)
-    expect(computeLowAdherence(students, map)).toEqual([])
+    expect(computeLowAdherence(students, weekly)).toEqual([])
+  })
+})
+
+describe('computeAdherenceDecline (caída sostenida)', () => {
+  const students = [trainingStudent('s1', 'Ana'), trainingStudent('s2', 'Beto')]
+
+  it('dispara con 3 semanas en baja estricta', () => {
+    const weekly = new Map([
+      ['s1', [wk('2026-05-25', 3, 3), wk('2026-06-01', 2, 3), wk('2026-06-08', 1, 3)]], // 100→67→33
+    ])
+    const out = computeAdherenceDecline(students, weekly)
+    expect(out.map((o) => o.studentId)).toEqual(['s1'])
+    expect(out[0].trend).toEqual([100, 67, 33])
   })
 
-  it('ordena por peor adherencia primero', () => {
-    const map = new Map([
-      ['s1', { target: 4, completed: 2 }], // 50%
-      ['s2', { target: 4, completed: 0 }], // 0%
+  it('no dispara si una semana se mantuvo o subió', () => {
+    const weekly = new Map([
+      ['s2', [wk('2026-05-25', 3, 3), wk('2026-06-01', 3, 3), wk('2026-06-08', 2, 3)]], // 100→100→67 (no estricta)
     ])
-    const out = computeLowAdherence(students, map)
-    expect(out.map((o) => o.studentId)).toEqual(['s2', 's1'])
+    expect(computeAdherenceDecline(students, weekly)).toEqual([])
+  })
+
+  it('no dispara con menos semanas que el mínimo', () => {
+    const weekly = new Map([['s1', [wk('2026-06-01', 3, 3), wk('2026-06-08', 1, 3)]]])
+    expect(computeAdherenceDecline(students, weekly)).toEqual([])
   })
 })
 
@@ -146,8 +174,9 @@ describe('computeStagnationByExercise', () => {
 })
 
 describe('ALERT_THRESHOLDS', () => {
-  it('mantiene el umbral de adherencia en 50% y días hábiles en 3', () => {
-    expect(ALERT_THRESHOLDS.LOW_ADHERENCE_PCT).toBe(50)
+  it('mantiene umbral de adherencia <100%, declive 3 semanas y días hábiles 3', () => {
+    expect(ALERT_THRESHOLDS.ADHERENCE_LOW_PCT).toBe(100)
+    expect(ALERT_THRESHOLDS.ADHERENCE_DECLINE_WEEKS).toBe(3)
     expect(ALERT_THRESHOLDS.INACTIVE_DAYS).toBe(3)
   })
 })
