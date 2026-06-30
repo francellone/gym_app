@@ -274,8 +274,14 @@
           "short": "very easy",
           "desc": "nasal breathing · you can sing · minimal activation"
         },
-        "2": { "short": "easy", "desc": "calm breathing · you talk without pauses" },
-        "3": { "short": "light", "desc": "deeper breathing · full sentences · comfortable" },
+        "2": {
+          "short": "easy",
+          "desc": "calm breathing · you talk without pauses"
+        },
+        "3": {
+          "short": "light",
+          "desc": "deeper breathing · full sentences · comfortable"
+        },
         "4": {
           "short": "low moderate",
           "desc": "steady breathing · fluid conversation · constant pace"
@@ -288,25 +294,64 @@
           "short": "moderate-high",
           "desc": "deep breathing · short sentences · controlled discomfort"
         },
-        "7": { "short": "high", "desc": "heavy breathing · 2–3 words · mental focus" },
-        "8": { "short": "very high", "desc": "agitated breathing · single words · clear fatigue" },
+        "7": {
+          "short": "high",
+          "desc": "heavy breathing · 2–3 words · mental focus"
+        },
+        "8": {
+          "short": "very high",
+          "desc": "agitated breathing · single words · clear fatigue"
+        },
         "9": {
           "short": "near max",
           "desc": "overwhelmed breathing · you can't talk · at the limit"
         },
-        "10": { "short": "max", "desc": "chaotic breathing · no speech · seconds" }
+        "10": {
+          "short": "max",
+          "desc": "chaotic breathing · no speech · seconds"
+        }
       },
       "circuit": {
-        "1": { "short": "very easy", "desc": "warm-up" },
-        "2": { "short": "very easy", "desc": "warm-up" },
-        "3": { "short": "very easy", "desc": "warm-up" },
-        "4": { "short": "you could do more", "desc": "plenty left" },
-        "5": { "short": "you could do more", "desc": "plenty left" },
-        "6": { "short": "challenging", "desc": "controlled" },
-        "7": { "short": "challenging", "desc": "controlled" },
-        "8": { "short": "very demanding", "desc": "hard to sustain" },
-        "9": { "short": "very demanding", "desc": "hard to sustain" },
-        "10": { "short": "at the limit", "desc": "you can't do more" }
+        "1": {
+          "short": "very easy",
+          "desc": "warm-up"
+        },
+        "2": {
+          "short": "very easy",
+          "desc": "warm-up"
+        },
+        "3": {
+          "short": "very easy",
+          "desc": "warm-up"
+        },
+        "4": {
+          "short": "you could do more",
+          "desc": "plenty left"
+        },
+        "5": {
+          "short": "you could do more",
+          "desc": "plenty left"
+        },
+        "6": {
+          "short": "challenging",
+          "desc": "controlled"
+        },
+        "7": {
+          "short": "challenging",
+          "desc": "controlled"
+        },
+        "8": {
+          "short": "very demanding",
+          "desc": "hard to sustain"
+        },
+        "9": {
+          "short": "very demanding",
+          "desc": "hard to sustain"
+        },
+        "10": {
+          "short": "at the limit",
+          "desc": "you can't do more"
+        }
       }
     },
     "exerciseChatAria": "Exercise chat {{name}}",
@@ -632,5 +677,49 @@
     "emptyBody": "Important activity will show up here",
     "showingLast_one": "Showing the last notification",
     "showingLast_other": "Showing the last {{count}} notifications"
+  },
+  "activities": {
+    "cardTitle": "Other activities",
+    "add": "Add",
+    "addTitle": "Add activity",
+    "editTitle": "Edit activity",
+    "emptyDay": "No extra activities logged this day.",
+    "byCoach": "added by coach",
+    "delete": "Delete",
+    "minutes": "{{value}} min",
+    "confirmDelete": "Delete this activity?",
+    "fields": {
+      "type": "Activity type",
+      "label": "Name",
+      "labelPlaceholder": "E.g. climbing, basketball…",
+      "duration": "Duration (min)",
+      "durationPlaceholder": "Optional",
+      "intensity": "Intensity",
+      "notes": "Notes",
+      "notesPlaceholder": "Optional"
+    },
+    "types": {
+      "football": "Football",
+      "yoga": "Yoga",
+      "running": "Running",
+      "swimming": "Swimming",
+      "cycling": "Cycling",
+      "pilates": "Pilates",
+      "hiking": "Hiking",
+      "sport_other": "Other sport",
+      "other": "Other"
+    },
+    "errors": {
+      "typeRequired": "Choose an activity type.",
+      "typeInvalid": "Invalid activity type.",
+      "labelRequired": "Enter the activity name.",
+      "durationRange": "Duration must be between 1 and 1440 minutes.",
+      "intensityRange": "Intensity must be between 1 and 10."
+    },
+    "coach": {
+      "pickDate": "Log on a date",
+      "recentTitle": "Recent activity (60 days)",
+      "recentEmpty": "No extra activities in the last 60 days."
+    }
   }
 }

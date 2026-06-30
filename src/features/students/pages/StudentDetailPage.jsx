@@ -15,6 +15,7 @@ import StudentLogsTab from '../tabs/StudentLogsTab'
 import StudentHistoryTab from '../tabs/StudentHistoryTab'
 import StudentEvaluationsTab from '@/features/evaluations/pages/StudentEvaluationsTab'
 import StudentWellbeingTab from '@/features/wellbeing/pages/StudentWellbeingTab'
+import StudentActivitiesTab from '@/features/activities/pages/StudentActivitiesTab'
 import StudentFormsTab from '../tabs/StudentFormsTab'
 import StudentNotesTab from '@/features/notes/pages/StudentNotesTab'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'evaluaciones', label: 'Evaluaciones' },
   { id: 'formularios', label: 'Formularios' },
   { id: 'wellbeing', label: 'Wellbeing' },
+  { id: 'actividad', label: 'Actividad' },
   { id: 'progress', label: 'Progreso' },
   { id: 'logs', label: 'Logs' },
   { id: 'history', label: 'Historial' },
@@ -260,7 +262,8 @@ export default function StudentDetailPage() {
       <StudentDayTalliesCard
         studentId={id}
         activeAssignment={assignments.find(
-          (a) => a.status === 'active' && (a.plan_type || a.plan?.plan_type || 'training') === 'training'
+          (a) =>
+            a.status === 'active' && (a.plan_type || a.plan?.plan_type || 'training') === 'training'
         )}
       />
 
@@ -329,6 +332,8 @@ export default function StudentDetailPage() {
       {activeTab === 'formularios' && <StudentFormsTab studentId={id} />}
 
       {activeTab === 'wellbeing' && <StudentWellbeingTab studentId={id} />}
+
+      {activeTab === 'actividad' && <StudentActivitiesTab studentId={id} />}
 
       {activeTab === 'progress' && <StudentProgressTab studentId={id} />}
 

@@ -27,6 +27,7 @@ import {
 } from '@/features/plans/prescriptionHistory'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
+import DayActivitiesCard from '@/features/activities/components/DayActivitiesCard'
 import SaveErrorBanner from '../components/SaveErrorBanner'
 import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
@@ -1089,6 +1090,16 @@ export default function TodayWorkoutPage() {
             wellbeing={wellbeing}
             isToday={isToday}
             onOpen={() => setShowWellbeing(true)}
+          />
+
+          {/* Actividades extra del día (fútbol, yoga, etc.) — visible
+              también en días de descanso, no depende de la sesión */}
+          <DayActivitiesCard
+            studentId={profile.id}
+            userId={profile.id}
+            date={selectedDate}
+            source="student"
+            canEdit={true}
           />
 
           {/* Aviso pasivo: aparece la primera vez que el alumno guarda datos

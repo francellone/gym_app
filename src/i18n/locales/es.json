@@ -270,34 +270,88 @@
     "sensationHeader": "Sensación",
     "rpe": {
       "cardio": {
-        "1": { "short": "muy suave", "desc": "nasal · podés cantar · activación mínima" },
-        "2": { "short": "suave", "desc": "respiración tranquila · hablás sin pausas" },
-        "3": { "short": "leve", "desc": "resp. más profunda · frases completas · cómodo" },
+        "1": {
+          "short": "muy suave",
+          "desc": "nasal · podés cantar · activación mínima"
+        },
+        "2": {
+          "short": "suave",
+          "desc": "respiración tranquila · hablás sin pausas"
+        },
+        "3": {
+          "short": "leve",
+          "desc": "resp. más profunda · frases completas · cómodo"
+        },
         "4": {
           "short": "moderado bajo",
           "desc": "resp. estable · conversación fluida · ritmo constante"
         },
-        "5": { "short": "moderado", "desc": "resp. evidente · frases con pausas · sostenido" },
+        "5": {
+          "short": "moderado",
+          "desc": "resp. evidente · frases con pausas · sostenido"
+        },
         "6": {
           "short": "moderado-alto",
           "desc": "resp. profunda · frases cortas · incomodidad controlada"
         },
-        "7": { "short": "alto", "desc": "resp. fuerte · 2–3 palabras · foco mental" },
-        "8": { "short": "muy alto", "desc": "resp. agitada · palabras sueltas · fatiga clara" },
-        "9": { "short": "casi máximo", "desc": "resp. desbordada · no podés hablar · al límite" },
-        "10": { "short": "máximo", "desc": "resp. caótica · sin habla · segundos" }
+        "7": {
+          "short": "alto",
+          "desc": "resp. fuerte · 2–3 palabras · foco mental"
+        },
+        "8": {
+          "short": "muy alto",
+          "desc": "resp. agitada · palabras sueltas · fatiga clara"
+        },
+        "9": {
+          "short": "casi máximo",
+          "desc": "resp. desbordada · no podés hablar · al límite"
+        },
+        "10": {
+          "short": "máximo",
+          "desc": "resp. caótica · sin habla · segundos"
+        }
       },
       "circuit": {
-        "1": { "short": "muy suave", "desc": "calentamiento" },
-        "2": { "short": "muy suave", "desc": "calentamiento" },
-        "3": { "short": "muy suave", "desc": "calentamiento" },
-        "4": { "short": "podrías seguir más", "desc": "bastante margen" },
-        "5": { "short": "podrías seguir más", "desc": "bastante margen" },
-        "6": { "short": "desafiante", "desc": "controlado" },
-        "7": { "short": "desafiante", "desc": "controlado" },
-        "8": { "short": "muy exigente", "desc": "cuesta sostener" },
-        "9": { "short": "muy exigente", "desc": "cuesta sostener" },
-        "10": { "short": "al límite", "desc": "no podés más" }
+        "1": {
+          "short": "muy suave",
+          "desc": "calentamiento"
+        },
+        "2": {
+          "short": "muy suave",
+          "desc": "calentamiento"
+        },
+        "3": {
+          "short": "muy suave",
+          "desc": "calentamiento"
+        },
+        "4": {
+          "short": "podrías seguir más",
+          "desc": "bastante margen"
+        },
+        "5": {
+          "short": "podrías seguir más",
+          "desc": "bastante margen"
+        },
+        "6": {
+          "short": "desafiante",
+          "desc": "controlado"
+        },
+        "7": {
+          "short": "desafiante",
+          "desc": "controlado"
+        },
+        "8": {
+          "short": "muy exigente",
+          "desc": "cuesta sostener"
+        },
+        "9": {
+          "short": "muy exigente",
+          "desc": "cuesta sostener"
+        },
+        "10": {
+          "short": "al límite",
+          "desc": "no podés más"
+        }
       }
     },
     "exerciseChatAria": "Chat del ejercicio {{name}}",
@@ -623,5 +677,49 @@
     "emptyBody": "Acá vas a ver la actividad importante",
     "showingLast_one": "Mostrando la última notificación",
     "showingLast_other": "Mostrando las últimas {{count}} notificaciones"
+  },
+  "activities": {
+    "cardTitle": "Otras actividades",
+    "add": "Agregar",
+    "addTitle": "Agregar actividad",
+    "editTitle": "Editar actividad",
+    "emptyDay": "Sin actividades extra registradas este día.",
+    "byCoach": "cargada por el coach",
+    "delete": "Borrar",
+    "minutes": "{{value}} min",
+    "confirmDelete": "¿Borrar esta actividad?",
+    "fields": {
+      "type": "Tipo de actividad",
+      "label": "Nombre",
+      "labelPlaceholder": "Ej: escalada, básquet…",
+      "duration": "Duración (min)",
+      "durationPlaceholder": "Opcional",
+      "intensity": "Intensidad",
+      "notes": "Notas",
+      "notesPlaceholder": "Opcional"
+    },
+    "types": {
+      "football": "Fútbol",
+      "yoga": "Yoga",
+      "running": "Running",
+      "swimming": "Natación",
+      "cycling": "Ciclismo",
+      "pilates": "Pilates",
+      "hiking": "Senderismo",
+      "sport_other": "Otro deporte",
+      "other": "Otra"
+    },
+    "errors": {
+      "typeRequired": "Elegí un tipo de actividad.",
+      "typeInvalid": "Tipo de actividad inválido.",
+      "labelRequired": "Escribí el nombre de la actividad.",
+      "durationRange": "La duración debe estar entre 1 y 1440 minutos.",
+      "intensityRange": "La intensidad debe estar entre 1 y 10."
+    },
+    "coach": {
+      "pickDate": "Cargar en una fecha",
+      "recentTitle": "Actividad reciente (60 días)",
+      "recentEmpty": "Sin actividades extra en los últimos 60 días."
+    }
   }
 }
