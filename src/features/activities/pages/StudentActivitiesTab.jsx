@@ -64,6 +64,7 @@ export default function StudentActivitiesTab({ studentId }) {
         date={date}
         source="coach"
         canEdit={true}
+        onChange={loadRecent}
       />
 
       {/* Historial reciente */}

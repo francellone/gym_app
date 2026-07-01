@@ -720,6 +720,7 @@
       "pickDate": "Log on a date",
       "recentTitle": "Recent activity (60 days)",
       "recentEmpty": "No extra activities in the last 60 days."
-    }
+    },
+    "confirmDeleteTitle": "Delete activity?"
   }
 }

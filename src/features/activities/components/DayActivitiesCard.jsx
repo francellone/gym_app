@@ -27,6 +27,7 @@ export default function DayActivitiesCard({
   date,
   source = 'student',
   canEdit = true,
+  onChange,
 }) {
   const { t } = useTranslation()
   const [items, setItems] = useState([])
@@ -34,6 +35,7 @@ export default function DayActivitiesCard({
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [confirming, setConfirming] = useState(null)
 
   const load = useCallback(async () => {
     if (!studentId || !date) return
@@ -46,6 +48,12 @@ export default function DayActivitiesCard({
   useEffect(() => {
     load()
   }, [load])
+
+  // Refresca la lista propia y avisa al padre (ej. lista reciente del coach).
+  async function reload() {
+    await load()
+    onChange?.()
+  }
 
   function openAdd() {
     setEditing(null)
@@ -73,13 +81,16 @@ export default function DayActivitiesCard({
     setSaving(false)
     setModalOpen(false)
     setEditing(null)
-    load()
+    reload()
   }
 
-  async function handleDelete(item) {
-    if (!window.confirm(t('activities.confirmDelete'))) return
-    await deleteActivity(item.id)
-    load()
+  async function confirmDelete() {
+    if (!confirming) return
+    setSaving(true)
+    await deleteActivity(confirming.id)
+    setSaving(false)
+    setConfirming(null)
+    reload()
   }
 
   return (
@@ -150,7 +161,7 @@ export default function DayActivitiesCard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(item)}
+                      onClick={() => setConfirming(item)}
                       className="p-1 text-gray-400 hover:text-red-500"
                       aria-label={t('activities.delete')}
                     >
@@ -174,6 +185,35 @@ export default function DayActivitiesCard({
           setEditing(null)
         }}
       />
+
+      {/* Confirmación de borrado (modal propio, no confirm() nativo) */}
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-xs rounded-2xl bg-white p-5">
+            <p className="text-sm font-semibold text-gray-900 mb-1">
+              {t('activities.confirmDeleteTitle')}
+            </p>
+            <p className="text-xs text-gray-500 mb-4">{t('activities.confirmDelete')}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
+                className="flex-1 rounded-xl border-2 border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={saving}
+                className="flex-1 rounded-xl bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {t('activities.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

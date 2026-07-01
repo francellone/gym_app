@@ -720,6 +720,7 @@
       "pickDate": "Cargar en una fecha",
       "recentTitle": "Actividad reciente (60 días)",
       "recentEmpty": "Sin actividades extra en los últimos 60 días."
-    }
+    },
+    "confirmDeleteTitle": "¿Borrar actividad?"
   }
 }
