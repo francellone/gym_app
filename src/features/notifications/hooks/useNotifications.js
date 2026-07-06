@@ -10,33 +10,46 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import i18n from '@/i18n'
+import { resolveNotificationText } from '../utils/resolveNotificationText'
 
 const PAGE_SIZE = 30
 
-// Tipos de notif cuyo destino depende de si el plan es entrenamiento o
-// evaluación. El payload de `fn_notify_plan_assigned` /
-// `fn_notify_plan_updated_internal` NO incluye plan_type, así que lo
-// resolvemos client-side (cubre también las notifs viejas, sin migración).
-const PLAN_LINKED_TYPES = new Set(['plan_assigned', 'plan_updated'])
+// Tipos de notif que necesitan datos del plan que el trigger NO guarda en el
+// payload, así que los resolvemos client-side (cubre también las notifs
+// viejas, sin migración):
+//  - plan_type  → deep-link correcto (entrenamiento vs evaluación)
+//  - plan_title → texto i18n del alumno (resolveNotificationText)
+const PLAN_LINKED_TYPES = new Set(['plan_assigned', 'plan_updated', 'plan_expiring'])
+
+function needsPlanEnrichment(n) {
+  return (
+    PLAN_LINKED_TYPES.has(n.type) && n.data?.plan_id && (!n.data?.plan_type || !n.data?.plan_title)
+  )
+}
 
 async function enrichWithPlanType(notifs) {
-  const planIds = [
-    ...new Set(
-      notifs
-        .filter((n) => PLAN_LINKED_TYPES.has(n.type) && n.data?.plan_id && !n.data?.plan_type)
-        .map((n) => n.data.plan_id)
-    ),
-  ]
+  const planIds = [...new Set(notifs.filter(needsPlanEnrichment).map((n) => n.data.plan_id))]
   if (planIds.length === 0) return notifs
 
-  const { data: plans } = await supabase.from('plans').select('id, plan_type').in('id', planIds)
-  const typeById = new Map((plans || []).map((p) => [p.id, p.plan_type]))
+  const { data: plans } = await supabase
+    .from('plans')
+    .select('id, plan_type, title')
+    .in('id', planIds)
+  const byId = new Map((plans || []).map((p) => [p.id, p]))
 
-  return notifs.map((n) =>
-    PLAN_LINKED_TYPES.has(n.type) && n.data?.plan_id && !n.data?.plan_type
-      ? { ...n, data: { ...n.data, plan_type: typeById.get(n.data.plan_id) || null } }
-      : n
-  )
+  return notifs.map((n) => {
+    if (!needsPlanEnrichment(n)) return n
+    const plan = byId.get(n.data.plan_id)
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        plan_type: n.data.plan_type ?? plan?.plan_type ?? null,
+        plan_title: n.data.plan_title ?? plan?.title ?? null,
+      },
+    }
+  })
 }
 
 export function useNotifications(userId) {
@@ -141,25 +154,28 @@ export function useNotifications(userId) {
         },
         (payload) => {
           const newNotif = payload.new
-          // Enriquecer con plan_type (async) para que el deep-link sea correcto
-          // ni bien llega; mientras resuelve, igual se muestra la notif.
+          // Enriquecer con plan_type/plan_title (async) para que el deep-link
+          // y el texto i18n sean correctos ni bien llega; mientras resuelve,
+          // igual se muestra la notif.
           enrichWithPlanType([newNotif]).then(([enriched]) => {
             setNotifications((prev) => [enriched, ...prev].slice(0, PAGE_SIZE))
+
+            // Mostrar notificación nativa del browser si la pestaña no está
+            // activa — con el texto resuelto en el idioma del viewer.
+            if (
+              document.visibilityState !== 'visible' &&
+              'Notification' in window &&
+              Notification.permission === 'granted'
+            ) {
+              const { title, body } = resolveNotificationText(enriched, i18n.t)
+              new Notification(title, {
+                body: body || '',
+                icon: '/favicon.svg',
+                badge: '/favicon.svg',
+              })
+            }
           })
           setUnreadCount((prev) => prev + 1)
-
-          // Mostrar notificación nativa del browser si la pestaña no está activa
-          if (
-            document.visibilityState !== 'visible' &&
-            'Notification' in window &&
-            Notification.permission === 'granted'
-          ) {
-            new Notification(newNotif.title, {
-              body: newNotif.body || '',
-              icon: '/favicon.svg',
-              badge: '/favicon.svg',
-            })
-          }
         }
       )
       .on(

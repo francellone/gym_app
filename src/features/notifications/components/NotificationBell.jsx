@@ -19,6 +19,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../hooks/useNotifications'
+import { resolveNotificationText } from '../utils/resolveNotificationText'
 import {
   Bell,
   BellDot,
@@ -171,8 +172,13 @@ export function getNotificationTargetUrl(notification) {
 }
 
 function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread }) {
+  const { t } = useTranslation()
   const cfg = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.activity_update
   const { Icon, color, bg } = cfg
+
+  // Title/body en el idioma del viewer (tipos al alumno se resuelven por
+  // type+payload desde los locales; el resto usa el texto guardado en BD).
+  const { title, body } = resolveNotificationText(notification, t)
 
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
     addSuffix: true,
@@ -206,12 +212,10 @@ function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread 
         <p
           className={`text-sm leading-snug ${showAsUnread ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}
         >
-          {notification.title}
+          {title}
         </p>
-        {notification.body && (
-          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed line-clamp-2">
-            {notification.body}
-          </p>
+        {body && (
+          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{body}</p>
         )}
         <p className="text-[11px] text-gray-300 mt-1">{timeAgo}</p>
       </div>
@@ -365,9 +369,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                   <Bell size={20} className="text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-600">
-                  {t('notifications.emptyTitle')}
-                </p>
+                <p className="text-sm font-medium text-gray-600">{t('notifications.emptyTitle')}</p>
                 <p className="text-xs text-gray-400 mt-1">{t('notifications.emptyBody')}</p>
               </div>
             ) : (

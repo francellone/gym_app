@@ -676,7 +676,35 @@
     "emptyTitle": "No notifications",
     "emptyBody": "Important activity will show up here",
     "showingLast_one": "Showing the last notification",
-    "showingLast_other": "Showing the last {{count}} notifications"
+    "showingLast_other": "Showing the last {{count}} notifications",
+    "types": {
+      "coach_comment": {
+        "title": "Your coach left you a note"
+      },
+      "plan_assigned": {
+        "title": "New plan assigned!",
+        "body": "Your coach assigned you the plan \"{{planTitle}}\".",
+        "bodyNoTitle": "Your coach assigned you a new plan."
+      },
+      "plan_updated": {
+        "title": "Your coach updated your plan",
+        "body": "There are changes in \"{{planTitle}}\". Check it out when you can.",
+        "bodyNoTitle": "Your plan changed. Check it out when you can."
+      },
+      "plan_expiring": {
+        "title": "Your plan expires in 7 days",
+        "body": "The plan \"{{planTitle}}\" expires on {{endDate}}.",
+        "bodyNoTitle": "Your plan expires on {{endDate}}."
+      },
+      "weekly_summary": {
+        "title": "Your weekly summary is ready",
+        "body": "{{sessions}} · {{rpe}} · week of {{weekStart}} to {{weekEnd}}",
+        "sessions_one": "{{count}} session",
+        "sessions_other": "{{count}} sessions",
+        "rpeAvg": "{{rpe}} avg RPE",
+        "rpeNone": "no RPE"
+      }
+    }
   },
   "activities": {
     "cardTitle": "Other activities",

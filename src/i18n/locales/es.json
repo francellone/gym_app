@@ -676,7 +676,35 @@
     "emptyTitle": "Sin notificaciones",
     "emptyBody": "Acá vas a ver la actividad importante",
     "showingLast_one": "Mostrando la última notificación",
-    "showingLast_other": "Mostrando las últimas {{count}} notificaciones"
+    "showingLast_other": "Mostrando las últimas {{count}} notificaciones",
+    "types": {
+      "coach_comment": {
+        "title": "Tu coach te dejó una nota"
+      },
+      "plan_assigned": {
+        "title": "¡Nuevo plan asignado!",
+        "body": "Tu coach te asignó el plan \"{{planTitle}}\".",
+        "bodyNoTitle": "Tu coach te asignó un plan nuevo."
+      },
+      "plan_updated": {
+        "title": "Tu coach actualizó tu plan",
+        "body": "Hubo cambios en \"{{planTitle}}\". Revisalo cuando puedas.",
+        "bodyNoTitle": "Hubo cambios en tu plan. Revisalo cuando puedas."
+      },
+      "plan_expiring": {
+        "title": "Tu plan vence en 7 días",
+        "body": "El plan \"{{planTitle}}\" vence el {{endDate}}.",
+        "bodyNoTitle": "Tu plan vence el {{endDate}}."
+      },
+      "weekly_summary": {
+        "title": "Tu resumen semanal está listo",
+        "body": "{{sessions}} · {{rpe}} · semana del {{weekStart}} al {{weekEnd}}",
+        "sessions_one": "{{count}} sesión",
+        "sessions_other": "{{count}} sesiones",
+        "rpeAvg": "{{rpe}} RPE promedio",
+        "rpeNone": "sin RPE"
+      }
+    }
   },
   "activities": {
     "cardTitle": "Otras actividades",

@@ -11,18 +11,35 @@ notifications/
 ├── components/
 │   └── NotificationBell.jsx     Dropdown con campana — montado en CoachLayout y StudentLayout. Maneja unread count, lista, mark-as-read y navegación al click.
 ├── hooks/
-│   └── useNotifications.js      Hook que trae notificaciones (con realtime) + marca leídas + filtra borradas.
+│   └── useNotifications.js      Hook que trae notificaciones (con realtime) + marca leídas + filtra borradas. Enriquece client-side plan_type y plan_title.
+├── utils/
+│   └── resolveNotificationText.js  i18n de notificaciones al alumno: resuelve title/body por type+payload desde los locales (es/en), con el texto guardado en BD como fallback.
 └── services/
     └── pushService.js           Web Push API: registra/desregistra suscripción en `public.push_subscriptions` (sw.js corre el push handler).
 ```
 
+## i18n del texto (2026-07-06)
+
+Los triggers SQL (`fn_notify_*`) guardan `title`/`body` **en español**. Para los
+tipos dirigidos al alumno (`coach_comment`, `plan_assigned`, `plan_updated`,
+`plan_expiring`, `weekly_summary`), el front NO muestra ese texto: lo resuelve
+`resolveNotificationText(notification, t)` desde `notifications.types.*` en los
+locales, según el idioma activo del viewer. Cubre históricas y cambios de
+idioma. El texto de BD queda como fallback (tipos del coach, copias del coach
+de weekly_summary/plan_expiring — se distinguen por `data.student_name` —,
+tipos desconocidos, payloads incompletos). Si se agrega un tipo nuevo dirigido
+al alumno: sumar claves en `es/en.json` + case en el resolver.
+
+⚠️ Si se activa Web Push: `notify-cron` manda el `title`/`body` de la tabla
+(español) — habría que replicar la resolución en el edge function.
+
 ## Quién consume
 
-| Consumidor | Importa |
-|---|---|
-| `src/components/layout/CoachLayout.jsx` | `NotificationBell` |
-| `src/components/layout/StudentLayout.jsx` | `NotificationBell` |
-| `src/features/auth/AuthContext.jsx` | `registerPush, unregisterPush` desde `pushService` |
+| Consumidor                                | Importa                                            |
+| ----------------------------------------- | -------------------------------------------------- |
+| `src/components/layout/CoachLayout.jsx`   | `NotificationBell`                                 |
+| `src/components/layout/StudentLayout.jsx` | `NotificationBell`                                 |
+| `src/features/auth/AuthContext.jsx`       | `registerPush, unregisterPush` desde `pushService` |
 
 Siempre con alias absoluto:
 
