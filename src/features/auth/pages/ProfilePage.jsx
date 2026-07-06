@@ -17,6 +17,10 @@ import {
 import { useTranslation } from 'react-i18next'
 import { format, parseISO } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
+import {
+  resolveFormForLanguage,
+  displayValueFor,
+} from '@/features/forms/intake/schema/resolve-form-language.js'
 
 // ── Opciones del form ──────────────────────────────────────────────────────────
 // Tomadas del intake form (intake_form_submissions.form_snapshot) para mantener
@@ -79,7 +83,7 @@ const PATOLOGIA_I18N_KEYS = {
 export default function ProfilePage() {
   const { profile, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   // Display traducido de opciones cuyo VALOR persistido queda en español (BD).
   const goalDisplay = (val) =>
@@ -225,10 +229,7 @@ export default function ProfilePage() {
     ) {
       return t('profile.validation.targetWeightRange')
     }
-    if (
-      form.weekly_frequency !== '' &&
-      (form.weekly_frequency < 1 || form.weekly_frequency > 7)
-    ) {
+    if (form.weekly_frequency !== '' && (form.weekly_frequency < 1 || form.weekly_frequency > 7)) {
       return t('profile.validation.frequencyRange')
     }
     if (form.goal_choice === 'Otro' && form.goal_other_text.trim().length === 0) {
@@ -255,9 +256,7 @@ export default function ProfilePage() {
     setSaveError(null)
     try {
       const goalToSave =
-        form.goal_choice === 'Otro'
-          ? form.goal_other_text.trim()
-          : form.goal_choice || null
+        form.goal_choice === 'Otro' ? form.goal_other_text.trim() : form.goal_choice || null
 
       const toNumber = (v) => (v === '' || v === null || v === undefined ? null : Number(v))
 
@@ -269,8 +268,7 @@ export default function ProfilePage() {
         tiene_lesiones: form.tiene_lesiones,
         patologias: form.patologias.length ? form.patologias : null,
         descripcion_lesiones: form.descripcion_lesiones?.trim() || null,
-        weekly_frequency:
-          form.weekly_frequency === '' ? null : parseInt(form.weekly_frequency, 10),
+        weekly_frequency: form.weekly_frequency === '' ? null : parseInt(form.weekly_frequency, 10),
       }
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id)
@@ -483,9 +481,7 @@ export default function ProfilePage() {
                     max="300"
                     className="input"
                     value={form.weight_kg}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, weight_kg: e.target.value }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
                     placeholder="70.5"
                   />
                 </div>
@@ -498,9 +494,7 @@ export default function ProfilePage() {
                     max="250"
                     className="input"
                     value={form.height_cm}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, height_cm: e.target.value }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, height_cm: e.target.value }))}
                     placeholder="170"
                   />
                 </div>
@@ -517,9 +511,7 @@ export default function ProfilePage() {
                     max="300"
                     className="input"
                     value={form.target_weight_kg}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, target_weight_kg: e.target.value }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
                     placeholder="68"
                   />
                 </div>
@@ -532,9 +524,7 @@ export default function ProfilePage() {
                     step="1"
                     className="input"
                     value={form.weekly_frequency}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, weekly_frequency: e.target.value }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, weekly_frequency: e.target.value }))}
                     placeholder="3"
                   />
                 </div>
@@ -546,9 +536,7 @@ export default function ProfilePage() {
                 <select
                   className="input"
                   value={form.goal_choice}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, goal_choice: e.target.value }))
-                  }
+                  onChange={(e) => setForm((p) => ({ ...p, goal_choice: e.target.value }))}
                 >
                   <option value="">{t('profile.goalUndefined')}</option>
                   {GOAL_OPTIONS.map((opt) => (
@@ -563,9 +551,7 @@ export default function ProfilePage() {
                     className="input mt-2 min-h-[60px]"
                     placeholder={t('profile.describeGoalPlaceholder')}
                     value={form.goal_other_text}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, goal_other_text: e.target.value }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, goal_other_text: e.target.value }))}
                   />
                 )}
               </div>
@@ -580,9 +566,7 @@ export default function ProfilePage() {
                     type="checkbox"
                     className="w-5 h-5 accent-primary-600"
                     checked={form.tiene_lesiones}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, tiene_lesiones: e.target.checked }))
-                    }
+                    onChange={(e) => setForm((p) => ({ ...p, tiene_lesiones: e.target.checked }))}
                   />
                 </label>
 
@@ -700,7 +684,9 @@ export default function ProfilePage() {
                   })}
                 </p>
 
-                {(formSubmission.form_snapshot?.modules || [])
+                {(
+                  resolveFormForLanguage(formSubmission.form_snapshot, i18n.language)?.modules || []
+                )
                   .filter((m) => m.enabled)
                   .sort((a, b) => a.order - b.order)
                   .map((module) => {
@@ -718,14 +704,18 @@ export default function ProfilePage() {
                     return (
                       <div key={module.id} className="space-y-2">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                          {module.emoji} {module.title}
+                          {module.emoji} {module.displayTitle ?? module.title}
                         </p>
                         <div className="space-y-2">
                           {answered.map((q) => (
                             <div key={q.id} className="flex gap-3 text-xs leading-relaxed">
-                              <span className="text-gray-500 w-2/5 flex-shrink-0">{q.label}</span>
+                              <span className="text-gray-500 w-2/5 flex-shrink-0">
+                                {q.displayLabel ?? q.label}
+                              </span>
                               <span className="text-gray-900 font-medium flex-1 text-right">
-                                {formatIntakeResponse(formSubmission.responses[q.id])}
+                                {formatIntakeResponse(
+                                  displayValueFor(q, formSubmission.responses[q.id])
+                                )}
                               </span>
                             </div>
                           ))}
@@ -742,9 +732,7 @@ export default function ProfilePage() {
         <div className="card">
           <div className="flex items-center gap-2 mb-3">
             <Globe size={16} className="text-gray-500" />
-            <span className="text-sm font-medium text-gray-900">
-              {t('profile.language.title')}
-            </span>
+            <span className="text-sm font-medium text-gray-900">{t('profile.language.title')}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -812,7 +800,9 @@ export default function ProfilePage() {
                 />
               </div>
               {pwError && <p className="text-xs text-red-600">{pwError}</p>}
-              {pwSuccess && <p className="text-xs text-green-600">{t('profile.passwordUpdated')}</p>}
+              {pwSuccess && (
+                <p className="text-xs text-green-600">{t('profile.passwordUpdated')}</p>
+              )}
               <button
                 onClick={changePassword}
                 disabled={saving}

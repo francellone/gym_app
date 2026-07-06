@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import FormBuilder from '@/features/forms/intake/components/coach/FormBuilder'
 import { buildFollowUpFormConfig } from '@/features/forms/intake/schema/default-form.js'
+import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 import { ArrowLeft } from 'lucide-react'
 
 export default function FollowUpFormBuilderPage() {
@@ -21,7 +22,9 @@ export default function FollowUpFormBuilderPage() {
   const { profile } = useAuth()
   const isNew = id === 'new' || !id
 
+  const { bilingual } = useCoachFormLanguages()
   const [name, setName] = useState('')
+  const [nameEn, setNameEn] = useState('') // nombre en inglés (modo bilingüe)
   const [description, setDescription] = useState('')
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -48,6 +51,7 @@ export default function FollowUpFormBuilderPage() {
     if (isNew) {
       setConfig(buildFollowUpFormConfig())
       setName('')
+      setNameEn('')
       setDescription('')
       setLoading(false)
       return
@@ -65,6 +69,7 @@ export default function FollowUpFormBuilderPage() {
     }
 
     setName(data.name || '')
+    setNameEn(data.config?.name_i18n?.en || '')
     setDescription(data.description || '')
     setConfig(data.config || buildFollowUpFormConfig())
     setLoading(false)
@@ -82,6 +87,11 @@ export default function FollowUpFormBuilderPage() {
       setName(finalName)
     }
 
+    // Nombre en inglés → config.name_i18n (el alumno lo ve en su listado)
+    const configToSave = nameEn.trim()
+      ? { ...newConfig, name_i18n: { ...newConfig.name_i18n, en: nameEn.trim() } }
+      : { ...newConfig, name_i18n: undefined }
+
     try {
       if (isNew) {
         const { data, error } = await supabase
@@ -90,7 +100,7 @@ export default function FollowUpFormBuilderPage() {
             coach_id: profile.id,
             name: finalName,
             description: description || null,
-            config: newConfig,
+            config: configToSave,
             form_kind: 'follow_up',
             is_active: true,
             is_default: false,
@@ -108,7 +118,7 @@ export default function FollowUpFormBuilderPage() {
           return
         }
 
-        setConfig(newConfig)
+        setConfig(configToSave)
         setSaveStatus('saved')
         // Redirigir al editor con id real (para que próximas guardadas updateen)
         navigate(`/coach/follow-up-forms/${data.id}`, { replace: true })
@@ -118,7 +128,7 @@ export default function FollowUpFormBuilderPage() {
           .update({
             name: finalName,
             description: description || null,
-            config: newConfig,
+            config: configToSave,
             updated_at: new Date().toISOString(),
           })
           .eq('id', id)
@@ -128,7 +138,7 @@ export default function FollowUpFormBuilderPage() {
           return
         }
 
-        setConfig(newConfig)
+        setConfig(configToSave)
         setSaveStatus('saved')
       }
 
@@ -186,6 +196,20 @@ export default function FollowUpFormBuilderPage() {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          {bilingual && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                🌐 Nombre en inglés (opcional — lo ven tus alumnos en inglés)
+              </label>
+              <input
+                type="text"
+                value={nameEn}
+                onChange={(e) => setNameEn(e.target.value)}
+                placeholder="E.g.: Mid-plan check-in"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Descripción (opcional)</label>
             <input

@@ -21,6 +21,7 @@ export default function ModuleCard({
   onMoveDown,
   onUpdate,
   onRemove,
+  bilingual = false, // modo bilingüe (docs/plan-formularios-bilingues.md)
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -173,6 +174,25 @@ export default function ModuleCard({
       {/* Lista de preguntas (expandible) */}
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-3">
+          {/* Título del módulo en inglés (modo bilingüe) */}
+          {bilingual && module.editable && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 flex-shrink-0">🌐 Título en inglés:</span>
+              <input
+                type="text"
+                value={module.i18n?.en?.title || ''}
+                onChange={(e) =>
+                  onUpdate({
+                    ...module,
+                    i18n: { ...module.i18n, en: { ...module.i18n?.en, title: e.target.value } },
+                  })
+                }
+                placeholder="Vacío = se muestra en español"
+                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          )}
+
           {module.questions.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-2 italic">
               Sin preguntas. Agregá una.
@@ -190,6 +210,7 @@ export default function ModuleCard({
               onRemove={question.removable ? () => handleRemoveQuestion(question.id) : null}
               onMoveUp={() => handleMoveQuestion(question.id, 'up')}
               onMoveDown={() => handleMoveQuestion(question.id, 'down')}
+              bilingual={bilingual}
             />
           ))}
 

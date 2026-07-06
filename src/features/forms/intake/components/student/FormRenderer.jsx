@@ -26,6 +26,7 @@ import {
   cleanHiddenResponses,
   isQuestionRequired,
 } from '../shared/conditionalLogic.js'
+import { resolveFormForLanguage, resolveTemplateName } from '../../schema/resolve-form-language.js'
 
 export default function FormRenderer({
   assignment,
@@ -33,9 +34,20 @@ export default function FormRenderer({
   onSubmit,
   onSaveDraft,
   onFinish, // fn() opcional → botón "Ir al inicio" en pantalla de éxito
+  previewLanguage, // opcional: fuerza el idioma (preview del coach en modo bilingüe)
 }) {
-  const { t } = useTranslation()
-  const config = assignment?.form_snapshot
+  const { t, i18n } = useTranslation()
+
+  // Plantillas bilingües: el snapshot se resuelve al idioma del alumno
+  // (i18n.language = profiles.language, ver src/i18n/index.js). El resolver
+  // traduce lo que se MUESTRA, filtra preguntas hidden_for ANTES de la
+  // validación (una required oculta no puede bloquear el envío) y elimina
+  // módulos que quedan vacíos. Las respuestas guardan valores canónicos.
+  const lang = previewLanguage || i18n.language
+  const config = useMemo(
+    () => resolveFormForLanguage(assignment?.form_snapshot, lang),
+    [assignment?.form_snapshot, lang]
+  )
   const isFollowUp = assignment?.form_kind === 'follow_up' || config?.kind === 'follow_up'
 
   const allModules = useMemo(() => {
@@ -84,7 +96,7 @@ export default function FormRenderer({
       const newErrors = {}
       missing.forEach((id) => {
         const q = visible.find((qq) => qq.id === id)
-        newErrors[id] = q?.requiredMessage || t('forms.requiredField')
+        newErrors[id] = q?.displayRequiredMessage || q?.requiredMessage || t('forms.requiredField')
       })
       setErrors(newErrors)
       return false
@@ -139,7 +151,8 @@ export default function FormRenderer({
         const newErrors = {}
         errorsByModule[errorModule.id].forEach((id) => {
           const q = (errorModule.questions || []).find((qq) => qq.id === id)
-          newErrors[id] = q?.requiredMessage || t('forms.requiredField')
+          newErrors[id] =
+            q?.displayRequiredMessage || q?.requiredMessage || t('forms.requiredField')
         })
         setErrors(newErrors)
       }
@@ -242,13 +255,14 @@ export default function FormRenderer({
               <div className="text-5xl">{isFollowUp ? '📝' : '📋'}</div>
               <h1 className="text-2xl font-bold text-gray-900">
                 {isFollowUp
-                  ? assignment?.template_name || t('forms.followUpDefaultName')
+                  ? resolveTemplateName(assignment?.template_name, config, lang) ||
+                    t('forms.followUpDefaultName')
                   : t('forms.intakeDefaultName')}
               </h1>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="prose prose-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {config.intro?.content || config.intro || ''}
+                {config.intro?.displayContent ?? (config.intro?.content || '')}
               </div>
             </div>
             {/* Botón empezar inline — visible sin depender del nav fijo */}
@@ -266,7 +280,9 @@ export default function FormRenderer({
           <div className="py-8 space-y-6">
             <div className="text-center space-y-1">
               <span className="text-3xl">{currentModule.emoji}</span>
-              <h2 className="text-xl font-bold text-gray-900">{currentModule.title}</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {currentModule.displayTitle ?? currentModule.title}
+              </h2>
             </div>
 
             <div className="space-y-6">
@@ -280,7 +296,7 @@ export default function FormRenderer({
                 >
                   <label className="block">
                     <span className="text-sm font-medium text-gray-800 leading-snug">
-                      {question.label}
+                      {question.displayLabel ?? question.label}
                       {isQuestionRequired(question, responses) && (
                         <span className="text-red-500 ml-1" title={t('forms.required')}>
                           *

@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Plus, Send, Edit2, Archive, FileText } from 'lucide-react'
 import SendToStudentModal from '@/components/SendToStudentModal'
+import LanguageModeCard from '@/features/forms/intake/components/coach/LanguageModeCard'
 
 const TEMPLATE_LIMIT = 10
 
@@ -99,6 +100,9 @@ export default function FollowUpFormsPage() {
           <Plus size={16} /> Nueva
         </button>
       </div>
+
+      {/* Modo bilingüe (docs/plan-formularios-bilingues.md) */}
+      <LanguageModeCard />
 
       {/* Plantillas activas */}
       {activeTemplates.length === 0 ? (

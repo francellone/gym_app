@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import FormBuilder from '@/features/forms/intake/components/coach/FormBuilder'
+import LanguageModeCard from '@/features/forms/intake/components/coach/LanguageModeCard'
 import { buildFormConfig } from '@/features/forms/intake/schema/default-form.js'
 import SendToStudentModal from '@/components/SendToStudentModal'
 
@@ -128,6 +129,11 @@ export default function FormBuilderPage() {
           ❌ Error al guardar
         </div>
       )}
+
+      {/* Modo bilingüe (docs/plan-formularios-bilingues.md) */}
+      <div className="max-w-3xl mx-auto px-4 pt-4">
+        <LanguageModeCard />
+      </div>
 
       <FormBuilder
         coachId={profile.id}

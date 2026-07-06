@@ -23,6 +23,7 @@ import ModuleCard from './ModuleCard'
 import TemplateManager from './TemplateManager'
 import IntroEditor from './IntroEditor'
 import FormRenderer from '../student/FormRenderer'
+import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 import {
   buildFormConfig,
   buildFollowUpFormConfig,
@@ -43,6 +44,10 @@ export default function FormBuilder({
 }) {
   const isFollowUp = formKind === 'follow_up'
 
+  // Modo bilingüe (docs/plan-formularios-bilingues.md): habilita los campos
+  // de traducción EN en intro/módulos/preguntas y el preview en inglés.
+  const { bilingual } = useCoachFormLanguages()
+
   // Para follow_up usamos defaults distintos (intro genérico + módulo en blanco, sin consent)
   const fallbackIntro = isFollowUp ? FOLLOW_UP_INTRO : DEFAULT_INTRO
   const fallbackModules = isFollowUp ? [FOLLOW_UP_BLANK_MODULE] : DEFAULT_MODULES
@@ -53,6 +58,7 @@ export default function FormBuilder({
   const [showTemplates, setShowTemplates] = useState(false)
   const [activeTab, setActiveTab] = useState('form') // 'form' | 'preview'
   const [showPreview, setShowPreview] = useState(false)
+  const [previewLang, setPreviewLang] = useState('es') // idioma del preview (modo bilingüe)
 
   // ──────────────────────────────────────────────────────────
   // Handlers de módulos
@@ -108,13 +114,20 @@ export default function FormBuilder({
   // Guardar
   // ──────────────────────────────────────────────────────────
 
+  // Construye el config actual preservando name_i18n del config cargado
+  // (buildFormConfig no lo conoce y lo pisaría — detectado en el test del
+  // 2026-07-06). FollowUpFormBuilderPage lo re-escribe con su propio campo.
+  const buildCurrentConfig = () => {
+    const config = isFollowUp
+      ? buildFollowUpFormConfig({ intro, modules })
+      : buildFormConfig({ intro, modules })
+    return initialConfig?.name_i18n ? { ...config, name_i18n: initialConfig.name_i18n } : config
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
-      const config = isFollowUp
-        ? buildFollowUpFormConfig({ intro, modules })
-        : buildFormConfig({ intro, modules })
-      await onSave?.(config)
+      await onSave?.(buildCurrentConfig())
     } finally {
       setSaving(false)
     }
@@ -155,7 +168,7 @@ export default function FormBuilder({
             📋 Plantillas
           </button>
           <button
-            onClick={() => onSendToStudent?.(buildFormConfig({ intro, modules }))}
+            onClick={() => onSendToStudent?.(buildCurrentConfig())}
             className="px-4 py-2 text-sm border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
           >
             📤 Enviar
@@ -201,7 +214,7 @@ export default function FormBuilder({
               </p>
             </div>
             <div className="p-4">
-              <IntroEditor value={intro} onChange={setIntro} />
+              <IntroEditor value={intro} onChange={setIntro} bilingual={bilingual} />
             </div>
           </div>
 
@@ -230,6 +243,7 @@ export default function FormBuilder({
                 onRemove={
                   module.removable && module.isCustom ? () => removeCustomModule(module.id) : null
                 }
+                bilingual={bilingual}
               />
             ))}
           </div>
@@ -292,16 +306,38 @@ export default function FormBuilder({
             ✕ Cerrar preview
           </button>
 
+          {/* Selector de idioma del preview (modo bilingüe) */}
+          {bilingual && (
+            <div className="fixed top-4 left-4 z-[60] flex rounded-full shadow-lg overflow-hidden text-xs font-medium">
+              {[
+                { code: 'es', label: '🇪🇸 Español' },
+                { code: 'en', label: '🇬🇧 English' },
+              ].map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => setPreviewLang(l.code)}
+                  className={`px-3 py-2 transition-colors ${
+                    previewLang === l.code
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <FormRenderer
+            key={previewLang} // reinicia el paso/respuestas al cambiar idioma
             assignment={{
-              form_snapshot: isFollowUp
-                ? buildFollowUpFormConfig({ intro, modules })
-                : buildFormConfig({ intro, modules }),
+              form_snapshot: buildCurrentConfig(),
               form_kind: formKind,
             }}
             studentId={null}
             onSubmit={async () => {}}
             onSaveDraft={null}
+            previewLanguage={bilingual ? previewLang : undefined}
           />
         </div>
       )}
@@ -310,21 +346,10 @@ export default function FormBuilder({
       {showTemplates && (
         <TemplateManager
           templates={templates}
-          currentConfig={
-            isFollowUp
-              ? buildFollowUpFormConfig({ intro, modules })
-              : buildFormConfig({ intro, modules })
-          }
+          currentConfig={buildCurrentConfig()}
           onLoad={handleLoadTemplate}
           onClose={() => setShowTemplates(false)}
-          onSaveNew={(name) =>
-            onSave?.({
-              name,
-              config: isFollowUp
-                ? buildFollowUpFormConfig({ intro, modules })
-                : buildFormConfig({ intro, modules }),
-            })
-          }
+          onSaveNew={(name) => onSave?.({ name, config: buildCurrentConfig() })}
         />
       )}
     </div>

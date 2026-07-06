@@ -23,11 +23,33 @@ export default function QuestionEditor({
   onRemove,
   onMoveUp,
   onMoveDown,
+  bilingual = false, // modo bilingüe (docs/plan-formularios-bilingues.md)
 }) {
   const [expanded, setExpanded] = useState(false)
   const [optionsText, setOptionsText] = useState((question.options || []).join('\n'))
+  const [enOptionsText, setEnOptionsText] = useState((question.i18n?.en?.options || []).join('\n'))
 
   const meta = QUESTION_TYPE_META[question.type] || {}
+
+  // ── Versión en inglés ────────────────────────────────────
+  const en = question.i18n?.en || {}
+  const updateEn = (patch) => {
+    onChange({ ...question, i18n: { ...question.i18n, en: { ...en, ...patch } } })
+  }
+
+  // Visibilidad por idioma: 'both' | 'solo_es' | 'solo_en'
+  const visibility = question.hidden_for?.includes('en')
+    ? 'solo_es'
+    : question.hidden_for?.includes('es')
+      ? 'solo_en'
+      : 'both'
+  const handleVisibilityChange = (e) => {
+    const v = e.target.value
+    onChange({
+      ...question,
+      hidden_for: v === 'both' ? undefined : v === 'solo_es' ? ['en'] : ['es'],
+    })
+  }
 
   const handleLabelChange = (e) => {
     onChange({ ...question, label: e.target.value })
@@ -47,7 +69,21 @@ export default function QuestionEditor({
       .split('\n')
       .map((o) => o.trim())
       .filter(Boolean)
-    onChange({ ...question, options })
+    // Si cambian las opciones canónicas y ya había traducción, marcarla
+    // desactualizada: el resolver mostrará las canónicas hasta que se revise.
+    const changed = JSON.stringify(options) !== JSON.stringify(question.options || [])
+    let i18n = question.i18n
+    if (changed && i18n?.en?.options?.length) {
+      i18n = { ...i18n, en: { ...i18n.en, stale: true } }
+    }
+    onChange({ ...question, options, i18n })
+  }
+
+  const handleEnOptionsBlur = () => {
+    const lines = enOptionsText.split('\n').map((o) => o.trim())
+    while (lines.length && lines[lines.length - 1] === '') lines.pop()
+    // Editar la traducción cuenta como revisarla → se limpia stale.
+    updateEn({ options: lines, stale: false })
   }
 
   // Preguntas que pueden ser "padre" para condicionales
@@ -115,6 +151,18 @@ export default function QuestionEditor({
               <span className="text-xs text-purple-500">🔀 Condicional</span>
             )}
             {!question.removable && <span className="text-xs text-gray-400">🔒 Fija</span>}
+            {bilingual &&
+              (visibility === 'solo_es' ? (
+                <span className="text-xs text-gray-400">🌐 Solo español</span>
+              ) : visibility === 'solo_en' ? (
+                <span className="text-xs text-gray-400">🌐 Solo inglés</span>
+              ) : en.stale ? (
+                <span className="text-xs text-amber-500">🌐 EN desactualizada</span>
+              ) : en.label?.trim() ? (
+                <span className="text-xs text-green-600">🌐 EN ✓</span>
+              ) : (
+                <span className="text-xs text-gray-400">🌐 Sin traducir</span>
+              ))}
           </div>
         </div>
 
@@ -301,6 +349,108 @@ export default function QuestionEditor({
                     </select>
                   ) : null}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Versión en inglés (modo bilingüe) ─────────── */}
+          {bilingual && (
+            <div className="border-t border-gray-200 pt-3 space-y-3">
+              <label className="text-xs font-semibold text-gray-700 block">
+                🌐 Versión en inglés
+              </label>
+
+              {/* Visibilidad por idioma */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  Esta pregunta se muestra a...
+                </label>
+                <select
+                  value={visibility}
+                  onChange={handleVisibilityChange}
+                  className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+                >
+                  <option value="both">Alumnos en ambos idiomas</option>
+                  <option value="solo_es">Solo alumnos en español</option>
+                  <option value="solo_en">Solo alumnos en inglés</option>
+                </select>
+              </div>
+
+              {visibility !== 'solo_es' && (
+                <>
+                  {/* Aviso de traducción desactualizada */}
+                  {en.stale && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded p-2">
+                      <span className="text-sm">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-amber-700">
+                          Cambiaste las opciones en español después de traducirlas. Mientras tanto,
+                          los alumnos en inglés ven las opciones en español.
+                        </p>
+                        <button
+                          onClick={() => updateEn({ stale: false })}
+                          className="text-xs text-amber-800 underline mt-1"
+                        >
+                          Ya la revisé, está bien así
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">
+                      Pregunta en inglés (vacío = se muestra en español)
+                    </label>
+                    <input
+                      type="text"
+                      value={en.label || ''}
+                      onChange={(e) => updateEn({ label: e.target.value })}
+                      className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      placeholder="What is your...?"
+                    />
+                  </div>
+
+                  {[QUESTION_TYPES.TEXT, QUESTION_TYPES.TEXTAREA, QUESTION_TYPES.PHONE].includes(
+                    question.type
+                  ) && (
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 block mb-1">
+                        Placeholder en inglés (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={en.placeholder || ''}
+                        onChange={(e) => updateEn({ placeholder: e.target.value })}
+                        className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                  )}
+
+                  {meta.hasOptions && (
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 block mb-1">
+                        Opciones en inglés (mismo orden que en español; línea vacía = queda en
+                        español)
+                      </label>
+                      <textarea
+                        value={enOptionsText}
+                        onChange={(e) => setEnOptionsText(e.target.value)}
+                        onBlur={handleEnOptionsBlur}
+                        rows={4}
+                        className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
+                        placeholder="Option 1&#10;Option 2&#10;Option 3"
+                      />
+                      {(en.options?.length || 0) > 0 &&
+                        en.options.length !== (question.options || []).length && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            ⚠️ Hay {en.options.length} traducciones para{' '}
+                            {(question.options || []).length} opciones — hasta que coincidan, los
+                            alumnos en inglés ven las opciones en español.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

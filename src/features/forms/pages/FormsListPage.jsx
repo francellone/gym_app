@@ -14,10 +14,11 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { resolveTemplateName } from '@/features/forms/intake/schema/resolve-form-language.js'
 import { FileText, ChevronRight, CheckCircle, Clock } from 'lucide-react'
 
 export default function FormsListPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [pending, setPending] = useState([])
@@ -76,8 +77,13 @@ export default function FormsListPage() {
   }
 
   function templateNameOf(assignment) {
+    // Nombre traducido si el snapshot trae name_i18n (plantillas bilingües).
     return (
-      assignment.intake_form_templates?.name ||
+      resolveTemplateName(
+        assignment.intake_form_templates?.name,
+        assignment.form_snapshot,
+        i18n.language
+      ) ||
       (assignment.form_kind === 'intake'
         ? t('forms.intakeDefaultName')
         : t('forms.followUpDefaultName'))

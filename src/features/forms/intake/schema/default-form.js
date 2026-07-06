@@ -560,6 +560,10 @@ export const CONSENT_MODULE = {
   editable: false, // contenido no editable (solo el texto configurable)
   removable: false, // obligatorio
   order: 999, // siempre al final
+  // Traducción built-in (docs/plan-formularios-bilingues.md): como el módulo
+  // no es editable, la versión en inglés viene de fábrica — ningún coach
+  // tiene que traducir el consentimiento.
+  i18n: { en: { title: 'Consent' } },
   questions: [
     {
       id: 'consentimiento_datos',
@@ -569,6 +573,12 @@ export const CONSENT_MODULE = {
       required: true,
       editable: false,
       removable: false,
+      i18n: {
+        en: {
+          label:
+            'I declare that all the information provided is accurate, and I understand that I must consult a healthcare professional about any medical condition before starting a training program.',
+        },
+      },
     },
     {
       id: 'consentimiento_privacidad',
@@ -578,6 +588,12 @@ export const CONSENT_MODULE = {
       required: true,
       editable: false,
       removable: false,
+      i18n: {
+        en: {
+          label:
+            'I agree that my data may be used by my coach to design my personalized training plan.',
+        },
+      },
     },
   ],
 }

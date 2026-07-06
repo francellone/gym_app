@@ -10,6 +10,14 @@ import { QUESTION_TYPES } from '../../schema/question-types.js'
 
 export default function QuestionField({ question, value, onChange, error }) {
   const { t } = useTranslation()
+
+  // Plantillas bilingües (docs/plan-formularios-bilingues.md): los campos
+  // display* vienen de resolveFormForLanguage. Se MUESTRA la traducción pero
+  // se GUARDA siempre el valor canónico (question.options[i]) — así el mapeo
+  // SQL y la lógica condicional no dependen del idioma del alumno.
+  // El fallback `?? question.x` cubre configs sin resolver (p.ej. tests).
+  const placeholder = question.displayPlaceholder ?? question.placeholder ?? ''
+  const displayOption = (i, option) => question.displayOptions?.[i] ?? option
   const baseInput = `w-full text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 transition-colors ${
     error
       ? 'border-red-300 focus:ring-red-400 bg-red-50'
@@ -34,7 +42,7 @@ export default function QuestionField({ question, value, onChange, error }) {
           }
           value={value || ''}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder={question.placeholder || ''}
+          placeholder={placeholder}
           autoComplete={question.autoComplete || 'off'}
           className={baseInput}
         />
@@ -46,7 +54,7 @@ export default function QuestionField({ question, value, onChange, error }) {
         <textarea
           value={value || ''}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder={question.placeholder || ''}
+          placeholder={placeholder}
           rows={3}
           className={`${baseInput} resize-none`}
         />
@@ -60,7 +68,7 @@ export default function QuestionField({ question, value, onChange, error }) {
           inputMode="numeric"
           value={value || ''}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder={question.placeholder || ''}
+          placeholder={placeholder}
           min={question.min}
           max={question.max}
           className={baseInput}
@@ -82,7 +90,7 @@ export default function QuestionField({ question, value, onChange, error }) {
     case QUESTION_TYPES.SELECT:
       return (
         <div className="space-y-2">
-          {(question.options || []).map((option) => (
+          {(question.options || []).map((option, i) => (
             <label
               key={option}
               onClick={() => handleChange(option)}
@@ -99,7 +107,7 @@ export default function QuestionField({ question, value, onChange, error }) {
               >
                 {value === option && <div className="w-2 h-2 bg-white rounded-full" />}
               </div>
-              <span className="text-sm text-gray-700">{option}</span>
+              <span className="text-sm text-gray-700">{displayOption(i, option)}</span>
             </label>
           ))}
         </div>
@@ -116,7 +124,7 @@ export default function QuestionField({ question, value, onChange, error }) {
       }
       return (
         <div className="space-y-2">
-          {(question.options || []).map((option) => {
+          {(question.options || []).map((option, i) => {
             const isSelected = selected.includes(option)
             return (
               <label
@@ -135,7 +143,7 @@ export default function QuestionField({ question, value, onChange, error }) {
                 >
                   {isSelected && <span className="text-white text-xs leading-none">✓</span>}
                 </div>
-                <span className="text-sm text-gray-700">{option}</span>
+                <span className="text-sm text-gray-700">{displayOption(i, option)}</span>
               </label>
             )
           })}
@@ -191,8 +199,8 @@ export default function QuestionField({ question, value, onChange, error }) {
             ))}
           </div>
           <div className="flex justify-between text-xs text-gray-400">
-            <span>{question.minLabel || min}</span>
-            <span>{question.maxLabel || max}</span>
+            <span>{question.displayMinLabel ?? question.minLabel ?? min}</span>
+            <span>{question.displayMaxLabel ?? question.maxLabel ?? max}</span>
           </div>
         </div>
       )
