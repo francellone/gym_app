@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
+import IosInstallBanner from '@/components/IosInstallBanner'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 
 // i18n (doc 46): labels como keys de traducción, se resuelven con t() en render
@@ -41,6 +42,9 @@ export default function StudentLayout() {
       <main className="flex-1 pb-20 pt-14">
         <Outlet />
       </main>
+
+      {/* Aviso de instalación en iOS (arriba de la bottom nav) */}
+      <IosInstallBanner offsetClass="bottom-20" />
 
       {/* Bottom nav (mobile-first) */}
       <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 z-40 safe-area-inset-bottom">

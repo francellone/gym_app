@@ -11,6 +11,12 @@
     "yes": "Yes",
     "no": "No"
   },
+  "iosInstall": {
+    "title": "Install GymCoach on your iPhone",
+    "body1": "Tap",
+    "body2": "Share, then choose “Add to Home Screen”",
+    "dismiss": "Dismiss"
+  },
   "dates": {
     "fullDate": "EEEE, MMMM d",
     "shortDate": "MM/dd/yyyy",

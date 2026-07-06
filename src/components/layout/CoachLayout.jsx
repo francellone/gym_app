@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
+import IosInstallBanner from '@/components/IosInstallBanner'
 
 const navItems = [
   { to: '/coach', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -175,6 +176,9 @@ export default function CoachLayout() {
           </div>
         </div>
       )}
+
+      {/* Aviso de instalación en iOS */}
+      <IosInstallBanner />
 
       {/* ── Main content ──────────────────────────────────── */}
       <main className="flex-1 lg:ml-56 pt-16 lg:pt-0 min-h-screen">
