@@ -569,6 +569,12 @@ export default function ExerciseCard({
               >
                 {planEx.exercise?.name}
               </p>
+              {/* v33 — registro cargado por el coach (auditoría visible) */}
+              {log?.source === 'coach' && (
+                <span className="badge bg-violet-100 text-violet-700 flex-shrink-0 text-[10px]">
+                  {t('workout.loggedByCoach')}
+                </span>
+              )}
             </div>
             {/* Sugerido por el coach */}
             <p className="text-xs text-gray-400 mt-0.5">

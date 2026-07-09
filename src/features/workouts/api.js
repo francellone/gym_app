@@ -22,7 +22,8 @@
 //      completo del TodayWorkoutPage.
 //
 // Inputs:
-//   profile         { id }                        — alumno logueado
+//   profile         { id }                        — usuario logueado (alumno, o coach en modo "registrar por alumno")
+//   studentId       uuid (opcional)               — dueño del log; default profile.id. En modo coach es el alumno.
 //   assignment      { plan_id }                   — plan vigente del alumno
 //   planExerciseId  uuid                          — ejercicio del plan que estamos logueando
 //   selectedDate    'YYYY-MM-DD'                  — fecha del log
@@ -37,6 +38,7 @@
 // ============================================================
 export function buildSaveWorkoutLogArgs({
   profile,
+  studentId,
   assignment,
   planExerciseId,
   selectedDate,
@@ -45,6 +47,10 @@ export function buildSaveWorkoutLogArgs({
   existingLog,
 }) {
   if (!profile?.id) throw new Error('buildSaveWorkoutLogArgs: profile.id requerido')
+  // v33: en modo coach el dueño del log es el alumno (studentId), no el
+  // usuario logueado. La RPC valida server-side que el caller sea el alumno
+  // o su coach asignado, y deriva logged_by/source de auth.uid() (no spoofeable).
+  const ownerId = studentId || profile.id
   if (!assignment?.plan_id) throw new Error('buildSaveWorkoutLogArgs: assignment.plan_id requerido')
   if (!planExerciseId) throw new Error('buildSaveWorkoutLogArgs: planExerciseId requerido')
   if (!selectedDate) throw new Error('buildSaveWorkoutLogArgs: selectedDate requerido')
@@ -58,7 +64,7 @@ export function buildSaveWorkoutLogArgs({
 
   return {
     p_log_id: existingLog?.id ?? null,
-    p_student_id: profile.id,
+    p_student_id: ownerId,
     p_plan_id: assignment.plan_id,
     p_plan_exercise_id: planExerciseId,
     p_logged_date: selectedDate,

@@ -22,6 +22,7 @@ import {
   FIELD_LABELS,
   GENDER_LABELS,
   LANGUAGE_LABELS,
+  MODALITY_LABELS,
   displayValue,
   PATOLOGIAS_OPTIONS,
   validateLesionesConsistency,
@@ -479,6 +480,21 @@ export default function StudentInfoTab({
                 <option value="en">Inglés</option>
               </select>
             </div>
+            {/* v33: modalidad de uso (online / híbrido / solo coach) */}
+            <div>
+              <label className="label text-xs">Modalidad</label>
+              <select
+                className="input text-sm"
+                value={editData.modality || 'online'}
+                onChange={(e) => setEditData((p) => ({ ...p, modality: e.target.value }))}
+              >
+                {Object.entries(MODALITY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -503,6 +519,10 @@ export default function StudentInfoTab({
               },
               { label: 'Objetivo', value: student.goal || '—' },
               { label: 'Idioma de la app', value: LANGUAGE_LABELS[student.language] || 'Español' },
+              {
+                label: 'Modalidad',
+                value: MODALITY_LABELS[student.modality] || MODALITY_LABELS.online,
+              },
             ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-500">{item.label}</p>

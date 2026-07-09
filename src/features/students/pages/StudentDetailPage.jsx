@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
-import { ArrowLeft } from 'lucide-react'
-import { LEVEL_LABELS } from '../helpers'
+import { ArrowLeft, ClipboardEdit } from 'lucide-react'
+import { LEVEL_LABELS, MODALITY_LABELS } from '../helpers'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
 
 // ── Tabs ────────────────────────────────────────────────────
@@ -202,7 +202,16 @@ export default function StudentDetailPage() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-bold text-gray-900 truncate">{student.name}</h1>
+        <h1 className="text-xl font-bold text-gray-900 truncate flex-1">{student.name}</h1>
+        {/* v33 — registrar entrenamiento en nombre del alumno (modo coach).
+            Queda auditado en el back: logged_by = coach, source = 'coach'. */}
+        <button
+          onClick={() => navigate(`/coach/students/${id}/workout`)}
+          className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
+        >
+          <ClipboardEdit size={16} />
+          Registrar entrenamiento
+        </button>
       </div>
 
       {/* Tarjeta de perfil */}
@@ -223,6 +232,12 @@ export default function StudentDetailPage() {
               {student.goal && (
                 <span className="badge bg-gray-100 text-gray-600 truncate max-w-40">
                   {student.goal}
+                </span>
+              )}
+              {/* v33: modalidad — solo se muestra si no es la default online */}
+              {student.modality && student.modality !== 'online' && (
+                <span className="badge bg-violet-100 text-violet-700">
+                  {MODALITY_LABELS[student.modality] || student.modality}
                 </span>
               )}
             </div>

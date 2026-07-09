@@ -70,6 +70,35 @@ describe('buildSaveWorkoutLogArgs', () => {
     expect(args.p_logged_late).toBe(true)
   })
 
+  // v33 — modo coach: el dueño del log es studentId (alumno), no el
+  // usuario logueado. La autoría real (logged_by/source) la deriva la RPC
+  // de auth.uid() server-side, no viaja en los args.
+  describe('modo coach (studentId override)', () => {
+    it('sin studentId, p_student_id = profile.id (modo alumno, backcompat)', () => {
+      const args = buildSaveWorkoutLogArgs(baseInputs)
+      expect(args.p_student_id).toBe('student-1')
+    })
+
+    it('con studentId, p_student_id = studentId (coach registra por el alumno)', () => {
+      const args = buildSaveWorkoutLogArgs({
+        ...baseInputs,
+        profile: { id: 'coach-1' },
+        studentId: 'student-9',
+      })
+      expect(args.p_student_id).toBe('student-9')
+    })
+
+    it('no expone p_logged_by ni p_source (autoría solo server-side)', () => {
+      const args = buildSaveWorkoutLogArgs({
+        ...baseInputs,
+        profile: { id: 'coach-1' },
+        studentId: 'student-9',
+      })
+      expect(args).not.toHaveProperty('p_logged_by')
+      expect(args).not.toHaveProperty('p_source')
+    })
+  })
+
   it('filtra keys con prefijo "_" (no llegan a la RPC)', () => {
     const args = buildSaveWorkoutLogArgs({
       ...baseInputs,

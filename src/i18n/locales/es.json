@@ -176,6 +176,8 @@
     "edit": "Editar",
     "unitsProgress": "{{completed}} / {{total}} unidades",
     "editingPast": "Editando pasado",
+    "coachModeBanner": "Registrando por {{name}} — los datos quedan en su cuenta, marcados como cargados por vos",
+    "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Recordá:",
     "wellbeingReminderBody": "aún no cargaste tu wellbeing de hoy. Podés hacerlo desde la tarjeta de arriba cuando quieras.",
     "workoutComplete": "🎉 ¡Entrenamiento completo!",

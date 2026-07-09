@@ -100,6 +100,9 @@ function AppRoutes() {
         <Route path="students" element={<StudentsPage />} />
         <Route path="students/new" element={<CreateStudentPage />} />
         <Route path="students/:id" element={<StudentDetailPage />} />
+        {/* v33 — modo coach: registrar entrenamiento en nombre del alumno.
+            Misma página que /student/workout; detecta el modo por el :id. */}
+        <Route path="students/:id/workout" element={<TodayWorkoutPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="plans/new" element={<CreatePlanPage />} />
         <Route path="plans/:id" element={<PlanDetailPage />} />

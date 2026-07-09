@@ -22,6 +22,8 @@ export const FIELD_LABELS = {
   patologias: 'Patologías',
   // Doc 46: idioma de la UI de la vista del alumno
   language: 'Idioma de la app',
+  // v33: modalidad de uso (online / híbrido / solo coach)
+  modality: 'Modalidad',
 }
 
 // Opciones canónicas de patologías. Coincide con el catálogo del intake
@@ -56,11 +58,20 @@ export const LANGUAGE_LABELS = {
   en: 'Inglés',
 }
 
+// v33: modalidad de uso del alumno (profiles.modality). Valores canónicos
+// en la BD (CHECK modality IN (...)); labels en español para el panel coach.
+export const MODALITY_LABELS = {
+  online: 'Online (usa la app)',
+  hybrid: 'Híbrido (presencial + app)',
+  coach_only: 'Solo coach (el coach registra todo)',
+}
+
 export function displayValue(field, value) {
   if (value === null || value === undefined || value === '') return '—'
   if (field === 'gender') return GENDER_LABELS[value] || value
   if (field === 'level') return LEVEL_LABELS[value] || value
   if (field === 'language') return LANGUAGE_LABELS[value] || value
+  if (field === 'modality') return MODALITY_LABELS[value] || value
   if (field === 'tiene_lesiones') {
     if (value === true || value === 'true') return 'Sí'
     if (value === false || value === 'false') return 'No'

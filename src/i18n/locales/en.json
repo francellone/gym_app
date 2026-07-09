@@ -176,6 +176,8 @@
     "edit": "Edit",
     "unitsProgress": "{{completed}} / {{total}} units",
     "editingPast": "Editing past date",
+    "coachModeBanner": "Logging for {{name}} — data is saved to their account, marked as entered by you",
+    "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Remember:",
     "wellbeingReminderBody": "you haven't logged your wellbeing today. You can do it from the card above whenever you want.",
     "workoutComplete": "🎉 Workout complete!",

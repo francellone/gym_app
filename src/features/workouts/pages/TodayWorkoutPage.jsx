@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
-import { Dumbbell, Calendar, AlertTriangle, Clock } from 'lucide-react'
+import { Dumbbell, Calendar, AlertTriangle, Clock, UserCog } from 'lucide-react'
 import {
   DAY_SECTION_IDS,
   SECTION_LABELS,
@@ -82,6 +83,16 @@ const SECTION_EMOJIS = {
 export default function TodayWorkoutPage() {
   const { t } = useTranslation()
   const { profile } = useAuth()
+  // v33 — modo coach ("registrar por alumno"): la misma página montada en
+  // /coach/students/:id/workout. `studentId` es el dueño de los datos;
+  // `profile` sigue siendo el usuario logueado (autor de los registros).
+  // El back garantiza la autoría real: save_workout_log deriva
+  // logged_by/source de auth.uid(), y las RLS de sessions/block_logs exigen
+  // source='coach' + logged_by=auth.uid() para inserts de coach.
+  const { id: routeStudentId } = useParams()
+  const coachMode = Boolean(routeStudentId)
+  const studentId = routeStudentId || profile?.id
+  const [studentName, setStudentName] = useState('')
   // Label de día traducida para display (la constante DAY_SHORT_LABELS se
   // mantiene para los textos que van a la DB, ej. prefijo de notas PSE).
   const dayShortLabel = (id) =>
@@ -161,17 +172,19 @@ export default function TodayWorkoutPage() {
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd')
 
   useEffect(() => {
-    if (profile?.id) fetchWorkout()
-  }, [profile, selectedDate])
+    if (studentId) fetchWorkout()
+  }, [profile, studentId, selectedDate])
 
   // F4 (doc 23) — cleanup oportunista de drafts huérfanos al boot.
   // Barre: drafts de otros alumnos (cambio de cuenta en mismo browser),
   // drafts con loggedDate más viejos que 7d, envelopes corruptos o de
   // versión vieja. Corre una vez por carga, costo despreciable.
   useEffect(() => {
-    if (!profile?.id) return
-    cleanupStaleDrafts({ studentId: profile.id })
-  }, [profile?.id])
+    // En modo coach NO corremos el cleanup: barre drafts "de otros alumnos",
+    // y el coach navega entre fichas de varios alumnos en el mismo browser.
+    if (!studentId || coachMode) return
+    cleanupStaleDrafts({ studentId })
+  }, [studentId, coachMode])
 
   // Al cambiar de fecha, resetear los triggers de PSE y de aviso de wellbeing
   useEffect(() => {
@@ -186,10 +199,20 @@ export default function TodayWorkoutPage() {
   async function fetchWorkout() {
     setLoading(true)
     try {
+      // Modo coach: resolver el nombre del alumno para el banner del header.
+      if (coachMode && !studentName) {
+        const { data: studentProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', studentId)
+          .maybeSingle()
+        setStudentName(studentProfile?.name || '')
+      }
+
       const { data: allActiveAssignments } = await supabase
         .from('plan_assignments')
         .select('*, plan:plans!plan_id(*)')
-        .eq('student_id', profile.id)
+        .eq('student_id', studentId)
         .eq('active', true)
         .order('created_at', { ascending: false })
 
@@ -229,26 +252,26 @@ export default function TodayWorkoutPage() {
         supabase
           .from('workout_logs')
           .select('*')
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .eq('logged_date', selectedDate),
         supabase
           .from('workout_block_logs')
           .select('*')
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .eq('logged_date', selectedDate),
         supabase
           .from('workout_sessions')
           .select('*')
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .eq('logged_date', selectedDate)
           .maybeSingle(),
         supabase
           .from('wellbeing_logs')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('user_id', studentId)
           .eq('date', selectedDate)
           .maybeSingle(),
         // Logs recientes (cualquier fecha) para sugerir el día siguiente al último entrenado
@@ -257,7 +280,7 @@ export default function TodayWorkoutPage() {
         supabase
           .from('workout_logs')
           .select('logged_date, plan_exercise_id, completed')
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .order('logged_date', { ascending: false })
           .limit(500),
@@ -276,7 +299,7 @@ export default function TodayWorkoutPage() {
           .select(
             'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, created_at, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
           )
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('completed', true)
           .lt('logged_date', selectedDate)
           .order('logged_date', { ascending: false })
@@ -288,7 +311,7 @@ export default function TodayWorkoutPage() {
           .select(
             'id, plan_block_id, logged_date, actual_minutes, actual_rounds, perceived_difficulty, completed, created_at'
           )
-          .eq('student_id', profile.id)
+          .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .eq('completed', true)
           .lt('logged_date', selectedDate)
@@ -297,7 +320,7 @@ export default function TodayWorkoutPage() {
           .limit(200),
         // Q1 — thread del alumno (1:1 con su coach). Lo necesitamos para
         // filtrar `notes` y para pasarle el threadId al drawer.
-        getStudentThread(profile.id),
+        getStudentThread(studentId),
       ])
 
       setPlanExercises(exercisesRes.data || [])
@@ -437,7 +460,7 @@ export default function TodayWorkoutPage() {
     const { data: existing, error: selErr } = await supabase
       .from('workout_sessions')
       .select('id, started_at')
-      .eq('student_id', profile.id)
+      .eq('student_id', studentId)
       .eq('plan_id', assignment.plan_id)
       .eq('logged_date', selectedDate)
       .maybeSingle()
@@ -467,10 +490,14 @@ export default function TodayWorkoutPage() {
       const { data: created, error: insErr } = await supabase
         .from('workout_sessions')
         .insert({
-          student_id: profile.id,
+          student_id: studentId,
           plan_id: assignment.plan_id,
           logged_date: selectedDate,
           logged_late: !isToday,
+          // v33 — autoría: quién cargó realmente. La RLS de coach exige
+          // source='coach' + logged_by=auth.uid() en el with_check.
+          logged_by: profile.id,
+          source: coachMode ? 'coach' : 'student',
           ...data,
         })
         .select()
@@ -483,6 +510,8 @@ export default function TodayWorkoutPage() {
   // Dispara el aviso pasivo de wellbeing una sola vez cuando el alumno
   // está cargando datos del día y aún no completó el wellbeing.
   function maybeFireWellbeingStartAviso() {
+    // El wellbeing es subjetivo del alumno: en modo coach no aplica el aviso.
+    if (coachMode) return
     if (isToday && !wellbeing && !wellbeingStartAvisoFiredRef.current) {
       wellbeingStartAvisoFiredRef.current = true
       setShowWellbeingStartAviso(true)
@@ -523,6 +552,7 @@ export default function TodayWorkoutPage() {
     const _noteBody = extractNoteBody(data)
     const rpcArgs = buildSaveWorkoutLogArgs({
       profile,
+      studentId,
       assignment,
       planExerciseId,
       selectedDate,
@@ -549,7 +579,7 @@ export default function TodayWorkoutPage() {
       // postWorkoutLogNote. Si _noteBody viene vacío y existía mirror,
       // la función hace soft-delete automáticamente.
       const { error: noteErr } = await postWorkoutLogNote({
-        studentId: profile.id,
+        studentId,
         logId,
         body: _noteBody || '',
       })
@@ -577,8 +607,20 @@ export default function TodayWorkoutPage() {
   async function deleteLog(planExerciseId) {
     const existingLog = logs[planExerciseId]
     if (!existingLog) return
-    const { error } = await supabase.from('workout_logs').delete().eq('id', existingLog.id)
+    // v33: .select() para detectar deletes silenciosos por RLS (0 filas).
+    // El coach solo puede borrar registros con source='coach'; los del
+    // alumno no se tocan.
+    const { data: deleted, error } = await supabase
+      .from('workout_logs')
+      .delete()
+      .eq('id', existingLog.id)
+      .select('id')
     if (error) throw error
+    if (!deleted?.length) {
+      const err = new Error('Registro no eliminado (sin permiso)')
+      showSaveError(err)
+      throw err
+    }
     setLogs((prev) => {
       const next = { ...prev }
       delete next[planExerciseId]
@@ -629,11 +671,14 @@ export default function TodayWorkoutPage() {
         .from('workout_block_logs')
         .insert({
           ...dataForDb,
-          student_id: profile.id,
+          student_id: studentId,
           plan_id: assignment.plan_id,
           plan_block_id: planBlockId,
           logged_date: selectedDate,
           logged_late: !isToday,
+          // v33 — autoría (ver comentario en upsertSession)
+          logged_by: profile.id,
+          source: coachMode ? 'coach' : 'student',
         })
         .select()
         .single()
@@ -651,7 +696,7 @@ export default function TodayWorkoutPage() {
     const blockLogId = result.data?.id
     if (blockLogId) {
       const { error: noteErr } = await postWorkoutBlockLogNote({
-        studentId: profile.id,
+        studentId,
         blockLogId,
         body: bodyForPanel || '',
       })
@@ -668,8 +713,18 @@ export default function TodayWorkoutPage() {
   async function deleteBlockLog(planBlockId) {
     const existing = blockLogs[planBlockId]
     if (!existing) return
-    const { error } = await supabase.from('workout_block_logs').delete().eq('id', existing.id)
+    // v33: mismo patrón que deleteLog — detectar 0 filas por RLS.
+    const { data: deleted, error } = await supabase
+      .from('workout_block_logs')
+      .delete()
+      .eq('id', existing.id)
+      .select('id')
     if (error) throw error
+    if (!deleted?.length) {
+      const err = new Error('Registro no eliminado (sin permiso)')
+      showSaveError(err)
+      throw err
+    }
     setBlockLogs((prev) => {
       const next = { ...prev }
       delete next[planBlockId]
@@ -809,10 +864,10 @@ export default function TodayWorkoutPage() {
       // como nota libre con note_date = la fecha de la sesión + prefijo
       // del día (ej: "[Día A] me sentí bien"). El error del posteo no
       // rompe el flujo: el PSE/scale ya se guardó.
-      if (effortNotes && effortNotes.trim() && profile?.id && session?.logged_date) {
+      if (effortNotes && effortNotes.trim() && studentId && session?.logged_date) {
         const dayLabel = DAY_SHORT_LABELS[day] || SECTION_LABELS[day] || 'Día'
         const { error: noteErr } = await postPSEDayNote({
-          studentId: profile.id,
+          studentId,
           sessionLoggedDate: session.logged_date,
           dayLabel,
           body: effortNotes,
@@ -909,8 +964,9 @@ export default function TodayWorkoutPage() {
 
   return (
     <>
-      {/* Modal Wellbeing — aparece al abrir el entrenamiento si no se llenó hoy */}
-      {showWellbeing && (
+      {/* Modal Wellbeing — aparece al abrir el entrenamiento si no se llenó hoy.
+          En modo coach no se renderiza: el wellbeing lo carga el alumno. */}
+      {showWellbeing && !coachMode && (
         <WellbeingModal
           userId={profile.id}
           date={selectedDate}
@@ -955,6 +1011,16 @@ export default function TodayWorkoutPage() {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-6">
+          {/* v33 — banner de modo coach: deja claro que todo lo que se
+              registre queda en la cuenta del alumno, con autoría coach. */}
+          {coachMode && (
+            <div className="flex items-center gap-2 bg-white/15 rounded-xl px-3 py-2 mb-3">
+              <UserCog size={16} className="text-white flex-shrink-0" />
+              <p className="text-white text-xs font-semibold">
+                {t('workout.coachModeBanner', { name: studentName || '…' })}
+              </p>
+            </div>
+          )}
           <p className="text-primary-200 text-sm capitalize">
             {format(parseISO(selectedDate), t('dates.fullDate'), { locale: dateLocale() })}
           </p>
@@ -1089,20 +1155,24 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Wellbeing diario — siempre visible como módulo */}
-          <WellbeingCard
-            wellbeing={wellbeing}
-            isToday={isToday}
-            onOpen={() => setShowWellbeing(true)}
-          />
+          {/* Wellbeing diario — siempre visible como módulo (solo alumno:
+              es su dato subjetivo, el coach lo ve en su tab Wellbeing) */}
+          {!coachMode && (
+            <WellbeingCard
+              wellbeing={wellbeing}
+              isToday={isToday}
+              onOpen={() => setShowWellbeing(true)}
+            />
+          )}
 
           {/* Actividades extra del día (fútbol, yoga, etc.) — visible
-              también en días de descanso, no depende de la sesión */}
+              también en días de descanso, no depende de la sesión.
+              En modo coach carga con source='coach' (patrón existente). */}
           <DayActivitiesCard
-            studentId={profile.id}
+            studentId={studentId}
             userId={profile.id}
             date={selectedDate}
-            source="student"
+            source={coachMode ? 'coach' : 'student'}
             canEdit={true}
           />
 
@@ -1147,7 +1217,7 @@ export default function TodayWorkoutPage() {
                     lastCoachNoteByExercise={lastCoachNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
-                    studentId={profile?.id || null}
+                    studentId={studentId || null}
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
                   />
@@ -1179,7 +1249,7 @@ export default function TodayWorkoutPage() {
                     lastCoachNoteByExercise={lastCoachNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
-                    studentId={profile?.id || null}
+                    studentId={studentId || null}
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
                   />
