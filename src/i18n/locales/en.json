@@ -9,7 +9,8 @@
     "loading": "Loading…",
     "edit": "Edit",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "initializing": "Starting…"
   },
   "iosInstall": {
     "title": "Install GymCoach on your iPhone",
@@ -391,7 +392,62 @@
     "closeNotice": "Dismiss notice",
     "checkThisData": "Double-check this value",
     "correct": "Fix it",
-    "saveAnyway": "Save anyway"
+    "saveAnyway": "Save anyway",
+    "pseShort": {
+      "1": "Very easy",
+      "2": "Easy",
+      "3": "Moderate",
+      "4": "Somewhat hard",
+      "5": "Hard",
+      "6": "Hard +",
+      "7": "Very hard",
+      "8": "Very hard +",
+      "9": "Near max",
+      "10": "Max"
+    },
+    "sections": {
+      "activation": "Activation",
+      "day_a": "Main Day A",
+      "day_b": "Main Day B",
+      "day_c": "Main Day C",
+      "day_d": "Main Day D",
+      "day_e": "Main Day E",
+      "day_f": "Main Day F",
+      "day_g": "Main Day G"
+    },
+    "aerobicZones": {
+      "Z1": {
+        "short": "very easy",
+        "desc": "you can sing · nasal breathing"
+      },
+      "Z2": {
+        "short": "light / low moderate",
+        "desc": "full sentences · comfortable"
+      },
+      "Z3": {
+        "short": "moderate",
+        "desc": "sentences with pauses · sustained"
+      },
+      "Z4": {
+        "short": "high",
+        "desc": "2–3 words · mental focus"
+      },
+      "Z5": {
+        "short": "very high / max",
+        "desc": "can't talk · at the limit"
+      }
+    },
+    "intensity": {
+      "soft": "Easy",
+      "moderate": "Moderate",
+      "intense": "Intense"
+    },
+    "circuitTypes": {
+      "hiit": "HIIT",
+      "amrap": "AMRAP",
+      "emom": "EMOM",
+      "free": "Free"
+    }
   },
   "progress": {
     "title": "My progress",
@@ -452,7 +508,20 @@
     "seriesMinutes": "Minutes",
     "seriesActualSets": "Actual sets",
     "seriesSuggestedSets": "Planned sets",
-    "seriesActualWeight": "Actual weight"
+    "seriesActualWeight": "Actual weight",
+    "borgLabels": {
+      "0": "Nothing",
+      "1": "Very, very light",
+      "2": "Very light",
+      "3": "Light",
+      "4": "Moderate",
+      "5": "Somewhat hard",
+      "6": "Hard",
+      "7": "Very hard",
+      "8": "Very, very hard",
+      "9": "Near maximal",
+      "10": "Maximal (failure)"
+    }
   },
   "history": {
     "subtitle": "All your workouts",

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PSE_SHORT, pseColor } from '../helpers'
+// Los labels visibles salen de los locales (workout.pseShort.N);
+// PSE_SHORT sigue aportando los values 1–10 y el label canónico (es) para la DB.
 
 // ============================================================
 // Modal de esfuerzo percibido del día (por cada día)
@@ -42,7 +44,7 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
               {t('workout.perceivedEffortForDay', { day: dayLabel })}
             </p>
             <div className="grid grid-cols-5 gap-2">
-              {PSE_SHORT.map(({ value, label }) => (
+              {PSE_SHORT.map(({ value }) => (
                 <button
                   key={value}
                   onClick={() => setEffort(effort === value ? null : value)}
@@ -53,7 +55,9 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
                   }`}
                 >
                   <span className="block text-base font-bold">{value}</span>
-                  <span className="block text-[10px] leading-tight mt-0.5">{label}</span>
+                  <span className="block text-[10px] leading-tight mt-0.5">
+                    {t(`workout.pseShort.${value}`)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -66,7 +70,7 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
           {/* Muestra la selección */}
           {effort !== null && (
             <div className={`rounded-xl p-2 text-center text-sm font-medium ${pseColor(effort)}`}>
-              {t('workout.pseValue', { value: effort })} — {PSE_SHORT[effort - 1]?.label}
+              {t('workout.pseValue', { value: effort })} — {t(`workout.pseShort.${effort}`)}
             </div>
           )}
 

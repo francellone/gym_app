@@ -1,11 +1,36 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../AuthContext'
+import { setPreLoginLanguage } from '@/i18n'
 import { Dumbbell, Eye, EyeOff, AlertCircle } from 'lucide-react'
+
+// Toggle de idioma pre-login. Guarda la preferencia en localStorage; al
+// loguearse, profiles.language pisa esta elección (ver AuthContext).
+function LanguageToggle({ current }) {
+  const langs = ['es', 'en']
+  return (
+    <div className="flex justify-center gap-1 mb-6">
+      {langs.map((lng) => (
+        <button
+          key={lng}
+          type="button"
+          onClick={() => setPreLoginLanguage(lng)}
+          className={`px-3 py-1 rounded-full text-xs font-semibold uppercase transition-colors ${
+            current === lng
+              ? 'bg-white text-primary-700'
+              : 'text-primary-200 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          {lng}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const { signIn } = useAuth()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -28,6 +53,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        <LanguageToggle current={i18n.language?.startsWith('en') ? 'en' : 'es'} />
+
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">

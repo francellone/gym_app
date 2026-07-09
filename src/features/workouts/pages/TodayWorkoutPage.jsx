@@ -86,6 +86,10 @@ export default function TodayWorkoutPage() {
   // mantiene para los textos que van a la DB, ej. prefijo de notas PSE).
   const dayShortLabel = (id) =>
     t('workout.dayShort', { letter: (id?.split('_')[1] || '').toUpperCase() })
+  // Label de sección traducida para display (la constante SECTION_LABELS se
+  // mantiene para textos canónicos que van a la DB, ej. prefijo de notas PSE).
+  const sectionLabel = (id) =>
+    t(`workout.sections.${id}`, { defaultValue: SECTION_LABELS[id] || '' })
   const [loading, setLoading] = useState(true)
   const [assignment, setAssignment] = useState(null)
   const [planExercises, setPlanExercises] = useState([])
@@ -924,7 +928,7 @@ export default function TodayWorkoutPage() {
           dayLabel={
             DAY_SHORT_LABELS[showPSEForDay]
               ? dayShortLabel(showPSEForDay)
-              : SECTION_LABELS[showPSEForDay] || t('workout.day')
+              : sectionLabel(showPSEForDay) || t('workout.day')
           }
           currentEffort={borgPerDay[showPSEForDay] ?? null}
           onSave={(effort, notes) => saveDayPSE(showPSEForDay, effort, notes)}
@@ -1124,7 +1128,7 @@ export default function TodayWorkoutPage() {
           {activationBlocks.length > 0 && (
             <div>
               <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {SECTION_EMOJIS.activation} {SECTION_LABELS.activation}
+                {SECTION_EMOJIS.activation} {sectionLabel('activation')}
               </h2>
               <div className="space-y-2">
                 {activationBlocks.map((block) => (
@@ -1156,7 +1160,7 @@ export default function TodayWorkoutPage() {
           {(blocksBySection[activeDay] || []).length > 0 && (
             <div>
               <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {SECTION_EMOJIS[activeDay] || '🏋️'} {SECTION_LABELS[activeDay] || t('workout.day')}
+                {SECTION_EMOJIS[activeDay] || '🏋️'} {sectionLabel(activeDay) || t('workout.day')}
               </h2>
               <div className="space-y-2">
                 {(blocksBySection[activeDay] || []).map((block) => (

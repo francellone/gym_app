@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 
 // Pages
@@ -36,13 +37,14 @@ import NotesPage from '@/features/notes/pages/StudentNotesPage'
 
 function PrivateRoute({ children, requiredRole }) {
   const { user, profile, loading } = useAuth()
+  const { t } = useTranslation()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Cargando...</p>
+          <p className="text-gray-500 text-sm">{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -59,13 +61,14 @@ function PrivateRoute({ children, requiredRole }) {
 
 function AppRoutes() {
   const { user, profile, loading } = useAuth()
+  const { t } = useTranslation()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Iniciando...</p>
+          <p className="text-gray-500 text-sm">{t('common.initializing')}</p>
         </div>
       </div>
     )

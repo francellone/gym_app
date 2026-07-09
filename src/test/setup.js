@@ -11,9 +11,13 @@ import { afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 // i18n (doc 46): inicializa la instancia global de i18next para que los
-// componentes con useTranslation() rendericen en español en los tests
-// (igual que en la app con el default lng 'es').
-import '@/i18n'
+// componentes con useTranslation() rendericen en español en los tests.
+// Desde que el idioma inicial se detecta con navigator.language (pre-login),
+// jsdom reporta 'en-US' y la instancia arrancaría en inglés — lo forzamos
+// a 'es' para que los tests sigan asertando los textos en español.
+import i18n from '@/i18n'
+
+await i18n.changeLanguage('es')
 
 // ── Env stubs ──────────────────────────────────────────────
 // import.meta.env en Vite es read-only en tiempo de build; en tests con vitest

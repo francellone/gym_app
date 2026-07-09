@@ -1,7 +1,7 @@
 {
   "name": "GymCoach",
   "short_name": "GymCoach",
-  "description": "Gestión de entrenamiento para coach y alumnos",
+  "description": "Gestión de entrenamiento para coach y alumnos · Training management for coaches and athletes",
   "theme_color": "#ea580c",
   "background_color": "#ffffff",
   "display": "standalone",

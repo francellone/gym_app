@@ -9,7 +9,8 @@
     "loading": "Cargando…",
     "edit": "Editar",
     "yes": "Sí",
-    "no": "No"
+    "no": "No",
+    "initializing": "Iniciando…"
   },
   "iosInstall": {
     "title": "Instalá GymCoach en tu iPhone",
@@ -391,7 +392,62 @@
     "closeNotice": "Cerrar aviso",
     "checkThisData": "Verificá este dato",
     "correct": "Corregir",
-    "saveAnyway": "Guardar igual"
+    "saveAnyway": "Guardar igual",
+    "pseShort": {
+      "1": "Muy fácil",
+      "2": "Fácil",
+      "3": "Moderado",
+      "4": "Algo duro",
+      "5": "Duro",
+      "6": "Duro +",
+      "7": "Muy duro",
+      "8": "Muy duro +",
+      "9": "Casi máx.",
+      "10": "Máximo"
+    },
+    "sections": {
+      "activation": "Activación",
+      "day_a": "Principal Día A",
+      "day_b": "Principal Día B",
+      "day_c": "Principal Día C",
+      "day_d": "Principal Día D",
+      "day_e": "Principal Día E",
+      "day_f": "Principal Día F",
+      "day_g": "Principal Día G"
+    },
+    "aerobicZones": {
+      "Z1": {
+        "short": "muy suave",
+        "desc": "podés cantar · respiración nasal"
+      },
+      "Z2": {
+        "short": "leve / moderado bajo",
+        "desc": "frases completas · cómodo"
+      },
+      "Z3": {
+        "short": "moderado",
+        "desc": "frases con pausas · sostenido"
+      },
+      "Z4": {
+        "short": "alto",
+        "desc": "2–3 palabras · foco mental"
+      },
+      "Z5": {
+        "short": "muy alto / máximo",
+        "desc": "no podés hablar · al límite"
+      }
+    },
+    "intensity": {
+      "soft": "Suave",
+      "moderate": "Moderado",
+      "intense": "Intenso"
+    },
+    "circuitTypes": {
+      "hiit": "HIIT",
+      "amrap": "AMRAP",
+      "emom": "EMOM",
+      "free": "Libre"
+    }
   },
   "progress": {
     "title": "Mi progreso",
@@ -452,7 +508,20 @@
     "seriesMinutes": "Minutos",
     "seriesActualSets": "Series reales",
     "seriesSuggestedSets": "Series sugeridas",
-    "seriesActualWeight": "Peso real"
+    "seriesActualWeight": "Peso real",
+    "borgLabels": {
+      "0": "Nada",
+      "1": "Muy, muy suave",
+      "2": "Muy suave",
+      "3": "Suave",
+      "4": "Moderado",
+      "5": "Algo duro",
+      "6": "Duro",
+      "7": "Muy duro",
+      "8": "Muy, muy duro",
+      "9": "Casi máximo",
+      "10": "Máximo (fallo)"
+    }
   },
   "history": {
     "subtitle": "Todos tus entrenamientos",

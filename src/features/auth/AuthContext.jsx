@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { registerPush, unregisterPush } from '@/features/notifications/services/pushService'
-import i18n from '@/i18n'
+import i18n, { preLoginLanguage } from '@/i18n'
 
 const AuthContext = createContext(null)
 
@@ -34,7 +34,8 @@ export function AuthProvider({ children }) {
       } else {
         setProfile(null)
         setLoading(false)
-        i18n.changeLanguage('es') // logout → volver al default (pantalla de login en es)
+        // logout → volver al default pre-login (preferencia guardada o idioma del navegador)
+        i18n.changeLanguage(preLoginLanguage())
       }
     })
 

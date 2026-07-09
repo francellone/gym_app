@@ -20,10 +20,7 @@ import {
   readLogWeights,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
-import {
-  ExerciseHistoryHeaderLine,
-  ExerciseHistoryBodyBlock,
-} from './ExerciseHistoryPreview'
+import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 
 /**
  * Card del bloque CIRCUITO para la vista del alumno.
@@ -244,7 +241,7 @@ export default function CircuitBlockRunCard({
               </p>
               {circuitType && (
                 <span className="badge bg-orange-100 text-orange-700 text-[10px] flex-shrink-0">
-                  {circuitType.label}
+                  {t(`workout.circuitTypes.${circuitType.key}`)}
                 </span>
               )}
             </div>
@@ -324,9 +321,7 @@ export default function CircuitBlockRunCard({
             {/* Lista de ejercicios */}
             {(block.plan_exercises || []).length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-gray-700">
-                  {t('workout.exercisesTitle')}
-                </p>
+                <p className="text-xs font-semibold text-gray-700">{t('workout.exercisesTitle')}</p>
                 {(block.plan_exercises || []).map((ex, i) => {
                   const exWeightMode = getEffectiveWeightMode({
                     planExercise: ex,

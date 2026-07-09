@@ -402,7 +402,9 @@ export default function ProgressPage() {
     .map((s) => ({
       date: format(parseISO(s.logged_date), 'dd/MM'),
       [sIntensity]: Number(s.borg_value),
-      label: BORG_LABELS[Math.round(Number(s.borg_value))],
+      label: t(`progress.borgLabels.${Math.round(Number(s.borg_value))}`, {
+        defaultValue: BORG_LABELS[Math.round(Number(s.borg_value))] || '',
+      }),
     }))
 
   // 5. Duración de sesiones

@@ -18,10 +18,7 @@ import {
   blockDisplayTitle,
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
-import {
-  ExerciseHistoryHeaderLine,
-  ExerciseHistoryBodyBlock,
-} from './ExerciseHistoryPreview'
+import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 
 /**
  * Card del bloque AERÓBICO para la vista del alumno.
@@ -80,9 +77,7 @@ export default function AerobicBlockRunCard({
   // (los datos de cardio viven a nivel block, no por exercise). El chat,
   // en cambio, usa exercise_id del primer plan_exercise.
   const noteCount = exerciseId ? noteCountByExercise?.get?.(exerciseId) || 0 : 0
-  const lastCoachNote = exerciseId
-    ? lastCoachNoteByExercise?.get?.(exerciseId) || null
-    : null
+  const lastCoachNote = exerciseId ? lastCoachNoteByExercise?.get?.(exerciseId) || null : null
   const handleOpenChat = () => {
     if (!exerciseId) return
     onOpenChat?.(exerciseId, exerciseName)
@@ -241,21 +236,24 @@ export default function AerobicBlockRunCard({
                   <div
                     className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${zone.color} w-fit font-semibold`}
                   >
-                    {zone.label} · {zone.short}
+                    {zone.label} · {t(`workout.aerobicZones.${zone.key}.short`)}
                   </div>
                 )}
                 {intensity && !zone && (
                   <div
                     className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${intensity.color} w-fit`}
                   >
-                    {intensity.label}
+                    {t(`workout.intensity.${intensity.key}`)}
                   </div>
                 )}
               </div>
               {zone && (
                 <div className="text-[11px] text-sky-700/90 pt-1 border-t border-sky-200 mt-1 leading-snug">
-                  <span className="font-semibold">{t('workout.zoneLabel', { zone: zone.label })} </span>
-                  {zone.desc} · {t('workout.fcPct', { pct: zone.pct })}
+                  <span className="font-semibold">
+                    {t('workout.zoneLabel', { zone: zone.label })}{' '}
+                  </span>
+                  {t(`workout.aerobicZones.${zone.key}.desc`)} ·{' '}
+                  {t('workout.fcPct', { pct: zone.pct })}
                 </div>
               )}
               {showIntervals &&
@@ -340,9 +338,7 @@ export default function AerobicBlockRunCard({
               </div>
             ) : (
               <div className="bg-sky-100 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-sky-700">
-                  {t('workout.completedCheck')}
-                </p>
+                <p className="text-xs font-semibold text-sky-700">{t('workout.completedCheck')}</p>
                 <p className="text-xs text-sky-700">
                   {[
                     blockLog?.actual_minutes &&
