@@ -9,6 +9,7 @@ import {
   Clock,
   Activity,
   Trash2,
+  PlayCircle,
 } from 'lucide-react'
 import {
   AEROBIC_FORMATS,
@@ -201,11 +202,25 @@ export default function AerobicBlockRunCard({
             )}
           </div>
 
-          {expanded ? (
-            <ChevronUp size={18} className="text-gray-400" />
-          ) : (
-            <ChevronDown size={18} className="text-gray-400" />
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {firstPlanEx?.exercise?.video_url &&
+              firstPlanEx.exercise.video_url.startsWith('http') && (
+                <a
+                  href={firstPlanEx.exercise.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"
+                >
+                  <PlayCircle size={18} />
+                </a>
+              )}
+            {expanded ? (
+              <ChevronUp size={18} className="text-gray-400" />
+            ) : (
+              <ChevronDown size={18} className="text-gray-400" />
+            )}
+          </div>
         </div>
 
         {expanded && (

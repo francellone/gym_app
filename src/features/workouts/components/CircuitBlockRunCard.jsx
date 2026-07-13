@@ -9,6 +9,7 @@ import {
   Clock,
   Flame,
   Trash2,
+  PlayCircle,
 } from 'lucide-react'
 import {
   CIRCUIT_TYPES,
@@ -360,6 +361,19 @@ export default function CircuitBlockRunCard({
                             isCompact
                           />
                         </div>
+
+                        {ex.exercise?.video_url &&
+                          ex.exercise.video_url.startsWith('http') && (
+                            <a
+                              href={ex.exercise.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                            >
+                              <PlayCircle size={18} />
+                            </a>
+                          )}
                       </div>
 
                       {/* Detalle editable */}
