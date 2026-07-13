@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, PlayCircle, CheckCircle, Save, Pencil } from 'lucide-react'
 import { calc1RM, METHODS, pruebaTypeInfo } from '../../helpers'
 import { getDynamicSections } from '@/features/plans/helpers'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
 // ============================================================
 // EvalByDayForm — formulario de la alumna para evals exercise-based (doc 38)
@@ -152,8 +154,9 @@ function methodLabel(evalType, methodKey) {
 }
 
 function ExerciseEvalCard({ pe, resp, onChange }) {
+  const { i18n } = useTranslation()
   const evalType = pe.eval_type || 'custom'
-  const name = pe.exercises?.name || pe.exercise?.name || 'Ejercicio'
+  const name = exerciseDisplay(pe.exercises || pe.exercise, i18n.language).name || 'Ejercicio'
   const videoUrl = pe.exercises?.video_url || pe.exercise?.video_url || null
 
   // Recomendación del coach (si la cargó al armar la eval).

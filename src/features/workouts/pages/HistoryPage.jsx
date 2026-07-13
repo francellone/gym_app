@@ -7,9 +7,10 @@ import { dateLocale } from '@/i18n/dateLocale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 import { readLogReps, readLogWeights } from '@/features/plans/helpers'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
 function SessionGroup({ date, logs, session }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const completedCount = logs.filter((l) => l.completed).length
 
@@ -88,7 +89,8 @@ function SessionGroup({ date, logs, session }) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {log.plan_exercise?.exercise?.name || t('history.exerciseFallback')}
+                  {exerciseDisplay(log.plan_exercise?.exercise, i18n.language).name ||
+                    t('history.exerciseFallback')}
                 </p>
                 {(() => {
                   const reps = readLogReps(log).filter((r) => r != null && r !== '')
@@ -160,7 +162,7 @@ export default function HistoryPage() {
         *,
         plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section,
-          exercise:exercises!exercise_id(name)
+          exercise:exercises!exercise_id(name, i18n)
         )
       `
       )

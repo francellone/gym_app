@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
 import { useTranslation } from 'react-i18next'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import { dateLocale } from '@/i18n/dateLocale'
 import { TrendingUp, Tag } from 'lucide-react'
 import {
@@ -122,7 +123,7 @@ const WELLBEING_LINE_COLORS = {
 // sobre las columnas legacy.
 
 export default function ProgressPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { profile } = useAuth()
 
   // Nombres de series de los gráficos: son también las keys de los objetos
@@ -169,14 +170,14 @@ export default function ProgressPage() {
       const { data } = await supabase
         .from('workout_logs')
         .select(
-          'plan:plans!plan_id(plan_type), plan_exercise:plan_exercises!plan_exercise_id(exercise:exercises!exercise_id(id, name))'
+          'plan:plans!plan_id(plan_type), plan_exercise:plan_exercises!plan_exercise_id(exercise:exercises!exercise_id(id, name, i18n))'
         )
         .eq('student_id', profile.id)
       if (cancelled) return
       const map = {}
       filterTrainingLogs(data || []).forEach((l) => {
         const ex = l.plan_exercise?.exercise
-        if (ex) map[ex.id] = ex.name
+        if (ex) map[ex.id] = exerciseDisplay(ex, i18n.language).name
       })
       const list = Object.entries(map)
         .map(([id, name]) => ({ id, name }))
@@ -186,7 +187,7 @@ export default function ProgressPage() {
     return () => {
       cancelled = true
     }
-  }, [profile?.id])
+  }, [profile?.id, i18n.language])
 
   // Cuando cambia el filtro de etiqueta, resetear el ejercicio seleccionado
   // si ya no pertenece a la nueva selección
@@ -219,7 +220,7 @@ export default function ProgressPage() {
           plan_exercise:plan_exercises!plan_exercise_id(
             block_label, section, suggested_sets, suggested_weight,
             weight_mode, unilateral,
-            exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
+            exercise:exercises!exercise_id(id, name, i18n, default_weight_mode, default_unilateral)
           )
         `
         )
@@ -254,7 +255,7 @@ export default function ProgressPage() {
     const exMap = {}
     logData.forEach((l) => {
       const ex = l.plan_exercise?.exercise
-      if (ex) exMap[ex.id] = ex.name
+      if (ex) exMap[ex.id] = exerciseDisplay(ex, i18n.language).name
     })
     const exList = Object.entries(exMap)
       .map(([id, name]) => ({ id, name }))

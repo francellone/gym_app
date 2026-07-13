@@ -26,6 +26,7 @@ import {
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
 import { buildDraftKey } from '../draftStorage'
 import { formatRelativeDate } from '../exerciseHistoryLogic'
@@ -76,7 +77,7 @@ export default function ExerciseCard({
   // { changed_at, changes: { fieldKey: {old,new} }, note } | null
   prescriptionChange = null,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -97,6 +98,8 @@ export default function ExerciseCard({
 
   // Modo de peso y unilateral efectivos (herencia: log > plan_exercise > exercise)
   const exerciseDef = planEx.exercise || {}
+  // Textos del ejercicio resueltos al idioma del que mira (fallback al canónico ES)
+  const exText = exerciseDisplay(exerciseDef, i18n.language)
   const initialWeightMode = getEffectiveWeightMode({
     log,
     planExercise: planEx,
@@ -502,7 +505,7 @@ export default function ExerciseCard({
               <div>
                 <p className="font-semibold text-gray-900">{t('workout.unmarkExerciseTitle')}</p>
                 <p className="text-sm text-gray-600 mt-0.5">
-                  {t('workout.unmarkExerciseBody')} <strong>{planEx.exercise?.name}</strong>.{' '}
+                  {t('workout.unmarkExerciseBody')} <strong>{exText.name}</strong>.{' '}
                   {t('workout.actionCannotBeUndone')}
                 </p>
               </div>
@@ -567,7 +570,7 @@ export default function ExerciseCard({
               <p
                 className={`font-semibold text-sm truncate ${completed ? 'text-green-800' : 'text-gray-900'}`}
               >
-                {planEx.exercise?.name}
+                {exText.name}
               </p>
               {/* v33 — registro cargado por el coach (auditoría visible) */}
               {log?.source === 'coach' && (
@@ -619,7 +622,7 @@ export default function ExerciseCard({
             <ExerciseHistoryHeaderLine
               lastLog={lastLog}
               noteCount={noteCount}
-              onOpenChat={() => onOpenChat?.(planEx.exercise_id, planEx.exercise?.name)}
+              onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
             />
             {log &&
               !expanded &&
@@ -672,15 +675,16 @@ export default function ExerciseCard({
             <ExerciseHistoryBodyBlock
               lastCoachNote={lastCoachNote}
               noteCount={noteCount}
-              onOpenChat={() => onOpenChat?.(planEx.exercise_id, planEx.exercise?.name)}
+              onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
             />
 
             {/* Technique notes */}
-            {(planEx.extra_notes || planEx.exercise?.technique_notes) && (
+            {/* extra_notes es por-plan y queda canónica (ver handoff de i18n de extra_notes) */}
+            {(planEx.extra_notes || exText.technique_notes) && (
               <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
                 <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  {planEx.extra_notes || planEx.exercise?.technique_notes}
+                  {planEx.extra_notes || exText.technique_notes}
                 </p>
               </div>
             )}

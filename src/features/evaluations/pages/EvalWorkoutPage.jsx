@@ -166,7 +166,7 @@ export default function EvalWorkoutPage() {
         // Leer plan_exercises de la eval (sin hardcodear day_a) + join ejercicio.
         const { data: peData } = await supabase
           .from('plan_exercises')
-          .select('*, exercises(name, video_url)')
+          .select('*, exercises(name, i18n, video_url)')
           .eq('plan_id', planId)
           .order('order_index')
         let rows = peData || []
@@ -176,7 +176,7 @@ export default function EvalWorkoutPage() {
         if (rows.length === 0 && data.eval_type === 'custom') {
           const { data: testsData } = await supabase
             .from('evaluation_tests')
-            .select('*, exercises(name, video_url)')
+            .select('*, exercises(name, i18n, video_url)')
             .eq('plan_id', planId)
             .order('order_index')
           rows = (testsData || []).map((t) => ({

@@ -30,9 +30,9 @@ export default function LanguageModeCard() {
               : 'Modo bilingüe activado manualmente'}
           </p>
           <p className="text-blue-700 mt-0.5">
-            Al editar cada pregunta vas a poder cargar su versión en inglés (opcional: lo que no
-            traduzcas se muestra en español) o desactivarla para un idioma. Tus alumnos responden en
-            su idioma y vos ves todas las respuestas en español.
+            Al editar cada pregunta de tus formularios y cada ejercicio de tu biblioteca vas a poder
+            cargar su versión en inglés (opcional: lo que no traduzcas se muestra en español). Tus
+            alumnos ven el contenido en su idioma y vos ves todo en español.
           </p>
           {override && !autoBilingual && (
             <button
@@ -52,10 +52,10 @@ export default function LanguageModeCard() {
     <button
       onClick={() => setOverride(true)}
       className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-      title="Habilita los campos de traducción aunque todavía no tengas alumnos en inglés"
+      title="Habilita los campos de traducción (formularios y ejercicios) aunque todavía no tengas alumnos en inglés"
     >
       <Globe size={14} />
-      <span>Preparar mis formularios en inglés</span>
+      <span>Preparar mi contenido en inglés</span>
     </button>
   )
 }

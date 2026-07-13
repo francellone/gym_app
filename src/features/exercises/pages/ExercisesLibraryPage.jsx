@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { Dumbbell, Plus, Search, Edit2, Trash2, X, Save, AlertCircle, Tag } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
+import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
@@ -147,6 +148,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 // ============================================================
 function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
   const { profile } = useAuth()
+  const { bilingual } = useCoachFormLanguages()
   const [form, setForm] = useState(
     exercise || {
       name: '',
@@ -157,6 +159,12 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
       default_unilateral: false,
     }
   )
+  // Traducción EN opcional (patrón canónico + i18n, igual que formularios)
+  const [en, setEn] = useState({
+    name: exercise?.i18n?.en?.name || '',
+    description: exercise?.i18n?.en?.description || '',
+    technique_notes: exercise?.i18n?.en?.technique_notes || '',
+  })
   const [selectedTags, setSelectedTags] = useState([])
   const [loading, setLoading] = useState(false)
   const [loadingTags, setLoadingTags] = useState(!!exercise?.id)
@@ -188,6 +196,15 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
     }
     setLoading(true)
     try {
+      // i18n.en: solo campos con contenido; sin ninguno => se quita 'en' (fallback total al canónico)
+      const enClean = Object.fromEntries(
+        Object.entries(en)
+          .map(([k, v]) => [k, v.trim()])
+          .filter(([, v]) => v !== '')
+      )
+      const newI18n = { ...(form.i18n || {}) }
+      if (Object.keys(enClean).length > 0) newI18n.en = enClean
+      else delete newI18n.en
       const data = {
         name: form.name.trim(),
         description: form.description || null,
@@ -196,6 +213,7 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
         created_by: profile.id,
         default_weight_mode: form.default_weight_mode || 'with_weight',
         default_unilateral: !!form.default_unilateral,
+        i18n: Object.keys(newI18n).length > 0 ? newI18n : null,
       }
       let exerciseId = form.id
       let result
@@ -350,6 +368,47 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
               placeholder="Descripción técnica del ejercicio..."
             />
           </div>
+
+          {/* Traducción al inglés (solo coaches con alumnos bilingües / toggle) */}
+          {bilingual && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-2.5">
+              <p className="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">
+                🇬🇧 Versión en inglés (opcional)
+              </p>
+              <p className="text-[11px] text-gray-500 -mt-1.5">
+                Los alumnos en inglés ven estos textos. Si dejás un campo vacío, ven el español.
+              </p>
+              <div>
+                <label className="label">Name</label>
+                <input
+                  className="input"
+                  value={en.name}
+                  onChange={(e) => setEn((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Barbell squat"
+                />
+              </div>
+              <div>
+                <label className="label">Description</label>
+                <textarea
+                  className="input resize-none"
+                  rows={2}
+                  value={en.description}
+                  onChange={(e) => setEn((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Short description..."
+                />
+              </div>
+              <div>
+                <label className="label">Technique notes</label>
+                <textarea
+                  className="input resize-none"
+                  rows={3}
+                  value={en.technique_notes}
+                  onChange={(e) => setEn((p) => ({ ...p, technique_notes: e.target.value }))}
+                  placeholder="Technique cues..."
+                />
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
