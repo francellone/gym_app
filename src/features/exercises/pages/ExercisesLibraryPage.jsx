@@ -349,23 +349,31 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
 
           <div>
             <label className="label">Descripción</label>
+            <p className="text-[11px] text-gray-500 mb-1">
+              <strong>Qué es</strong>: qué trabaja, para qué sirve, equipamiento. El alumno la ve
+              solo si toca "ver más". Opcional.
+            </p>
             <textarea
               className="input resize-none"
               rows={2}
               value={form.description || ''}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="Descripción breve..."
+              placeholder="Ej: Empuje horizontal con mancuernas desde el piso. Trabaja pecho y tríceps con menor demanda de hombro."
             />
           </div>
 
           <div>
-            <label className="label">Notas técnicas</label>
+            <label className="label">Nota técnica</label>
+            <p className="text-[11px] text-gray-500 mb-1">
+              <strong>Cómo se hace</strong>: posición inicial, ejecución, errores a evitar. El
+              alumno la ve siempre al abrir el ejercicio mientras entrena.
+            </p>
             <textarea
               className="input resize-none"
               rows={3}
               value={form.technique_notes || ''}
               onChange={(e) => setForm((p) => ({ ...p, technique_notes: e.target.value }))}
-              placeholder="Descripción técnica del ejercicio..."
+              placeholder="Ej: Acostate boca arriba con rodillas flexionadas. Bajá controlado hasta que los codos toquen el piso..."
             />
           </div>
 
@@ -388,23 +396,23 @@ function ExerciseModal({ exercise, tags, coachId: _coachId, onSave, onClose }) {
                 />
               </div>
               <div>
-                <label className="label">Description</label>
+                <label className="label">Description (qué es)</label>
                 <textarea
                   className="input resize-none"
                   rows={2}
                   value={en.description}
                   onChange={(e) => setEn((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Short description..."
+                  placeholder="E.g.: Horizontal dumbbell press from the floor. Targets chest and triceps."
                 />
               </div>
               <div>
-                <label className="label">Technique notes</label>
+                <label className="label">Technique notes (cómo se hace)</label>
                 <textarea
                   className="input resize-none"
                   rows={3}
                   value={en.technique_notes}
                   onChange={(e) => setEn((p) => ({ ...p, technique_notes: e.target.value }))}
-                  placeholder="Technique cues..."
+                  placeholder="E.g.: Lie on your back with knees bent. Lower under control until your elbows touch the floor..."
                 />
               </div>
             </div>
@@ -511,7 +519,9 @@ export default function ExercisesLibraryPage() {
     const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some((t) => t.id === filterTag)
     const exMode = e.default_weight_mode || 'with_weight'
     const matchMode = !filterMode || exMode === filterMode
-    const isIncomplete = !e.video_url || (!e.description && !e.technique_notes)
+    // "Completo" = video + nota técnica (lo que el alumno necesita sí o sí).
+    // La descripción suma pero no descuenta (actualiza Decisión 17, doc 13).
+    const isIncomplete = !e.video_url || !e.technique_notes
     const matchIncomplete = !filterIncomplete || isIncomplete
     return matchSearch && matchTag && matchMode && matchIncomplete
   })
@@ -659,9 +669,9 @@ export default function ExercisesLibraryPage() {
                         Sin video
                       </span>
                     )}
-                    {!ex.description && !ex.technique_notes && (
+                    {!ex.technique_notes && (
                       <span
-                        title="Falta descripción / nota técnica"
+                        title="Falta la nota técnica (el alumno la ve siempre al abrir el ejercicio)"
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"
                       >
                         Sin nota

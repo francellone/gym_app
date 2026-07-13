@@ -79,6 +79,7 @@ export default function ExerciseCard({
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -679,13 +680,32 @@ export default function ExerciseCard({
             />
 
             {/* Technique notes */}
-            {/* extra_notes es por-plan y queda canónica (ver handoff de i18n de extra_notes) */}
+            {/* Nota técnica (CÓMO se hace): siempre visible al expandir.
+                extra_notes es por-plan y queda canónica (ver handoff de i18n de extra_notes) */}
             {(planEx.extra_notes || exText.technique_notes) && (
               <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
                 <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700 leading-relaxed">
                   {planEx.extra_notes || exText.technique_notes}
                 </p>
+              </div>
+            )}
+
+            {/* Descripción (QUÉ es): solo si el alumno la pide */}
+            {exText.description && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowDescription((v) => !v)}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                >
+                  {showDescription ? t('workout.hideDescription') : t('workout.showDescription')}
+                </button>
+                {showDescription && (
+                  <p className="text-xs text-gray-500 leading-relaxed mt-1.5">
+                    {exText.description}
+                  </p>
+                )}
               </div>
             )}
 

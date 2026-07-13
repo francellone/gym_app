@@ -449,7 +449,9 @@
       "amrap": "AMRAP",
       "emom": "EMOM",
       "free": "Free"
-    }
+    },
+    "showDescription": "More about this exercise",
+    "hideDescription": "Hide"
   },
   "progress": {
     "title": "My progress",
