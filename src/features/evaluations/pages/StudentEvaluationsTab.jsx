@@ -910,7 +910,9 @@ function UltimoRegistro({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800">{ejercicioNombre}</p>
                       {pe.instructions && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{pe.instructions}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap break-words">
+                          {pe.instructions}
+                        </p>
                       )}
                     </div>
                     <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -926,12 +928,22 @@ function UltimoRegistro({
                   {/* Respuesta del alumno */}
                   <div className="px-4 py-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
-                      {pe.expected_value && (
+                      {(pe.expected_value || pe.expected_unit) && (
                         <div className="bg-blue-50 rounded-xl p-2.5 text-center">
                           <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
                           <p className="text-base font-bold text-blue-700">
-                            {pe.expected_value}
-                            <span className="text-xs font-normal ml-1">{pe.expected_unit}</span>
+                            {pe.expected_value ? (
+                              <>
+                                {pe.expected_value}
+                                {pe.expected_unit && (
+                                  <span className="text-xs font-normal ml-1">
+                                    {pe.expected_unit}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              pe.expected_unit
+                            )}
                           </p>
                         </div>
                       )}
