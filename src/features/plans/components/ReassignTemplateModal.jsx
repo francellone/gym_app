@@ -77,8 +77,8 @@ export default function ReassignTemplateModal({
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900">Cambios guardados en la plantilla</h3>
               <p className="text-sm text-gray-600 mt-1">
-                Los cambios <strong>no</strong> se aplican a las copias que tus alumnas ya tienen
-                asignadas. Si querés que reciban la versión nueva de
+                Los cambios <strong>no</strong> se aplican a las copias ya asignadas. Si querés que
+                reciban la versión nueva de
                 {templateTitle ? ` "${templateTitle.trim()}"` : ' esta plantilla'}, re-asignala.
               </p>
             </div>
@@ -88,8 +88,8 @@ export default function ReassignTemplateModal({
           {!finished && hasTraining && (
             <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
               Ojo: en planes de <strong>entrenamiento</strong>, re-asignar reinicia el plan en curso
-              de la alumna. Su avance (logs, tildes) queda en el plan anterior y la copia nueva
-              arranca desde cero. Si solo querés ajustar el plan de una alumna puntual, editá su
+              de esa persona. Su avance (logs, tildes) queda en el plan anterior y la copia nueva
+              arranca desde cero. Si solo querés ajustar el plan de una persona puntual, editá su
               plan directamente en vez de re-asignar.
             </div>
           )}
@@ -100,7 +100,7 @@ export default function ReassignTemplateModal({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
                   <Users size={13} /> {assignees.length}{' '}
-                  {assignees.length === 1 ? 'alumna afectada' : 'alumnas afectadas'}
+                  {assignees.length === 1 ? 'persona afectada' : 'personas afectadas'}
                 </div>
                 {assignees.map((a) => {
                   const checked = selected.has(a.assignmentId)
@@ -176,8 +176,8 @@ export default function ReassignTemplateModal({
                   <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-xl p-3">
                     <Check size={16} />
                     <span>
-                      {okCount} {okCount === 1 ? 'alumna re-asignada' : 'alumnas re-asignadas'} con
-                      la versión nueva.
+                      {okCount} {okCount === 1 ? 'persona re-asignada' : 'personas re-asignadas'}{' '}
+                      con la versión nueva.
                     </span>
                   </div>
                 )}
