@@ -36,6 +36,9 @@ export const BLOCK_LETTERS = [
 export const BLOCK_NUMBERS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 
 // Opciones PSE
+// Los valores son CANÓNICOS (se guardan tal cual en plan_exercises.suggested_pse).
+// El coach los elige en español; para mostrarlos al alumno traducidos se mapea
+// cada valor a una clave estable vía PSE_OPTION_KEY → t('workout.suggestedPseValue.<key>').
 export const PSE_OPTIONS = [
   'Fácil (1-3)',
   'Moderado (4)',
@@ -43,6 +46,16 @@ export const PSE_OPTIONS = [
   'Muy duro (7-9)',
   'Esfuerzo máx (10)',
 ]
+
+// Mapa valor-canónico → clave i18n para el display al alumno.
+// Si un valor no está en el mapa (legacy / texto libre), el caller cae al valor crudo.
+export const PSE_OPTION_KEY = {
+  'Fácil (1-3)': 'easy',
+  'Moderado (4)': 'moderate',
+  'Duro (5-6)': 'hard',
+  'Muy duro (7-9)': 'veryHard',
+  'Esfuerzo máx (10)': 'maxEffort',
+}
 
 // Borg 0-10 para evaluación general del entrenamiento
 export const BORG_LABELS = {
@@ -115,9 +128,7 @@ export function inheritFromFirstBlockmate({ list, currentIndex, letter }) {
   }
 
   // Próximo número libre = max(números existentes) + 1, cap a 10
-  const usedNumbers = others
-    .map((ex) => parseInt(ex.block_number) || 0)
-    .filter((n) => n > 0)
+  const usedNumbers = others.map((ex) => parseInt(ex.block_number) || 0).filter((n) => n > 0)
   const nextNumber = Math.min(10, (usedNumbers.length ? Math.max(...usedNumbers) : 0) + 1)
 
   // Primer ejercicio del bloque (block_number=='1' por prioridad, sino el menor)

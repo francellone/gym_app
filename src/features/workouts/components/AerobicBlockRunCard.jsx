@@ -173,10 +173,11 @@ export default function AerobicBlockRunCard({
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {[
-                format?.label,
+                format && t(`workout.aerobicFormats.${format.key}`, { defaultValue: format.label }),
                 block.aerobic_total_minutes &&
                   t('workout.minutesShort', { value: block.aerobic_total_minutes }),
-                intensity?.label,
+                intensity &&
+                  t(`workout.intensity.${intensity.key}`, { defaultValue: intensity.label }),
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -238,7 +239,9 @@ export default function AerobicBlockRunCard({
             <div className="bg-sky-50 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center gap-2 text-sky-700 text-sm font-semibold">
                 <Activity size={14} />
-                {format?.label || t('workout.aerobic')}
+                {format
+                  ? t(`workout.aerobicFormats.${format.key}`, { defaultValue: format.label })
+                  : t('workout.aerobic')}
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs text-sky-700">
                 {block.aerobic_total_minutes && (

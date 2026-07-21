@@ -13,6 +13,15 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import i18n from '@/i18n'
+import {
+  WEIGHT_MODES,
+  REPS_UNITS,
+  PSE_OPTIONS,
+  PSE_OPTION_KEY,
+  AEROBIC_FORMATS,
+  CIRCUIT_TYPES,
+  INTENSITY_LEVELS,
+} from '@/features/plans/helpers'
 
 // LoginPage usa useAuth → mock directo (mismo patrón que LoginPage.test.jsx)
 vi.mock('@/features/auth/AuthContext', () => ({
@@ -91,5 +100,57 @@ describe('vista del alumno en inglés (smoke)', () => {
       <WellbeingModal userId="u1" date="2026-07-09" onSave={() => {}} onSkip={() => {}} />
     )
     expectEnglishOnly(container, 'WellbeingModal')
+  })
+})
+
+// ============================================================
+// Guardia de leaks de ENUMS de display (bug 2026-07-21):
+// constantes cuyos `.label`/`.short`/valor canónico se muestran al
+// alumno (tipo de peso, unidad de reps, PSE sugerida, formato aeróbico,
+// tipo de circuito, intensidad). El valor guardado en DB es canónico
+// español; el display DEBE pasar por t(). Este test verifica que cada
+// key del enum tenga traducción EN y que no quede texto español.
+// Si el coach agrega un modo/unidad nuevo sin su clave i18n, falla acá.
+// ============================================================
+describe('enums de display del alumno traducidos al inglés (guardia)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en')
+  })
+  afterAll(async () => {
+    await i18n.changeLanguage('es')
+  })
+
+  function expectTranslated(keyPath, label) {
+    const val = i18n.t(keyPath)
+    expect(val, `${label}: falta la clave i18n ${keyPath}`).not.toBe(keyPath)
+    expect(
+      SPANISH_CHARS.test(val) || SPANISH_WORDS.test(val),
+      `${label}: valor en español "${val}" para ${keyPath}`
+    ).toBe(false)
+  }
+
+  it('WEIGHT_MODES → workout.weightMode.<key>', () => {
+    for (const m of WEIGHT_MODES) expectTranslated(`workout.weightMode.${m.key}`, 'weightMode')
+  })
+
+  it('REPS_UNITS → workout.repsUnitShort/Option.<key>', () => {
+    for (const u of REPS_UNITS) expectTranslated(`workout.repsUnitShort.${u.key}`, 'repsUnitShort')
+    for (const u of REPS_UNITS.filter((u) => u.key !== 'reps'))
+      expectTranslated(`workout.repsUnitOption.${u.key}`, 'repsUnitOption')
+  })
+
+  it('suggested_pse (PSE_OPTIONS) → workout.suggestedPseValue.<key>', () => {
+    for (const opt of PSE_OPTIONS) {
+      const key = PSE_OPTION_KEY[opt]
+      expect(key, `PSE_OPTION_KEY no cubre "${opt}"`).toBeTruthy()
+      expectTranslated(`workout.suggestedPseValue.${key}`, 'suggestedPseValue')
+    }
+  })
+
+  it('AEROBIC_FORMATS / CIRCUIT_TYPES / INTENSITY_LEVELS traducidos', () => {
+    for (const f of AEROBIC_FORMATS)
+      expectTranslated(`workout.aerobicFormats.${f.key}`, 'aerobicFormats')
+    for (const c of CIRCUIT_TYPES) expectTranslated(`workout.circuitTypes.${c.key}`, 'circuitTypes')
+    for (const lv of INTENSITY_LEVELS) expectTranslated(`workout.intensity.${lv.key}`, 'intensity')
   })
 })

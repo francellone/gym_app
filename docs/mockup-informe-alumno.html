@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tu progreso — Franco (mockup client report)</title>
+<style>
+  :root {
+    --ink: #1a1d23;
+    --muted: #6b7280;
+    --accent: #0d9488;
+    --accent-soft: #f0fdfa;
+    --line: #e5e7eb;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: #f3f4f6;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 16px auto;
+    background: white;
+    padding: 20mm 18mm;
+    box-shadow: 0 2px 12px rgba(0,0,0,.12);
+  }
+  @media print {
+    body { background: white; }
+    .page { margin: 0; box-shadow: none; width: auto; min-height: auto; }
+  }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header .badge { display: inline-block; background: var(--accent); color: white; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 14px; border-radius: 999px; }
+  header h1 { font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin-top: 12px; }
+  header .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .hero {
+    background: var(--accent-soft);
+    border: 1px solid #99f6e4;
+    border-radius: 14px;
+    padding: 18px 22px;
+    text-align: center;
+    margin-bottom: 26px;
+  }
+  .hero .big { font-size: 19px; font-weight: 700; }
+  .hero .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin: 24px 0 12px; }
+
+  ul.points { list-style: none; }
+  ul.points li {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 16px;
+  }
+  ul.points li:last-child { border-bottom: none; }
+  ul.points .emoji { font-size: 22px; line-height: 1.2; }
+  ul.points strong { font-weight: 700; }
+
+  .goals { display: flex; gap: 12px; }
+  .goal {
+    flex: 1; border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; text-align: center; font-size: 14px;
+  }
+  .goal .emoji { font-size: 26px; display: block; margin-bottom: 6px; }
+
+  .coach-msg { font-size: 16px; }
+  .coach-msg .sign { margin-top: 10px; font-weight: 700; }
+
+  .challenge {
+    margin-top: 26px;
+    border: 2px dashed var(--accent);
+    border-radius: 14px;
+    padding: 18px 22px;
+    text-align: center;
+  }
+  .challenge .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700; }
+  .challenge .big { font-size: 24px; font-weight: 800; margin-top: 6px; }
+  .challenge .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  footer { margin-top: 30px; text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <span class="badge">Tu progreso</span>
+    <h1>¡Gran bloque, Franco! 💪</h1>
+    <div class="sub">12 de mayo – 10 de julio 2026 · Coach: Anto</div>
+  </header>
+
+  <div class="hero">
+    <div class="big">Este fue un muy buen bloque: entrenaste con constancia, ganaste fuerza en todo el cuerpo y tu técnica dio un salto.</div>
+    <div class="sub">Acá va lo más importante de estas 8 semanas 👇</div>
+  </div>
+
+  <h2>Lo mejor del período</h2>
+  <ul class="points">
+    <li><span class="emoji">🏆</span><span>Completaste <strong>20 de 24 entrenamientos</strong> — tu mejor constancia hasta ahora.</span></li>
+    <li><span class="emoji">💪</span><span>Tu fuerza en <strong>sentadilla subió un 10%</strong>, con récord personal incluido: 85 kg × 5.</span></li>
+    <li><span class="emoji">📈</span><span>Entrenaste un <strong>12% más de volumen</strong> que el bloque anterior, sin que te cueste más esfuerzo.</span></li>
+    <li><span class="emoji">🔥</span><span>Tu <strong>técnica de sentadilla mejoró muchísimo</strong> desde que ajustamos la profundidad.</span></li>
+  </ul>
+
+  <h2>Próximos objetivos</h2>
+  <div class="goals">
+    <div class="goal"><span class="emoji">🎯</span>Mejorar la técnica de <strong>peso muerto</strong></div>
+    <div class="goal"><span class="emoji">🎯</span>Mantener la constancia <strong>arriba del 80%</strong></div>
+    <div class="goal"><span class="emoji">🎯</span>Ganar <strong>movilidad de tobillo</strong></div>
+  </div>
+
+  <h2>De tu coach</h2>
+  <div class="coach-msg">
+    <p>Franco, se nota el compromiso de estas semanas y los números lo confirman. La semana del viaje no te frenó: volviste y retomaste el ritmo enseguida, que es lo que más vale. Ahora vamos a llevar todo lo que ganaste en sentadilla al peso muerto — confiá en el proceso que venís haciendo, que va perfecto.</p>
+    <p class="sign">— Anto</p>
+  </div>
+
+  <div class="challenge">
+    <div class="label">Próximo desafío</div>
+    <div class="big">🏋️ Sentadilla: 105 kg</div>
+    <div class="sub">Meta de fuerza estimada para fines de agosto</div>
+  </div>
+
+  <footer>Informe preparado por Anto · Coach</footer>
+</div>
+
+</body>
+</html>

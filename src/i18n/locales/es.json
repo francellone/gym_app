@@ -450,6 +450,34 @@
       "emom": "EMOM",
       "free": "Libre"
     },
+    "aerobicFormats": {
+      "continuous": "Continuo",
+      "intervals": "Intervalos",
+      "progressive": "Progresivo"
+    },
+    "weightMode": {
+      "with_weight": "Con peso",
+      "barbell_only": "Solo con barra",
+      "bodyweight": "Sin peso"
+    },
+    "repsUnitOption": {
+      "pasos": "pasos",
+      "respiraciones": "respiraciones",
+      "segundos": "segundos"
+    },
+    "repsUnitShort": {
+      "reps": "reps",
+      "pasos": "pasos",
+      "respiraciones": "resp.",
+      "segundos": "seg"
+    },
+    "suggestedPseValue": {
+      "easy": "Fácil (1-3)",
+      "moderate": "Moderado (4)",
+      "hard": "Duro (5-6)",
+      "veryHard": "Muy duro (7-9)",
+      "maxEffort": "Esfuerzo máx (10)"
+    },
     "showDescription": "Ver más sobre este ejercicio",
     "hideDescription": "Ocultar"
   },
@@ -575,6 +603,7 @@
     "dayPseSaveFailed": "No pudimos guardar tu PSE del día. Probá de nuevo en un momento.",
     "chatLoadFailed": "No se pudo cargar el chat.",
     "chatLoadRetry": "No pudimos cargar el chat. Probá cerrar y abrir de nuevo.",
+    "deleteNoPermission": "No se pudo eliminar el registro — no tenés permiso.",
     "friendly": {
       "bodyweightNoWeights": "Si elegiste \"Sin peso\", no podés cargar peso. Sacá el peso o cambiá el modo.",
       "repsWeightsMismatch": "La cantidad de reps no coincide con la de pesos. Revisá los sets.",

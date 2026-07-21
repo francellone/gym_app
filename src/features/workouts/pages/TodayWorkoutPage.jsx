@@ -618,7 +618,7 @@ export default function TodayWorkoutPage() {
     if (error) throw error
     if (!deleted?.length) {
       const err = new Error('Registro no eliminado (sin permiso)')
-      showSaveError(err)
+      showSaveError(t('errors.deleteNoPermission'), err)
       throw err
     }
     setLogs((prev) => {
@@ -722,7 +722,7 @@ export default function TodayWorkoutPage() {
     if (error) throw error
     if (!deleted?.length) {
       const err = new Error('Registro no eliminado (sin permiso)')
-      showSaveError(err)
+      showSaveError(t('errors.deleteNoPermission'), err)
       throw err
     }
     setBlockLogs((prev) => {

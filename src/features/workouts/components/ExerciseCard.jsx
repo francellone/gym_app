@@ -18,6 +18,7 @@ import {
   displayReps,
   WEIGHT_MODES,
   REPS_UNITS,
+  PSE_OPTION_KEY,
   getEffectiveWeightMode,
   getEffectiveUnilateral,
   readLogReps,
@@ -712,7 +713,11 @@ export default function ExerciseCard({
             {planEx.suggested_pse && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">{t('workout.suggestedPse')}</span>
-                <span className="badge bg-orange-100 text-orange-700">{planEx.suggested_pse}</span>
+                <span className="badge bg-orange-100 text-orange-700">
+                  {PSE_OPTION_KEY[planEx.suggested_pse]
+                    ? t(`workout.suggestedPseValue.${PSE_OPTION_KEY[planEx.suggested_pse]}`)
+                    : planEx.suggested_pse}
+                </span>
               </div>
             )}
 
@@ -784,7 +789,7 @@ export default function ExerciseCard({
                       >
                         {WEIGHT_MODES.map((m) => (
                           <option key={m.key} value={m.key}>
-                            {m.label}
+                            {t(`workout.weightMode.${m.key}`, { defaultValue: m.label })}
                           </option>
                         ))}
                       </select>
@@ -803,7 +808,7 @@ export default function ExerciseCard({
                         <option value="">{t('workout.repsDefault')}</option>
                         {REPS_UNITS.filter((u) => u.key !== 'reps').map((u) => (
                           <option key={u.key} value={u.key}>
-                            {u.label}
+                            {t(`workout.repsUnitOption.${u.key}`, { defaultValue: u.label })}
                           </option>
                         ))}
                       </select>
@@ -847,8 +852,11 @@ export default function ExerciseCard({
                       {logData.unilateral
                         ? t('workout.repsPerSideHeader')
                         : logData.reps_unit && logData.reps_unit !== 'reps'
-                          ? REPS_UNITS.find((u) => u.key === logData.reps_unit)?.short ||
-                            t('workout.repsHeader')
+                          ? t(`workout.repsUnitShort.${logData.reps_unit}`, {
+                              defaultValue:
+                                REPS_UNITS.find((u) => u.key === logData.reps_unit)?.short ||
+                                t('workout.repsHeader'),
+                            })
                           : t('workout.repsHeader')}
                       {suggestedRepsRaw && (
                         <span className="block font-normal normal-case text-primary-400">
@@ -980,7 +988,9 @@ export default function ExerciseCard({
                   const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
                   const repsLabel = log?.unilateral ? ` ${t('workout.perSide')}` : ''
                   const unitLabel =
-                    log?.reps_unit && log.reps_unit !== 'reps' ? ` ${log.reps_unit}` : ''
+                    log?.reps_unit && log.reps_unit !== 'reps'
+                      ? ` ${t(`workout.repsUnitShort.${log.reps_unit}`, { defaultValue: log.reps_unit })}`
+                      : ''
                   return (
                     <p className="text-xs text-green-600">
                       {[

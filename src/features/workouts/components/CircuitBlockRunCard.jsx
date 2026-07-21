@@ -253,7 +253,8 @@ export default function CircuitBlockRunCard({
                 block.circuit_rounds && t('workout.rounds', { count: block.circuit_rounds }),
                 block.circuit_total_minutes &&
                   t('workout.minutesShort', { value: block.circuit_total_minutes }),
-                intensity?.label,
+                intensity &&
+                  t(`workout.intensity.${intensity.key}`, { defaultValue: intensity.label }),
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -291,7 +292,11 @@ export default function CircuitBlockRunCard({
             <div className="bg-orange-50 rounded-xl p-3 space-y-2">
               <div className="flex items-center gap-2 text-orange-700 text-sm font-semibold">
                 <Flame size={14} />
-                {circuitType?.label || t('workout.circuit')}
+                {circuitType
+                  ? t(`workout.circuitTypes.${circuitType.key}`, {
+                      defaultValue: circuitType.label,
+                    })
+                  : t('workout.circuit')}
               </div>
               {block.circuit_type === 'hiit' && (
                 <div className="text-xs text-orange-700">
@@ -362,18 +367,17 @@ export default function CircuitBlockRunCard({
                           />
                         </div>
 
-                        {ex.exercise?.video_url &&
-                          ex.exercise.video_url.startsWith('http') && (
-                            <a
-                              href={ex.exercise.video_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                            >
-                              <PlayCircle size={18} />
-                            </a>
-                          )}
+                        {ex.exercise?.video_url && ex.exercise.video_url.startsWith('http') && (
+                          <a
+                            href={ex.exercise.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
+                          >
+                            <PlayCircle size={18} />
+                          </a>
+                        )}
                       </div>
 
                       {/* Detalle editable */}
