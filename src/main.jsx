@@ -19,6 +19,15 @@ if ('serviceWorker' in navigator) {
       window.location.href = event.data.url
     }
   })
+
+  // Cuando un SW nuevo toma control (deploy nuevo), recargar UNA vez para
+  // aplicar la última versión sin quedar pegado en JS viejo. Guard anti-loop.
+  let swRefreshing = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRefreshing) return
+    swRefreshing = true
+    window.location.reload()
+  })
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
