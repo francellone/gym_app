@@ -5,7 +5,16 @@ import { supabase } from '@/lib/supabase'
 import { format, subDays, eachDayOfInterval, isToday } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
-import { Dumbbell, TrendingUp, Calendar, ChevronRight, Flame, BarChart2 } from 'lucide-react'
+import {
+  Dumbbell,
+  TrendingUp,
+  Calendar,
+  ChevronRight,
+  ChevronDown,
+  Flame,
+  BarChart2,
+  Info,
+} from 'lucide-react'
 import { evalTypeIcon, evalTypeLabel } from '@/features/evaluations/helpers'
 import {
   filterTrainingLogs,
@@ -28,6 +37,8 @@ export default function StudentDashboard() {
   // Se carga aparte porque necesita la ventana completa del plan,
   // no la semana del heatmap.
   const [dayTallies, setDayTallies] = useState({})
+  // Descripción del plan activo (texto libre del coach) — colapsable.
+  const [showPlanDesc, setShowPlanDesc] = useState(false)
 
   useEffect(() => {
     if (profile?.id) fetchData()
@@ -281,6 +292,32 @@ export default function StudentDashboard() {
             <ChevronRight className="text-white/70" size={20} />
           </div>
         </Link>
+
+        {/* Descripción del plan activo — colapsable. Va fuera de la card-link
+            de arriba (que navega al tocarla) para que el toggle no dispare la
+            navegación. Solo si el coach cargó texto. */}
+        {activePlan?.plan?.description?.trim() && (
+          <div className="card">
+            <button
+              type="button"
+              onClick={() => setShowPlanDesc((v) => !v)}
+              aria-expanded={showPlanDesc}
+              className="flex items-center gap-1.5 w-full text-left text-sm font-medium text-gray-700"
+            >
+              <Info size={15} className="flex-shrink-0 text-primary-500" />
+              <span className="flex-1">{t('dashboard.planDescriptionToggle')}</span>
+              <ChevronDown
+                size={16}
+                className={`flex-shrink-0 text-gray-400 transition-transform ${showPlanDesc ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showPlanDesc && (
+              <p className="text-sm text-gray-600 mt-2 leading-relaxed whitespace-pre-line">
+                {activePlan.plan.description}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Evaluation plans */}
         {evalPlans.length > 0 && (

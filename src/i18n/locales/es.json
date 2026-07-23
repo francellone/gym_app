@@ -135,6 +135,7 @@
     "dayTalliesTitle": "Cuántas veces hiciste cada día",
     "todayWorkout": "Entrenamiento de hoy",
     "seeYourRoutine": "Ver tu rutina",
+    "planDescriptionToggle": "Descripción del plan",
     "myEvaluations": "Mis evaluaciones",
     "seeCharts": "Ver gráficos",
     "allLogs": "Todos los logs"
@@ -176,6 +177,7 @@
     "edit": "Editar",
     "unitsProgress": "{{completed}} / {{total}} unidades",
     "editingPast": "Editando pasado",
+    "planDescriptionToggle": "Descripción del plan",
     "coachModeBanner": "Registrando por {{name}} — los datos quedan en su cuenta, marcados como cargados por vos",
     "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Recordá:",

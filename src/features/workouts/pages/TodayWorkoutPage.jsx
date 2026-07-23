@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
-import { Dumbbell, Calendar, AlertTriangle, Clock, UserCog } from 'lucide-react'
+import { Dumbbell, Calendar, AlertTriangle, Clock, UserCog, Info, ChevronDown } from 'lucide-react'
 import {
   DAY_SECTION_IDS,
   SECTION_LABELS,
@@ -103,6 +103,9 @@ export default function TodayWorkoutPage() {
     t(`workout.sections.${id}`, { defaultValue: SECTION_LABELS[id] || '' })
   const [loading, setLoading] = useState(true)
   const [assignment, setAssignment] = useState(null)
+  // Descripción del plan (texto libre que carga el coach) — colapsable en el
+  // header. Arranca cerrada para no empujar los ejercicios cada día.
+  const [showPlanDesc, setShowPlanDesc] = useState(false)
   const [planExercises, setPlanExercises] = useState([])
   const [planBlocks, setPlanBlocks] = useState([])
   const [logs, setLogs] = useState({})
@@ -1027,6 +1030,32 @@ export default function TodayWorkoutPage() {
             {format(parseISO(selectedDate), t('dates.fullDate'), { locale: dateLocale() })}
           </p>
           <h1 className="text-xl font-bold text-white mt-1">{assignment.plan?.title}</h1>
+
+          {/* Descripción del plan — colapsable. Solo se muestra si el coach
+              cargó texto. Es texto libre: se renderiza tal cual (no se
+              traduce), respetando saltos de línea con whitespace-pre-line. */}
+          {assignment.plan?.description?.trim() && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowPlanDesc((v) => !v)}
+                aria-expanded={showPlanDesc}
+                className="flex items-center gap-1 text-primary-200 text-xs font-medium hover:text-white transition-colors"
+              >
+                <Info size={12} className="flex-shrink-0" />
+                {t('workout.planDescriptionToggle')}
+                <ChevronDown
+                  size={12}
+                  className={`flex-shrink-0 transition-transform ${showPlanDesc ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {showPlanDesc && (
+                <p className="text-primary-100 text-xs mt-1.5 leading-relaxed whitespace-pre-line">
+                  {assignment.plan.description}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Timestamps */}
           {session?.started_at && (

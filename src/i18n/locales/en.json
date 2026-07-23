@@ -135,6 +135,7 @@
     "dayTalliesTitle": "How many times you did each day",
     "todayWorkout": "Today's workout",
     "seeYourRoutine": "See your routine",
+    "planDescriptionToggle": "Plan description",
     "myEvaluations": "My assessments",
     "seeCharts": "See charts",
     "allLogs": "All logs"
@@ -176,6 +177,7 @@
     "edit": "Edit",
     "unitsProgress": "{{completed}} / {{total}} units",
     "editingPast": "Editing past date",
+    "planDescriptionToggle": "Plan description",
     "coachModeBanner": "Logging for {{name}} — data is saved to their account, marked as entered by you",
     "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Remember:",
