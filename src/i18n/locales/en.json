@@ -390,6 +390,8 @@
     "averageScore": "average {{value}}/10",
     "wellbeingPromptToday": "Take 30 seconds to tell us how you're feeling today",
     "wellbeingPromptPast": "Log how you felt that day (optional)",
+    "wellbeingCoachPrompt": "Log this student's wellbeing for the day",
+    "wellbeingLockedByStudent": "Logged by the student — can't be edited",
     "understood": "Got it",
     "closeNotice": "Dismiss notice",
     "checkThisData": "Double-check this value",

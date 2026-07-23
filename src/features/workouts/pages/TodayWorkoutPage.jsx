@@ -964,11 +964,13 @@ export default function TodayWorkoutPage() {
 
   return (
     <>
-      {/* Modal Wellbeing — aparece al abrir el entrenamiento si no se llenó hoy.
-          En modo coach no se renderiza: el wellbeing lo carga el alumno. */}
-      {showWellbeing && !coachMode && (
+      {/* Modal Wellbeing — se abre al tocar la WellbeingCard. v34: también en
+          modo coach, con userId={studentId} (dueño del dato). La autoría real
+          y la regla "el coach no pisa el wellbeing del alumno" las garantiza
+          la RPC save_wellbeing_log (deriva source/logged_by de auth.uid()). */}
+      {showWellbeing && (
         <WellbeingModal
-          userId={profile.id}
+          userId={studentId}
           date={selectedDate}
           onSave={(data) => {
             setWellbeing(data)
@@ -1155,15 +1157,16 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Wellbeing diario — siempre visible como módulo (solo alumno:
-              es su dato subjetivo, el coach lo ve en su tab Wellbeing) */}
-          {!coachMode && (
-            <WellbeingCard
-              wellbeing={wellbeing}
-              isToday={isToday}
-              onOpen={() => setShowWellbeing(true)}
-            />
-          )}
+          {/* Wellbeing diario — siempre visible como módulo. v34: también en
+              modo coach. La card es de solo lectura si el registro lo cargó el
+              alumno (dato subjetivo); editable si no existe o lo cargó el coach.
+              La RPC save_wellbeing_log es el backstop real de esa regla. */}
+          <WellbeingCard
+            wellbeing={wellbeing}
+            isToday={isToday}
+            coachMode={coachMode}
+            onOpen={() => setShowWellbeing(true)}
+          />
 
           {/* Actividades extra del día (fútbol, yoga, etc.) — visible
               también en días de descanso, no depende de la sesión.

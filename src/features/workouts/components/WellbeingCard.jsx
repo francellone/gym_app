@@ -9,9 +9,19 @@ import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/componen
 // tiene wellbeing_log, muestra los emojis con sus valores y un
 // promedio "ponderado" (positivos cuentan tal cual, negativos
 // invertidos `11 - v`). Si no, muestra estado pendiente.
-export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
+//
+// v34 — modo coach: la card también se muestra cuando el coach registra
+// por el alumno. El wellbeing es dato subjetivo del alumno, así que:
+//   - si el registro lo cargó el alumno (source='student'), la card es
+//     de solo lectura para el coach (no puede pisarlo).
+//   - si no existe o lo cargó el propio coach (source='coach'), es
+//     editable y muestra el badge "Coach".
+export default function WellbeingCard({ wellbeing, onOpen, isToday, coachMode = false }) {
   const { t } = useTranslation()
   const completed = !!wellbeing
+  const loggedByCoach = wellbeing?.source === 'coach'
+  // En modo coach, un wellbeing cargado por el alumno no es editable.
+  const lockedForCoach = coachMode && completed && wellbeing.source === 'student'
 
   // Promedio "ponderado": los positivos cuentan tal cual; los negativos invertidos
   // (10 - val) para que un único score 1–10 represente "mejor estado" cuando es alto.
@@ -29,13 +39,21 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
     }
   }
 
+  // Elemento contenedor: botón clickeable salvo que esté bloqueado para el
+  // coach (dato del alumno), en cuyo caso es un div de solo lectura.
+  const Wrapper = lockedForCoach ? 'div' : 'button'
+  const wrapperProps = lockedForCoach
+    ? {}
+    : { type: 'button', onClick: onOpen }
+
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-[0.99] ${
+    <Wrapper
+      {...wrapperProps}
+      className={`w-full rounded-2xl border-2 p-4 text-left transition-all ${
+        lockedForCoach ? '' : 'active:scale-[0.99]'
+      } ${
         completed
-          ? 'border-amber-200 bg-amber-50/60 hover:bg-amber-50'
+          ? `border-amber-200 bg-amber-50/60 ${lockedForCoach ? '' : 'hover:bg-amber-50'}`
           : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
       }`}
     >
@@ -58,6 +76,12 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
             ) : (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 font-bold">
                 {t('workout.pending')}
+              </span>
+            )}
+            {/* v34 — auditoría visible: registro cargado por el coach */}
+            {loggedByCoach && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold">
+                {t('workout.loggedByCoach')}
               </span>
             )}
           </div>
@@ -85,13 +109,26 @@ export default function WellbeingCard({ wellbeing, onOpen, isToday }) {
             </div>
           ) : (
             <p className="text-xs text-amber-700/90 mt-0.5">
-              {isToday ? t('workout.wellbeingPromptToday') : t('workout.wellbeingPromptPast')}
+              {coachMode
+                ? t('workout.wellbeingCoachPrompt')
+                : isToday
+                  ? t('workout.wellbeingPromptToday')
+                  : t('workout.wellbeingPromptPast')}
+            </p>
+          )}
+
+          {/* En modo coach, aclarar que el dato lo cargó el alumno y no se pisa. */}
+          {lockedForCoach && (
+            <p className="text-[11px] text-gray-500 mt-1.5">
+              {t('workout.wellbeingLockedByStudent')}
             </p>
           )}
         </div>
 
-        <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
+        {!lockedForCoach && (
+          <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
+        )}
       </div>
-    </button>
+    </Wrapper>
   )
 }

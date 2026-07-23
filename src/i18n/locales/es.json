@@ -390,6 +390,8 @@
     "averageScore": "promedio {{value}}/10",
     "wellbeingPromptToday": "Tomate 30 segundos para contar cómo llegás hoy",
     "wellbeingPromptPast": "Registrá cómo te sentías ese día (opcional)",
+    "wellbeingCoachPrompt": "Cargá el bienestar del alumno para este día",
+    "wellbeingLockedByStudent": "Lo cargó el alumno — no se puede modificar",
     "understood": "Entendido",
     "closeNotice": "Cerrar aviso",
     "checkThisData": "Verificá este dato",

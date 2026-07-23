@@ -135,20 +135,25 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
     setSaving(true)
     setError(null)
     try {
-      const payload = {
-        user_id: userId,
-        date,
-        ...values,
-        notes: notes.trim() || null,
-        updated_at: new Date().toISOString(),
-      }
-      const { data, error: err } = await supabase
-        .from('wellbeing_logs')
-        .upsert(payload, { onConflict: 'user_id,date' })
-        .select()
-        .single()
+      // v34 — guardado vía RPC SECURITY DEFINER (espejo de save_workout_log):
+      // autoriza al alumno o a su coach asignado y deriva logged_by/source de
+      // auth.uid() (no falsificable). Reemplaza el upsert directo para permitir
+      // que el coach cargue el wellbeing del alumno con auditoría.
+      const { data, error: err } = await supabase.rpc('save_wellbeing_log', {
+        p_user_id: userId,
+        p_date: date,
+        p_sleep_quality: values.sleep_quality ?? null,
+        p_nutrition_quality: values.nutrition_quality ?? null,
+        p_hydration_quality: values.hydration_quality ?? null,
+        p_energy_level: values.energy_level ?? null,
+        p_stress_level: values.stress_level ?? null,
+        p_muscle_fatigue: values.muscle_fatigue ?? null,
+        p_notes: notes.trim() || null,
+      })
       if (err) throw err
-      onSave(data)
+      // La RPC devuelve la fila (RETURNS wellbeing_logs). PostgREST puede
+      // entregarla como objeto o como array de un elemento según el driver.
+      onSave(Array.isArray(data) ? data[0] : data)
     } catch (e) {
       console.error('[WellbeingModal]', e)
       setError(t('wellbeing.saveError'))
