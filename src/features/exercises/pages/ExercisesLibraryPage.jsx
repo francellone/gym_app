@@ -493,9 +493,51 @@ export default function ExercisesLibraryPage() {
     setLoading(false)
   }
 
-  async function deleteExercise(id) {
-    if (!confirm('¿Eliminar este ejercicio?')) return
-    await supabase.from('exercises').delete().eq('id', id)
+  async function deleteExercise(ex) {
+    const id = ex.id
+
+    // Avisar si el ejercicio está usado en planes: el FK es ON DELETE CASCADE,
+    // así que borrarlo lo quita de esos planes (de las alumnas) sin más aviso.
+    let planCount = 0
+    try {
+      const { count } = await supabase
+        .from('plan_exercises')
+        .select('id', { count: 'exact', head: true })
+        .eq('exercise_id', id)
+      planCount = count || 0
+    } catch {
+      planCount = 0
+    }
+
+    const msg =
+      planCount > 0
+        ? `"${ex.name}" está usado en ${planCount} ${
+            planCount === 1 ? 'plan' : 'planes'
+          }. Si lo eliminás, se quita de ${
+            planCount === 1 ? 'ese plan' : 'esos planes'
+          }. ¿Continuar?`
+        : `¿Eliminar "${ex.name}"?`
+    if (!confirm(msg)) return
+
+    // Chequear el resultado: si RLS lo bloquea, el DELETE afecta 0 filas SIN error.
+    // Sin este chequeo el ejercicio "desaparecía" de la lista y reaparecía al recargar.
+    const { data, error } = await supabase
+      .from('exercises')
+      .delete()
+      .eq('id', id)
+      .select('id')
+
+    if (error) {
+      alert(`No se pudo eliminar el ejercicio: ${error.message}`)
+      return
+    }
+    if (!data || data.length === 0) {
+      alert(
+        'No se pudo eliminar el ejercicio: no tenés permisos sobre él ' +
+          '(fue creado por otra cuenta). Recargá la página.'
+      )
+      return
+    }
     setExercises((prev) => prev.filter((e) => e.id !== id))
   }
 
@@ -704,7 +746,7 @@ export default function ExercisesLibraryPage() {
                   >
                     <Edit2 size={15} className="text-gray-500" />
                   </button>
-                  <button onClick={() => deleteExercise(ex.id)} className="btn-ghost p-2">
+                  <button onClick={() => deleteExercise(ex)} className="btn-ghost p-2">
                     <Trash2 size={15} className="text-red-400" />
                   </button>
                 </div>
