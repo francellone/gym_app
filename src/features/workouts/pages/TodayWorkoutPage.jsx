@@ -21,6 +21,7 @@ import {
 } from '@/features/notes/api'
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
+import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
 import BlockRenderer from '../components/BlockRenderer'
 import {
   fetchPrescriptionHistory,
@@ -388,12 +389,16 @@ export default function TodayWorkoutPage() {
           exSection[ex.id] = ex.section
         }
         const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const suggested = suggestNextDay(
-          activeDaysLocal,
-          recentLogsRes.data || [],
-          exSection,
-          todayStr
-        )
+        // Opción B: restaurar el día que el alumno tenía abierto (mismo día,
+        // reciente); si no aplica, sugerir el "siguiente día lógico".
+        const restoredDay = resolveActiveDay({
+          studentId,
+          loggedDate: selectedDate,
+          availableDays: activeDaysLocal,
+        })
+        const suggested =
+          restoredDay ||
+          suggestNextDay(activeDaysLocal, recentLogsRes.data || [], exSection, todayStr)
         if (suggested) {
           setActiveDay(suggested)
           dayInitializedRef.current = true
@@ -816,6 +821,14 @@ export default function TodayWorkoutPage() {
       setActiveDay(activeDays[0])
     }
   }, [activeDays, activeDay])
+
+  // Opción B: persistir el día activo (por alumno + fecha) para restaurarlo
+  // tras la recarga en frío de iOS. Solo después de la init (dayInitializedRef),
+  // para no pisar con null antes de que fetchWorkout resuelva el día.
+  useEffect(() => {
+    if (!studentId || !activeDay || !dayInitializedRef.current) return
+    saveActiveDay({ studentId, dayId: activeDay, loggedDate: selectedDate })
+  }, [studentId, activeDay, selectedDate])
 
   // Índice de strength por sección (para numeración "Fuerza 2")
   function strengthIndexMap(sectionId) {
