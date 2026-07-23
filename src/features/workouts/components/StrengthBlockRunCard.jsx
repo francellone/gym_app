@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
@@ -29,7 +30,15 @@ export default function StrengthBlockRunCard({
   prescriptionByEx = {},
 }) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(() =>
+    readExpanded({ blockId: block.id, loggedDate })
+  )
+
+  // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
+  // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
+  useEffect(() => {
+    writeExpanded({ blockId: block.id, loggedDate, expanded })
+  }, [block.id, loggedDate, expanded])
 
   const exercises = (block.plan_exercises || [])
     .slice()

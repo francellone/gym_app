@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
@@ -46,9 +47,19 @@ export default function AerobicBlockRunCard({
   lastCoachNoteByExercise,
   noteCountByExercise,
   onOpenChat,
+  // viewstate — persistir bloque desplegado por día
+  loggedDate = null,
 }) {
   const { t, i18n } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(() =>
+    readExpanded({ blockId: block.id, loggedDate })
+  )
+
+  // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
+  // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
+  useEffect(() => {
+    writeExpanded({ blockId: block.id, loggedDate, expanded })
+  }, [block.id, loggedDate, expanded])
   const [showDescription, setShowDescription] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)

@@ -48,6 +48,7 @@ export default function BlockRenderer({
         lastCoachNoteByExercise={lastCoachNoteByExercise}
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
+        loggedDate={loggedDate}
       />
     )
   }
@@ -71,6 +72,7 @@ export default function BlockRenderer({
         lastCoachNoteByExercise={lastCoachNoteByExercise}
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
+        loggedDate={loggedDate}
       />
     )
   }

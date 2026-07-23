@@ -22,6 +22,7 @@ import {
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
+import { readScroll, writeScroll } from '../workoutViewState'
 import BlockRenderer from '../components/BlockRenderer'
 import {
   fetchPrescriptionHistory,
@@ -829,6 +830,36 @@ export default function TodayWorkoutPage() {
     if (!studentId || !activeDay || !dayInitializedRef.current) return
     saveActiveDay({ studentId, dayId: activeDay, loggedDate: selectedDate })
   }, [studentId, activeDay, selectedDate])
+
+  // Restaurar posición de scroll: guardamos dónde estás (throttle) y volvemos
+  // a ese punto una vez tras cargar, para retomar donde dejaste (mismo día).
+  const scrollRestoredRef = useRef(false)
+
+  useEffect(() => {
+    if (!studentId) return
+    let ticking = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      setTimeout(() => {
+        writeScroll({ studentId, loggedDate: selectedDate, y: window.scrollY })
+        ticking = false
+      }, 250)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [studentId, selectedDate])
+
+  useEffect(() => {
+    if (loading || scrollRestoredRef.current || !studentId) return
+    scrollRestoredRef.current = true
+    const y = readScroll({ studentId, loggedDate: selectedDate })
+    if (y == null) return
+    // Dos rAF: esperar a que el layout (bloques desplegados) se estabilice.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.scrollTo(0, y))
+    })
+  }, [loading, studentId, selectedDate])
 
   // Índice de strength por sección (para numeración "Fuerza 2")
   function strengthIndexMap(sectionId) {
