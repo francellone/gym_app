@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 // Pages
 import LoginPage from '@/features/auth/pages/LoginPage'
 
+// Recuerda/restaura la última pantalla al reabrir la app (opción A)
+import RouteMemory from '@/features/navigation/RouteMemory'
+
 // Coach pages
 import CoachLayout from './components/layout/CoachLayout'
 import CoachDashboard from '@/features/dashboard/pages/CoachDashboard'
@@ -174,6 +177,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <RouteMemory />
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
