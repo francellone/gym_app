@@ -649,6 +649,26 @@ export default function ExerciseCard({
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            {/* "i" de información: revela la descripción (QUÉ es) sin abrir el registro */}
+            {exText.description && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowDescription((v) => !v)
+                }}
+                title={t('workout.exerciseInfo')}
+                aria-label={t('workout.exerciseInfo')}
+                aria-expanded={showDescription}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  showDescription
+                    ? 'text-indigo-600 bg-indigo-50'
+                    : 'text-gray-400 hover:bg-gray-100'
+                }`}
+              >
+                <Info size={18} />
+              </button>
+            )}
             {planEx.exercise?.video_url && planEx.exercise.video_url.startsWith('http') && (
               <a
                 href={planEx.exercise.video_url}
@@ -667,6 +687,13 @@ export default function ExerciseCard({
             )}
           </div>
         </div>
+
+        {/* Descripción (QUÉ es): la revela la "i" del header, sin abrir el modo registro */}
+        {showDescription && exText.description && (
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-600 leading-relaxed">{exText.description}</p>
+          </div>
+        )}
 
         {/* Expanded content */}
         {expanded && (
@@ -689,24 +716,6 @@ export default function ExerciseCard({
                 <p className="text-xs text-blue-700 leading-relaxed">
                   {planEx.extra_notes || exText.technique_notes}
                 </p>
-              </div>
-            )}
-
-            {/* Descripción (QUÉ es): solo si el alumno la pide */}
-            {exText.description && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowDescription((v) => !v)}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
-                >
-                  {showDescription ? t('workout.hideDescription') : t('workout.showDescription')}
-                </button>
-                {showDescription && (
-                  <p className="text-xs text-gray-500 leading-relaxed mt-1.5">
-                    {exText.description}
-                  </p>
-                )}
               </div>
             )}
 

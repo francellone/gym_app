@@ -479,7 +479,8 @@
       "maxEffort": "Max effort (10)"
     },
     "showDescription": "More about this exercise",
-    "hideDescription": "Hide"
+    "hideDescription": "Hide",
+    "exerciseInfo": "What this exercise is"
   },
   "progress": {
     "title": "My progress",

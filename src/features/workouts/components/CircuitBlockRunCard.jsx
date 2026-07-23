@@ -22,6 +22,7 @@ import {
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
 /**
  * Card del bloque CIRCUITO para la vista del alumno.
@@ -57,8 +58,10 @@ export default function CircuitBlockRunCard({
   noteCountByExercise,
   onOpenChat,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  // Qué ejercicios tienen su descripción abierta (por id de plan_exercise)
+  const [openDesc, setOpenDesc] = useState({})
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -337,6 +340,7 @@ export default function CircuitBlockRunCard({
                     planExercise: ex,
                     exercise: ex.exercise,
                   })
+                  const exText = exerciseDisplay(ex.exercise, i18n.language)
                   const showWeight = exWeightMode !== 'bodyweight'
                   const repsLabel = exUnilateral
                     ? t('workout.repsPerSideHeader')
@@ -348,7 +352,7 @@ export default function CircuitBlockRunCard({
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {i + 1}. {ex.exercise?.name || '—'}
+                            {i + 1}. {exText.name || '—'}
                           </p>
                           <p className="text-[11px] text-gray-400">
                             {ex.exercise_mode === 'time'
@@ -367,18 +371,48 @@ export default function CircuitBlockRunCard({
                           />
                         </div>
 
-                        {ex.exercise?.video_url && ex.exercise.video_url.startsWith('http') && (
-                          <a
-                            href={ex.exercise.video_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                          >
-                            <PlayCircle size={18} />
-                          </a>
-                        )}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {exText.description && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOpenDesc((p) => ({ ...p, [ex.id]: !p[ex.id] }))
+                              }}
+                              title={t('workout.exerciseInfo')}
+                              aria-label={t('workout.exerciseInfo')}
+                              aria-expanded={!!openDesc[ex.id]}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                openDesc[ex.id]
+                                  ? 'text-indigo-600 bg-indigo-50'
+                                  : 'text-gray-400 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Info size={18} />
+                            </button>
+                          )}
+                          {ex.exercise?.video_url && ex.exercise.video_url.startsWith('http') && (
+                            <a
+                              href={ex.exercise.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"
+                            >
+                              <PlayCircle size={18} />
+                            </a>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Descripción (QUÉ es) del ejercicio del circuito */}
+                      {openDesc[ex.id] && exText.description && (
+                        <div className="mt-2 rounded-lg bg-gray-50 px-2.5 py-2">
+                          <p className="text-[11px] text-gray-600 leading-relaxed">
+                            {exText.description}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Detalle editable */}
                       {(!completed || editing) && (

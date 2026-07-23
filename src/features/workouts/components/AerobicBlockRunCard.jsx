@@ -20,6 +20,7 @@ import {
 } from '@/features/plans/helpers'
 import RPEScale from './RPEScale'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
 /**
  * Card del bloque AERÓBICO para la vista del alumno.
@@ -46,8 +47,9 @@ export default function AerobicBlockRunCard({
   noteCountByExercise,
   onOpenChat,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -71,7 +73,8 @@ export default function AerobicBlockRunCard({
 
   const title = blockDisplayTitle(block)
   const firstPlanEx = block.plan_exercises?.[0]
-  const exerciseName = firstPlanEx?.exercise?.name
+  const exText = firstPlanEx?.exercise ? exerciseDisplay(firstPlanEx.exercise, i18n.language) : null
+  const exerciseName = exText?.name
   const exerciseId = firstPlanEx?.exercise_id || null
 
   // Q1 — el preview "Última vez" usa el último block_log del bloque
@@ -204,6 +207,25 @@ export default function AerobicBlockRunCard({
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            {exText?.description && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowDescription((v) => !v)
+                }}
+                title={t('workout.exerciseInfo')}
+                aria-label={t('workout.exerciseInfo')}
+                aria-expanded={showDescription}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  showDescription
+                    ? 'text-indigo-600 bg-indigo-50'
+                    : 'text-gray-400 hover:bg-gray-100'
+                }`}
+              >
+                <Info size={18} />
+              </button>
+            )}
             {firstPlanEx?.exercise?.video_url &&
               firstPlanEx.exercise.video_url.startsWith('http') && (
                 <a
@@ -223,6 +245,13 @@ export default function AerobicBlockRunCard({
             )}
           </div>
         </div>
+
+        {/* Descripción (QUÉ es) del ejercicio aeróbico */}
+        {showDescription && exText?.description && (
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-600 leading-relaxed">{exText.description}</p>
+          </div>
+        )}
 
         {expanded && (
           <div className="border-t border-gray-100 p-4 space-y-3">
