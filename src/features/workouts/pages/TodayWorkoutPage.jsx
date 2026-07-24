@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -613,6 +613,25 @@ export default function TodayWorkoutPage() {
   // así que el front no necesita doblar nada.
   //
   // El `data` viene de buildSaveData() con todos los p_* listos.
+  // Refresca las notas tipo ejercicio del thread (badge 💬 + preview del card)
+  // para reflejar un comentario recién guardado SIN recargar. fetchWorkout solo
+  // setea exerciseNotes al montar; sin esto el globito y el preview quedaban
+  // desactualizados hasta un reload (reportado por Franco 2026-07-24).
+  const refetchExerciseNotes = useCallback(async () => {
+    if (!threadId) return
+    const { data: notesData, error } = await supabase
+      .from('notes')
+      .select(
+        'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
+      )
+      .eq('thread_id', threadId)
+      .not('exercise_id', 'is', null)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (!error) setExerciseNotes(notesData || [])
+  }, [threadId])
+
   async function saveLog(planExerciseId, data) {
     const existingLog = logs[planExerciseId]
 
@@ -675,6 +694,9 @@ export default function TodayWorkoutPage() {
         console.warn('[saveLog] no se pudo guardar la nota del log en el panel:', noteErr)
       }
 
+      // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
+      await refetchExerciseNotes()
+
       const { data: fullLog } = await supabase
         .from('workout_logs')
         .select('*')
@@ -714,6 +736,8 @@ export default function TodayWorkoutPage() {
       delete next[planExerciseId]
       return next
     })
+    // Sincronizar badge 💬 + preview tras borrar (2026-07-24).
+    await refetchExerciseNotes()
   }
 
   async function saveBlockLog(planBlockId, data) {
@@ -793,6 +817,9 @@ export default function TodayWorkoutPage() {
       }
     }
 
+    // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
+    await refetchExerciseNotes()
+
     // Enriquecer el blockLog con el body para que el componente lo muestre sin reload
     const enrichedBlockLog = { ...result.data, notes: bodyForPanel || '' }
     setBlockLogs((prev) => ({ ...prev, [planBlockId]: enrichedBlockLog }))
@@ -818,6 +845,8 @@ export default function TodayWorkoutPage() {
       delete next[planBlockId]
       return next
     })
+    // Sincronizar badge 💬 + preview tras borrar (2026-07-24).
+    await refetchExerciseNotes()
   }
 
   // ====================================================
