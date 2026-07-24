@@ -161,10 +161,6 @@ export default function TodayWorkoutPage() {
   // Evita re-aplicar el "día sugerido" cada vez que cambia la fecha o se refetchea.
   // Si sembramos el día desde el snapshot, arranca en true para no pisarlo.
   const dayInitializedRef = useRef(Boolean(initialSnapshot?.activeDay))
-  // Pintado instantáneo: la PRIMERA revalidación tras un snapshot sembrado corre
-  // SIN spinner (silent). Cualquier fetch posterior (cambio de fecha, nav coach)
-  // muestra spinner normal.
-  const silentRevalidateRef = useRef(Boolean(initialSnapshot))
   // Timer para debounce de la escritura del snapshot de pintado instantáneo.
   const snapshotTimerRef = useRef(null)
   // Wellbeing
@@ -197,7 +193,11 @@ export default function TodayWorkoutPage() {
 
   useEffect(() => {
     if (studentId) fetchWorkout()
-  }, [profile, studentId, selectedDate])
+    // Depende de studentId (string estable), NO de profile (objeto): AuthContext
+    // recrea el objeto profile al revalidar la sesión y eso re-disparaba un
+    // fetch con spinner que pisaba el pintado instantáneo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, selectedDate])
 
   // Pintado instantáneo: mantener fresco el snapshot con lo que se está
   // mostrando (incluye lo que el alumno acaba de registrar), para que al reabrir
@@ -275,10 +275,11 @@ export default function TodayWorkoutPage() {
   // Se registra cuando el alumno guarda su primer ejercicio o bloque (saveLog / saveBlockLog).
 
   async function fetchWorkout() {
-    if (silentRevalidateRef.current) {
-      // Revalidación silenciosa sobre el pintado instantáneo: no mostrar spinner.
-      silentRevalidateRef.current = false
-    } else {
+    // Pintado instantáneo (SWR): si ya hay un snapshot para este alumno+fecha,
+    // revalidamos SIN spinner (los datos ya están en pantalla). Sólo mostramos
+    // spinner cuando no hay nada cacheado que mostrar. Robusto ante re-disparos
+    // del efecto (p.ej. AuthContext revalida y produce un objeto profile nuevo).
+    if (!readWorkoutSnapshot({ studentId, selectedDate })) {
       setLoading(true)
     }
     try {
