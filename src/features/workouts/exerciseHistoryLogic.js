@@ -161,6 +161,56 @@ export function pickLastCoachNotePerExercise(notes, options = {}) {
   return byExercise
 }
 
+// ============================================================
+// pickLastPreviewNotePerExercise
+// ------------------------------------------------------------
+// Devuelve Map<exercise_id, note> con la nota a mostrar en el
+// preview siempre-visible del card (body expandido).
+//
+// Regla (Franco 2026-07-24):
+//   - Si hay nota del COACH para el ejercicio -> la más reciente
+//     del coach (gana SIEMPRE, aunque el alumno haya comentado
+//     después). Motivo: lo del coach es lo que el alumno no
+//     conoce; lo suyo ya lo sabe.
+//   - Si NO hay nota del coach -> la más reciente del ALUMNO.
+//   - Solo notas shared (coach_private nunca del lado alumno).
+//
+// La nota devuelta conserva author_role para que el componente
+// decida título / ícono / color según quién la escribió.
+// ============================================================
+export function pickLastPreviewNotePerExercise(notes, options = {}) {
+  const { visibilityShared = true } = options
+  const coachByExercise = new Map()
+  const studentByExercise = new Map()
+
+  for (const n of notes || []) {
+    if (!n) continue
+    if (n.deleted_at) continue
+    if (visibilityShared && n.visibility !== 'shared') continue
+    if (!n.exercise_id) continue
+
+    const bucket =
+      n.author_role === 'coach'
+        ? coachByExercise
+        : n.author_role === 'student'
+          ? studentByExercise
+          : null
+    if (!bucket) continue
+
+    const prev = bucket.get(n.exercise_id)
+    if (!prev || compareNotesDesc(n, prev) < 0) {
+      bucket.set(n.exercise_id, n)
+    }
+  }
+
+  // Prioridad coach: si hay coach, gana; si no, cae al alumno.
+  const out = new Map(coachByExercise)
+  for (const [exerciseId, note] of studentByExercise) {
+    if (!out.has(exerciseId)) out.set(exerciseId, note)
+  }
+  return out
+}
+
 // Comparador descendente por (created_at DESC, id DESC).
 function compareNotesDesc(a, b) {
   if (a.created_at && b.created_at) {

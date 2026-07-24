@@ -374,6 +374,7 @@
     "seeExerciseChatAria_one": "See exercise chat ({{count}} message)",
     "seeExerciseChatAria_other": "See exercise chat ({{count}} messages)",
     "lastCoachNote": "Last note from your coach",
+    "yourLastComment": "Your last comment",
     "noCoachNotes_one": "No notes from your coach. The chat has {{count}} message.",
     "noCoachNotes_other": "No notes from your coach. The chat has {{count}} messages.",
     "seeFullChat": "See full chat",

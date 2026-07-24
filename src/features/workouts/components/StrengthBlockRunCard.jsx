@@ -20,7 +20,7 @@ export default function StrengthBlockRunCard({
   deleteLog,
   // Q1 — preview "Última vez" + chat del ejercicio
   lastLogByExercise,
-  lastCoachNoteByExercise,
+  previewNoteByExercise,
   noteCountByExercise,
   onOpenChat,
   // F4 — passthrough para draft local en ExerciseCard
@@ -84,7 +84,7 @@ export default function StrengthBlockRunCard({
         restScope={restScope}
         // Q1 — preview "Última vez" + chat del ejercicio
         lastLog={lastLogByExercise?.get?.(ex.exercise_id) || null}
-        lastCoachNote={lastCoachNoteByExercise?.get?.(ex.exercise_id) || null}
+        previewNote={previewNoteByExercise?.get?.(ex.exercise_id) || null}
         noteCount={noteCountByExercise?.get?.(ex.exercise_id) || 0}
         onOpenChat={onOpenChat}
         // F4 — draft local

@@ -20,7 +20,7 @@
 // ============================================================
 
 import { useTranslation } from 'react-i18next'
-import { History, MessageCircle, ChevronRight } from 'lucide-react'
+import { History, MessageCircle, ChevronRight, User } from 'lucide-react'
 import { formatLastLogSummary, formatLastBlockLogSummary, formatRelativeDate } from '../exerciseHistoryLogic'
 
 // ============================================================
@@ -97,34 +97,56 @@ export function ExerciseHistoryHeaderLine({
 // BodyBlock — bloque para el body expandido del card
 // ============================================================
 // Props:
-//   lastCoachNote  note | null — última nota del coach (context_type='exercise')
+//   previewNote    note | null — nota a mostrar (coach si existe; si no, alumno)
 //   noteCount      number — para mostrar el contador
 //   onOpenChat     () => void — abre el drawer
 // ============================================================
 export function ExerciseHistoryBodyBlock({
-  lastCoachNote = null,
+  previewNote = null,
   noteCount = 0,
   onOpenChat,
 }) {
   const { t } = useTranslation()
-  const hasNote = !!lastCoachNote
+  const hasNote = !!previewNote
   const hasChat = noteCount > 0
   if (!hasNote && !hasChat) return null
 
+  // Regla (Franco 2026-07-24): mostramos la nota del coach si existe
+  // (gana siempre); si no, el último comentario del alumno. El
+  // título / ícono / color cambian según quién la escribió.
+  const isCoach = previewNote?.author_role === 'coach'
+  const theme = isCoach
+    ? {
+        box: 'bg-primary-50 border-primary-200',
+        title: 'text-primary-700',
+        date: 'text-primary-500/80',
+        link: 'text-primary-700 hover:text-primary-800',
+        linkMuted: 'text-primary-500/80',
+      }
+    : {
+        box: 'bg-green-50 border-green-200',
+        title: 'text-green-700',
+        date: 'text-green-600/80',
+        link: 'text-green-700 hover:text-green-800',
+        linkMuted: 'text-green-600/80',
+      }
+  const TitleIcon = isCoach ? MessageCircle : User
+  const titleText = isCoach ? t('workout.lastCoachNote') : t('workout.yourLastComment')
+
   return (
-    <div className="bg-primary-50 border border-primary-200 rounded-xl p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-primary-700">
-        <MessageCircle size={13} />
-        <span>{t('workout.lastCoachNote')}</span>
-        {hasNote && lastCoachNote.created_at && (
-          <span className="text-primary-500/80 font-normal">
-            · {formatRelativeDate(lastCoachNote.created_at.slice(0, 10))}
+    <div className={`${theme.box} border rounded-xl p-3 space-y-2`}>
+      <div className={`flex items-center gap-1.5 text-[11px] font-semibold ${theme.title}`}>
+        <TitleIcon size={13} />
+        <span>{titleText}</span>
+        {hasNote && previewNote.created_at && (
+          <span className={`${theme.date} font-normal`}>
+            · {formatRelativeDate(previewNote.created_at.slice(0, 10))}
           </span>
         )}
       </div>
       {hasNote ? (
         <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">
-          {lastCoachNote.body}
+          {previewNote.body}
         </p>
       ) : (
         <p className="text-sm text-gray-400 italic">
@@ -138,11 +160,11 @@ export function ExerciseHistoryBodyBlock({
             e.stopPropagation()
             onOpenChat?.()
           }}
-          className="text-xs text-primary-700 hover:text-primary-800 font-semibold flex items-center gap-1"
+          className={`text-xs ${theme.link} font-semibold flex items-center gap-1`}
         >
           {t('workout.seeFullChat')}
           <ChevronRight size={13} />
-          <span className="text-primary-500/80 font-normal">
+          <span className={`${theme.linkMuted} font-normal`}>
             {t('workout.messagesCount', { count: noteCount })}
           </span>
         </button>

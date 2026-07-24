@@ -29,7 +29,7 @@ import { exerciseDisplay } from '@/features/exercises/exercise-display'
  *
  * Props Q1:
  *   lastBlockLog            workout_block_log | null
- *   lastCoachNoteByExercise Map<exercise_id, note>
+ *   previewNoteByExercise Map<exercise_id, note>
  *   noteCountByExercise     Map<exercise_id, number>
  *   onOpenChat              (exerciseId, exerciseName) => void
  *
@@ -44,7 +44,7 @@ export default function AerobicBlockRunCard({
   onDeleteLog,
   // Q1
   lastBlockLog = null,
-  lastCoachNoteByExercise,
+  previewNoteByExercise,
   noteCountByExercise,
   onOpenChat,
   // viewstate — persistir bloque desplegado por día
@@ -92,7 +92,7 @@ export default function AerobicBlockRunCard({
   // (los datos de cardio viven a nivel block, no por exercise). El chat,
   // en cambio, usa exercise_id del primer plan_exercise.
   const noteCount = exerciseId ? noteCountByExercise?.get?.(exerciseId) || 0 : 0
-  const lastCoachNote = exerciseId ? lastCoachNoteByExercise?.get?.(exerciseId) || null : null
+  const previewNote = exerciseId ? previewNoteByExercise?.get?.(exerciseId) || null : null
   const handleOpenChat = () => {
     if (!exerciseId) return
     onOpenChat?.(exerciseId, exerciseName)
@@ -269,7 +269,7 @@ export default function AerobicBlockRunCard({
             {/* Q1 — última nota del coach + ver chat completo del ejercicio */}
             {exerciseId && (
               <ExerciseHistoryBodyBlock
-                lastCoachNote={lastCoachNote}
+                previewNote={previewNote}
                 noteCount={noteCount}
                 onOpenChat={handleOpenChat}
               />

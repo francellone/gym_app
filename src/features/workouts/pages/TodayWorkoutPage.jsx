@@ -41,7 +41,7 @@ import { computeDayTallies, formatTallyForDisplay } from '@/features/students/da
 import {
   pickLastLogPerExercise,
   pickLastBlockLogPerBlock,
-  pickLastCoachNotePerExercise,
+  pickLastPreviewNotePerExercise,
   countNotesByExercise,
   groupNotesByExercise,
 } from '../exerciseHistoryLogic'
@@ -876,8 +876,8 @@ export default function TodayWorkoutPage() {
       }),
     [recentBlockLogs, selectedDate]
   )
-  const lastCoachNoteByExercise = useMemo(
-    () => pickLastCoachNotePerExercise(exerciseNotes),
+  const previewNoteByExercise = useMemo(
+    () => pickLastPreviewNotePerExercise(exerciseNotes),
     [exerciseNotes]
   )
   const noteCountByExercise = useMemo(() => countNotesByExercise(exerciseNotes), [exerciseNotes])
@@ -1369,7 +1369,7 @@ export default function TodayWorkoutPage() {
                     deleteBlockLog={deleteBlockLog}
                     lastLogByExercise={lastLogByExercise}
                     lastBlockLogByBlock={lastBlockLogByBlock}
-                    lastCoachNoteByExercise={lastCoachNoteByExercise}
+                    previewNoteByExercise={previewNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
                     studentId={studentId || null}
@@ -1401,7 +1401,7 @@ export default function TodayWorkoutPage() {
                     deleteBlockLog={deleteBlockLog}
                     lastLogByExercise={lastLogByExercise}
                     lastBlockLogByBlock={lastBlockLogByBlock}
-                    lastCoachNoteByExercise={lastCoachNoteByExercise}
+                    previewNoteByExercise={previewNoteByExercise}
                     noteCountByExercise={noteCountByExercise}
                     onOpenChat={openChatDrawer}
                     studentId={studentId || null}

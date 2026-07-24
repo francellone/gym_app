@@ -10,6 +10,7 @@ import {
   pickLastLogPerExercise,
   pickLastBlockLogPerBlock,
   pickLastCoachNotePerExercise,
+  pickLastPreviewNotePerExercise,
   countNotesByExercise,
   groupNotesByExercise,
   formatLastLogSummary,
@@ -449,5 +450,57 @@ describe('formatRelativeDate', () => {
   it('vacío / null devuelve string vacío', () => {
     expect(formatRelativeDate('', today)).toBe('')
     expect(formatRelativeDate(null, today)).toBe('')
+  })
+})
+
+describe('pickLastPreviewNotePerExercise', () => {
+  const base = { context_type: 'exercise', visibility: 'shared' }
+
+  it('prioriza la nota del coach aunque el alumno haya comentado después', () => {
+    const notes = [
+      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'coach vieja' },
+      { ...base, id: 'c2', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-21T10:00:00Z', body: 'coach nueva' },
+      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-23T10:00:00Z', body: 'alumno más nueva' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes)
+    expect(map.get('ex-press').id).toBe('c2')
+    expect(map.get('ex-press').author_role).toBe('coach')
+  })
+
+  it('cae al último comentario del alumno cuando no hay nota del coach', () => {
+    const notes = [
+      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-row', created_at: '2026-07-20T10:00:00Z', body: 'alumno vieja' },
+      { ...base, id: 's2', author_role: 'student', exercise_id: 'ex-row', created_at: '2026-07-22T10:00:00Z', body: 'alumno nueva' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes)
+    expect(map.get('ex-row').id).toBe('s2')
+    expect(map.get('ex-row').author_role).toBe('student')
+  })
+
+  it('mezcla por ejercicio: coach en uno, alumno en otro', () => {
+    const notes = [
+      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'coach press' },
+      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-squat', created_at: '2026-07-20T10:00:00Z', body: 'alumno squat' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes)
+    expect(map.get('ex-press').author_role).toBe('coach')
+    expect(map.get('ex-squat').author_role).toBe('student')
+  })
+
+  it('ignora coach_private, borradas y notas sin exercise_id (cae al alumno)', () => {
+    const notes = [
+      { ...base, id: 'p1', author_role: 'coach', exercise_id: 'ex-press', visibility: 'coach_private', created_at: '2026-07-25T10:00:00Z', body: 'privada' },
+      { ...base, id: 'd1', author_role: 'coach', exercise_id: 'ex-press', deleted_at: '2026-07-24T10:00:00Z', created_at: '2026-07-24T10:00:00Z', body: 'borrada' },
+      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'alumno visible' },
+      { ...base, id: 'f1', author_role: 'coach', exercise_id: null, created_at: '2026-07-26T10:00:00Z', body: 'libre sin ejercicio' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes)
+    expect(map.get('ex-press').id).toBe('s1')
+    expect(map.size).toBe(1)
+  })
+
+  it('inputs vacíos / nulos no rompen', () => {
+    expect(pickLastPreviewNotePerExercise([]).size).toBe(0)
+    expect(pickLastPreviewNotePerExercise(null).size).toBe(0)
   })
 })

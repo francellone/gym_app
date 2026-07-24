@@ -32,7 +32,7 @@ import { exerciseDisplay } from '@/features/exercises/exercise-display'
  * Props Q1:
  *   lastBlockLog            workout_block_log | null
  *   lastLogByExercise       Map<exercise_id, workout_log> — para los hijos
- *   lastCoachNoteByExercise Map<exercise_id, note>
+ *   previewNoteByExercise Map<exercise_id, note>
  *   noteCountByExercise     Map<exercise_id, number>
  *   onOpenChat              (exerciseId, exerciseName) => void
  *
@@ -55,7 +55,7 @@ export default function CircuitBlockRunCard({
   // Q1
   lastBlockLog = null,
   lastLogByExercise,
-  lastCoachNoteByExercise,
+  previewNoteByExercise,
   noteCountByExercise,
   onOpenChat,
   // viewstate — persistir bloque desplegado por día

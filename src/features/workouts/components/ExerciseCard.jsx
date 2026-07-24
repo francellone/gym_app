@@ -65,7 +65,7 @@ export default function ExerciseCard({
   restScope = 'set',
   // Q1 — preview "Última vez" + chat del ejercicio
   lastLog = null,
-  lastCoachNote = null,
+  previewNote = null,
   noteCount = 0,
   onOpenChat,
   // F4 (doc 23) — draft local de lo que el alumno tipea por serie.
@@ -702,7 +702,7 @@ export default function ExerciseCard({
                 Va antes de la técnica para que sea lo primero que ve
                 el alumno al expandir (lo que más urge a Anto). */}
             <ExerciseHistoryBodyBlock
-              lastCoachNote={lastCoachNote}
+              previewNote={previewNote}
               noteCount={noteCount}
               onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
             />

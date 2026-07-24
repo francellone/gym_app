@@ -13,7 +13,7 @@ import StrengthBlockRunCard from './StrengthBlockRunCard'
 // Props Q1 (preview "Última vez" + chat del ejercicio):
 //   - lastLogByExercise        Map<exercise_id, workout_log>
 //   - lastBlockLogByBlock      Map<plan_block_id, workout_block_log>
-//   - lastCoachNoteByExercise  Map<exercise_id, note>
+//   - previewNoteByExercise  Map<exercise_id, note>
 //   - noteCountByExercise      Map<exercise_id, number>
 //   - onOpenChat               (exerciseId, exerciseName) => void
 export default function BlockRenderer({
@@ -28,7 +28,7 @@ export default function BlockRenderer({
   // Q1
   lastLogByExercise,
   lastBlockLogByBlock,
-  lastCoachNoteByExercise,
+  previewNoteByExercise,
   noteCountByExercise,
   onOpenChat,
   // F4 — passthrough a ExerciseCard para draft local
@@ -45,7 +45,7 @@ export default function BlockRenderer({
         onSaveLog={(data) => saveBlockLog(block.id, data)}
         onDeleteLog={() => deleteBlockLog(block.id)}
         lastBlockLog={lastBlockLogByBlock?.get?.(block.id) || null}
-        lastCoachNoteByExercise={lastCoachNoteByExercise}
+        previewNoteByExercise={previewNoteByExercise}
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
@@ -69,7 +69,7 @@ export default function BlockRenderer({
         onDeleteBlockLog={() => deleteBlockLog(block.id)}
         lastBlockLog={lastBlockLogByBlock?.get?.(block.id) || null}
         lastLogByExercise={lastLogByExercise}
-        lastCoachNoteByExercise={lastCoachNoteByExercise}
+        previewNoteByExercise={previewNoteByExercise}
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
@@ -86,7 +86,7 @@ export default function BlockRenderer({
       saveLog={saveLog}
       deleteLog={deleteLog}
       lastLogByExercise={lastLogByExercise}
-      lastCoachNoteByExercise={lastCoachNoteByExercise}
+      previewNoteByExercise={previewNoteByExercise}
       noteCountByExercise={noteCountByExercise}
       onOpenChat={onOpenChat}
       // F4 — draft local en ExerciseCard
