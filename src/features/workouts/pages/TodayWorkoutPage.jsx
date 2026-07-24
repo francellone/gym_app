@@ -23,6 +23,7 @@ import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
 import { readScroll, writeScroll } from '../workoutViewState'
+import { readWorkoutSnapshot, writeWorkoutSnapshot } from '../workoutSnapshot'
 import BlockRenderer from '../components/BlockRenderer'
 import {
   fetchPrescriptionHistory,
@@ -94,7 +95,16 @@ export default function TodayWorkoutPage() {
   const { id: routeStudentId } = useParams()
   const coachMode = Boolean(routeStudentId)
   const studentId = routeStudentId || profile?.id
-  const [studentName, setStudentName] = useState('')
+  // Pintado instantáneo (PWA cold start): si tenemos en caché el último estado
+  // del entrenamiento para este alumno + hoy, sembramos todo con eso y evitamos
+  // el spinner; luego fetchWorkout revalida en silencio por detrás.
+  // Ver [[restore-last-route-pwa]] (parte E) y workoutSnapshot.js.
+  const initialSnapshot = useMemo(
+    () => readWorkoutSnapshot({ studentId, selectedDate: format(new Date(), 'yyyy-MM-dd') }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+  const [studentName, setStudentName] = useState(initialSnapshot?.studentName ?? '')
   // Label de día traducida para display (la constante DAY_SHORT_LABELS se
   // mantiene para los textos que van a la DB, ej. prefijo de notas PSE).
   const dayShortLabel = (id) =>
@@ -103,53 +113,62 @@ export default function TodayWorkoutPage() {
   // mantiene para textos canónicos que van a la DB, ej. prefijo de notas PSE).
   const sectionLabel = (id) =>
     t(`workout.sections.${id}`, { defaultValue: SECTION_LABELS[id] || '' })
-  const [loading, setLoading] = useState(true)
-  const [assignment, setAssignment] = useState(null)
+  const [loading, setLoading] = useState(!initialSnapshot)
+  const [assignment, setAssignment] = useState(initialSnapshot?.assignment ?? null)
   // Descripción del plan (texto libre que carga el coach) — colapsable en el
   // header. Arranca cerrada para no empujar los ejercicios cada día.
   const [showPlanDesc, setShowPlanDesc] = useState(false)
-  const [planExercises, setPlanExercises] = useState([])
-  const [planBlocks, setPlanBlocks] = useState([])
-  const [logs, setLogs] = useState({})
-  const [blockLogs, setBlockLogs] = useState({})
-  const [session, setSession] = useState(null)
+  const [planExercises, setPlanExercises] = useState(initialSnapshot?.planExercises ?? [])
+  const [planBlocks, setPlanBlocks] = useState(initialSnapshot?.planBlocks ?? [])
+  const [logs, setLogs] = useState(initialSnapshot?.logs ?? {})
+  const [blockLogs, setBlockLogs] = useState(initialSnapshot?.blockLogs ?? {})
+  const [session, setSession] = useState(initialSnapshot?.session ?? null)
   // Q2 — workout_logs recientes del plan (cualquier fecha). Usado para
   // computar las tildes "Día A ✓✓◐" debajo de cada selector de día.
   // Se popula desde recentLogsRes que ya se trae para la sugerencia
   // del día inicial.
-  const [recentLogs, setRecentLogs] = useState([])
+  const [recentLogs, setRecentLogs] = useState(initialSnapshot?.recentLogs ?? [])
   // Q1 — workout_logs recientes COMPLETOS del plan (con actual_weights_jsonb,
   // actual_reps_jsonb, perceived_difficulty) para mostrar "Última vez" en
   // el header de cada card. recentLogs (Q2) trae solo 3 columnas; este
   // dataset trae todo lo necesario para `formatLastLogSummary`.
-  const [recentExerciseLogs, setRecentExerciseLogs] = useState([])
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState(
+    initialSnapshot?.recentExerciseLogs ?? []
+  )
   // Q1 — workout_block_logs recientes del plan (aerobic + circuit).
-  const [recentBlockLogs, setRecentBlockLogs] = useState([])
+  const [recentBlockLogs, setRecentBlockLogs] = useState(initialSnapshot?.recentBlockLogs ?? [])
   // doc 48 — último cambio de objetivo del coach por plan_exercise.id (ventana
   // reciente). Alimenta el cartel "Tu coach ajustó el objetivo" en el card.
-  const [prescriptionByEx, setPrescriptionByEx] = useState({})
+  const [prescriptionByEx, setPrescriptionByEx] = useState(initialSnapshot?.prescriptionByEx ?? {})
   // Q1 — notas tipo `exercise` del thread del alumno (ambos lados, shared).
   // Se usan para: última nota coach (preview), conteo badge 💬N, y como
   // cache pasada al drawer para evitar re-fetch.
-  const [exerciseNotes, setExerciseNotes] = useState([])
+  const [exerciseNotes, setExerciseNotes] = useState(initialSnapshot?.exerciseNotes ?? [])
   // Q1 — id del thread del alumno (1:1 con su coach). Se resuelve una sola
   // vez en fetchWorkout. Necesario para que el drawer pueda hacer fetch
   // si no hay cache.
-  const [threadId, setThreadId] = useState(null)
+  const [threadId, setThreadId] = useState(initialSnapshot?.threadId ?? null)
   // Q1 — drawer del chat del ejercicio: null cerrado, sino { exerciseId,
   // exerciseName }.
   const [chatDrawer, setChatDrawer] = useState(null)
   // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
-  const [activeDay, setActiveDay] = useState(null)
+  const [activeDay, setActiveDay] = useState(initialSnapshot?.activeDay ?? null)
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
   const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   // Evitar disparar el modal varias veces en el mismo render
   const pseTriggeredRef = useRef({})
   // Evita re-aplicar el "día sugerido" cada vez que cambia la fecha o se refetchea.
-  const dayInitializedRef = useRef(false)
+  // Si sembramos el día desde el snapshot, arranca en true para no pisarlo.
+  const dayInitializedRef = useRef(Boolean(initialSnapshot?.activeDay))
+  // Pintado instantáneo: la PRIMERA revalidación tras un snapshot sembrado corre
+  // SIN spinner (silent). Cualquier fetch posterior (cambio de fecha, nav coach)
+  // muestra spinner normal.
+  const silentRevalidateRef = useRef(Boolean(initialSnapshot))
+  // Timer para debounce de la escritura del snapshot de pintado instantáneo.
+  const snapshotTimerRef = useRef(null)
   // Wellbeing
-  const [wellbeing, setWellbeing] = useState(null)
+  const [wellbeing, setWellbeing] = useState(initialSnapshot?.wellbeing ?? null)
   const [showWellbeing, setShowWellbeing] = useState(false)
   // Aviso pasivo (no bloqueante) cuando el alumno empieza a registrar datos
   // sin haber cargado el wellbeing del día. Se muestra una sola vez por día.
@@ -180,6 +199,60 @@ export default function TodayWorkoutPage() {
     if (studentId) fetchWorkout()
   }, [profile, studentId, selectedDate])
 
+  // Pintado instantáneo: mantener fresco el snapshot con lo que se está
+  // mostrando (incluye lo que el alumno acaba de registrar), para que al reabrir
+  // en frío se pinte al instante sin spinner. Debounce 600ms para no serializar
+  // en cada micro-cambio. Ver [[restore-last-route-pwa]] (parte E).
+  useEffect(() => {
+    if (loading || !assignment || !studentId) return
+    if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
+    snapshotTimerRef.current = setTimeout(() => {
+      writeWorkoutSnapshot({
+        studentId,
+        selectedDate,
+        data: {
+          studentName,
+          assignment,
+          planExercises,
+          planBlocks,
+          logs,
+          blockLogs,
+          session,
+          recentLogs,
+          recentExerciseLogs,
+          recentBlockLogs,
+          prescriptionByEx,
+          exerciseNotes,
+          threadId,
+          activeDay,
+          wellbeing,
+        },
+      })
+    }, 600)
+    return () => {
+      if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
+    }
+  }, [
+    loading,
+    assignment,
+    planExercises,
+    planBlocks,
+    logs,
+    blockLogs,
+    session,
+    recentLogs,
+    recentExerciseLogs,
+    recentBlockLogs,
+    prescriptionByEx,
+    exerciseNotes,
+    threadId,
+    activeDay,
+    wellbeing,
+    studentName,
+    studentId,
+    selectedDate,
+  ])
+
   // F4 (doc 23) — cleanup oportunista de drafts huérfanos al boot.
   // Barre: drafts de otros alumnos (cambio de cuenta en mismo browser),
   // drafts con loggedDate más viejos que 7d, envelopes corruptos o de
@@ -202,7 +275,12 @@ export default function TodayWorkoutPage() {
   // Se registra cuando el alumno guarda su primer ejercicio o bloque (saveLog / saveBlockLog).
 
   async function fetchWorkout() {
-    setLoading(true)
+    if (silentRevalidateRef.current) {
+      // Revalidación silenciosa sobre el pintado instantáneo: no mostrar spinner.
+      silentRevalidateRef.current = false
+    } else {
+      setLoading(true)
+    }
     try {
       // Modo coach: resolver el nombre del alumno para el banner del header.
       if (coachMode && !studentName) {
