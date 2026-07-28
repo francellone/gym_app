@@ -88,7 +88,7 @@ function SessionGroup({ date, logs, session }) {
                 <Circle size={16} className="text-gray-300 flex-shrink-0 mt-0.5" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-gray-900 break-words">
                   {exerciseDisplay(log.plan_exercise?.exercise, i18n.language).name ||
                     t('history.exerciseFallback')}
                 </p>

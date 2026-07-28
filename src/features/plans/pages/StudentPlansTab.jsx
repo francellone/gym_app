@@ -778,7 +778,7 @@ function AssignmentRow({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-sm text-gray-900 truncate">
+            <p className="font-medium text-sm text-gray-900 break-words">
               {assignment.plan?.title || '—'}
             </p>
             <span className={`badge text-[10px] ${cfg.badgeClass}`}>{cfg.label}</span>

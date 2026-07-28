@@ -98,7 +98,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
             {/* Header: nombre + video */}
             <div className="flex items-center gap-2">
               <span
-                className={`font-semibold truncate ${usePlanExercises ? 'text-sm text-gray-900' : 'text-xs text-gray-500'}`}
+                className={`font-semibold break-words ${usePlanExercises ? 'text-sm text-gray-900' : 'text-xs text-gray-500'}`}
               >
                 {ex.name || `Ejercicio ${i + 1}`}
               </span>

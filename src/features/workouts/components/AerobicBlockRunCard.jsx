@@ -179,7 +179,7 @@ export default function AerobicBlockRunCard({
             <div className="flex items-center gap-2">
               <span className="text-base">🏃</span>
               <p
-                className={`font-semibold text-sm truncate ${completed ? 'text-sky-800' : 'text-gray-900'}`}
+                className={`font-semibold text-sm break-words ${completed ? 'text-sky-800' : 'text-gray-900'}`}
               >
                 {title}
                 {exerciseName && <span className="text-gray-400"> · {exerciseName}</span>}

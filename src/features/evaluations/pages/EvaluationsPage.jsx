@@ -177,7 +177,7 @@ export default function EvaluationsPage() {
                 {/* Info – clickeable para navegar */}
                 <Link to={`/coach/evaluations/${plan.id}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 truncate">{plan.title}</p>
+                    <p className="font-semibold text-gray-900 break-words">{plan.title}</p>
                     {plan.eval_type && (
                       <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
                         {EVAL_TYPES.find((e) => e.key === plan.eval_type)?.label || plan.eval_type}

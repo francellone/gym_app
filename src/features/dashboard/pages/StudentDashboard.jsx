@@ -337,7 +337,7 @@ export default function StudentDashboard() {
                     {evalTypeIcon(a.plan?.eval_type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{a.plan?.title}</p>
+                    <p className="font-semibold text-sm text-gray-900 break-words">{a.plan?.title}</p>
                     <p className="text-xs text-gray-500">
                       {t(`evalType.${a.plan?.eval_type}`, {
                         defaultValue: evalTypeLabel(a.plan?.eval_type),

@@ -73,7 +73,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="font-semibold text-gray-900">Asignar evaluación</h3>
-            <p className="text-sm text-gray-600 mt-0.5 truncate">{plan.title}</p>
+            <p className="text-sm text-gray-600 mt-0.5 break-words">{plan.title}</p>
           </div>
           <button
             onClick={onClose}

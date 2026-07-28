@@ -197,7 +197,7 @@ export default function PlansPage() {
                     className="flex-1 min-w-0"
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-gray-900 truncate">{plan.title}</p>
+                      <p className="font-semibold text-gray-900 break-words">{plan.title}</p>
                       {plan.is_template && (
                         <span className="badge bg-purple-100 text-purple-700">Plantilla</span>
                       )}

@@ -561,7 +561,7 @@ function EvaluationCard({
       >
         <span className="text-2xl">{evalTypeIcon(plan?.eval_type)}</span>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{plan?.title}</p>
+          <p className="font-semibold text-gray-900 break-words">{plan?.title}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className={`badge text-xs ${colorClass}`}>{evalTypeLabel(plan?.eval_type)}</span>
             {tags.map((t) => (
@@ -824,7 +824,7 @@ function UltimoRegistro({
                   className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">
+                    <p className="font-medium text-gray-800 break-words">
                       {pe.exercises?.name || 'Ejercicio sin nombre'}
                       <span className="ml-1.5 text-xs font-normal text-gray-400">
                         {evalMethodLabel(pe.eval_type || 'custom', pe.eval_method)}

@@ -59,7 +59,7 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
             <div key={i} className="bg-gray-50 rounded-xl p-4 space-y-3">
               {/* Header */}
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-gray-800 truncate">
+                <p className="text-sm font-semibold text-gray-800 break-words">
                   {ex.name || `Ejercicio ${i + 1}`}
                 </p>
                 {ex.video_url && ex.video_url.startsWith('http') && (

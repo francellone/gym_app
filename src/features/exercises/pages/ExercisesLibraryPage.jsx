@@ -676,7 +676,7 @@ export default function ExercisesLibraryPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{ex.name}</p>
+                    <p className="font-semibold text-sm text-gray-900 break-words">{ex.name}</p>
                     {(() => {
                       const mode = ex.default_weight_mode || 'with_weight'
                       if (mode === 'bodyweight') {

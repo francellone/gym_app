@@ -664,7 +664,7 @@ export default function EvalWorkoutPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-lg">{evalTypeIcon(plan.eval_type)}</span>
-            <h1 className="text-lg font-bold text-gray-900 truncate">{plan.title}</h1>
+            <h1 className="text-lg font-bold text-gray-900 break-words">{plan.title}</h1>
           </div>
           <p className="text-sm text-gray-500">
             {t(`evalType.${plan.eval_type}`, { defaultValue: evalTypeLabel(plan.eval_type) })}

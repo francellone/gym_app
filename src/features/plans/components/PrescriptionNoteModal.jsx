@@ -41,7 +41,7 @@ export default function PrescriptionNoteModal({ changes = [], saving = false, on
           <div className="space-y-2">
             {changes.map((item, idx) => (
               <div key={idx} className="rounded-xl border border-gray-100 bg-gray-50 p-2.5">
-                <p className="text-sm font-medium text-gray-800 truncate">{item.exerciseName}</p>
+                <p className="text-sm font-medium text-gray-800 break-words">{item.exerciseName}</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {PRESCRIPTION_FIELD_KEYS.filter((k) => item.changes[k]).map((k) => (
                     <span

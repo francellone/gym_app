@@ -435,7 +435,7 @@ function ExerciseResponseRow({ resp }) {
   return (
     <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+        <p className="text-sm font-medium text-gray-800 break-words">{name}</p>
         {methodLabel && <p className="text-xs text-gray-400">{methodLabel}</p>}
       </div>
       <span className="text-sm font-semibold text-gray-900">{valueLabel || '—'}</span>
@@ -682,7 +682,7 @@ export default function EvaluationDetailPage() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-gray-900 truncate">{plan.title}</h1>
+            <h1 className="text-xl font-bold text-gray-900 break-words">{plan.title}</h1>
             {plan.eval_type && (
               <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
                 {evalTypeIcon(plan.eval_type)} {evalTypeLabel(plan.eval_type)}

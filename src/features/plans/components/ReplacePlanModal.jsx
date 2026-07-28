@@ -86,7 +86,7 @@ export default function ReplacePlanModal({
             <div className="flex items-start gap-2">
               <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">Actual</span>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-gray-900 truncate">
+                <p className="font-semibold text-sm text-gray-900 break-words">
                   {currentAssignment?.plan?.title || 'Plan actual'}
                 </p>
                 {startDateStr && (
@@ -97,7 +97,7 @@ export default function ReplacePlanModal({
             <div className="border-t border-gray-200 pt-2 flex items-start gap-2">
               <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">Nuevo</span>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-primary-700 truncate">
+                <p className="font-semibold text-sm text-primary-700 break-words">
                   {incomingPlan?.title || 'Plan nuevo'}
                 </p>
                 <p className="text-xs text-gray-500">Empieza hoy</p>
