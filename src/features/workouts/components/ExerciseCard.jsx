@@ -570,7 +570,7 @@ export default function ExerciseCard({
                 </span>
               )}
               <p
-                className={`font-semibold text-sm truncate ${completed ? 'text-green-800' : 'text-gray-900'}`}
+                className={`font-semibold text-sm break-words ${completed ? 'text-green-800' : 'text-gray-900'}`}
               >
                 {exText.name}
               </p>

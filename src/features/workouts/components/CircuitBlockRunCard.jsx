@@ -362,7 +362,7 @@ export default function CircuitBlockRunCard({
                     <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-gray-900 break-words">
                             {i + 1}. {exText.name || '—'}
                           </p>
                           <p className="text-[11px] text-gray-400">
