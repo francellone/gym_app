@@ -179,7 +179,12 @@ export function pickLastCoachNotePerExercise(notes, options = {}) {
 // decida título / ícono / color según quién la escribió.
 // ============================================================
 export function pickLastPreviewNotePerExercise(notes, options = {}) {
-  const { visibilityShared = true } = options
+  // `prefer` (v35): qué autor gana cuando hay nota de los dos lados.
+  //   'coach'   (default) → vista del alumno: ya conoce lo suyo, le importa
+  //                         lo que dijo el coach.
+  //   'student'           → vista de la coach registrando por la alumna
+  //                         (modo coach): ya sabe lo que escribió ella.
+  const { visibilityShared = true, prefer = 'coach' } = options
   const coachByExercise = new Map()
   const studentByExercise = new Map()
 
@@ -203,9 +208,11 @@ export function pickLastPreviewNotePerExercise(notes, options = {}) {
     }
   }
 
-  // Prioridad coach: si hay coach, gana; si no, cae al alumno.
-  const out = new Map(coachByExercise)
-  for (const [exerciseId, note] of studentByExercise) {
+  // Prioridad configurable (default coach); el otro lado queda de fallback.
+  const primary = prefer === 'student' ? studentByExercise : coachByExercise
+  const fallback = prefer === 'student' ? coachByExercise : studentByExercise
+  const out = new Map(primary)
+  for (const [exerciseId, note] of fallback) {
     if (!out.has(exerciseId)) out.set(exerciseId, note)
   }
   return out

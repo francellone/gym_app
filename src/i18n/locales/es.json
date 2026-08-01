@@ -607,6 +607,7 @@
   "errors": {
     "sessionStartFailed": "No pudimos registrar el inicio de la sesión. Intentá guardar de nuevo.",
     "dayPseSaveFailed": "No pudimos guardar tu PSE del día. Probá de nuevo en un momento.",
+    "noteSaveFailed": "No pudimos guardar el comentario. El resto del registro sí se guardó — probá escribirlo de nuevo.",
     "chatLoadFailed": "No se pudo cargar el chat.",
     "chatLoadRetry": "No pudimos cargar el chat. Probá cerrar y abrir de nuevo.",
     "deleteNoPermission": "No se pudo eliminar el registro — no tenés permiso.",

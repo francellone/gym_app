@@ -168,3 +168,134 @@ describe('createNote — validaciones cliente', () => {
     expect(data).toEqual(fakeRow)
   })
 })
+
+// ============================================================
+// v35 — autoría de las notas mirror (bug del modo coach, 2026-08-01)
+// ------------------------------------------------------------
+// Hasta v34 estos writers hardcodeaban {authorId: studentId,
+// authorRole: 'student'}. Con el modo coach eso hacía que la RLS
+// rechazara el INSERT (comentario perdido en silencio) y que el
+// lookup encontrara la nota de la ALUMNA y le pisara el texto.
+// ============================================================
+const { postWorkoutLogNote, postWorkoutBlockLogNote, fetchSingleMirrorBodies } =
+  await import('./api')
+
+const STUDENT = 'student-uuid'
+const COACH = 'coach-uuid'
+
+function insertedRow() {
+  expect(supabaseMock._chain.insert).toHaveBeenCalledTimes(1)
+  return supabaseMock._chain.insert.mock.calls[0][0]
+}
+
+function authorRoleFilters() {
+  return supabaseMock._chain.eq.mock.calls.filter((c) => c[0] === 'author_role').map((c) => c[1])
+}
+
+describe('mirror writers — autoría (v35)', () => {
+  beforeEach(() => {
+    resetSupabaseMock(supabaseMock)
+    // 1º maybeSingle = lookup del mirror (no existe) · 2º = getStudentThread
+    supabaseMock._chain.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: { id: 'thread-1' }, error: null })
+    supabaseMock._chain.single.mockResolvedValue({ data: { id: 'note-new' }, error: null })
+  })
+
+  it('por default (alumna registrando) escribe como student', async () => {
+    await postWorkoutLogNote({ studentId: STUDENT, logId: 'log-1', body: 'me costó' })
+
+    expect(authorRoleFilters()).toEqual(['student'])
+    expect(insertedRow()).toMatchObject({
+      author_id: STUDENT,
+      author_role: 'student',
+      context_type: 'workout_log',
+      context_id: 'log-1',
+    })
+  })
+
+  it('en modo coach escribe como coach, con el id de la coach', async () => {
+    await postWorkoutLogNote({
+      studentId: STUDENT,
+      logId: 'log-1',
+      body: 'lo cargué yo',
+      authorId: COACH,
+      authorRole: 'coach',
+    })
+
+    // El lookup busca SU propio mirror, no el de la alumna: por eso no puede
+    // pisarle el comentario.
+    expect(authorRoleFilters()).toEqual(['coach'])
+    expect(insertedRow()).toMatchObject({ author_id: COACH, author_role: 'coach' })
+  })
+
+  it('mismo comportamiento en el mirror de bloque', async () => {
+    await postWorkoutBlockLogNote({
+      studentId: STUDENT,
+      blockLogId: 'blk-1',
+      body: 'circuito ok',
+      authorId: COACH,
+      authorRole: 'coach',
+    })
+
+    expect(authorRoleFilters()).toEqual(['coach'])
+    expect(insertedRow()).toMatchObject({
+      author_id: COACH,
+      author_role: 'coach',
+      context_type: 'workout_block_log',
+    })
+  })
+
+  it('rol coach sin authorId falla en el cliente, sin pegarle a la DB', async () => {
+    const { data, error } = await postWorkoutLogNote({
+      studentId: STUDENT,
+      logId: 'log-1',
+      body: 'x',
+      authorRole: 'coach',
+    })
+
+    expect(data).toBeNull()
+    expect(error.code).toBe('INVALID_INPUT')
+    expect(supabaseMock.from).not.toHaveBeenCalled()
+  })
+})
+
+describe('fetchSingleMirrorBodies — filtro por autor (v35)', () => {
+  beforeEach(() => {
+    resetSupabaseMock(supabaseMock)
+    // Un mismo log con DOS mirrors vivos: el de la alumna y el de la coach.
+    supabaseMock._chain.then.mockImplementation((resolve) =>
+      resolve({
+        data: [
+          { context_id: 'log-1', author_role: 'student', body: 'lo de la alumna' },
+          { context_id: 'log-1', author_role: 'coach', body: 'lo de la coach' },
+        ],
+        error: null,
+      })
+    )
+  })
+
+  it('sin filtro gana el último (comportamiento previo, no determinístico)', async () => {
+    const map = await fetchSingleMirrorBodies({
+      contextType: 'workout_log',
+      contextIds: ['log-1'],
+    })
+    expect(map.get('log-1')).toBe('lo de la coach')
+  })
+
+  it('con authorRole devuelve el mirror de ese autor', async () => {
+    const asStudent = await fetchSingleMirrorBodies({
+      contextType: 'workout_log',
+      contextIds: ['log-1'],
+      authorRole: 'student',
+    })
+    expect(asStudent.get('log-1')).toBe('lo de la alumna')
+
+    const asCoach = await fetchSingleMirrorBodies({
+      contextType: 'workout_log',
+      contextIds: ['log-1'],
+      authorRole: 'coach',
+    })
+    expect(asCoach.get('log-1')).toBe('lo de la coach')
+  })
+})

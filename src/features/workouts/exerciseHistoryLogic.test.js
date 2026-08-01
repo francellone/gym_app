@@ -477,6 +477,26 @@ describe('pickLastPreviewNotePerExercise', () => {
     expect(map.get('ex-row').author_role).toBe('student')
   })
 
+  // v35 — en modo coach la prioridad se invierte: la coach ya sabe lo que
+  // escribió ella, lo que necesita ver es el comentario de la alumna.
+  it('prefer="student" invierte la prioridad (vista de la coach)', () => {
+    const notes = [
+      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-25T10:00:00Z', body: 'coach nueva' },
+      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'alumna vieja' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes, { prefer: 'student' })
+    expect(map.get('ex-press').id).toBe('s1')
+    expect(map.get('ex-press').author_role).toBe('student')
+  })
+
+  it('prefer="student" cae al coach si la alumna no comentó ese ejercicio', () => {
+    const notes = [
+      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-25T10:00:00Z', body: 'coach' },
+    ]
+    const map = pickLastPreviewNotePerExercise(notes, { prefer: 'student' })
+    expect(map.get('ex-press').author_role).toBe('coach')
+  })
+
   it('mezcla por ejercicio: coach en uno, alumno en otro', () => {
     const notes = [
       { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'coach press' },

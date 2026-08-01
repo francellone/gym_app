@@ -95,6 +95,12 @@ export default function TodayWorkoutPage() {
   const { id: routeStudentId } = useParams()
   const coachMode = Boolean(routeStudentId)
   const studentId = routeStudentId || profile?.id
+  // v35 — autoría real de las notas mirror (comentarios del registro).
+  // Antes se hardcodeaba la alumna: en modo coach la RLS rechazaba el INSERT
+  // (42501) y el comentario de la coach se perdía en silencio; y si la alumna
+  // ya había comentado ese log, la coach le pisaba el texto.
+  const noteAuthorRole = coachMode ? 'coach' : 'student'
+  const noteAuthorId = coachMode ? profile?.id : studentId
   // Pintado instantáneo (PWA cold start): si tenemos en caché el último estado
   // del entrenamiento para este alumno + hoy, sembramos todo con eso y evitamos
   // el spinner; luego fetchWorkout revalida en silencio por detrás.
@@ -493,6 +499,7 @@ export default function TodayWorkoutPage() {
       const bodiesMap = await fetchSingleMirrorBodies({
         contextType: 'workout_log',
         contextIds: logIds,
+        authorRole: noteAuthorRole,
       })
       const logsMap = {}
       rawLogs.forEach((log) => {
@@ -510,6 +517,7 @@ export default function TodayWorkoutPage() {
       const blockBodiesMap = await fetchSingleMirrorBodies({
         contextType: 'workout_block_log',
         contextIds: blockLogIds,
+        authorRole: noteAuthorRole,
       })
       const blockLogsMap = {}
       rawBlockLogs.forEach((bl) => {
@@ -689,9 +697,14 @@ export default function TodayWorkoutPage() {
         studentId,
         logId,
         body: _noteBody || '',
+        authorId: noteAuthorId,
+        authorRole: noteAuthorRole,
       })
       if (noteErr) {
+        // v35 — antes esto era solo console.warn: en modo coach la RLS rechazaba
+        // el insert y el comentario desaparecía sin que nadie se enterara.
         console.warn('[saveLog] no se pudo guardar la nota del log en el panel:', noteErr)
+        showSaveError(t('errors.noteSaveFailed'), noteErr)
       }
 
       // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
@@ -707,6 +720,7 @@ export default function TodayWorkoutPage() {
         const bodiesMap = await fetchSingleMirrorBodies({
           contextType: 'workout_log',
           contextIds: [logId],
+          authorRole: noteAuthorRole,
         })
         fullLog.notes = bodiesMap.get(logId) ?? ''
         setLogs((prev) => ({ ...prev, [planExerciseId]: fullLog }))
@@ -811,9 +825,12 @@ export default function TodayWorkoutPage() {
         studentId,
         blockLogId,
         body: bodyForPanel || '',
+        authorId: noteAuthorId,
+        authorRole: noteAuthorRole,
       })
       if (noteErr) {
         console.warn('[saveBlockLog] no se pudo guardar la nota del bloque en el panel:', noteErr)
+        showSaveError(t('errors.noteSaveFailed'), noteErr)
       }
     }
 
@@ -906,8 +923,11 @@ export default function TodayWorkoutPage() {
     [recentBlockLogs, selectedDate]
   )
   const previewNoteByExercise = useMemo(
-    () => pickLastPreviewNotePerExercise(exerciseNotes),
-    [exerciseNotes]
+    // En modo coach invertimos la prioridad del preview: la coach ya sabe lo
+    // que escribió ella, lo que necesita ver es el comentario de la alumna.
+    () =>
+      pickLastPreviewNotePerExercise(exerciseNotes, { prefer: coachMode ? 'student' : 'coach' }),
+    [exerciseNotes, coachMode]
   )
   const noteCountByExercise = useMemo(() => countNotesByExercise(exerciseNotes), [exerciseNotes])
   // Cache de notas agrupadas por ejercicio: lo pasamos al drawer para
@@ -1026,9 +1046,12 @@ export default function TodayWorkoutPage() {
           sessionLoggedDate: session.logged_date,
           dayLabel,
           body: effortNotes,
+          authorId: noteAuthorId,
+          authorRole: noteAuthorRole,
         })
         if (noteErr) {
           console.warn('[saveDayPSE] no se pudo publicar la nota en el panel:', noteErr)
+          showSaveError(t('errors.noteSaveFailed'), noteErr)
         }
       }
 

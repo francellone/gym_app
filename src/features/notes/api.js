@@ -753,6 +753,40 @@ export async function listFilterOptions(threadId) {
 }
 
 // ============================================================
+// v35 — Autoría de las notas mirror
+// ------------------------------------------------------------
+// Hasta v34 los writers de mirrors (workout_log, workout_block_log,
+// PSE del día, evaluation_result) hardcodeaban {authorId: studentId,
+// authorRole: 'student'}. Con el modo coach (v33) eso rompía de dos formas:
+//   - INSERT: la RLS "Coach insert as self coach" exige
+//     author_id = auth.uid() AND author_role = 'coach' → el insert se
+//     rechazaba (42501) y el caller solo hacía console.warn: el comentario
+//     de la coach se perdía en silencio.
+//   - UPDATE: el lookup filtraba author_role='student', así que si la alumna
+//     ya había comentado ese log, la coach PISABA su comentario (la policy
+//     "Coach update notes" lo permite).
+// Ahora la autoría viaja como parámetro desde el llamador.
+// ============================================================
+function resolveMirrorAuthor({ studentId, authorId, authorRole }) {
+  const role = authorRole === 'coach' ? 'coach' : 'student'
+  const id = authorId || (role === 'student' ? studentId : null)
+  if (!id) {
+    return {
+      role,
+      id: null,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Falta authorId para una nota de coach.',
+        details: null,
+        hint: null,
+        raw: null,
+      },
+    }
+  }
+  return { role, id, error: null }
+}
+
+// ============================================================
 // B.6e — postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, body })
 // ------------------------------------------------------------
 // Helper específico para el modal PSE diario de TodayWorkoutPage.
@@ -767,7 +801,14 @@ export async function listFilterOptions(threadId) {
 //
 // Devuelve: { data: nota | null, error }
 // ============================================================
-export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, body }) {
+export async function postPSEDayNote({
+  studentId,
+  sessionLoggedDate,
+  dayLabel,
+  body,
+  authorId,
+  authorRole,
+}) {
   if (!studentId) {
     return {
       data: null,
@@ -782,6 +823,8 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
   }
   const clean = (body || '').trim()
   if (!clean) return { data: null, error: null } // sin contenido no hace nada (no-op)
+  const author = resolveMirrorAuthor({ studentId, authorId, authorRole })
+  if (author.error) return { data: null, error: author.error }
 
   const { data: thread, error: threadErr } = await getStudentThread(studentId)
   if (threadErr) return { data: null, error: threadErr }
@@ -807,8 +850,8 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
     contextType: 'free',
     contextId: null,
     noteDate: sessionLoggedDate || null,
-    authorId: studentId,
-    authorRole: 'student',
+    authorId: author.id,
+    authorRole: author.role,
   })
 }
 
@@ -827,7 +870,7 @@ export async function postPSEDayNote({ studentId, sessionLoggedDate, dayLabel, b
 // Devuelve { data, error } donde data es la nota afectada (puede ser
 // null si fue soft-delete o no-op).
 // ============================================================
-export async function postWorkoutLogNote({ studentId, logId, body }) {
+export async function postWorkoutLogNote({ studentId, logId, body, authorId, authorRole }) {
   if (!studentId || !logId) {
     return {
       data: null,
@@ -841,6 +884,8 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
     }
   }
   const cleanBody = (body || '').trim()
+  const author = resolveMirrorAuthor({ studentId, authorId, authorRole })
+  if (author.error) return { data: null, error: author.error }
 
   // Buscar mirror existente del log para este alumno
   const { data: existing, error: findErr } = await supabase
@@ -848,7 +893,7 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
     .select('id, body, thread_id')
     .eq('context_type', 'workout_log')
     .eq('context_id', logId)
-    .eq('author_role', 'student')
+    .eq('author_role', author.role)
     .is('deleted_at', null)
     .maybeSingle()
 
@@ -890,8 +935,8 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
     visibility: 'shared',
     contextType: 'workout_log',
     contextId: logId,
-    authorId: studentId,
-    authorRole: 'student',
+    authorId: author.id,
+    authorRole: author.role,
   })
 }
 
@@ -903,7 +948,13 @@ export async function postWorkoutLogNote({ studentId, logId, body }) {
 // tabla workout_block_logs se dropeó en v26d, así que el body
 // se persiste como una nota mirror en el panel.
 // ============================================================
-export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
+export async function postWorkoutBlockLogNote({
+  studentId,
+  blockLogId,
+  body,
+  authorId,
+  authorRole,
+}) {
   if (!studentId || !blockLogId) {
     return {
       data: null,
@@ -917,6 +968,8 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
     }
   }
   const cleanBody = (body || '').trim()
+  const author = resolveMirrorAuthor({ studentId, authorId, authorRole })
+  if (author.error) return { data: null, error: author.error }
 
   // Buscar mirror existente del block_log para este alumno
   const { data: existing, error: findErr } = await supabase
@@ -924,7 +977,7 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
     .select('id, body, thread_id')
     .eq('context_type', 'workout_block_log')
     .eq('context_id', blockLogId)
-    .eq('author_role', 'student')
+    .eq('author_role', author.role)
     .is('deleted_at', null)
     .maybeSingle()
 
@@ -966,8 +1019,8 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
     visibility: 'shared',
     contextType: 'workout_block_log',
     contextId: blockLogId,
-    authorId: studentId,
-    authorRole: 'student',
+    authorId: author.id,
+    authorRole: author.role,
   })
 }
 
@@ -978,7 +1031,7 @@ export async function postWorkoutBlockLogNote({ studentId, blockLogId, body }) {
 // Reemplaza al campo legacy `evaluation_results.notes` dropeado en v26f.
 // Siempre con role='student', visibility='shared', context='evaluation_result'.
 // ============================================================
-export async function postEvalResultNote({ studentId, resultId, body }) {
+export async function postEvalResultNote({ studentId, resultId, body, authorId, authorRole }) {
   if (!studentId || !resultId) {
     return {
       data: null,
@@ -992,13 +1045,15 @@ export async function postEvalResultNote({ studentId, resultId, body }) {
     }
   }
   const cleanBody = (body || '').trim()
+  const author = resolveMirrorAuthor({ studentId, authorId, authorRole })
+  if (author.error) return { data: null, error: author.error }
 
   const { data: existing, error: findErr } = await supabase
     .from('notes')
     .select('id, body')
     .eq('context_type', 'evaluation_result')
     .eq('context_id', resultId)
-    .eq('author_role', 'student')
+    .eq('author_role', author.role)
     .is('deleted_at', null)
     .maybeSingle()
 
@@ -1040,8 +1095,8 @@ export async function postEvalResultNote({ studentId, resultId, body }) {
     visibility: 'shared',
     contextType: 'evaluation_result',
     contextId: resultId,
-    authorId: studentId,
-    authorRole: 'student',
+    authorId: author.id,
+    authorRole: author.role,
   })
 }
 
@@ -1195,10 +1250,14 @@ export async function fetchMirrorNotes({ contextType, contextIds }) {
 // Helper de conveniencia: workout_logs/workout_block_logs/plan_exercise
 // son 1 nota por context_id (siempre author='student' y visibility='shared').
 // Devuelve Map<context_id, body>.
-export async function fetchSingleMirrorBodies({ contextType, contextIds }) {
+export async function fetchSingleMirrorBodies({ contextType, contextIds, authorRole }) {
   const { data } = await fetchMirrorNotes({ contextType, contextIds })
   const map = new Map()
   for (const n of data) {
+    // v35 — filtro opcional por autor. Desde el modo coach un mismo context_id
+    // puede tener DOS mirrors vivos (el de la alumna y el de la coach); sin
+    // filtro gana el último que llega y el resultado es no determinístico.
+    if (authorRole && n.author_role !== authorRole) continue
     map.set(n.context_id, n.body)
   }
   return map

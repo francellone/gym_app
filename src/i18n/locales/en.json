@@ -607,6 +607,7 @@
   "errors": {
     "sessionStartFailed": "We couldn't register the session start. Please try saving again.",
     "dayPseSaveFailed": "We couldn't save your RPE for the day. Please try again in a moment.",
+    "noteSaveFailed": "We couldn't save the comment. The rest of the entry was saved — try writing it again.",
     "chatLoadFailed": "The chat could not be loaded.",
     "chatLoadRetry": "We couldn't load the chat. Try closing and opening it again.",
     "deleteNoPermission": "This entry couldn't be deleted — you don't have permission.",
