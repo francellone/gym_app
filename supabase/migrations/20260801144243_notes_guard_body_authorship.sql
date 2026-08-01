@@ -21,6 +21,11 @@
 --
 -- No rompe la UI: NoteCard ya gatea editar/borrar con `isOwn`
 -- (currentUserId === note.author_id).
+--
+-- APLICADA en producción (bvexjanqmfypmtgoapbt) el 2026-08-01 vía MCP
+-- apply_migration, registrada como version 20260801144243 — de ahí el nombre
+-- del archivo. Verificada con tests de RLS + trigger bajo la sesión de la coach
+-- (ver diagnostico_arquitec/notas_modo_coach_2026-08-01.md §5).
 -- ============================================================
 
 BEGIN;

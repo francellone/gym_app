@@ -52,7 +52,7 @@ Si la alumna ya había comentado ese log, el lookup `author_role='student'` **s�
 
 ### Base
 
-`supabase/migrations/20260801150000_notes_guard_body_authorship.sql` — trigger `BEFORE UPDATE OF body` que rechaza editar el texto de una nota ajena. Deja pasar `read_at_*`, `deleted_at` y el resto de las columnas, y no aplica cuando `auth.uid()` es NULL (service_role / definer / backfills). No rompe UI: `NoteCard` ya gatea editar/borrar con `isOwn`.
+`supabase/migrations/20260801144243_notes_guard_body_authorship.sql` — trigger `BEFORE UPDATE OF body` que rechaza editar el texto de una nota ajena. Deja pasar `read_at_*`, `deleted_at` y el resto de las columnas, y no aplica cuando `auth.uid()` es NULL (service_role / definer / backfills). No rompe UI: `NoteCard` ya gatea editar/borrar con `isOwn`.
 
 ## 3. Datos: qué se puede corregir y qué no
 
@@ -148,3 +148,46 @@ SELECT count(*) FILTER (WHERE coach_id IS NULL) AS sin_coach,
 ```
 
 Es un tema aparte del bug de Anto, pero del mismo tamaño o más.
+
+
+## 5. Verificación contra producción (2026-08-01, post-deploy)
+
+### v24f está aplicada — el diagnóstico se confirma
+
+`supabase_migrations.schema_migrations` tiene `20260517134453 v24f_mark_thread_read_rpc_and_tighten_coach`, y `pg_policy` sobre `notes` muestra `"Coach insert as self coach"` con `author_id = auth.uid() AND author_role = 'coach'`. `"Coach full access on notes"` ya no existe.
+
+### La evidencia dura
+
+```
+logs desde el 2026-07-09 (arranque del modo coach):
+  source='coach'    171 logs  →   0 con nota mirror
+  source='student'  551 logs  →  51 con nota mirror
+```
+
+**171 registros cargados por la coach y cero comentarios guardados.** Ni uno. Es exactamente lo que predecía el análisis: el INSERT se rechazaba siempre.
+
+### Daño en datos: ninguno
+
+- Notas mal atribuidas: **0** (nunca llegaron a insertarse, así que no hay backfill que correr).
+- Comentarios de alumnas pisados (caso 1.b): **0 sospechosos**, chequeado por dos vías — notas de alumna sobre logs con `source='coach'`, y notas de alumna editadas después de creadas sobre logs cuyo `logged_by` es un coach. Para que hubiera daño la alumna tenía que haber comentado ANTES un log que después tocara la coach, y no se dio.
+
+Las 38 notas `workout_log` + 3 `workout_block_log` con `author_role='coach'` que aparecen en la base son legítimas: las escribió Anto desde el panel de notas entre mayo y julio, no vienen del modo coach.
+
+### Tests de RLS + trigger bajo la sesión de la coach
+
+Ejecutados con `set_config('request.jwt.claims', …)` + `SET LOCAL ROLE authenticated`, dentro de un bloque que termina en `RAISE EXCEPTION` para que todo se revierta (verificado después: 0 filas `TEST %`).
+
+| # | Escenario | Resultado |
+|---|---|---|
+| 1 | INSERT con el payload viejo (`author_id`=alumna, `role`='student') | **RECHAZADO 42501** — así se perdían los comentarios |
+| 2 | INSERT con el payload nuevo (`author_id`=coach, `role`='coach') | **OK** |
+| 3 | La coach intenta pisar el texto de una nota de la alumna | **BLOQUEADO 42501** por la guarda v35 |
+| 4 | La coach marca como leída una nota de la alumna | **OK** — flujo legítimo intacto |
+| 5 | La coach edita su propia nota | **OK** |
+| 6 | Soft-delete de una nota ajena (moderación) | **OK** |
+
+`get_advisors(security)`: **0 ERROR**. La función nueva no genera `function_search_path_mutable` (tiene `SET search_path`).
+
+### Pendiente de confirmación en vivo
+
+Falta el último eslabón: que Anto cargue un comentario en modo coach sobre la app deployada y que aparezca una fila en `notes` con `author_role='coach'`. La capa que estaba rota (RLS) ya está probada; esto confirma el cableado del front.
