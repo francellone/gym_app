@@ -191,3 +191,54 @@ Ejecutados con `set_config('request.jwt.claims', …)` + `SET LOCAL ROLE authent
 ### Pendiente de confirmación en vivo
 
 Falta el último eslabón: que Anto cargue un comentario en modo coach sobre la app deployada y que aparezca una fila en `notes` con `author_role='coach'`. La capa que estaba rota (RLS) ya está probada; esto confirma el cableado del front.
+
+
+---
+
+# 6. Segundo bug, misma pantalla, otra causa: alumnas sin hilo de notas (2026-08-04)
+
+Apareció revisando el alcance multi-coach de la RLS, y explica una parte del "no veo comentarios" que **no** tiene nada que ver con el modo coach.
+
+## El problema
+
+`note_threads` se poblaba de forma **lazy**: el hilo se creaba recién cuando la coach abría la pestaña de notas de esa alumna (`notes_get_or_create_thread`). Si nunca la abrió, no había hilo.
+
+Y sin hilo, `getStudentThread()` devuelve null, así que `postWorkoutLogNote` / `postWorkoutBlockLogNote` / `postPSEDayNote` cortan con `NOT_FOUND — "No hay hilo de notas inicializado para este alumno"` y **el comentario se descarta**. Le pegaba a la alumna comentando lo suyo tanto como a la coach.
+
+Estado encontrado: **12 alumnas de Anto sin hilo**, 7 de ellas con entrenamientos cargados y varias entrenando esa misma semana.
+
+| alumna | logs | último log |
+|---|---|---|
+| Jessica Nieto | 106 | 2026-08-03 |
+| Mahnaz Beit Masha | 75 | 2026-08-03 |
+| Andrea Martinez | 55 | 2026-08-04 |
+| Kendra Williams | 50 | 2026-08-04 |
+| Karen Guerinoni | 37 | 2026-07-31 |
+| Nadia Kent | 23 | 2026-07-29 |
+| Nicolette Foo | 11 | 2026-08-03 |
+| Diana Dashti, Samantha Sanabria, Keeley Obrien, Sonja Allen, Prueba 2 | 0 | — |
+
+Es la misma clase de falla que el bug de autoría: el error existía, viajaba correctamente hasta el caller, y ahí lo tragaba un `console.warn`. (Desde v35 va al `SaveErrorBanner`, así que a futuro esto se ve.)
+
+## El fix
+
+`supabase/migrations/20260804113732_note_threads_backfill_and_autocreate.sql`:
+
+- **Trigger** `trg_profiles_ensure_note_thread` sobre `profiles` (AFTER INSERT OR UPDATE OF coach_id, role): si es alumno, tiene coach y no tiene ningún hilo, se lo crea. El hilo pasa a ser un invariante de la base en vez de un efecto secundario de abrir una pantalla.
+- **Backfill** con el mismo criterio.
+
+Decisión de diseño: se crea hilo **solo si el alumno no tiene ninguno**, no uno por par (coach, alumno). Motivo: el front resuelve con `.eq('student_id', X).maybeSingle()`, así que un segundo hilo por cambio de coach haría reventar la query con *multiple rows*. Si alguna vez se soporta historial de coaches, hay que tocar `getStudentThread` primero.
+
+## Verificación
+
+Aplicada 2026-08-04. **15 → 27 hilos, 0 alumnos con coach sin hilo, 0 duplicados.**
+
+Tests del trigger (bloque con `RAISE EXCEPTION` final para revertir todo):
+
+| # | Escenario | Resultado |
+|---|---|---|
+| 1 | Alumna sin hilo + se le asigna coach | **crea 1 hilo** |
+| 2 | Re-asignar el mismo coach | **sigue 1** (no duplica) |
+| 3 | Alumna que cambia de coach | **sigue 1** (`maybeSingle` no revienta) |
+
+Quedan 4 filas con `note_threads.coach_id <> profiles.coach_id`: son los alumnos huérfanos de prueba (Franco, Franco Cellone, Juan, Fran — `coach_id` NULL, hilo apuntando a Carlos Sosa). Preexistente, no lo tocamos.
