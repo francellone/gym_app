@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import BlockCard from '../components/blocks/BlockCard'
+import {
+  ExerciseCatalogProvider,
+  useExerciseCatalogData,
+} from '@/features/exercises/ExerciseCatalogContext'
 import AddBlockMenu from '../components/blocks/AddBlockMenu'
 import DayBlocksOrderWarning from '../components/blocks/DayBlocksOrderWarning'
 import {
@@ -24,12 +28,20 @@ import EvaluationParentPlanField from '../components/EvaluationParentPlanField'
 import EvalDaysEditor from '../components/EvalDaysEditor'
 
 // ============================================================
+// El catálogo de ejercicios se publica por context para que cualquier fila
+// del armador pueda leerlo Y darlo de alta sin salir del plan.
 export default function CreatePlanPage() {
+  const catalog = useExerciseCatalogData()
+  return (
+    <ExerciseCatalogProvider catalog={catalog}>
+      <CreatePlanPageInner />
+    </ExerciseCatalogProvider>
+  )
+}
+
+function CreatePlanPageInner() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const [exercises, setExercises] = useState([])
-  const [exerciseTags, setExerciseTags] = useState([])
-  const [tagAssignments, setTagAssignments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -73,18 +85,6 @@ export default function CreatePlanPage() {
   // Q7 — banner por día: secciones donde el coach apretó "Dejar como está".
   // Se resetea al desmontar (no persiste entre cargas).
   const [dismissedOrderWarnings, setDismissedOrderWarnings] = useState(() => new Set())
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from('exercises').select('*').order('name'),
-      supabase.from('exercise_tags').select('*').order('name'),
-      supabase.from('exercise_tag_assignments').select('*'),
-    ]).then(([exRes, tagsRes, assignRes]) => {
-      setExercises(exRes.data || [])
-      setExerciseTags(tagsRes.data || [])
-      setTagAssignments(assignRes.data || [])
-    })
-  }, [])
 
   // Sincronizar planBlocks cuando cambia sessions_per_week o has_activation
   useEffect(() => {
@@ -663,9 +663,6 @@ export default function CreatePlanPage() {
             sessionsPerWeek={evalSessionsPerWeek}
             evalDays={evalDays}
             onChange={setEvalDays}
-            exercises={exercises}
-            exerciseTags={exerciseTags}
-            tagAssignments={tagAssignments}
             sameMethod={evalSameMethod}
             onSameMethodChange={setEvalSameMethod}
             globalType={evalGlobalType}
@@ -729,9 +726,6 @@ export default function CreatePlanPage() {
                 onMove={(dir) => moveBlock(activeSection, i, dir)}
                 canMoveUp={i > 0}
                 canMoveDown={i < currentBlocks.length - 1}
-                exercises={exercises}
-                exerciseTags={exerciseTags}
-                tagAssignments={tagAssignments}
               />
             ))}
 

@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import BlockCard from '../components/blocks/BlockCard'
+import {
+  ExerciseCatalogProvider,
+  useExerciseCatalog,
+  useExerciseCatalogData,
+} from '@/features/exercises/ExerciseCatalogContext'
 import AddBlockMenu from '../components/blocks/AddBlockMenu'
 import DayBlocksOrderWarning from '../components/blocks/DayBlocksOrderWarning'
 import {
@@ -33,12 +38,21 @@ import { fetchTemplateAssignees } from '../assignmentHelpers'
 import { diffPrescription } from '../prescriptionHistory'
 
 // ============================================================
+// El catálogo de ejercicios se publica por context para que cualquier fila
+// del armador pueda leerlo Y darlo de alta sin salir del plan.
 export default function EditPlanPage() {
+  const catalog = useExerciseCatalogData()
+  return (
+    <ExerciseCatalogProvider catalog={catalog}>
+      <EditPlanPageInner />
+    </ExerciseCatalogProvider>
+  )
+}
+
+function EditPlanPageInner() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [exercises, setExercises] = useState([])
-  const [exerciseTags, setExerciseTags] = useState([])
-  const [tagAssignments, setTagAssignments] = useState([])
+  const { exercises } = useExerciseCatalog()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -91,9 +105,6 @@ export default function EditPlanPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('exercises').select('*').order('name'),
-      supabase.from('exercise_tags').select('*').order('name'),
-      supabase.from('exercise_tag_assignments').select('*'),
       supabase
         .from('plans')
         .select(
@@ -106,11 +117,7 @@ export default function EditPlanPage() {
         .eq('id', id)
         .single(),
     ])
-      .then(async ([exRes, tagsRes, assignRes, planRes]) => {
-        setExercises(exRes.data || [])
-        setExerciseTags(tagsRes.data || [])
-        setTagAssignments(assignRes.data || [])
-
+      .then(async ([planRes]) => {
         if (!planRes.data) return
 
         const p = planRes.data
@@ -983,9 +990,6 @@ export default function EditPlanPage() {
             sessionsPerWeek={evalSessionsPerWeek}
             evalDays={evalDays}
             onChange={setEvalDays}
-            exercises={exercises}
-            exerciseTags={exerciseTags}
-            tagAssignments={tagAssignments}
             onDeleteRow={trackEvalRowDelete}
             sameMethod={evalSameMethod}
             onSameMethodChange={setEvalSameMethod}
@@ -1047,9 +1051,6 @@ export default function EditPlanPage() {
                 onMove={(dir) => moveBlock(activeSection, i, dir)}
                 canMoveUp={i > 0}
                 canMoveDown={i < currentBlocks.length - 1}
-                exercises={exercises}
-                exerciseTags={exerciseTags}
-                tagAssignments={tagAssignments}
               />
             ))}
 

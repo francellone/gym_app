@@ -6,13 +6,7 @@ import { emptyPlanExercise, inheritFromFirstBlockmate } from '../../helpers'
  * Editor del bloque de FUERZA.
  * Mantiene el formato clásico: ejercicios con series, reps y peso por serie.
  */
-export default function StrengthBlockEditor({
-  block,
-  onUpdateExercises,
-  exercises = [],
-  exerciseTags = [],
-  tagAssignments = [],
-}) {
+export default function StrengthBlockEditor({ block, onUpdateExercises }) {
   const list = block.exercises || []
 
   // Q7: Al crear un nuevo ejercicio, arrancamos con la última letra usada
@@ -88,9 +82,6 @@ export default function StrengthBlockEditor({
           key={ex.id || `new-${i}`}
           ex={ex}
           index={i}
-          exercises={exercises}
-          exerciseTags={exerciseTags}
-          tagAssignments={tagAssignments}
           onUpdate={updateExercise}
           onUpdateMulti={updateExerciseMulti}
           onLetterChange={handleLetterChange}

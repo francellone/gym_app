@@ -1,36 +1,21 @@
-import { useState } from 'react'
-import { Tag } from 'lucide-react'
 import {
   AEROBIC_FORMATS,
   AEROBIC_INTERVAL_FORMATS,
   INTENSITY_LEVELS,
   AEROBIC_ZONES,
 } from '../../helpers'
+import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 
 /**
  * Editor del bloque AERÓBICO.
  * Campos: ejercicio (opcional desde dropdown filtrable por tag), formato,
  * duración total, intensidad y — si es intervalos/HIIT — work/rest/rondas.
  */
-export default function AerobicBlockEditor({
-  block,
-  onUpdate,
-  onUpdateExercises,
-  exercises = [],
-  exerciseTags = [],
-  tagAssignments = [],
-}) {
-  const [tagFilter, setTagFilter] = useState('')
+export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises }) {
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
 
   // El bloque aeróbico admite 1 ejercicio opcional (ej: "Cinta" o "Bicicleta").
   const currentExerciseId = block.exercises?.[0]?.exercise_id || ''
-
-  const filtered = tagFilter
-    ? exercises.filter((e) =>
-        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
-      )
-    : exercises
 
   function handleExerciseChange(exerciseId) {
     if (!exerciseId) {
@@ -50,40 +35,12 @@ export default function AerobicBlockEditor({
   return (
     <div className="space-y-3">
       {/* Ejercicio (opcional) */}
-      <div className="space-y-2">
-        {exerciseTags.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Tag size={13} className="text-gray-400 flex-shrink-0" />
-            <select
-              className="input text-xs py-1.5"
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-            >
-              <option value="">Todos los ejercicios</option>
-              {exerciseTags.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">Ejercicio (opcional)</label>
-          <select
-            className="input text-sm"
-            value={currentExerciseId}
-            onChange={(e) => handleExerciseChange(e.target.value)}
-          >
-            <option value="">Sin ejercicio específico</option>
-            {filtered.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <ExercisePicker
+        value={currentExerciseId}
+        onChange={(id) => handleExerciseChange(id)}
+        label="Ejercicio (opcional)"
+        placeholder="Sin ejercicio específico"
+      />
 
       {/* Formato */}
       <div>

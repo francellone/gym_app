@@ -1,25 +1,18 @@
-import { useState } from 'react'
-import { Plus, Trash2, Tag, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
   EXERCISE_MODES,
   emptyCircuitExercise,
 } from '../../helpers'
+import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 
 /**
  * Editor del bloque CIRCUITO.
  * Config a nivel bloque (HIIT / AMRAP / EMOM / Libre).
  * Lista de ejercicios con tipo por reps o por tiempo.
  */
-export default function CircuitBlockEditor({
-  block,
-  onUpdate,
-  onUpdateExercises,
-  exercises = [],
-  exerciseTags = [],
-  tagAssignments = [],
-}) {
+export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises }) {
   const circuitType = block.circuit_type || 'hiit'
   const list = block.exercises || []
 
@@ -160,9 +153,6 @@ export default function CircuitBlockEditor({
             ex={ex}
             index={i}
             total={list.length}
-            exercises={exercises}
-            exerciseTags={exerciseTags}
-            tagAssignments={tagAssignments}
             onUpdate={(patch) => updateExercise(i, patch)}
             onRemove={() => removeExercise(i)}
             onMove={(dir) => moveExercise(i, dir)}
@@ -183,62 +173,21 @@ export default function CircuitBlockEditor({
 // ============================================================
 // Fila de ejercicio dentro del circuito (más compacto que fuerza)
 // ============================================================
-function CircuitExerciseRow({
-  ex,
-  index,
-  total,
-  exercises,
-  exerciseTags,
-  tagAssignments,
-  onUpdate,
-  onRemove,
-  onMove,
-}) {
-  const [tagFilter, setTagFilter] = useState('')
+function CircuitExerciseRow({ ex, index, total, onUpdate, onRemove, onMove }) {
   const mode = ex.exercise_mode || 'reps'
-
-  const filtered = tagFilter
-    ? exercises.filter((e) =>
-        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
-      )
-    : exercises
 
   return (
     <div className="bg-gray-50 rounded-xl p-2.5 space-y-2">
       <div className="flex items-start gap-1">
         <div className="flex-1 space-y-2">
-          {/* Tag filter + ejercicio */}
-          {exerciseTags.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Tag size={12} className="text-gray-400 flex-shrink-0" />
-              <select
-                className="input text-[11px] py-1"
-                value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
-              >
-                <option value="">Todos</option>
-                {exerciseTags.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <select
-              className="input text-sm"
-              value={ex.exercise_id || ''}
-              onChange={(e) => onUpdate({ exercise_id: e.target.value })}
-            >
-              <option value="">Seleccionar ejercicio...</option>
-              {filtered.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Ejercicio (con filtro por etiqueta y alta rápida) */}
+          <ExercisePicker
+            value={ex.exercise_id || ''}
+            onChange={(id) => onUpdate({ exercise_id: id })}
+            label={null}
+            placeholder="Seleccionar ejercicio..."
+            size="xs"
+          />
 
           {/* Tipo (reps/tiempo) + valor */}
           <div className="grid grid-cols-2 gap-2">

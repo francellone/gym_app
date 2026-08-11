@@ -20,9 +20,6 @@ export default function BlockCard({
   onMove, // (direction: -1 | 1) => void
   canMoveUp,
   canMoveDown,
-  exercises = [],
-  exerciseTags = [],
-  tagAssignments = [],
   defaultOpen = false,
 }) {
   const [open, setOpen] = useState(defaultOpen || blockIndexInSection === 0)
@@ -101,9 +98,6 @@ export default function BlockCard({
               block={block}
               onUpdate={onUpdate}
               onUpdateExercises={onUpdateExercises}
-              exercises={exercises}
-              exerciseTags={exerciseTags}
-              tagAssignments={tagAssignments}
             />
           )}
 
@@ -112,9 +106,6 @@ export default function BlockCard({
               block={block}
               onUpdate={onUpdate}
               onUpdateExercises={onUpdateExercises}
-              exercises={exercises}
-              exerciseTags={exerciseTags}
-              tagAssignments={tagAssignments}
             />
           )}
 
@@ -123,9 +114,6 @@ export default function BlockCard({
               block={block}
               onUpdate={onUpdate}
               onUpdateExercises={onUpdateExercises}
-              exercises={exercises}
-              exerciseTags={exerciseTags}
-              tagAssignments={tagAssignments}
             />
           )}
 

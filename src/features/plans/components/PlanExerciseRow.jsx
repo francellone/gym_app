@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Trash2, Tag, Info } from 'lucide-react'
+import { Trash2, Info } from 'lucide-react'
+import ExercisePicker from '@/features/exercises/components/ExercisePicker'
+import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
 import {
   BLOCK_LETTERS,
   BLOCK_NUMBERS,
@@ -23,11 +25,11 @@ function hasVariation(arr) {
  * Props:
  *  - ex: datos del ejercicio en el plan (UI format)
  *  - index: índice en el array de sección
- *  - exercises: lista completa de ejercicios
- *  - exerciseTags: [{ id, name, color }] — tags del coach
- *  - tagAssignments: [{ exercise_id, tag_id }] — asignaciones
  *  - onUpdate(index, field, value)
  *  - onRemove(index)
+ *
+ * El catálogo (ejercicios + etiquetas + asignaciones) sale del
+ * ExerciseCatalogContext, no de props.
  */
 export default function PlanExerciseRow({
   ex,
@@ -36,11 +38,8 @@ export default function PlanExerciseRow({
   onUpdateMulti,
   onLetterChange,
   onRemove,
-  exercises = [],
-  exerciseTags = [],
-  tagAssignments = [],
 }) {
-  const [tagFilter, setTagFilter] = useState('')
+  const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
   const setsCount = parseInt(ex.suggested_sets) || 0
 
   // Ejercicio del catálogo seleccionado (para conocer sus defaults)
@@ -62,13 +61,6 @@ export default function PlanExerciseRow({
   const [differential, setDifferential] = useState(
     () => hasVariation(ex.suggested_reps_array) || hasVariation(ex.suggested_weights_array)
   )
-
-  // Filtrar ejercicios según tag seleccionado
-  const filteredExercises = tagFilter
-    ? exercises.filter((e) =>
-        tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
-      )
-    : exercises
 
   function handleSetsChange(val) {
     const n = parseInt(val) || 0
@@ -204,45 +196,13 @@ export default function PlanExerciseRow({
         <div className="flex-1 space-y-3">
           {/* Filtro de etiqueta + selector de ejercicio + bloque */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className="sm:col-span-2 space-y-2">
-              {/* Tag filter */}
-              {exerciseTags.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Tag size={13} className="text-gray-400 flex-shrink-0" />
-                  <select
-                    className="input text-xs py-1.5"
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                  >
-                    <option value="">Todos los ejercicios</option>
-                    {exerciseTags.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  {tagFilter && (
-                    <span className="text-xs text-gray-400">{filteredExercises.length} ej.</span>
-                  )}
-                </div>
-              )}
-
-              {/* Exercise select */}
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Ejercicio *</label>
-                <select
-                  className="input text-sm"
-                  value={ex.exercise_id}
-                  onChange={(e) => onUpdate(index, 'exercise_id', e.target.value)}
-                >
-                  <option value="">Seleccionar...</option>
-                  {filteredExercises.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
-
+            <div className="sm:col-span-2">
+              <ExercisePicker
+                value={ex.exercise_id}
+                onChange={(id) => onUpdate(index, 'exercise_id', id)}
+                label="Ejercicio"
+                required
+              >
                 {/* Tags del ejercicio elegido */}
                 {selectedExTags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -257,7 +217,7 @@ export default function PlanExerciseRow({
                     ))}
                   </div>
                 )}
-              </div>
+              </ExercisePicker>
             </div>
 
             {/* Bloque */}

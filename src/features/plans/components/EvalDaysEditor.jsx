@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, ChevronUp, ChevronDown, PlayCircle } from 'lucide-react'
 import { getDynamicSections } from '../helpers'
+import ExercisePicker from '@/features/exercises/components/ExercisePicker'
+import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
 import {
   EXERCISE_EVAL_TYPES,
   METHODS,
@@ -21,9 +22,7 @@ import {
 //   sessionsPerWeek  número de días (1–7)
 //   evalDays      { day_a: [row], day_b: [row], ... }
 //   onChange(nextEvalDays)
-//   exercises     catálogo de ejercicios [{id, name}]
-//   exerciseTags  etiquetas del coach [{id, name, color}] (para filtrar, Q5)
-//   tagAssignments asignaciones ejercicio↔tag [{exercise_id, tag_id}]
+//   (el catálogo de ejercicios + etiquetas sale del ExerciseCatalogContext)
 //   onDeleteRow(rowId)  callback opcional para trackear filas borradas (edit)
 //   sameMethod    bool — modo "mismo para todos"
 //   onSameMethodChange(bool)
@@ -35,9 +34,6 @@ export default function EvalDaysEditor({
   sessionsPerWeek,
   evalDays,
   onChange,
-  exercises,
-  exerciseTags = [],
-  tagAssignments = [],
   onDeleteRow,
   sameMethod,
   onSameMethodChange,
@@ -45,6 +41,7 @@ export default function EvalDaysEditor({
   globalMethod,
   onGlobalChange,
 }) {
+  const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
   const sections = getDynamicSections(sessionsPerWeek, false)
   const [activeSection, setActiveSection] = useState(sections[0]?.id || 'day_a')
 
@@ -203,8 +200,8 @@ export default function EvalDaysEditor({
             row={row}
             index={i}
             total={currentRows.length}
-            exercises={exercises}
-            optionExercises={filteredExercises}
+            options={filteredExercises}
+            createTagIds={tagFilter ? [tagFilter] : []}
             showTypeMethod={isMixed && !sameMethod}
             onUpdate={(patch) => updateRow(activeSection, i, patch)}
             onRemove={() => removeRow(activeSection, i)}
@@ -296,42 +293,18 @@ function EvalExerciseRow({
   row,
   index,
   total,
-  exercises,
-  optionExercises,
+  options,
+  createTagIds,
   showTypeMethod,
   onUpdate,
   onRemove,
   onMove,
 }) {
+  const { exercises } = useExerciseCatalog()
   const [expanded, setExpanded] = useState(true)
-  const [creatingExercise, setCreatingExercise] = useState(false)
-  const [newExName, setNewExName] = useState('')
 
   const selectedExercise = exercises.find((e) => e.id === row.exercise_id)
   const showSetsInputs = row.eval_type === 'one_rm' || row.eval_type === 'max_reps'
-
-  // Opciones del dropdown = lista filtrada por etiqueta (Q5), pero siempre
-  // incluyendo el ejercicio ya seleccionado aunque quede fuera del filtro.
-  const dropdownExercises = optionExercises || exercises
-  const selectedOutsideFilter =
-    selectedExercise && !dropdownExercises.some((e) => e.id === selectedExercise.id)
-
-  async function handleCreateExercise() {
-    if (!newExName.trim()) return
-    try {
-      const { data: newEx, error } = await supabase
-        .from('exercises')
-        .insert({ name: newExName.trim() })
-        .select()
-        .single()
-      if (error) throw error
-      onUpdate({ exercise_id: newEx.id, video_url: newEx.video_url || '' })
-      setCreatingExercise(false)
-      setNewExName('')
-    } catch (err) {
-      console.error(err)
-    }
-  }
 
   return (
     <div className="border-2 border-gray-100 rounded-2xl overflow-hidden">
@@ -379,69 +352,15 @@ function EvalExerciseRow({
         <div className="p-3 space-y-3">
           {/* Ejercicio (obligatorio, del catálogo) */}
           <div>
-            <label className="label text-xs">Ejercicio *</label>
-            {!creatingExercise ? (
-              <div className="flex gap-2">
-                <select
-                  className="input flex-1 text-sm"
-                  value={row.exercise_id || ''}
-                  onChange={(e) => {
-                    const ex = exercises.find((x) => x.id === e.target.value)
-                    onUpdate({ exercise_id: e.target.value, video_url: ex?.video_url || '' })
-                  }}
-                >
-                  <option value="">— Seleccionar ejercicio —</option>
-                  {selectedOutsideFilter && (
-                    <option value={selectedExercise.id}>{selectedExercise.name}</option>
-                  )}
-                  {dropdownExercises.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setCreatingExercise(true)}
-                  className="btn-secondary text-xs px-3 whitespace-nowrap"
-                >
-                  + Nuevo
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  className="input flex-1 text-sm"
-                  placeholder="Nombre del ejercicio"
-                  value={newExName}
-                  onChange={(e) => setNewExName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleCreateExercise()
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateExercise}
-                  className="btn-primary text-xs px-3"
-                >
-                  Crear
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingExercise(false)
-                    setNewExName('')
-                  }}
-                  className="btn-secondary text-xs px-3"
-                >
-                  ×
-                </button>
-              </div>
-            )}
+            <ExercisePicker
+              value={row.exercise_id || ''}
+              onChange={(id, ex) => onUpdate({ exercise_id: id, video_url: ex?.video_url || '' })}
+              label="Ejercicio"
+              required
+              placeholder="— Seleccionar ejercicio —"
+              options={options}
+              createTagIds={createTagIds}
+            />
             {row.video_url && row.video_url.startsWith('http') && (
               <a
                 href={row.video_url}
