@@ -3,6 +3,7 @@ import {
   resolveTemplateName,
   isQuestionHiddenFor,
   displayValueFor,
+  countVisibleQuestions,
 } from './resolve-form-language.js'
 import { shouldShowQuestion } from '../components/shared/conditionalLogic.js'
 
@@ -247,5 +248,57 @@ describe('resolveFormForLanguage — hidden_for', () => {
     expect(isQuestionHiddenFor(q(), 'en')).toBe(false)
     expect(isQuestionHiddenFor(q({ hidden_for: ['en'] }), 'en')).toBe(true)
     expect(isQuestionHiddenFor(null, 'en')).toBe(false)
+  })
+})
+
+
+// ── countVisibleQuestions ─────────────────────────────────
+
+describe('countVisibleQuestions', () => {
+  const base = {
+    modules: [
+      {
+        id: 'm1',
+        enabled: true,
+        questions: [
+          { id: 'q1', type: 'text', label: 'Una' },
+          { id: 'q2', type: 'text', label: 'Otra', hidden_for: ['en'] },
+        ],
+      },
+    ],
+  }
+
+  it('cuenta solo lo que vería un alumno de ese idioma', () => {
+    expect(countVisibleQuestions(base, 'es')).toBe(2)
+    expect(countVisibleQuestions(base, 'en')).toBe(1)
+  })
+
+  it('da 0 cuando todas las preguntas están ocultas para ese idioma', () => {
+    const todas = {
+      modules: [
+        {
+          id: 'm1',
+          enabled: true,
+          questions: [{ id: 'q1', type: 'text', label: 'Una', hidden_for: ['es'] }],
+        },
+      ],
+    }
+    expect(countVisibleQuestions(todas, 'es')).toBe(0)
+    expect(countVisibleQuestions(todas, 'en')).toBe(1)
+  })
+
+  it('ignora módulos deshabilitados y suma el consentimiento', () => {
+    const conConsent = {
+      modules: [
+        { id: 'm1', enabled: false, questions: [{ id: 'q1', type: 'text', label: 'No cuenta' }] },
+      ],
+      consent: { id: 'consent', questions: [{ id: 'c1', type: 'boolean', label: 'Acepto' }] },
+    }
+    expect(countVisibleQuestions(conConsent, 'es')).toBe(1)
+  })
+
+  it('no explota con un config vacío o nulo', () => {
+    expect(countVisibleQuestions(null, 'es')).toBe(0)
+    expect(countVisibleQuestions({}, 'es')).toBe(0)
   })
 })

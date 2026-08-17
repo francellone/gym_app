@@ -19,7 +19,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { resolveFormForLanguage } from '../features/forms/intake/schema/resolve-form-language.js'
+import { countVisibleQuestions } from '../features/forms/intake/schema/resolve-form-language.js'
 import { X, Send, CheckCircle, AlertCircle, Calendar, ChevronRight } from 'lucide-react'
 
 const LANG_LABEL = { es: 'español', en: 'inglés' }
@@ -33,25 +33,6 @@ const TRIGGER_OPTIONS = [
     hint: 'Se envía cuando termine el plan asignado',
   },
 ]
-
-/**
- * ¿Cuántas preguntas vería REALMENTE esta persona?
- *
- * El snapshot se resuelve al idioma del alumno: las preguntas marcadas "solo
- * alumnos en el otro idioma" (hidden_for) se filtran, y un módulo que queda
- * sin preguntas se elimina. Si todas caen, el formulario llega VACÍO: la
- * alumna aprieta "¡Empezar!" y no pasa nada (caso real de agosto 2026, la
- * plantilla mensual quedó en "solo inglés" y se siguió mandando a alumnas en
- * español). Mejor avisar acá que mandar algo que no se puede abrir.
- */
-function visibleQuestionCount(config, lang) {
-  const resolved = resolveFormForLanguage(config, lang || 'es')
-  const modules = [
-    ...(resolved?.modules || []).filter((m) => m.enabled),
-    resolved?.consent,
-  ].filter(Boolean)
-  return modules.reduce((sum, m) => sum + (m.questions?.length || 0), 0)
-}
 
 export default function SendToStudentModal({
   coachId,
@@ -127,7 +108,7 @@ export default function SendToStudentModal({
   const countByLang = useMemo(() => {
     const cache = {}
     for (const lang of new Set(students.map((s) => s.language || 'es'))) {
-      cache[lang] = visibleQuestionCount(formConfig, lang)
+      cache[lang] = countVisibleQuestions(formConfig, lang)
     }
     return cache
   }, [students, formConfig])

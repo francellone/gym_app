@@ -135,6 +135,25 @@ export function resolveFormForLanguage(config, lang = DEFAULT_LANG) {
 }
 
 /**
+ * Cuántas preguntas vería REALMENTE un alumno de ese idioma.
+ *
+ * Cuenta lo que queda después de resolver el idioma: las preguntas marcadas
+ * `hidden_for` se filtran y los módulos que quedan vacíos desaparecen. Si da 0,
+ * el formulario le llega SIN NINGÚN PASO y no lo puede completar (bug de
+ * agosto 2026: la plantilla mensual quedó en "solo inglés" y se siguió
+ * mandando a alumnas en español). Lo usan el armador (aviso al editar) y el
+ * modal de envío (bloqueo al mandar).
+ */
+export function countVisibleQuestions(config, lang = DEFAULT_LANG) {
+  const resolved = resolveFormForLanguage(config, lang)
+  const modules = [
+    ...(resolved?.modules || []).filter((m) => m.enabled),
+    resolved?.consent,
+  ].filter(Boolean)
+  return modules.reduce((sum, m) => sum + (m.questions?.length || 0), 0)
+}
+
+/**
  * Nombre a mostrar de una plantilla cuyo nombre canónico vive en la columna
  * `intake_form_templates.name` (fuera del config).
  */

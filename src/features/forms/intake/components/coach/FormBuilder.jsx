@@ -24,6 +24,7 @@ import TemplateManager from './TemplateManager'
 import IntroEditor from './IntroEditor'
 import FormRenderer from '../student/FormRenderer'
 import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
+import { countVisibleQuestions } from '../../schema/resolve-form-language.js'
 import {
   buildFormConfig,
   buildFollowUpFormConfig,
@@ -33,6 +34,9 @@ import {
   FOLLOW_UP_INTRO,
   FOLLOW_UP_BLANK_MODULE,
 } from '../../schema/default-form.js'
+
+const FORM_LANGUAGES = ['es', 'en']
+const LANG_LABEL = { es: 'español', en: 'inglés' }
 
 export default function FormBuilder({
   coachId: _coachId,
@@ -124,6 +128,23 @@ export default function FormBuilder({
     return initialConfig?.name_i18n ? { ...config, name_i18n: initialConfig.name_i18n } : config
   }
 
+  // Aviso temprano (el bug de agosto 2026 se coló por acá): si TODAS las
+  // preguntas quedan marcadas para un solo idioma, a las alumnas del otro el
+  // formulario les llega SIN NINGÚN PASO y no lo pueden completar. Se calcula
+  // siempre, no solo en modo bilingüe: un `hidden_for` viejo sigue filtrando
+  // aunque hoy el modo esté apagado.
+  // Solo avisamos si el formulario TIENE preguntas y aun así queda vacío para
+  // un idioma: un formulario recién creado (todavía sin preguntas) no necesita
+  // un cartel rojo, está en construcción.
+  const currentConfig = buildCurrentConfig()
+  const totalQuestions = modules
+    .filter((m) => m.enabled)
+    .reduce((sum, m) => sum + (m.questions?.length || 0), 0)
+  const emptyLangs =
+    totalQuestions > 0
+      ? FORM_LANGUAGES.filter((lang) => countVisibleQuestions(currentConfig, lang) === 0)
+      : []
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -202,6 +223,23 @@ export default function FormBuilder({
           </button>
         ))}
       </div>
+
+      {emptyLangs.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl leading-none">⚠️</span>
+          <div className="text-sm text-amber-900">
+            <p className="font-semibold">
+              Tal como está, este formulario le llegaría VACÍO a tus alumnas en{' '}
+              {emptyLangs.map((l) => LANG_LABEL[l] || l).join(' y en ')}.
+            </p>
+            <p className="text-xs mt-1 text-amber-800">
+              Todas las preguntas están marcadas para el otro idioma. Revisá en cada pregunta la
+              opción “Esta pregunta se muestra a...” y poné “Alumnos en ambos idiomas”. Si lo
+              mandás así, la alumna abre el formulario y el botón de empezar no hace nada.
+            </p>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'form' && (
         <div className="space-y-4">
