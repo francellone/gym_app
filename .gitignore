@@ -19,3 +19,6 @@ commit_message_*.txt
 Aplicación para Gimnasio y entrenamiento/
 dist-verify*
 *.config.js.timestamp-*.mjs
+
+# Archivos que el sandbox no puede borrar: se mueven acá para que los borre Franco
+_to_delete/
