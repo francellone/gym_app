@@ -28,6 +28,16 @@ if (typeof import.meta !== 'undefined' && import.meta.env) {
 }
 
 // ── Browser API stubs ──────────────────────────────────────
+// scrollTo / scrollIntoView: jsdom no los implementa y cualquier componente que
+// navegue por pasos (FormRenderer, wizards) llena la salida de tests con
+// "Error: Not implemented".
+if (typeof window !== 'undefined') {
+  window.scrollTo = vi.fn()
+  if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn()
+  }
+}
+
 // matchMedia: lo usan algunos componentes con media queries condicionales.
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = vi.fn().mockImplementation((query) => ({

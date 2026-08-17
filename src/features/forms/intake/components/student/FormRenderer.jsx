@@ -58,6 +58,13 @@ export default function FormRenderer({
     ].filter(Boolean)
   }, [config])
 
+  // Un formulario puede quedarse SIN NINGÚN PASO: módulos deshabilitados, o
+  // (el caso real que rompió) todas las preguntas marcadas "solo para alumnos
+  // en el otro idioma" → el resolver las filtra y no queda nada. Antes eso
+  // dejaba el botón "¡Empezar!" sin destino: el alumno lo apretaba y no pasaba
+  // nada, sin ningún cartel. Ahora se dice explícitamente.
+  const hasSteps = allModules.length > 0
+
   const [currentStep, setCurrentStep] = useState(0) // 0 = intro
   const [responses, setResponses] = useState({})
   const [errors, setErrors] = useState({})
@@ -217,12 +224,34 @@ export default function FormRenderer({
     )
   }
 
+  // Formulario sin pasos → cartel claro, nunca un botón que no hace nada.
+  if (!hasSteps) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <div className="text-5xl">📭</div>
+          <h1 className="text-xl font-bold text-gray-900">{t('forms.emptyFormTitle')}</h1>
+          <p className="text-sm text-gray-500">{t('forms.emptyFormBody')}</p>
+          {onFinish && (
+            <button
+              onClick={onFinish}
+              className="mt-2 text-sm text-blue-600 hover:underline"
+              type="button"
+            >
+              {t('forms.backHome')}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   // ──────────────────────────────────────────────────────────
   // Render principal
   // ──────────────────────────────────────────────────────────
 
   // Barra de progreso
-  const progressPct = Math.round((currentStep / (totalSteps - 1)) * 100)
+  const progressPct = totalSteps > 1 ? Math.round((currentStep / (totalSteps - 1)) * 100) : 0
 
   // Preguntas visibles del módulo actual
   const visibleQuestions = currentModule

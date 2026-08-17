@@ -10,13 +10,14 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle, Clock, Calendar, FileText, X, AlertCircle } from 'lucide-react'
+import { CheckCircle, Clock, Calendar, FileText, X, AlertCircle, Trash2 } from 'lucide-react'
 
 export default function StudentFormsTab({ studentId }) {
   const [assignments, setAssignments] = useState([])
   const [submissions, setSubmissions] = useState({}) // { assignment_id: submission }
   const [loading, setLoading] = useState(true)
   const [viewing, setViewing] = useState(null) // { assignment, submission }
+  const [cancelling, setCancelling] = useState(null) // id del envío que se está cancelando
 
   useEffect(() => {
     if (!studentId) return
@@ -46,6 +47,39 @@ export default function StudentFormsTab({ studentId }) {
     })
     setSubmissions(subMap)
     setLoading(false)
+  }
+
+  /**
+   * Cancelar un envío que todavía no fue respondido.
+   *
+   * Hasta agosto 2026 no había forma de sacar un formulario mal enviado: si te
+   * equivocabas, le quedaba ahí a la alumna para siempre y solo podías mandarle
+   * otro encima. Borrar la fila hace cascade sobre el borrador (FK ON DELETE
+   * CASCADE), así que no quedan huérfanos.
+   */
+  async function handleCancel(a) {
+    const started = a.status === 'in_progress' || !!submissions[a.id]
+    const message = started
+      ? `Esta persona ya empezó a responder "${nameOf(a)}". Si cancelás el envío se borra junto con lo que haya completado. ¿Seguro?`
+      : `¿Cancelar el envío de "${nameOf(a)}"? Le va a desaparecer de su lista de formularios.`
+    if (!confirm(message)) return
+
+    setCancelling(a.id)
+    // Pedimos las filas borradas: un DELETE que la RLS rechaza NO tira error,
+    // simplemente no borra nada (mismo caso que ejercicios, julio 2026).
+    const { data, error } = await supabase
+      .from('intake_form_assignments')
+      .delete()
+      .eq('id', a.id)
+      .select('id')
+    setCancelling(null)
+
+    if (error || !data?.length) {
+      console.error('No se pudo cancelar el envío', error)
+      alert('No se pudo cancelar el envío. Probá de nuevo; si sigue pasando, avisá.')
+      return
+    }
+    load()
   }
 
   function statusBadge(status) {
@@ -101,19 +135,23 @@ export default function StudentFormsTab({ studentId }) {
     <div className="space-y-2">
       {assignments.map((a) => {
         const sub = submissions[a.id]
+        const canCancel = a.status !== 'completed'
         return (
-          <button
+          <div
             key={a.id}
-            onClick={() => (sub ? setViewing({ assignment: a, submission: sub }) : null)}
-            disabled={!sub}
-            className={`w-full text-left bg-white border border-gray-200 rounded-xl p-4 transition-all ${
-              sub
-                ? 'hover:border-blue-300 hover:shadow-sm cursor-pointer'
-                : 'opacity-75 cursor-default'
+            className={`bg-white border border-gray-200 rounded-xl transition-all ${
+              sub ? 'hover:border-blue-300 hover:shadow-sm' : ''
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-3 p-4">
+              <button
+                type="button"
+                onClick={() => (sub ? setViewing({ assignment: a, submission: sub }) : null)}
+                disabled={!sub}
+                className={`min-w-0 flex-1 text-left ${
+                  sub ? 'cursor-pointer' : 'opacity-75 cursor-default'
+                }`}
+              >
                 <p className="font-medium text-gray-900 truncate">{nameOf(a)}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{triggerLabel(a)}</p>
                 <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-400">
@@ -123,9 +161,22 @@ export default function StudentFormsTab({ studentId }) {
                   )}
                   {a.completed_at && <span>· {new Date(a.completed_at).toLocaleDateString()}</span>}
                 </div>
-              </div>
+              </button>
+
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={() => handleCancel(a)}
+                  disabled={cancelling === a.id}
+                  title="Cancelar este envío"
+                  className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  <Trash2 size={12} />
+                  {cancelling === a.id ? 'Cancelando...' : 'Cancelar'}
+                </button>
+              )}
             </div>
-          </button>
+          </div>
         )
       })}
 

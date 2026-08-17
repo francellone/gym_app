@@ -764,6 +764,8 @@
     "noPendingTitle": "No pending form",
     "noPendingBody": "Your coach hasn't sent you the intake form yet. It will show up here once you receive it.",
     "backHome": "Back to home",
+    "emptyFormTitle": "This form arrived empty",
+    "emptyFormBody": "It has no questions to show you. Let your coach know so they can resend it.",
     "notAvailableTitle": "Form not available",
     "notAvailableBody": "This form was already completed or isn't available to you.",
     "seeMyForms": "See my forms",

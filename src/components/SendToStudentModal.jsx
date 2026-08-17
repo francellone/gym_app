@@ -17,9 +17,12 @@
  *   - onSent:       fn()
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { resolveFormForLanguage } from '../features/forms/intake/schema/resolve-form-language.js'
 import { X, Send, CheckCircle, AlertCircle, Calendar, ChevronRight } from 'lucide-react'
+
+const LANG_LABEL = { es: 'español', en: 'inglés' }
 
 const TRIGGER_OPTIONS = [
   { id: 'manual', label: 'Ahora mismo', hint: 'Se envía al instante' },
@@ -30,6 +33,25 @@ const TRIGGER_OPTIONS = [
     hint: 'Se envía cuando termine el plan asignado',
   },
 ]
+
+/**
+ * ¿Cuántas preguntas vería REALMENTE esta persona?
+ *
+ * El snapshot se resuelve al idioma del alumno: las preguntas marcadas "solo
+ * alumnos en el otro idioma" (hidden_for) se filtran, y un módulo que queda
+ * sin preguntas se elimina. Si todas caen, el formulario llega VACÍO: la
+ * alumna aprieta "¡Empezar!" y no pasa nada (caso real de agosto 2026, la
+ * plantilla mensual quedó en "solo inglés" y se siguió mandando a alumnas en
+ * español). Mejor avisar acá que mandar algo que no se puede abrir.
+ */
+function visibleQuestionCount(config, lang) {
+  const resolved = resolveFormForLanguage(config, lang || 'es')
+  const modules = [
+    ...(resolved?.modules || []).filter((m) => m.enabled),
+    resolved?.consent,
+  ].filter(Boolean)
+  return modules.reduce((sum, m) => sum + (m.questions?.length || 0), 0)
+}
 
 export default function SendToStudentModal({
   coachId,
@@ -69,7 +91,7 @@ export default function SendToStudentModal({
       setLoading(true)
       const { data: studs } = await supabase
         .from('profiles')
-        .select('id, name, email')
+        .select('id, name, email, language')
         .eq('role', 'student')
         .order('name')
 
@@ -101,6 +123,22 @@ export default function SendToStudentModal({
   const triggerNeedsPlan =
     isFollowUp && (triggerType === 'on_week' || triggerType === 'on_plan_end')
 
+  // Preguntas visibles por idioma (se calcula una vez por idioma, no por alumno).
+  const countByLang = useMemo(() => {
+    const cache = {}
+    for (const lang of new Set(students.map((s) => s.language || 'es'))) {
+      cache[lang] = visibleQuestionCount(formConfig, lang)
+    }
+    return cache
+  }, [students, formConfig])
+
+  function isEmptyFor(student) {
+    return (countByLang[student?.language || 'es'] ?? 0) === 0
+  }
+
+  // Idiomas en los que este formulario quedaría vacío (para el aviso de arriba).
+  const emptyLangs = Object.keys(countByLang).filter((l) => countByLang[l] === 0)
+
   function toggleStudent(id) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
@@ -108,6 +146,7 @@ export default function SendToStudentModal({
   function selectAllVisible() {
     const visible = filteredStudents
       .filter((s) => !triggerNeedsPlan || (plansByStudent[s.id]?.length || 0) > 0)
+      .filter((s) => !isEmptyFor(s))
       .map((s) => s.id)
     setSelectedIds(visible)
   }
@@ -150,6 +189,13 @@ export default function SendToStudentModal({
     for (const studentId of selectedIds) {
       const student = students.find((s) => s.id === studentId)
       const label = student?.name || student?.email || studentId
+
+      // Red de seguridad: aunque la UI ya lo bloquea, nunca insertar un envío
+      // que a esa persona le llegaría sin una sola pregunta.
+      if (isEmptyFor(student)) {
+        skipped.push(`${label} (el formulario le llegaría vacío en su idioma)`)
+        continue
+      }
 
       // Resolver plan_assignment si el trigger lo requiere
       let planAssignment = null
@@ -363,6 +409,15 @@ export default function SendToStudentModal({
                   </div>
                 )}
 
+                {emptyLangs.length > 0 && (
+                  <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-800">
+                    ⚠ Este formulario no tiene ninguna pregunta para alumnos en{' '}
+                    <strong>{emptyLangs.map((l) => LANG_LABEL[l] || l).join(' ni ')}</strong>. Están
+                    deshabilitados abajo. Revisá en el editor la opción “Esta pregunta se muestra
+                    a...”.
+                  </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto p-2">
                   {loading ? (
                     <div className="flex items-center justify-center py-10">
@@ -377,6 +432,8 @@ export default function SendToStudentModal({
                       const selected = selectedIds.includes(student.id)
                       const studentPlans = plansByStudent[student.id] || []
                       const noPlan = triggerNeedsPlan && studentPlans.length === 0
+                      const emptyForm = isEmptyFor(student)
+                      const blocked = noPlan || emptyForm
                       const needsChoice =
                         triggerNeedsPlan &&
                         studentPlans.length > 1 &&
@@ -386,10 +443,10 @@ export default function SendToStudentModal({
                       return (
                         <div key={student.id}>
                           <button
-                            onClick={() => !noPlan && toggleStudent(student.id)}
-                            disabled={noPlan}
+                            onClick={() => !blocked && toggleStudent(student.id)}
+                            disabled={blocked}
                             className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl mb-0.5 transition-colors text-left ${
-                              noPlan
+                              blocked
                                 ? 'opacity-40 cursor-not-allowed'
                                 : selected
                                   ? 'bg-blue-50 border border-blue-200'
@@ -417,8 +474,14 @@ export default function SendToStudentModal({
                               <p className="text-sm font-medium text-gray-900 truncate">
                                 {student.name}
                               </p>
-                              <p className="text-xs text-gray-400 truncate">
-                                {noPlan ? 'sin plan activo' : student.email}
+                              <p
+                                className={`text-xs truncate ${emptyForm ? 'text-amber-600' : 'text-gray-400'}`}
+                              >
+                                {noPlan
+                                  ? 'sin plan activo'
+                                  : emptyForm
+                                    ? `⚠ este formulario no tiene preguntas en su idioma (${student.language || 'es'})`
+                                    : student.email}
                               </p>
                             </div>
                           </button>

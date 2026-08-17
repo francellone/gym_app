@@ -764,6 +764,8 @@
     "noPendingTitle": "Sin formulario pendiente",
     "noPendingBody": "Tu coach aún no te envió el formulario de ingreso. Cuando lo recibas aparecerá aquí.",
     "backHome": "Volver al inicio",
+    "emptyFormTitle": "Este formulario llegó vacío",
+    "emptyFormBody": "No tiene ninguna pregunta para mostrarte. Avisale a tu coach así te lo reenvía.",
     "notAvailableTitle": "Formulario no disponible",
     "notAvailableBody": "Este formulario ya fue completado o no está disponible para vos.",
     "seeMyForms": "Ver mis formularios",

@@ -7,6 +7,22 @@ import { clearWorkoutSnapshots } from '@/features/workouts/workoutSnapshot'
 
 const AuthContext = createContext(null)
 
+// Ningún paso del cierre de sesión puede dejar al usuario esperando para
+// siempre: si una promesa no resuelve, el botón "Cerrar sesión" queda mudo.
+const PUSH_UNREGISTER_TIMEOUT_MS = 3000
+const SIGN_OUT_TIMEOUT_MS = 5000
+
+/** Promesa con techo de tiempo: rechaza si `promise` no resuelve a tiempo. */
+function withTimeout(promise, ms, label = 'operación') {
+  let timer
+  return Promise.race([
+    Promise.resolve(promise).finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label}: timeout de ${ms}ms`)), ms)
+    }),
+  ])
+}
+
 export function AuthProvider({ children }) {
   // Pintado instantáneo (PWA cold start): si tenemos {user, profile} cacheados,
   // arrancamos con ese estado y SIN spinner, y revalidamos la sesión de Supabase
@@ -99,16 +115,36 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  // Cerrar sesión es a prueba de cuelgues. Dos pasos podían bloquearlo:
+  //   1) unregisterPush → navigator.serviceWorker.ready NUNCA resuelve si no
+  //      hay service worker activo (pestaña sin SW registrado, iOS sin PWA).
+  //   2) supabase.auth.signOut() → puede colgarse sin red.
+  // Ambos corren con timeout y, pase lo que pase, la sesión local se limpia:
+  // más vale cerrar de más que dejar al usuario apretando un botón muerto.
   async function signOut() {
-    // Desregistrar push antes de cerrar sesión
     if (user) {
-      await unregisterPush(user.id).catch((err) => console.warn('Push unregister failed:', err))
+      await withTimeout(unregisterPush(user.id), PUSH_UNREGISTER_TIMEOUT_MS, 'unregisterPush').catch(
+        (err) => console.warn('Push unregister failed:', err)
+      )
     }
     // Limpiar snapshots del pintado instantáneo para no filtrar datos entre cuentas.
     clearAuthSnapshot()
     clearWorkoutSnapshots()
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signOut(),
+        SIGN_OUT_TIMEOUT_MS,
+        'supabase.auth.signOut'
+      )
+      if (error) throw error
+    } catch (err) {
+      // Offline, token ya inválido o timeout: la sesión local igual no sirve.
+      console.warn('signOut falló; se cierra la sesión local igual:', err)
+    } finally {
+      userRef.current = null
+      setUser(null)
+      setProfile(null)
+    }
   }
 
   async function refreshProfile() {
