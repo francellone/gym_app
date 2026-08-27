@@ -182,7 +182,7 @@
     "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Recordá:",
     "wellbeingReminderBody": "aún no cargaste tu wellbeing de hoy. Podés hacerlo desde la tarjeta de arriba cuando quieras.",
-    "workoutComplete": "🎉 ¡Entrenamiento completo!",
+    "weekComplete": "🎉 ¡Completaste todos tus entrenamientos de esta semana!",
     "dayCompletedBanner": "✅ {{day}} completado",
     "wellbeingNotLoggedToday": "⚠️ No cargaste tu wellbeing de hoy",
     "logEffortForDay": "Registrar esfuerzo {{day}}",

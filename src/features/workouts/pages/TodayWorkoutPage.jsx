@@ -32,11 +32,15 @@ import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
 import { readScroll, writeScroll } from '../workoutViewState'
+import { computeWeekAdherence } from '@/features/plans/assignmentHelpers'
 import {
   computeSessionProgress,
+  computeDayDoneMap,
   isSessionBanner,
   dayDotState,
   daysPendingPSE,
+  sessionDatesFromLogs,
+  isWeekComplete,
 } from '../sessionProgress'
 import { readWorkoutSnapshot, writeWorkoutSnapshot } from '../workoutSnapshot'
 import BlockRenderer from '../components/BlockRenderer'
@@ -50,7 +54,7 @@ import DayActivitiesCard from '@/features/activities/components/DayActivitiesCar
 import SaveErrorBanner from '../components/SaveErrorBanner'
 import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
-import { pseColor, isSectionCompleted } from '../helpers'
+import { pseColor } from '../helpers'
 import WellbeingModal from '@/features/wellbeing/components/WellbeingModal'
 import { computeDayTallies, formatTallyForDisplay } from '@/features/students/dayTalliesLogic'
 import {
@@ -1079,22 +1083,14 @@ export default function TodayWorkoutPage() {
     }
   }
 
-  // Activación completa (si no hay activación, se considera completa)
   const activationBlocks = blocksBySection.activation || []
-  const activationDone =
-    activationBlocks.length === 0 || isSectionCompleted(activationBlocks, logs, blockLogs)
 
-  // Mapa día → completado (requiere activación + todos los bloques del día)
-  const dayDoneMap = useMemo(() => {
-    const m = {}
-    for (const id of activeDays) {
-      const sectionDone = isSectionCompleted(blocksBySection[id] || [], logs, blockLogs)
-      // El primer día exige también que activación esté completa
-      const gate = id === activeDays[0] ? activationDone : true
-      m[id] = sectionDone && gate
-    }
-    return m
-  }, [activeDays, blocksBySection, logs, blockLogs, activationDone])
+  // Mapa día → completado. 2026-08-27: la activación es requisito de TODOS
+  // los días (antes solo del primero del plan). Ver computeDayDoneMap.
+  const dayDoneMap = useMemo(
+    () => computeDayDoneMap({ activeDays, blocksBySection, logs, blockLogs }),
+    [activeDays, blocksBySection, logs, blockLogs]
+  )
 
   // PSE guardados en la sesión
   // useMemo: sin esto el objeto se recrea en cada render y hace churn en
@@ -1106,6 +1102,21 @@ export default function TodayWorkoutPage() {
     () => daysPendingPSE({ activeDays, dayDoneMap, borgPerDay }),
     [activeDays, dayDoneMap, borgPerDay]
   )
+
+  // ¿Cerró todos los entrenamientos esperados de la semana? Es lo único que
+  // se festeja con 🎉 (decisión Franco 2026-08-27); el día completado solo
+  // dice "✅ Día X completado".
+  // recentLogs viene del fetch inicial y no tiene lo que el alumno acaba de
+  // cargar hoy: por eso sumamos selectedDate cuando el día ya está cerrado.
+  const weekComplete = useMemo(() => {
+    if (!assignment) return false
+    const dates = sessionDatesFromLogs({
+      logs: recentLogs,
+      extraDate: activeDay && dayDoneMap[activeDay] ? selectedDate : null,
+    })
+    const anchor = parseISO(selectedDate)
+    return isWeekComplete(computeWeekAdherence(assignment, dates, anchor))
+  }, [assignment, recentLogs, dayDoneMap, activeDay, selectedDate])
 
   // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito).
   // 2026-08-27: cuenta SOLO la sesión de hoy (activación + día activo). Antes
@@ -1525,10 +1536,11 @@ export default function TodayWorkoutPage() {
                 }`}
               >
                 <p className="text-white font-bold">
-                  {isFinalBanner
-                    ? t('workout.workoutComplete')
-                    : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
+                  {t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
                 </p>
+                {isFinalBanner && weekComplete && (
+                  <p className="text-white font-bold text-sm mt-1">{t('workout.weekComplete')}</p>
+                )}
                 {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
                 {isFinalBanner && isToday && !wellbeing && (
                   <p className="text-white/90 text-xs mt-1.5">

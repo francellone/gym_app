@@ -16,8 +16,17 @@
 // Regla única: la sesión de hoy = activación + el día activo. Nada más.
 // El PSE no decide el color: decide la FORMA del punto (relleno/hueco).
 //
+// Decisiones de Franco 2026-08-27 al cerrar el fix:
+//   - La activación es obligatoria para cerrar CUALQUIER día (antes solo el
+//     primero del plan: la misma alumna cerraba el Día B y no el Día A).
+//   - El día completado dice "✅ Día X completado". El 🎉 se reserva para
+//     cuando cerró todos los entrenamientos ESPERADOS DE LA SEMANA
+//     (adherencia semanal, ver isWeekComplete).
+//
 // Funciones puras (sin React ni Supabase) para poder testearlas.
 // ============================================================
+
+import { isSectionCompleted } from './helpers'
 
 export const ACTIVATION_SECTION = 'activation'
 
@@ -100,4 +109,67 @@ export function daysPendingPSE({ activeDays, dayDoneMap, borgPerDay } = {}) {
   const done = dayDoneMap || {}
   const borg = borgPerDay || {}
   return (activeDays || []).filter((id) => done[id] && borg[id] === undefined)
+}
+
+// ============================================================
+// computeDayDoneMap
+// ------------------------------------------------------------
+// Mapa día → completado. Un día está cerrado cuando están completos
+// TODOS sus bloques Y la activación.
+//
+// 2026-08-27: antes el gate de activación era `id === activeDays[0]`,
+// o sea solo el primer día del plan. Con el verde inalcanzable eso no se
+// veía; al arreglar el banner quedaba a la vista una asimetría absurda
+// (misma alumna, misma conducta, el Día B cerraba y el Día A no).
+// Ahora la activación es requisito de todos los días, coherente con la
+// barra de progreso, que la suma en el denominador de cualquier día.
+//
+// Si el plan no tiene activación, no hay gate (se considera cumplida).
+// ============================================================
+export function computeDayDoneMap({ activeDays, blocksBySection, logs, blockLogs } = {}) {
+  const bySection = blocksBySection || {}
+  const activationBlocks = bySection[ACTIVATION_SECTION] || []
+  const activationDone =
+    activationBlocks.length === 0 || isSectionCompleted(activationBlocks, logs, blockLogs)
+
+  const map = {}
+  for (const id of activeDays || []) {
+    map[id] = isSectionCompleted(bySection[id] || [], logs, blockLogs) && activationDone
+  }
+  return map
+}
+
+// ============================================================
+// sessionDatesFromLogs
+// ------------------------------------------------------------
+// Fechas YMD distintas con actividad registrada, para alimentar
+// computeWeekAdherence. Mismo criterio que usa el resto de la app para
+// "entrenó ese día" (calendario del coach, adherencia): existe registro.
+//
+// `extraDate` cubre el hueco del día en curso: recentLogs se trae en el
+// fetch inicial, así que lo que el alumno acaba de cargar HOY todavía no
+// está ahí. El llamador pasa selectedDate cuando el día ya está cerrado.
+// ============================================================
+export function sessionDatesFromLogs({ logs, extraDate } = {}) {
+  const set = new Set()
+  for (const l of logs || []) {
+    if (l?.logged_date) set.add(String(l.logged_date).slice(0, 10))
+  }
+  if (extraDate) set.add(String(extraDate).slice(0, 10))
+  return [...set]
+}
+
+// ============================================================
+// isWeekComplete
+// ------------------------------------------------------------
+// ¿Cerró todos los entrenamientos esperados de la semana?
+// Toma la salida de computeWeekAdherence (features/plans/assignmentHelpers).
+// Sin expectativa definida (expectedCount 0: plan sin sessions_per_week ni
+// preferred_days) NO se celebra: preferimos no felicitar de más.
+// ============================================================
+export function isWeekComplete(adherence) {
+  if (!adherence) return false
+  const expected = Number(adherence.expectedCount) || 0
+  const completed = Number(adherence.completedCount) || 0
+  return expected > 0 && completed >= expected
 }
