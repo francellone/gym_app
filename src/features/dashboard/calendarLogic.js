@@ -84,6 +84,12 @@ export const STUDENT_DAY_STYLE = {
     dotClass: 'bg-emerald-500',
     ringClass: 'ring-emerald-300',
   },
+  planned_partial: {
+    label: 'Parcial',
+    icon: '◐',
+    dotClass: 'bg-amber-400',
+    ringClass: 'ring-amber-300',
+  },
   planned_missed: {
     label: 'No asistió',
     icon: '✗',
@@ -101,6 +107,12 @@ export const STUDENT_DAY_STYLE = {
     icon: '+',
     dotClass: 'bg-blue-400',
     ringClass: 'ring-blue-300',
+  },
+  unplanned_partial: {
+    label: 'Día extra parcial',
+    icon: '◐',
+    dotClass: 'bg-amber-300',
+    ringClass: 'ring-amber-200',
   },
   rest: { label: 'Descanso', icon: '·', dotClass: 'bg-transparent', ringClass: '' },
 }
@@ -246,32 +258,38 @@ export function computeCalendarEvents(students, assignments, window) {
 //                                (preferred_days en modo fixed; vacío en flexible).
 //   completedSet      Set<YMD>   días con sesión registrada
 //   today             Date       referencia de "hoy"
-//   opts              { scheduleMode, flexibleOverflowSet }
+//   opts              { scheduleMode, flexibleOverflowSet, partialSet }
 //
-// Output: 'planned_done' | 'planned_missed' | 'planned_future'
-//       | 'unplanned_done' | 'rest'
+// partialSet (2026-08-27): días con sesión que NO llegaron a completar
+// el entrenamiento (ver computeDateCompleteness). Antes cualquier día con
+// sesión se pintaba "Cumplido": Andrea entrenaba solo la activación y la
+// coach la veía verde. Sin partialSet el comportamiento es el de antes.
+//
+// Output: 'planned_done' | 'planned_partial' | 'planned_missed'
+//       | 'planned_future' | 'unplanned_done' | 'unplanned_partial' | 'rest'
 // ============================================================
 export function computeStudentDayStatus(ymd, expectedSet, completedSet, today, opts = {}) {
   const scheduleMode = opts.scheduleMode === SCHED_FLEXIBLE ? SCHED_FLEXIBLE : SCHED_FIXED
   const isDone = completedSet.has(ymd)
+  const isPartial = !!opts.partialSet && opts.partialSet.has(ymd)
 
   // ── Modo flexible ─────────────────────────────────────────
   if (scheduleMode === SCHED_FLEXIBLE) {
     if (!isDone) return 'rest'
     const overflow = opts.flexibleOverflowSet
-    if (overflow && overflow.has(ymd)) return 'unplanned_done'
-    return 'planned_done'
+    if (overflow && overflow.has(ymd)) return isPartial ? 'unplanned_partial' : 'unplanned_done'
+    return isPartial ? 'planned_partial' : 'planned_done'
   }
 
   // ── Modo fixed ────────────────────────────────────────────
   const isExpected = expectedSet.has(ymd)
-  if (isExpected && isDone) return 'planned_done'
+  if (isExpected && isDone) return isPartial ? 'planned_partial' : 'planned_done'
   if (isExpected && !isDone) {
     const d = parseYMD(ymd)
     if (d && d > startOfDay(today)) return 'planned_future'
     return 'planned_missed'
   }
-  if (!isExpected && isDone) return 'unplanned_done'
+  if (!isExpected && isDone) return isPartial ? 'unplanned_partial' : 'unplanned_done'
   return 'rest'
 }
 

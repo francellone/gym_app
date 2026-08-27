@@ -81,56 +81,66 @@
 // Output:
 //   Record<section, SectionTally>
 // ============================================================
-export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks } = {}) {
-  // 1) Mapa block_id → block_type. Vacío si el caller no pasa planBlocks
-  //    (modo legacy: todos los plan_exercises se tratan como strength
-  //    y los block_logs se ignoran).
+export const ACTIVATION_SECTION = 'activation'
+
+// ------------------------------------------------------------
+// buildPlanIndex (interno)
+// ------------------------------------------------------------
+// Índice del plan para poder decir, por (fecha, sección), cuántos
+// ítems se esperaban y cuántos se completaron. Se comparte entre
+// computeDayTallies y computeDateCompleteness para no tener dos
+// definiciones de "ítem esperado" que se puedan desincronizar.
+//
+// A diferencia de la versión vieja (que filtraba a day_* al construir),
+// acá indexamos TODAS las secciones, incluida la activación. Los
+// consumidores filtran lo que no les sirve: las tildes por día siguen
+// ignorando la activación, pero el calendario del coach la necesita
+// para saber si la sesión quedó completa de verdad.
+// ------------------------------------------------------------
+function buildPlanIndex({ planExercises, planBlocks } = {}) {
   const blockTypeById = new Map()
-  const blockToSection = new Map()
+  const blockToSection = new Map() // solo aerobic/circuit: loggean por bloque
   for (const b of planBlocks || []) {
     if (!b || !b.id) continue
     if (b.__virtual) continue // bloques sintéticos no cuentan
     if (b.block_type) blockTypeById.set(b.id, b.block_type)
-    if (
-      typeof b.section === 'string' &&
-      b.section.startsWith('day_') &&
-      b.block_type &&
-      b.block_type !== 'strength'
-    ) {
+    if (typeof b.section === 'string' && b.section && b.block_type && b.block_type !== 'strength') {
       blockToSection.set(b.id, b.section)
     }
   }
   const hasBlocksInfo = blockTypeById.size > 0
 
-  // 2) Mapear plan_exercises de bloques strength → exerciseId → section,
-  //    e ir acumulando totales por section.
-  //    - Modo legacy (sin planBlocks): TODOS los plan_exercises cuentan.
-  //    - Modo nuevo: sólo los de bloques strength (los de aerobic/circuit
-  //      no loggean por ejercicio, loggean por bloque).
   const exerciseToSection = new Map()
   const sectionTotals = {}
 
   for (const pe of planExercises || []) {
-    if (!pe || typeof pe.section !== 'string' || !pe.section.startsWith('day_')) continue
+    if (!pe || typeof pe.section !== 'string' || !pe.section) continue
     if (hasBlocksInfo) {
       const bt = blockTypeById.get(pe.block_id)
-      // Si el bloque del PE es strength → cuenta. Si es aerobic/circuit → no.
-      // Si block_id no matchea con ningún bloque conocido (dato inconsistente)
-      // → lo tratamos como strength para no perder señal silenciosamente.
+      // Bloque strength → cuenta por ejercicio. aerobic/circuit → no
+      // (loggean por bloque). block_id desconocido → lo tratamos como
+      // strength para no perder señal en silencio.
       if (bt && bt !== 'strength') continue
     }
     exerciseToSection.set(pe.id, pe.section)
     sectionTotals[pe.section] = (sectionTotals[pe.section] || 0) + 1
   }
 
-  // 3) Sumar al denominador los bloques aerobic/circuit (1 por bloque).
-  //    Sólo si tenemos planBlocks.
+  // Cada bloque aerobic/circuit suma 1 al denominador de su sección.
   for (const [, section] of blockToSection.entries()) {
     sectionTotals[section] = (sectionTotals[section] || 0) + 1
   }
 
-  // 4) Numerador parte 1: workout_logs.completed por (date, section).
-  const completedByDateSection = new Map()
+  return { exerciseToSection, blockToSection, sectionTotals }
+}
+
+// ------------------------------------------------------------
+// countCompletedByDateSection (interno)
+// ------------------------------------------------------------
+// Map "fecha__seccion" → ítems completados esa fecha en esa sección.
+// ------------------------------------------------------------
+function countCompletedByDateSection({ logs, blockLogs, exerciseToSection, blockToSection }) {
+  const out = new Map()
 
   for (const log of logs || []) {
     if (!log || !log.completed) continue
@@ -139,11 +149,9 @@ export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks }
     const date = String(log.logged_date || '').slice(0, 10)
     if (!date) continue
     const key = `${date}__${section}`
-    completedByDateSection.set(key, (completedByDateSection.get(key) || 0) + 1)
+    out.set(key, (out.get(key) || 0) + 1)
   }
 
-  // 5) Numerador parte 2: workout_block_logs.completed para bloques
-  //    aerobic/circuit. Sólo si tenemos planBlocks y blockLogs.
   for (const bl of blockLogs || []) {
     if (!bl || !bl.completed) continue
     const section = blockToSection.get(bl.plan_block_id)
@@ -151,17 +159,37 @@ export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks }
     const date = String(bl.logged_date || '').slice(0, 10)
     if (!date) continue
     const key = `${date}__${section}`
-    completedByDateSection.set(key, (completedByDateSection.get(key) || 0) + 1)
+    out.set(key, (out.get(key) || 0) + 1)
   }
 
-  // 6) Por (fecha, section): entero si completados >= total esperado,
-  //    parcial si 0 < completados < total. Acumular por section.
+  return out
+}
+
+function splitKey(key) {
+  const sepIdx = key.indexOf('__')
+  return { date: key.slice(0, sepIdx), section: key.slice(sepIdx + 2) }
+}
+
+export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks } = {}) {
+  const { exerciseToSection, blockToSection, sectionTotals } = buildPlanIndex({
+    planExercises,
+    planBlocks,
+  })
+  const completedByDateSection = countCompletedByDateSection({
+    logs,
+    blockLogs,
+    exerciseToSection,
+    blockToSection,
+  })
+
+  // Por (fecha, section): entero si completados >= total esperado,
+  // parcial si 0 < completados < total. Acumular por section.
+  // La activación NO genera día propio (decisión Franco 2026-05-23).
   const tallies = {}
 
   for (const [key, completedCount] of completedByDateSection.entries()) {
-    const sepIdx = key.indexOf('__')
-    const date = key.slice(0, sepIdx)
-    const section = key.slice(sepIdx + 2)
+    const { date, section } = splitKey(key)
+    if (!section.startsWith('day_')) continue
     const total = sectionTotals[section] || 0
     if (total === 0) continue
 
@@ -176,6 +204,70 @@ export function computeDayTallies({ logs, planExercises, blockLogs, planBlocks }
   }
 
   return tallies
+}
+
+// ============================================================
+// computeDateCompleteness
+// ------------------------------------------------------------
+// Por fecha: ¿la sesión quedó COMPLETA o quedó a medias?
+// Nace del caso Andrea (2026-08-27): entrenaba solo la activación y el
+// calendario del coach la marcaba "Cumplido" en verde igual, porque el
+// criterio era "existe sesión ese día". Un mes sin que nadie lo viera.
+//
+// Criterio (mismo que la vista del alumno tras el fix de sessionProgress):
+//   completa = algún día del plan (day_*) al 100% Y la activación al 100%
+//              (si el plan tiene activación).
+//   parcial  = hay registro ese día pero no llega a lo anterior.
+//
+// `dates` (opcional) fuerza la aparición de fechas con sesión registrada
+// aunque no tengan ni un ítem completado: esos días son parciales, no
+// "sin datos" — es exactamente el caso que queremos ver.
+//
+// @returns {Map<string, 'complete'|'partial'>}
+// ============================================================
+export function computeDateCompleteness({
+  logs,
+  planExercises,
+  blockLogs,
+  planBlocks,
+  dates,
+} = {}) {
+  const { exerciseToSection, blockToSection, sectionTotals } = buildPlanIndex({
+    planExercises,
+    planBlocks,
+  })
+  const completedByDateSection = countCompletedByDateSection({
+    logs,
+    blockLogs,
+    exerciseToSection,
+    blockToSection,
+  })
+
+  const daySections = Object.keys(sectionTotals).filter(
+    (sec) => sec.startsWith('day_') && sectionTotals[sec] > 0
+  )
+  const activationTotal = sectionTotals[ACTIVATION_SECTION] || 0
+
+  const allDates = new Set()
+  for (const key of completedByDateSection.keys()) allDates.add(splitKey(key).date)
+  for (const d of dates || []) {
+    const ymd = String(d || '').slice(0, 10)
+    if (ymd) allDates.add(ymd)
+  }
+
+  const out = new Map()
+  for (const date of allDates) {
+    const activationOk =
+      activationTotal === 0 ||
+      (completedByDateSection.get(`${date}__${ACTIVATION_SECTION}`) || 0) >= activationTotal
+
+    const anyDayComplete = daySections.some(
+      (sec) => (completedByDateSection.get(`${date}__${sec}`) || 0) >= sectionTotals[sec]
+    )
+
+    out.set(date, anyDayComplete && activationOk ? 'complete' : 'partial')
+  }
+  return out
 }
 
 // ============================================================

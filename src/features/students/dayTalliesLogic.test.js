@@ -6,7 +6,11 @@
 // de 5).
 // ============================================================
 import { describe, it, expect } from 'vitest'
-import { computeDayTallies, formatTallyForDisplay } from './dayTalliesLogic'
+import {
+  computeDayTallies,
+  formatTallyForDisplay,
+  computeDateCompleteness,
+} from './dayTalliesLogic'
 
 // Plan fixture típico: 3 ejercicios en day_a, 2 en day_b, 1 en activación.
 const plan = [
@@ -290,5 +294,123 @@ describe('formatTallyForDisplay', () => {
   it('exactamente 4 sigue siendo tildes (límite del < 5)', () => {
     expect(formatTallyForDisplay({ entero: 3, parcial: 1 })).toBe('✓✓✓◐')
     expect(formatTallyForDisplay({ entero: 4, parcial: 0 })).toBe('✓✓✓✓')
+  })
+})
+
+// ============================================================
+// computeDateCompleteness — completo vs parcial por fecha
+// ------------------------------------------------------------
+// Nace del caso Andrea (2026-08-27): entrenaba solo la activación y el
+// calendario del coach la marcaba "Cumplido" en verde.
+// Fixture con la forma de su plan: activación 8 + Día A 4 + Día B 4.
+// ============================================================
+const ACT = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']
+const DA = ['pa1', 'pa2', 'pa3', 'pa4']
+const DB = ['pb1', 'pb2', 'pb3', 'pb4']
+const PLAN_ANDREA = [
+  ...ACT.map((id) => ({ id, section: 'activation', block_id: 'blk-act' })),
+  ...DA.map((id) => ({ id, section: 'day_a', block_id: 'blk-a' })),
+  ...DB.map((id) => ({ id, section: 'day_b', block_id: 'blk-b' })),
+]
+const BLOCKS_ANDREA = [
+  { id: 'blk-act', section: 'activation', block_type: 'strength' },
+  { id: 'blk-a', section: 'day_a', block_type: 'strength' },
+  { id: 'blk-b', section: 'day_b', block_type: 'strength' },
+]
+function logsFor(date, ids) {
+  return ids.map((id) => ({ logged_date: date, plan_exercise_id: id, completed: true }))
+}
+
+describe('computeDateCompleteness', () => {
+  it('solo activación → parcial (el caso Andrea)', () => {
+    const out = computeDateCompleteness({
+      logs: logsFor('2026-08-21', ACT),
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-08-21')).toBe('partial')
+  })
+
+  it('activación + día completos → completo', () => {
+    const out = computeDateCompleteness({
+      logs: logsFor('2026-08-24', [...ACT, ...DA]),
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-08-24')).toBe('complete')
+  })
+
+  it('día completo pero activación a medias → parcial', () => {
+    const out = computeDateCompleteness({
+      logs: logsFor('2026-08-24', [...ACT.slice(0, 5), ...DA]),
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-08-24')).toBe('partial')
+  })
+
+  it('alcanza con que UN día del plan esté completo', () => {
+    const out = computeDateCompleteness({
+      logs: logsFor('2026-08-24', [...ACT, ...DB]),
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-08-24')).toBe('complete')
+  })
+
+  it('fecha con sesión pero sin un solo ítem completado → parcial, no ausente', () => {
+    const out = computeDateCompleteness({
+      logs: [],
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+      dates: ['2026-08-25'],
+    })
+    expect(out.get('2026-08-25')).toBe('partial')
+  })
+
+  it('plan sin activación: solo importa el día', () => {
+    const out = computeDateCompleteness({
+      logs: logsFor('2026-08-24', DA),
+      planExercises: PLAN_ANDREA.filter((pe) => pe.section !== 'activation'),
+      planBlocks: BLOCKS_ANDREA.filter((b) => b.section !== 'activation'),
+    })
+    expect(out.get('2026-08-24')).toBe('complete')
+  })
+
+  it('los bloques de circuito/aeróbico cuentan vía blockLogs', () => {
+    const planExercises = [...ACT.map((id) => ({ id, section: 'activation', block_id: 'blk-act' }))]
+    const planBlocks = [
+      { id: 'blk-act', section: 'activation', block_type: 'strength' },
+      { id: 'blk-tabata', section: 'day_a', block_type: 'circuit' },
+    ]
+    const base = { logs: logsFor('2026-08-24', ACT), planExercises, planBlocks }
+    expect(computeDateCompleteness({ ...base, dates: ['2026-08-24'] }).get('2026-08-24')).toBe(
+      'partial'
+    )
+    expect(
+      computeDateCompleteness({
+        ...base,
+        blockLogs: [
+          { logged_date: '2026-08-24', plan_block_id: 'blk-tabata', completed: true },
+        ],
+      }).get('2026-08-24')
+    ).toBe('complete')
+  })
+
+  it('los ejercicios sin completar no suman', () => {
+    const out = computeDateCompleteness({
+      logs: [
+        ...logsFor('2026-08-24', ACT),
+        ...DA.map((id) => ({ logged_date: '2026-08-24', plan_exercise_id: id, completed: false })),
+      ],
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+      dates: ['2026-08-24'],
+    })
+    expect(out.get('2026-08-24')).toBe('partial')
+  })
+
+  it('tolera inputs vacíos', () => {
+    expect(computeDateCompleteness().size).toBe(0)
   })
 })

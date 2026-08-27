@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getExpectedSessionDates, getScheduleMode } from '@/features/plans/assignmentHelpers'
+import { computeDateCompleteness } from '@/features/students/dayTalliesLogic'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import {
   COACH_EVENT_KIND,
   STUDENT_DAY_STYLE,
@@ -56,6 +58,7 @@ const SCHED_FLEXIBLE = 'flexible'
 //     eventsByDate,      Map<YMD, CoachEvent[]> — siempre presente
 //     perStudentDays,    Map<studentId, { expected: Set<YMD>,
 //                                          completed: Set<YMD>,
+//                                          partial: Set<YMD>,
 //                                          assignment }>
 //                        Solo poblado si hay selección.
 //   }
@@ -106,6 +109,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
   const [students, setStudents] = useState([])
   const [assignments, setAssignments] = useState([])
   const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Set<YMD> }
+  // Días CON sesión pero SIN el entrenamiento completo (ver computeDateCompleteness).
+  const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Set<YMD> }
   const [refreshTick, setRefreshTick] = useState(0)
 
   // Evitamos pisarnos con respuestas viejas si el coach navega rápido.
@@ -156,6 +161,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
         })
 
         let completedMap = {}
+        let partialMap = {}
         const sel = (selectionKey || '').split(',').filter(Boolean)
         if (sel.length > 0) {
           // ── IMPORTANTE: filtrar por plan_id del plan ACTIVO de TRAINING ──
@@ -190,12 +196,92 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
               if (!completedMap[sid]) completedMap[sid] = new Set()
               completedMap[sid].add(String(row.logged_date).slice(0, 10))
             }
+
+            // ── Completo vs parcial (2026-08-27) ──────────────────
+            // "Existe sesión" no alcanza: Andrea entrenaba solo la
+            // activación y el calendario la marcaba Cumplido en verde.
+            // Para decidirlo necesitamos, por fecha, qué ítems del plan
+            // completó. Paginado con fetchAllRows: son varias alumnas ×
+            // 6 semanas × ~12 logs por día y el corte mudo de 1000 filas
+            // de PostgREST ya nos mordió una vez.
+            const [logRows, blockLogRows, peRows, pbRows] = await Promise.all([
+              fetchAllRows((from, to) =>
+                supabase
+                  .from('workout_logs')
+                  .select('student_id, plan_id, logged_date, completed, plan_exercise_id')
+                  .in('student_id', sel)
+                  .in('plan_id', activeTrainingPlanIds)
+                  .gte('logged_date', windowStartYMD)
+                  .lte('logged_date', windowEndYMD)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ),
+              fetchAllRows((from, to) =>
+                supabase
+                  .from('workout_block_logs')
+                  .select('student_id, plan_id, logged_date, completed, plan_block_id')
+                  .in('student_id', sel)
+                  .in('plan_id', activeTrainingPlanIds)
+                  .gte('logged_date', windowStartYMD)
+                  .lte('logged_date', windowEndYMD)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ),
+              fetchAllRows((from, to) =>
+                supabase
+                  .from('plan_exercises')
+                  .select('id, plan_id, section, block_id')
+                  .in('plan_id', activeTrainingPlanIds)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ),
+              fetchAllRows((from, to) =>
+                supabase
+                  .from('plan_blocks')
+                  .select('id, plan_id, section, block_type')
+                  .in('plan_id', activeTrainingPlanIds)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ),
+            ])
+
+            if (cancelled || reqIdRef.current !== myReqId) return
+
+            const planIdByStudent = new Map(
+              assignmentsData
+                .filter(
+                  (a) =>
+                    sel.includes(a.student_id) &&
+                    a.status === 'active' &&
+                    a.plan_type === 'training'
+                )
+                .map((a) => [a.student_id, a.plan_id])
+            )
+
+            for (const sid of sel) {
+              const planId = planIdByStudent.get(sid)
+              const sessionDates = completedMap[sid]
+              if (!planId || !sessionDates || sessionDates.size === 0) continue
+              const completeness = computeDateCompleteness({
+                logs: logRows.filter((l) => l.student_id === sid && l.plan_id === planId),
+                blockLogs: blockLogRows.filter((b) => b.student_id === sid && b.plan_id === planId),
+                planExercises: peRows.filter((pe) => pe.plan_id === planId),
+                planBlocks: pbRows.filter((pb) => pb.plan_id === planId),
+                dates: [...sessionDates],
+              })
+              const partial = new Set()
+              for (const ymd of sessionDates) {
+                if (completeness.get(ymd) === 'partial') partial.add(ymd)
+              }
+              if (partial.size > 0) partialMap[sid] = partial
+            }
           }
         }
 
         setStudents(studentsData)
         setAssignments(assignmentsData)
         setCompletedByStudent(completedMap)
+        setPartialByStudent(partialMap)
       } catch (err) {
         // No reventamos el dashboard; logueamos.
         console.error('[useCoachCalendarData] fetch', err)
@@ -245,6 +331,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
 
       const scheduleMode = getScheduleMode(a)
       const completed = completedByStudent[sid] || new Set()
+      const partial = partialByStudent[sid] || new Set()
 
       const expected = new Set()
       if (a && scheduleMode === SCHED_FIXED) {
@@ -264,11 +351,12 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
         scheduleMode,
         expected,
         completed,
+        partial,
         flexibleOverflow,
       })
     }
     return out
-  }, [assignments, completedByStudent, selectedStudentIds, window])
+  }, [assignments, completedByStudent, partialByStudent, selectedStudentIds, window])
 
   const selectedStudents = useMemo(() => {
     const sel = new Set(selectedStudentIds || [])

@@ -169,6 +169,7 @@ export default function MonthlyCalendar({ controlledSelectedIds = null } = {}) {
       const s = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
         scheduleMode: data.scheduleMode,
         flexibleOverflowSet: data.flexibleOverflow,
+        partialSet: data.partial,
       })
       if (s !== 'rest') set.add(s)
     }
@@ -444,9 +445,12 @@ function DayCell({
       const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
         scheduleMode: data.scheduleMode,
         flexibleOverflowSet: data.flexibleOverflow,
+        partialSet: data.partial,
       })
       const style = STUDENT_DAY_STYLE[status]
       if (status === 'planned_done') bgClass = 'bg-emerald-50 hover:bg-emerald-100'
+      else if (status === 'planned_partial' || status === 'unplanned_partial')
+        bgClass = 'bg-amber-50 hover:bg-amber-100'
       else if (status === 'planned_missed') bgClass = 'bg-rose-50 hover:bg-rose-100'
       else if (status === 'planned_future') bgClass = 'bg-slate-50 hover:bg-slate-100'
       else if (status === 'unplanned_done') bgClass = 'bg-blue-50 hover:bg-blue-100'
@@ -498,6 +502,7 @@ function DayCell({
             const status = computeStudentDayStatus(ymd, data.expected, data.completed, today, {
               scheduleMode: data.scheduleMode,
               flexibleOverflowSet: data.flexibleOverflow,
+              partialSet: data.partial,
             })
             if (status === 'rest') return null
             const style = STUDENT_DAY_STYLE[status]
@@ -645,6 +650,7 @@ function DayDetail({
               ? computeStudentDayStatus(ymd, data.expected, data.completed, today, {
                   scheduleMode: data.scheduleMode,
                   flexibleOverflowSet: data.flexibleOverflow,
+                  partialSet: data.partial,
                 })
               : 'rest'
             const style = STUDENT_DAY_STYLE[status]
@@ -659,13 +665,15 @@ function DayDetail({
                   className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded ${
                     status === 'planned_done'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : status === 'planned_missed'
-                        ? 'bg-rose-100 text-rose-700'
-                        : status === 'planned_future'
-                          ? 'bg-slate-100 text-slate-600'
-                          : status === 'unplanned_done'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-400'
+                      : status === 'planned_partial' || status === 'unplanned_partial'
+                        ? 'bg-amber-100 text-amber-700'
+                        : status === 'planned_missed'
+                          ? 'bg-rose-100 text-rose-700'
+                          : status === 'planned_future'
+                            ? 'bg-slate-100 text-slate-600'
+                            : status === 'unplanned_done'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-400'
                   }`}
                 >
                   {style.label}
@@ -702,11 +710,16 @@ function Legend({ mode, eventsByDate, presentIndividualStatuses }) {
   // a alumnos en modo flexible (donde el status no aplica) y "Día
   // extra" cuando no hay ninguno.
   const showCumplido = mode === 'individual' && presentIndividualStatuses?.has('planned_done')
+  const showParcial =
+    mode === 'individual' &&
+    (presentIndividualStatuses?.has('planned_partial') ||
+      presentIndividualStatuses?.has('unplanned_partial'))
   const showNoAsistio = mode === 'individual' && presentIndividualStatuses?.has('planned_missed')
   const showDiaExtra = mode === 'individual' && presentIndividualStatuses?.has('unplanned_done')
   const showProximo = mode === 'individual' && presentIndividualStatuses?.has('planned_future')
 
-  const hasIndividualChips = showCumplido || showNoAsistio || showDiaExtra || showProximo
+  const hasIndividualChips =
+    showCumplido || showParcial || showNoAsistio || showDiaExtra || showProximo
 
   if (presentTypes.length === 0 && !hasIndividualChips) return null
 
@@ -725,6 +738,11 @@ function Legend({ mode, eventsByDate, presentIndividualStatuses }) {
       {showCumplido && (
         <span className="inline-flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Cumplido
+        </span>
+      )}
+      {showParcial && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Parcial
         </span>
       )}
       {showNoAsistio && (
