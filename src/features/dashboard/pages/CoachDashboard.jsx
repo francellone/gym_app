@@ -456,13 +456,17 @@ function SessionRow({ session }) {
 // vía buildAlertTitle / buildAlertSubtitle, así no acoplamos la
 // lógica pura (en coachAlerts.js) con el español de la UI.
 function AlertCard({ kind, items }) {
+  // Expandible (pedido de Franco 2026-08-27): "+N más" antes linkeaba al
+  // listado general y no se podía ver QUIÉNES eran; ahora despliega todos
+  // los chips en la misma card.
+  const [expanded, setExpanded] = useState(false)
   const cfg = ALERT_KIND[kind]
   if (!cfg) return null
   const count = items.length
   // Alumnos clickeables → su pestaña Progreso ("la tablita", pedido de
-  // Anto 13a: la alerta lleva al progreso, no a un chat). Mostramos hasta
-  // 6 chips; si hay más, un link al listado completo.
-  const shown = items.slice(0, 6)
+  // Anto 13a: la alerta lleva al progreso, no a un chat). Colapsada
+  // muestra hasta 6 chips; "+N más" expande el resto.
+  const shown = expanded ? items : items.slice(0, 6)
   const rest = count - shown.length
   return (
     <div className={`card border-l-4 ${cfg.borderClass} py-3`}>
@@ -483,9 +487,22 @@ function AlertCard({ kind, items }) {
           </Link>
         ))}
         {rest > 0 && (
-          <Link to="/coach/students" className="text-xs text-gray-500 hover:underline px-1">
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-xs text-gray-500 hover:text-gray-700 hover:underline px-1"
+          >
             +{rest} más
-          </Link>
+          </button>
+        )}
+        {expanded && count > 6 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="text-xs text-gray-400 hover:text-gray-600 hover:underline px-1"
+          >
+            ver menos
+          </button>
         )}
       </div>
     </div>

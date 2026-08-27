@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import { computeAllAlerts, ALERT_THRESHOLDS } from '../alerts'
 
 // ============================================================
@@ -61,7 +62,12 @@ export default function useCoachAlerts() {
         )
         const ymdWellbeingSince = formatYMD(addDaysSafe(today, -wellbeingLookbackDays))
 
-        const [studentsRes, logsRes, wellbeingRes] = await Promise.all([
+        // ⚠️ Supabase devuelve máx. 1000 filas por request, EN SILENCIO.
+        // workout_logs en 49 días ya supera eso (bug 2026-08-27: la alerta
+        // de inactividad marcaba 22/23 alumnos porque a la mayoría le
+        // faltaban los logs recientes en la página truncada). Por eso los
+        // fetches de logs paginan con fetchAllRows + orden estable.
+        const [studentsRes, logRows, wellbeingRows] = await Promise.all([
           supabase
             .from('profiles')
             .select(
@@ -77,32 +83,40 @@ export default function useCoachAlerts() {
             .eq('active', true),
           // Sumamos actual_weight + plan_exercise → exercise.name para que
           // la alerta de estancamiento sea por ejercicio (no aggregate).
-          supabase
-            .from('workout_logs')
-            .select(
-              `student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
-               plan_exercise:plan_exercises!plan_exercise_id(
-                 exercise:exercises!exercise_id(id, name)
-               )`
-            )
-            .gte('logged_date', ymdSince)
-            .lte('logged_date', ymdToday),
-          supabase
-            .from('wellbeing_logs')
-            .select('user_id, date, energy_level, muscle_fatigue, stress_level, notes')
-            .gte('date', ymdWellbeingSince)
-            .lte('date', ymdToday),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('workout_logs')
+              .select(
+                `id, student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
+                 plan_exercise:plan_exercises!plan_exercise_id(
+                   exercise:exercises!exercise_id(id, name)
+                 )`
+              )
+              .gte('logged_date', ymdSince)
+              .lte('logged_date', ymdToday)
+              .order('logged_date', { ascending: true })
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('wellbeing_logs')
+              .select('id, user_id, date, energy_level, muscle_fatigue, stress_level, notes')
+              .gte('date', ymdWellbeingSince)
+              .lte('date', ymdToday)
+              .order('date', { ascending: true })
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
         ])
 
         if (cancelled || reqIdRef.current !== myReqId) return
 
         if (studentsRes.error) throw studentsRes.error
-        if (logsRes.error) throw logsRes.error
-        if (wellbeingRes.error) throw wellbeingRes.error
 
         setStudents(studentsRes.data || [])
-        setLogs(logsRes.data || [])
-        setWellbeingLogs(wellbeingRes.data || [])
+        setLogs(logRows)
+        setWellbeingLogs(wellbeingRows)
       } catch (err) {
         console.error('[useCoachAlerts] fetch', err)
         if (!cancelled && reqIdRef.current === myReqId) setError(err)
