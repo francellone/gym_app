@@ -8,6 +8,9 @@ import {
   getAssignmentStatus,
   statusConfig,
 } from '@/features/plans/assignmentHelpers'
+import WellbeingStatusBadge from '@/features/wellbeing/components/WellbeingStatusBadge'
+import { summarizeByStudent, formatYMD } from '@/features/wellbeing/wellbeingSummaryLogic'
+import { ALERT_THRESHOLDS } from '@/features/dashboard/alerts'
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([])
@@ -15,6 +18,9 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('')
   const [fetchError, setFetchError] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+  // Wellbeing por alumno (2026-08-27): Map<studentId, summary> de los últimos
+  // WELLBEING_WINDOW_DAYS días. Un solo query bulk para toda la lista.
+  const [wellbeingByStudent, setWellbeingByStudent] = useState(new Map())
 
   useEffect(() => {
     fetchStudents()
@@ -61,6 +67,26 @@ export default function StudentsPage() {
       }))
 
       setStudents(enriched)
+
+      // Wellbeing de los últimos 14 días (misma ventana que las alertas de
+      // fatiga/estrés del dashboard) para pintar el semáforo de cada fila.
+      const today = new Date()
+      const since = new Date(today)
+      since.setDate(since.getDate() - ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
+      const { data: wellbeingData, error: wellbeingError } = await supabase
+        .from('wellbeing_logs')
+        .select(
+          'user_id, date, sleep_quality, nutrition_quality, hydration_quality, energy_level, stress_level, muscle_fatigue, source'
+        )
+        .in('user_id', studentIds)
+        .gte('date', formatYMD(since))
+        .lte('date', formatYMD(today))
+      // El wellbeing es accesorio: si falla, la lista se muestra igual.
+      if (wellbeingError) {
+        console.error('[StudentsPage] wellbeing', wellbeingError)
+      } else {
+        setWellbeingByStudent(summarizeByStudent(wellbeingData || [], { today }))
+      }
     } catch (err) {
       console.error('[StudentsPage]', err)
       setFetchError(err.message)
@@ -91,6 +117,7 @@ export default function StudentsPage() {
     if (filterStatus === 'overdue') return getPaymentStatus(s) === 'overdue'
     if (filterStatus === 'due_soon') return getPaymentStatus(s) === 'due_soon'
     if (filterStatus === 'no_plan') return getPlanStatus(s.plan_assignments) === 'no_plan'
+    if (filterStatus === 'wellbeing') return wellbeingByStudent.get(s.id)?.status === 'bad'
     return true
   })
 
@@ -98,6 +125,9 @@ export default function StudentsPage() {
   const overdueCount = students.filter((s) => getPaymentStatus(s) === 'overdue').length
   const dueSoonCount = students.filter((s) => getPaymentStatus(s) === 'due_soon').length
   const noPlanCount = students.filter((s) => getPlanStatus(s.plan_assignments) === 'no_plan').length
+  const wellbeingAlertCount = students.filter(
+    (s) => wellbeingByStudent.get(s.id)?.status === 'bad'
+  ).length
 
   return (
     <div className="space-y-5">
@@ -114,47 +144,61 @@ export default function StudentsPage() {
       </div>
 
       {/* Alertas rápidas de gestión */}
-      {!loading && (overdueCount > 0 || dueSoonCount > 0 || noPlanCount > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {overdueCount > 0 && (
-            <button
-              onClick={() => setFilterStatus(filterStatus === 'overdue' ? 'all' : 'overdue')}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
-                filterStatus === 'overdue'
-                  ? 'bg-red-100 text-red-700 border-red-300'
-                  : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-              }`}
-            >
-              🔴 {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
-              {overdueCount !== 1 ? 's' : ''}
-            </button>
-          )}
-          {dueSoonCount > 0 && (
-            <button
-              onClick={() => setFilterStatus(filterStatus === 'due_soon' ? 'all' : 'due_soon')}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
-                filterStatus === 'due_soon'
-                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                  : 'bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100'
-              }`}
-            >
-              🟡 {dueSoonCount} vence{dueSoonCount !== 1 ? 'n' : ''} pronto
-            </button>
-          )}
-          {noPlanCount > 0 && (
-            <button
-              onClick={() => setFilterStatus(filterStatus === 'no_plan' ? 'all' : 'no_plan')}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
-                filterStatus === 'no_plan'
-                  ? 'bg-gray-200 text-gray-700 border-gray-400'
-                  : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-              }`}
-            >
-              ⚪ {noPlanCount} sin plan
-            </button>
-          )}
-        </div>
-      )}
+      {!loading &&
+        (overdueCount > 0 || dueSoonCount > 0 || noPlanCount > 0 || wellbeingAlertCount > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {overdueCount > 0 && (
+              <button
+                onClick={() => setFilterStatus(filterStatus === 'overdue' ? 'all' : 'overdue')}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'overdue'
+                    ? 'bg-red-100 text-red-700 border-red-300'
+                    : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                }`}
+              >
+                🔴 {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
+                {overdueCount !== 1 ? 's' : ''}
+              </button>
+            )}
+            {dueSoonCount > 0 && (
+              <button
+                onClick={() => setFilterStatus(filterStatus === 'due_soon' ? 'all' : 'due_soon')}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'due_soon'
+                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                    : 'bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100'
+                }`}
+              >
+                🟡 {dueSoonCount} vence{dueSoonCount !== 1 ? 'n' : ''} pronto
+              </button>
+            )}
+            {noPlanCount > 0 && (
+              <button
+                onClick={() => setFilterStatus(filterStatus === 'no_plan' ? 'all' : 'no_plan')}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'no_plan'
+                    ? 'bg-gray-200 text-gray-700 border-gray-400'
+                    : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                }`}
+              >
+                ⚪ {noPlanCount} sin plan
+              </button>
+            )}
+            {wellbeingAlertCount > 0 && (
+              <button
+                onClick={() => setFilterStatus(filterStatus === 'wellbeing' ? 'all' : 'wellbeing')}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'wellbeing'
+                    ? 'bg-orange-100 text-orange-700 border-orange-300'
+                    : 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'
+                }`}
+                title="Fatiga, energía baja o estrés alto sostenidos en los últimos 14 días"
+              >
+                🟠 {wellbeingAlertCount} con wellbeing en alerta
+              </button>
+            )}
+          </div>
+        )}
 
       {/* Búsqueda */}
       <div className="relative">
@@ -289,6 +333,7 @@ export default function StudentsPage() {
                         {payConfig.label}
                       </span>
                     )}
+                    <WellbeingStatusBadge summary={wellbeingByStudent.get(student.id)} />
                   </div>
                 </div>
 

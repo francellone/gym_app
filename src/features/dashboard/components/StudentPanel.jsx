@@ -23,6 +23,9 @@ import {
   computeExerciseProgress,
 } from '../studentPanelLogic'
 import { findPeriodLabel } from '../dashboardPeriods'
+import WellbeingSummaryBlock from '@/features/wellbeing/components/WellbeingSummaryBlock'
+import { computeWellbeingSummary, formatYMD } from '@/features/wellbeing/wellbeingSummaryLogic'
+import { ALERT_THRESHOLDS } from '../alerts'
 
 // ============================================================
 // StudentPanel
@@ -69,6 +72,10 @@ export default function StudentPanel({
   const [allTrainingDates, setAllTrainingDates] = useState([])
   const [sessionsPerWeek, setSessionsPerWeek] = useState(null)
   const [loading, setLoading] = useState(false)
+  // Wellbeing (2026-08-27): fetch propio, independiente del plan — un alumno
+  // sin plan activo igual puede tener wellbeing cargado.
+  const [wellbeingLogs, setWellbeingLogs] = useState([])
+  const [wellbeingLoading, setWellbeingLoading] = useState(false)
 
   const planId = assignment?.plan_id || null
   const periodStart = periodRange?.start || null
@@ -157,6 +164,49 @@ export default function StudentPanel({
     }
   }, [studentId, planId, periodStart, periodEnd])
 
+  // ── Wellbeing del período ────────────────────────────────
+  // Traemos desde el inicio del período O desde WELLBEING_WINDOW_DAYS antes
+  // del cierre (lo que sea más viejo): los promedios usan el período, pero el
+  // semáforo necesita siempre la ventana completa de 14 días.
+  useEffect(() => {
+    if (!studentId || !periodStart || !periodEnd) {
+      setWellbeingLogs([])
+      return
+    }
+    let cancelled = false
+    async function loadWellbeing() {
+      setWellbeingLoading(true)
+      try {
+        const endDate = new Date(`${periodEnd}T00:00:00`)
+        const windowStart = new Date(endDate)
+        windowStart.setDate(windowStart.getDate() - ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
+        const fetchFrom =
+          periodStart < formatYMD(windowStart) ? periodStart : formatYMD(windowStart)
+        const { data, error } = await supabase
+          .from('wellbeing_logs')
+          .select(
+            'user_id, date, sleep_quality, nutrition_quality, hydration_quality, energy_level, stress_level, muscle_fatigue, notes, source'
+          )
+          .eq('user_id', studentId)
+          .gte('date', fetchFrom)
+          .lte('date', periodEnd)
+          .order('date', { ascending: true })
+        if (cancelled) return
+        if (error) throw error
+        setWellbeingLogs(data || [])
+      } catch (err) {
+        console.error('[StudentPanel] wellbeing', err)
+        if (!cancelled) setWellbeingLogs([])
+      } finally {
+        if (!cancelled) setWellbeingLoading(false)
+      }
+    }
+    loadWellbeing()
+    return () => {
+      cancelled = true
+    }
+  }, [studentId, periodStart, periodEnd])
+
   // ── Cálculos derivados ───────────────────────────────────
   const donutData = useMemo(() => computeDonutData({ logs, planExercises }), [logs, planExercises])
 
@@ -193,14 +243,26 @@ export default function StudentPanel({
     [logs, periodRange]
   )
 
+  const wellbeingSummary = useMemo(
+    () => computeWellbeingSummary({ logs: wellbeingLogs, from: periodStart, to: periodEnd }),
+    [wellbeingLogs, periodStart, periodEnd]
+  )
+
   // ── Early returns ────────────────────────────────────────
   if (!studentId) return null
   if (!assignment) {
     return (
-      <div className="card">
+      <div className="card space-y-3">
         <p className="text-sm text-gray-500">
           {studentName || 'El alumno'} no tiene plan de entrenamiento activo en este período.
         </p>
+        {/* El wellbeing no depende del plan: se muestra igual. */}
+        <WellbeingSummaryBlock
+          summary={wellbeingSummary}
+          loading={wellbeingLoading}
+          studentId={studentId}
+          periodLabel={findPeriodLabel(periodKey)}
+        />
       </div>
     )
   }
@@ -319,6 +381,14 @@ export default function StudentPanel({
           >
             {motivation.text}
           </div>
+
+          {/* Wellbeing del período (2026-08-27) */}
+          <WellbeingSummaryBlock
+            summary={wellbeingSummary}
+            loading={wellbeingLoading}
+            studentId={studentId}
+            periodLabel={findPeriodLabel(periodKey)}
+          />
 
           {/* Progreso por ejercicio (Fase C — refinamiento 2026-05-23 noche)
               Solo si hay logs con actual_weight en el período. */}

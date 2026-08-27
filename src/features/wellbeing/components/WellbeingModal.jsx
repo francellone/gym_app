@@ -1,99 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
+import { WELLBEING_METRICS, wellbeingColor } from '../wellbeingMetrics'
 
-// ─────────────────────────────────────────────────────────────
-// Definición de las 6 métricas
-// positive: true  → 10 es óptimo (sueño, nutrición, hidratación, energía)
-// positive: false → 10 es crítico (estrés, fatiga muscular)
-// ─────────────────────────────────────────────────────────────
-// `label`/`lowLabel`/`highLabel` quedan en español como fallback para las
-// vistas del coach (StudentWellbeingTab) que no pasan por i18n.
-// Las vistas del alumno (este modal, ProgressPage, WellbeingCard) usan
-// `labelKey`/`lowLabelKey`/`highLabelKey` con t(...).
-export const WELLBEING_METRICS = [
-  {
-    key: 'sleep_quality',
-    label: 'Calidad de sueño',
-    labelKey: 'wellbeing.sleepQuality',
-    emoji: '😴',
-    positive: true,
-    lowLabel: 'Muy malo',
-    lowLabelKey: 'wellbeing.sleepLow',
-    highLabel: 'Excelente',
-    highLabelKey: 'wellbeing.sleepHigh',
-  },
-  {
-    key: 'nutrition_quality',
-    label: 'Calidad de alimentación',
-    labelKey: 'wellbeing.nutritionQuality',
-    emoji: '🥗',
-    positive: true,
-    lowLabel: 'Muy mala',
-    lowLabelKey: 'wellbeing.nutritionLow',
-    highLabel: 'Excelente',
-    highLabelKey: 'wellbeing.nutritionHigh',
-  },
-  {
-    key: 'hydration_quality',
-    label: 'Hidratación',
-    labelKey: 'wellbeing.hydrationQuality',
-    emoji: '💧',
-    positive: true,
-    lowLabel: 'Muy poca',
-    lowLabelKey: 'wellbeing.hydrationLow',
-    highLabel: 'Perfecta',
-    highLabelKey: 'wellbeing.hydrationHigh',
-  },
-  {
-    key: 'energy_level',
-    label: 'Nivel de energía',
-    labelKey: 'wellbeing.energyLevel',
-    emoji: '⚡',
-    positive: true,
-    lowLabel: 'Sin energía',
-    lowLabelKey: 'wellbeing.energyLow',
-    highLabel: 'Muy energizado',
-    highLabelKey: 'wellbeing.energyHigh',
-  },
-  {
-    key: 'stress_level',
-    label: 'Nivel de estrés',
-    labelKey: 'wellbeing.stressLevel',
-    emoji: '😓',
-    positive: false,
-    lowLabel: 'Sin estrés',
-    lowLabelKey: 'wellbeing.stressLow',
-    highLabel: 'Muy estresado',
-    highLabelKey: 'wellbeing.stressHigh',
-  },
-  {
-    key: 'muscle_fatigue',
-    label: 'Dolor / fatiga muscular',
-    labelKey: 'wellbeing.muscleFatigue',
-    emoji: '🦵',
-    positive: false,
-    lowLabel: 'Sin fatiga',
-    lowLabelKey: 'wellbeing.fatigueLow',
-    highLabel: 'Muy fatigado',
-    highLabelKey: 'wellbeing.fatigueHigh',
-  },
-]
-
-// Devuelve clases de color según valor y tipo de métrica
-export function wellbeingColor(value, positive) {
-  if (!value) return 'bg-gray-100 text-gray-500'
-  if (positive) {
-    if (value >= 8) return 'bg-green-500 text-white'
-    if (value >= 5) return 'bg-yellow-400 text-gray-800'
-    return 'bg-red-400 text-white'
-  } else {
-    // Para estrés y fatiga: alto es malo
-    if (value >= 8) return 'bg-red-500 text-white'
-    if (value >= 5) return 'bg-orange-400 text-white'
-    return 'bg-green-500 text-white'
-  }
-}
+// Las métricas y el helper de color viven en ../wellbeingMetrics (módulo puro).
+// Se re-exportan acá porque varias vistas los importan desde este archivo.
+export { WELLBEING_METRICS, wellbeingColor }
 
 // Color de anillo para botón seleccionado
 function ringColor(value, positive) {
@@ -191,48 +103,52 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
 
         {/* Métricas con scroll */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {WELLBEING_METRICS.map(({ key, labelKey, emoji, positive, lowLabelKey, highLabelKey }) => {
-            const val = values[key]
-            return (
-              <div key={key}>
-                {/* Fila: emoji + label + badge valor */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg leading-none">{emoji}</span>
-                  <span className="text-sm font-semibold text-gray-800 flex-1">{t(labelKey)}</span>
-                  {val !== undefined && (
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${wellbeingColor(val, positive)}`}
-                    >
-                      {val}
+          {WELLBEING_METRICS.map(
+            ({ key, labelKey, emoji, positive, lowLabelKey, highLabelKey }) => {
+              const val = values[key]
+              return (
+                <div key={key}>
+                  {/* Fila: emoji + label + badge valor */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg leading-none">{emoji}</span>
+                    <span className="text-sm font-semibold text-gray-800 flex-1">
+                      {t(labelKey)}
                     </span>
-                  )}
-                </div>
+                    {val !== undefined && (
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${wellbeingColor(val, positive)}`}
+                      >
+                        {val}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Selector 1–10 */}
-                <div className="grid grid-cols-10 gap-1">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => toggle(key, n)}
-                      className={`h-8 rounded-lg text-xs font-bold transition-all ${
-                        val === n
-                          ? `${wellbeingColor(n, positive)} ring-2 ring-offset-1 ${ringColor(n, positive)} scale-110`
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+                  {/* Selector 1–10 */}
+                  <div className="grid grid-cols-10 gap-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => toggle(key, n)}
+                        className={`h-8 rounded-lg text-xs font-bold transition-all ${
+                          val === n
+                            ? `${wellbeingColor(n, positive)} ring-2 ring-offset-1 ${ringColor(n, positive)} scale-110`
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
 
-                {/* Etiquetas extremos */}
-                <div className="flex justify-between text-[10px] text-gray-400 px-0.5 mt-1">
-                  <span>{t(lowLabelKey)}</span>
-                  <span>{t(highLabelKey)}</span>
+                  {/* Etiquetas extremos */}
+                  <div className="flex justify-between text-[10px] text-gray-400 px-0.5 mt-1">
+                    <span>{t(lowLabelKey)}</span>
+                    <span>{t(highLabelKey)}</span>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            }
+          )}
 
           {/* Observaciones */}
           <div>
