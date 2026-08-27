@@ -282,12 +282,30 @@ export function computeClosedWeeksAdherence({
   periodStart,
   periodEnd,
   today = new Date(),
+  // "Histórico completo" (2026-08-27, pedido de Franco): su periodStart es
+  // 2000-01-01, así que sin esto el denominador se llenaba de semanas
+  // anteriores al primer entrenamiento (160 semanas × target → 11% para
+  // cualquiera). Con true, el período empieza en el primer training log del
+  // alumno. La semana que contiene ese primer log solo cuenta si quedó
+  // completa dentro del período (mismo criterio de semanas cerradas: si
+  // arrancó un miércoles, esa semana parcial no lo penaliza ni lo ayuda).
+  clampStartToFirstTraining = false,
 } = {}) {
   const t = Number(target)
   if (!Number.isFinite(t) || t <= 0 || !periodStart || !periodEnd) {
     return { expectedDays: 0, completedDays: 0, weeks: 0 }
   }
   const dates = trainingDates instanceof Set ? trainingDates : new Set(trainingDates || [])
+
+  let effectiveStart = periodStart
+  if (clampStartToFirstTraining) {
+    // Sin ningún entrenamiento no hay desde dónde contar: 0/0 → la UI
+    // muestra "—" en vez de un 0% sobre semanas inventadas.
+    if (dates.size === 0) return { expectedDays: 0, completedDays: 0, weeks: 0 }
+    let first = null
+    for (const d of dates) if (first === null || d < first) first = d
+    if (first > effectiveStart) effectiveStart = first
+  }
 
   // Lunes de la semana en curso (las cerradas terminan antes).
   const todayD = new Date(today)
@@ -317,7 +335,7 @@ export function computeClosedWeeksAdherence({
     const weDate = new Date(ws)
     weDate.setDate(ws.getDate() + 6)
     const weY = fmt(weDate)
-    if (wsY < periodStart) break // ya salimos del período por abajo
+    if (wsY < effectiveStart) break // ya salimos del período por abajo
     if (weY <= periodEnd) {
       let c = 0
       for (const d of dates) if (d >= wsY && d <= weY) c += 1

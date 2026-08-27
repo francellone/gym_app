@@ -60,6 +60,70 @@ describe('computeClosedWeeksAdherence', () => {
     expect(out.weeks).toBe(1)
   })
 
+  it('clampStartToFirstTraining: histórico completo cuenta desde el primer log', () => {
+    // Período "all" (start ficticio 2000-01-01). Primer log: lunes 01/06.
+    // Sin clamp, todas las semanas desde el 2000 contarían como esperadas.
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-01', '2026-06-03', '2026-06-05', '2026-06-08', '2026-06-10'],
+      target: 3,
+      periodStart: '2000-01-01',
+      periodEnd: '2026-06-16',
+      today,
+      clampStartToFirstTraining: true,
+    })
+    // Semanas cerradas desde el primer log: 01-07/06 (3 logs) y 08-14/06 (2 logs).
+    expect(out).toEqual({ expectedDays: 6, completedDays: 5, weeks: 2 })
+    expect(computeAdherencePct(out)).toBe(83)
+  })
+
+  it('clampStartToFirstTraining: la semana parcial del primer log no cuenta', () => {
+    // Primer log un miércoles → la semana que lo contiene no quedó completa
+    // dentro del período efectivo y se excluye (ni penaliza ni ayuda).
+    const out = computeClosedWeeksAdherence({
+      trainingDates: ['2026-06-03', '2026-06-08', '2026-06-09', '2026-06-11'],
+      target: 3,
+      periodStart: '2000-01-01',
+      periodEnd: '2026-06-16',
+      today,
+      clampStartToFirstTraining: true,
+    })
+    // Solo cuenta 08-14/06 (3 logs); la semana del 01/06 queda afuera.
+    expect(out).toEqual({ expectedDays: 3, completedDays: 3, weeks: 1 })
+    expect(computeAdherencePct(out)).toBe(100)
+  })
+
+  it('clampStartToFirstTraining sin logs no rompe (todo 0)', () => {
+    const out = computeClosedWeeksAdherence({
+      trainingDates: [],
+      target: 3,
+      periodStart: '2000-01-01',
+      periodEnd: '2026-06-16',
+      today,
+      clampStartToFirstTraining: true,
+    })
+    expect(out).toEqual({ expectedDays: 0, completedDays: 0, weeks: 0 })
+  })
+
+  it('clampStartToFirstTraining no achica períodos con inicio real posterior', () => {
+    // Si el período ya empieza DESPUÉS del primer log, no cambia nada.
+    const conClamp = computeClosedWeeksAdherence({
+      trainingDates: ['2026-05-04', '2026-06-08', '2026-06-10', '2026-06-12'],
+      target: 3,
+      periodStart: '2026-06-08',
+      periodEnd: '2026-06-16',
+      today,
+      clampStartToFirstTraining: true,
+    })
+    const sinClamp = computeClosedWeeksAdherence({
+      trainingDates: ['2026-05-04', '2026-06-08', '2026-06-10', '2026-06-12'],
+      target: 3,
+      periodStart: '2026-06-08',
+      periodEnd: '2026-06-16',
+      today,
+    })
+    expect(conClamp).toEqual(sinClamp)
+  })
+
   it('sin semanas cerradas dentro del período → todo 0', () => {
     const out = computeClosedWeeksAdherence({
       trainingDates: ['2026-06-15', '2026-06-16'],

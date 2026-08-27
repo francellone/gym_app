@@ -226,8 +226,11 @@ export default function StudentPanel({
         target: sessionsPerWeek,
         periodStart,
         periodEnd,
+        // En "Histórico completo" el inicio (2000-01-01) es ficticio: la
+        // adherencia arranca en el primer entrenamiento real del alumno.
+        clampStartToFirstTraining: periodKey === 'all',
       }),
-    [allTrainingDates, sessionsPerWeek, periodStart, periodEnd]
+    [allTrainingDates, sessionsPerWeek, periodStart, periodEnd, periodKey]
   )
   const completedDays = adherence.completedDays
   const expectedDays = adherence.expectedDays
