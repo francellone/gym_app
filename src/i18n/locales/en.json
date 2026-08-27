@@ -186,6 +186,8 @@
     "dayCompletedBanner": "✅ {{day}} completed",
     "wellbeingNotLoggedToday": "⚠️ You didn't log your wellbeing today",
     "logEffortForDay": "Log effort for {{day}}",
+    "dayDoneWithPse": "Day complete, effort logged",
+    "dayDoneNoPse": "Day complete — effort not logged yet",
     "unmarkExerciseTitle": "Unmark exercise?",
     "unmarkExerciseBody": "This will delete the logged data for",
     "actionCannotBeUndone": "This action cannot be undone.",

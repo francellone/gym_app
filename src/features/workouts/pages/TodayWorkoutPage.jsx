@@ -5,7 +5,16 @@ import { supabase } from '@/lib/supabase'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
-import { Dumbbell, Calendar, AlertTriangle, Clock, UserCog, Info, ChevronDown } from 'lucide-react'
+import {
+  Dumbbell,
+  Calendar,
+  AlertTriangle,
+  Clock,
+  UserCog,
+  Info,
+  ChevronDown,
+  Activity,
+} from 'lucide-react'
 import {
   DAY_SECTION_IDS,
   SECTION_LABELS,
@@ -23,6 +32,12 @@ import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
 import { readScroll, writeScroll } from '../workoutViewState'
+import {
+  computeSessionProgress,
+  isSessionBanner,
+  dayDotState,
+  daysPendingPSE,
+} from '../sessionProgress'
 import { readWorkoutSnapshot, writeWorkoutSnapshot } from '../workoutSnapshot'
 import BlockRenderer from '../components/BlockRenderer'
 import {
@@ -1082,26 +1097,23 @@ export default function TodayWorkoutPage() {
   }, [activeDays, blocksBySection, logs, blockLogs, activationDone])
 
   // PSE guardados en la sesión
-  const borgPerDay = session?.borg_per_day || {}
+  // useMemo: sin esto el objeto se recrea en cada render y hace churn en
+  // el memo de pendingPSEDays y en el effect que dispara el modal de PSE.
+  const borgPerDay = useMemo(() => session?.borg_per_day || {}, [session])
 
-  // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito)
-  const { completedCount, totalCount } = useMemo(() => {
-    let done = 0,
-      total = 0
-    for (const section of Object.keys(blocksBySection)) {
-      for (const block of blocksBySection[section]) {
-        if (block.block_type === 'strength') {
-          const exs = block.plan_exercises || []
-          total += exs.length
-          done += exs.filter((ex) => logs[ex.id]?.completed).length
-        } else {
-          total += 1
-          if (blockLogs[block.id]?.completed) done += 1
-        }
-      }
-    }
-    return { completedCount: done, totalCount: total }
-  }, [blocksBySection, logs, blockLogs])
+  // Días ya completos a los que les falta el PSE (chip de recuperación).
+  const pendingPSEDays = useMemo(
+    () => daysPendingPSE({ activeDays, dayDoneMap, borgPerDay }),
+    [activeDays, dayDoneMap, borgPerDay]
+  )
+
+  // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito).
+  // 2026-08-27: cuenta SOLO la sesión de hoy (activación + día activo). Antes
+  // sumaba todos los días del plan y una sesión perfecta topeaba en 75%.
+  const { completedCount, totalCount } = useMemo(
+    () => computeSessionProgress({ blocksBySection, activeDay, logs, blockLogs }),
+    [blocksBySection, activeDay, logs, blockLogs]
+  )
 
   // Disparar modal PSE cuando se completa un día (dinámico)
   useEffect(() => {
@@ -1327,6 +1339,8 @@ export default function TodayWorkoutPage() {
               {activeDays.map((id) => {
                 const isDone = dayDoneMap[id]
                 const hasPSE = borgPerDay[id] !== undefined
+                // El PSE no decide el color (verde = entrenaste), decide la forma.
+                const dotState = dayDotState({ isDone, hasPSE })
                 const tally = dayTallies[id]
                 const tallyDisplay = formatTallyForDisplay(tally)
                 const hasParcial = tally && tally.parcial > 0
@@ -1340,9 +1354,18 @@ export default function TodayWorkoutPage() {
                   >
                     <span className="flex items-center gap-1.5">
                       {dayShortLabel(id)}
-                      {isDone && (
+                      {dotState !== 'none' && (
                         <span
-                          className={`w-2 h-2 rounded-full flex-shrink-0 ${hasPSE ? 'bg-green-400' : 'bg-orange-400'}`}
+                          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                            dotState === 'done'
+                              ? 'bg-green-500'
+                              : 'border-2 border-green-500 bg-transparent'
+                          }`}
+                          title={
+                            dotState === 'done'
+                              ? t('workout.dayDoneWithPse')
+                              : t('workout.dayDoneNoPse')
+                          }
                         />
                       )}
                     </span>
@@ -1358,6 +1381,26 @@ export default function TodayWorkoutPage() {
                   </button>
                 )
               })}
+            </div>
+          )}
+
+          {/* Día completo sin PSE cargado — segunda puerta al modal.
+              El automático se dispara UNA sola vez por día (pseTriggeredRef):
+              si el alumno lo cierra sin querer, este chip es la vuelta.
+              Deliberadamente informativo, no una alerta: el día ya está
+              verde, esto es un dato que falta, no un entrenamiento incompleto. */}
+          {pendingPSEDays.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {pendingPSEDays.map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setShowPSEForDay(id)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition"
+                >
+                  <Activity size={12} className="flex-shrink-0" />
+                  {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
+                </button>
+              ))}
             </div>
           )}
 
@@ -1468,9 +1511,10 @@ export default function TodayWorkoutPage() {
           {/* Banner de completado por día (dinámico) */}
           {activeDays.map((id) => {
             if (!dayDoneMap[id]) return null
-            const isLast = id === activeDays[activeDays.length - 1]
-            const showAll = activeDays.every((d) => dayDoneMap[d])
-            const isFinalBanner = isLast && showAll
+            // 2026-08-27: verde = terminaste el día que estabas entrenando.
+            // Antes exigía TODOS los días del plan completos en la misma
+            // fecha (showAll), así que en un plan de 2+ días nunca salía.
+            const isFinalBanner = isSessionBanner(id, activeDay)
             return (
               <div
                 key={id}

@@ -186,6 +186,8 @@
     "dayCompletedBanner": "✅ {{day}} completado",
     "wellbeingNotLoggedToday": "⚠️ No cargaste tu wellbeing de hoy",
     "logEffortForDay": "Registrar esfuerzo {{day}}",
+    "dayDoneWithPse": "Día completo, con esfuerzo registrado",
+    "dayDoneNoPse": "Día completo — falta registrar el esfuerzo",
     "unmarkExerciseTitle": "¿Desmarcar ejercicio?",
     "unmarkExerciseBody": "Se borrarán los datos registrados de",
     "actionCannotBeUndone": "Esta acción no se puede deshacer.",
