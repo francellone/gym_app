@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TrendingUp, BarChart3, Table as TableIcon, Tag } from 'lucide-react'
-import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 import {
   ComposedChart,
   BarChart,
@@ -25,6 +25,7 @@ import {
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
+import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../attendanceRange'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -108,6 +109,14 @@ export default function StudentProgressTab({ studentId }) {
   // Peso corporal del alumno (para calcular volumen de ejercicios bodyweight)
   const [studentWeightKg, setStudentWeightKg] = useState(null)
 
+  // Días entrenados que NO dejan workout_logs: los bloques aeróbicos registran
+  // en workout_block_logs. Sin esto, un día de solo aeróbico figuraba como
+  // ausencia en el heatmap y no sumaba en "Sesiones".
+  //   blockDatesInPeriod → para el contador de sesiones (sigue el período)
+  //   attendanceDates    → para el heatmap (siempre las últimas 8 semanas)
+  const [blockDatesInPeriod, setBlockDatesInPeriod] = useState(() => new Set())
+  const [attendanceDates, setAttendanceDates] = useState(() => new Set())
+
   useEffect(() => {
     fetchProgressData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,6 +162,14 @@ export default function StudentProgressTab({ studentId }) {
     if (until) logsQuery = logsQuery.lte('logged_date', until)
     logsQuery = logsQuery.order('logged_date')
 
+    // Asistencia: rango propio, siempre las últimas 8 semanas hasta hoy.
+    // No lleva `until` ni depende de `since` a propósito — el heatmap muestra
+    // un rango fijo y el período solo manda en los gráficos.
+    const attendanceFrom = attendanceRangeStart()
+    // Para los bloques pedimos desde la fecha más vieja que necesite cualquiera
+    // de los dos usos y después separamos en JS, así no duplicamos la consulta.
+    const blocksFrom = attendanceFrom < since ? attendanceFrom : since
+
     let sessionsQuery = supabase
       .from('v_workout_session_intensity')
       .select('*')
@@ -161,13 +178,24 @@ export default function StudentProgressTab({ studentId }) {
     if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
     sessionsQuery = sessionsQuery.order('logged_date')
 
-    const [logsRes, sessionsRes, tagsRes, tagAssignRes, studentRes] = await Promise.all([
-      logsQuery,
-      sessionsQuery,
-      supabase.from('exercise_tags').select('*').order('name'),
-      supabase.from('exercise_tag_assignments').select('*'),
-      supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
-    ])
+    const [logsRes, sessionsRes, tagsRes, tagAssignRes, studentRes, blockLogsRes, attLogsRes] =
+      await Promise.all([
+        logsQuery,
+        sessionsQuery,
+        supabase.from('exercise_tags').select('*').order('name'),
+        supabase.from('exercise_tag_assignments').select('*'),
+        supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
+        supabase
+          .from('workout_block_logs')
+          .select('logged_date, plan:plans!plan_id(plan_type)')
+          .eq('student_id', studentId)
+          .gte('logged_date', blocksFrom),
+        supabase
+          .from('workout_logs')
+          .select('logged_date, plan:plans!plan_id(plan_type)')
+          .eq('student_id', studentId)
+          .gte('logged_date', attendanceFrom),
+      ])
 
     // Excluir logs de evaluaciones del cómputo de gráficos.
     const logData = filterTrainingLogs(logsRes.data || [])
@@ -189,6 +217,23 @@ export default function StudentProgressTab({ studentId }) {
     setExerciseTags(tagsRes.data || [])
     setTagAssignments(tagAssignRes.data || [])
     setStudentWeightKg(studentRes.data?.weight_kg ?? null)
+
+    // Las evaluaciones no cuentan como entrenamiento, misma regla que en los
+    // gráficos (ver filterTrainingLogs).
+    const blockRows = filterTrainingLogs(blockLogsRes.data || [])
+    setBlockDatesInPeriod(
+      new Set(
+        blockRows
+          .filter((b) => b.logged_date >= since && (!until || b.logged_date <= until))
+          .map((b) => b.logged_date)
+      )
+    )
+    setAttendanceDates(
+      new Set([
+        ...filterTrainingLogs(attLogsRes.data || []).map((l) => l.logged_date),
+        ...blockRows.filter((b) => b.logged_date >= attendanceFrom).map((b) => b.logged_date),
+      ])
+    )
 
     const exMap = {}
     logData.forEach((l) => {
@@ -375,7 +420,10 @@ export default function StudentProgressTab({ studentId }) {
   )
 
   const stats = useMemo(() => {
-    const sessionDates = new Set(progressLogs.map((l) => l.logged_date))
+    const sessionDates = new Set([
+      ...progressLogs.map((l) => l.logged_date),
+      ...blockDatesInPeriod,
+    ])
     const withPSE = progressLogs.filter((l) => l.perceived_difficulty)
     const avgPSE =
       withPSE.length > 0
@@ -397,17 +445,10 @@ export default function StudentProgressTab({ studentId }) {
       avgBorg,
       maxWeight,
     }
-  }, [progressLogs, borgData, selectedExercise])
+  }, [progressLogs, borgData, selectedExercise, blockDatesInPeriod])
 
-  const weeks = useMemo(() => {
-    const today = new Date()
-    return Array.from({ length: 8 }, (_, wi) => {
-      const weekStart = startOfWeek(subDays(today, wi * 7), { weekStartsOn: 1 })
-      return eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 1 }) })
-    }).reverse()
-  }, [])
+  const weeks = useMemo(() => attendanceWeeks(), [])
 
-  const logDates = useMemo(() => new Set(progressLogs.map((l) => l.logged_date)), [progressLogs])
   const today = new Date()
 
   // ── Render ────────────────────────────────────────────────
@@ -493,7 +534,10 @@ export default function StudentProgressTab({ studentId }) {
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : progressLogs.length === 0 ? (
+      ) : progressLogs.length === 0 && blockDatesInPeriod.size === 0 ? (
+        // Ojo: un período puede no tener ningún workout_log y aun así tener
+        // entrenamiento (días de solo aeróbico, que registran a nivel bloque).
+        // Si sale por acá se esconde el heatmap y el coach ve "sin datos".
         <div className="card text-center py-8 text-gray-400">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Sin datos de progreso en este período</p>
@@ -600,7 +644,10 @@ export default function StudentProgressTab({ studentId }) {
               {/* Heatmap asistencia */}
               <div className="card space-y-3">
                 <p className="text-sm font-semibold text-gray-900">
-                  Asistencia (últimas 8 semanas)
+                  Asistencia (últimas {ATTENDANCE_WEEKS} semanas)
+                </p>
+                <p className="-mt-2 text-xs text-gray-500">
+                  Rango fijo, no sigue el filtro de período
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex gap-1">
@@ -621,7 +668,7 @@ export default function StudentProgressTab({ studentId }) {
                             className={`flex-1 h-5 rounded ${
                               day > today
                                 ? 'bg-gray-50'
-                                : logDates.has(ds)
+                                : attendanceDates.has(ds)
                                   ? 'bg-primary-500'
                                   : 'bg-gray-100'
                             }`}
