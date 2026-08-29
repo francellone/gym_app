@@ -22,6 +22,7 @@ import { format, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
+  Download,
   Printer,
   Trophy,
   TrendingUp,
@@ -32,6 +33,7 @@ import {
 import {
   BarChart,
   Bar,
+  ComposedChart,
   LineChart,
   Line,
   XAxis,
@@ -44,6 +46,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { buildReport, UNTAGGED_KEY } from '../reportEngine'
 import { fetchReportData } from '../fetchReportData'
+import { downloadReportHtml } from '../exportReportHtml'
 
 const PERIODS = [
   { weeks: 4, days: 28, label: '4 semanas' },
@@ -189,7 +192,9 @@ export default function CoachReportPage() {
   const attendanceRows = report.attendance.weekly.map((w) => ({
     week: fmtShort(w.week),
     Días: w.days,
+    Previstos: w.expected,
   }))
+  const hasExpected = report.attendance.compliancePct != null
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6" id="report-root">
@@ -201,12 +206,26 @@ export default function CoachReportPage() {
         >
           <ArrowLeft size={16} /> Volver
         </button>
-        <button
-          onClick={() => window.print()}
-          className="btn-secondary flex items-center gap-1.5 text-sm"
-        >
-          <Printer size={16} /> Imprimir / PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.print()}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
+          >
+            <Printer size={16} /> Imprimir / PDF
+          </button>
+          <button
+            onClick={() =>
+              downloadReportHtml(document.getElementById('report-root'), {
+                studentName: student?.name || 'alumno',
+                from: report.period.from,
+                to: report.period.to,
+              })
+            }
+            className="btn-primary flex items-center gap-1.5 text-sm"
+          >
+            <Download size={16} /> Descargar
+          </button>
+        </div>
       </div>
 
       {/* Selector de período — tampoco sale */}
@@ -276,11 +295,25 @@ export default function CoachReportPage() {
             <StatCard
               label="Días entrenados"
               value={report.attendance.daysTrained}
-              sub={`de ${report.period.days} días`}
+              sub={`${report.attendance.sessionsPerWeek} por semana`}
             >
               <Delta now={report.attendance.daysTrained} prev={report.attendance.prevDaysTrained} />
             </StatCard>
-            <StatCard label="Días por semana" value={report.attendance.sessionsPerWeek} />
+            {hasExpected ? (
+              <StatCard
+                label="Cumplimiento del plan"
+                value={`${report.attendance.compliancePct}%`}
+                sub={`${report.attendance.daysTrained} de ${report.attendance.expectedDays} días previstos`}
+              >
+                <Delta
+                  now={report.attendance.compliancePct}
+                  prev={report.attendance.prevCompliancePct}
+                  unit="%"
+                />
+              </StatCard>
+            ) : (
+              <StatCard label="Días por semana" value={report.attendance.sessionsPerWeek} />
+            )}
             {m.activation && (
               <StatCard
                 label="Activación"
@@ -301,8 +334,8 @@ export default function CoachReportPage() {
       {m.attendance && attendanceRows.length > 1 && (
         <section className="card">
           <SectionTitle icon={CalendarCheck}>Constancia semanal</SectionTitle>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={attendanceRows}>
+          <ResponsiveContainer width="100%" height={170}>
+            <ComposedChart data={attendanceRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis
@@ -313,9 +346,26 @@ export default function CoachReportPage() {
                 width={24}
               />
               <Tooltip />
+              {hasExpected && <Legend wrapperStyle={{ fontSize: 12 }} />}
               <Bar dataKey="Días" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={36} />
-            </BarChart>
+              {hasExpected && (
+                <Line
+                  type="stepAfter"
+                  dataKey="Previstos"
+                  stroke="#9ca3af"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
+          {hasExpected && (
+            <p className="text-xs text-gray-400 mt-1">
+              La línea punteada es lo previsto por el plan vigente cada semana (cambia si el plan
+              cambia).
+            </p>
+          )}
         </section>
       )}
 
@@ -419,7 +469,7 @@ export default function CoachReportPage() {
       {m.exercises && (
         <section className="card overflow-x-auto">
           <SectionTitle>Por ejercicio</SectionTitle>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" data-export-sortable="true">
             <thead>
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                 <th className="py-2 pr-2 font-medium">Ejercicio</th>

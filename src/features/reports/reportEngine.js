@@ -28,7 +28,7 @@
 //   9. Un módulo existe solo si tiene datos en el período (flags en
 //      `modules`) — el informe es modular, sin gráficos vacíos.
 // ============================================================
-import { parseISO, differenceInCalendarDays, startOfWeek, format } from 'date-fns'
+import { parseISO, differenceInCalendarDays, addDays, startOfWeek, format } from 'date-fns'
 import { readLogReps, maxWeightOfLog } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
@@ -101,6 +101,61 @@ function weeklyAverages(points) {
       avg: round1(vals.reduce((a, b) => a + b, 0) / vals.length),
       n: vals.length,
     }))
+}
+
+// ============================================================
+// Días previstos por el plan vigente
+// ------------------------------------------------------------
+// Pedido de Franco (2026-08-29): "2.5 días/semana" no dice nada sin saber
+// cuántos pedía el plan, y el plan cambia (2 días, después 3). Regla:
+//   - por cada DÍA del rango, el previsto es sessions_per_week/7 del plan
+//     de ENTRENAMIENTO vigente ese día (start_date <= día <= end_date;
+//     end_date null = sigue vigente);
+//   - si dos asignaciones se pisan (semana de transición), gana la de
+//     start_date más nuevo;
+//   - sin plan vigente ese día → 0 previsto: los días anteriores a arrancar
+//     o los huecos entre planes NO cuentan como incumplimiento;
+//   - evaluaciones y asignaciones `archived` no suman (archived puede tener
+//     end_date null y reclamaría previstos hasta hoy).
+// ============================================================
+
+/**
+ * Días de entrenamiento previstos por el plan vigente en un rango.
+ * @param {Array<{start_date, end_date, sessions_per_week, plan_type, status}>} assignments
+ * @param {string} from - 'yyyy-MM-dd' inclusive
+ * @param {string} to - 'yyyy-MM-dd' inclusive
+ * @returns {{total:number, byWeek:Map<string,number>}} total con decimales
+ *   (redondear al mostrar); byWeek con la misma clave de semana del resto
+ *   del informe (lunes).
+ */
+export function expectedTrainingDays(assignments, from, to) {
+  const usable = (assignments || []).filter(
+    (a) =>
+      a?.start_date &&
+      (a.plan_type == null || a.plan_type === 'training') &&
+      a.status !== 'archived' &&
+      Number(a.sessions_per_week) > 0
+  )
+  const byWeek = new Map()
+  let total = 0
+  if (usable.length === 0) return { total: 0, byWeek }
+
+  const end = parseISO(to)
+  for (let d = parseISO(from); d <= end; d = addDays(d, 1)) {
+    const ds = format(d, 'yyyy-MM-dd')
+    let best = null
+    for (const a of usable) {
+      if (a.start_date <= ds && (!a.end_date || ds <= a.end_date)) {
+        if (!best || a.start_date > best.start_date) best = a
+      }
+    }
+    if (!best) continue
+    const daily = Number(best.sessions_per_week) / 7
+    total += daily
+    const wk = weekKey(ds)
+    byWeek.set(wk, (byWeek.get(wk) || 0) + daily)
+  }
+  return { total, byWeek }
 }
 
 /**
@@ -232,6 +287,7 @@ export function buildReport({
   blockLogs = [],
   sessions = [],
   wellbeing = [],
+  assignments = [],
   tagsByExercise = new Map(),
 } = {}) {
   const prev = previousPeriod(from, to)
@@ -263,9 +319,25 @@ export function buildReport({
     const k = weekKey(d)
     daysByWeek.set(k, (daysByWeek.get(k) || 0) + 1)
   }
-  const attendanceWeekly = [...daysByWeek.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .map(([week, days]) => ({ week, days }))
+  // Previstos por el plan vigente (ver expectedTrainingDays).
+  const expected = expectedTrainingDays(assignments, from, to)
+  const prevExpected = expectedTrainingDays(assignments, prev.from, prev.to)
+  const expectedDays = Math.round(expected.total)
+  const compliancePct =
+    expected.total > 0 ? Math.round((100 * periodDays.size) / expected.total) : null
+  const prevCompliancePct =
+    prevExpected.total > 0 ? Math.round((100 * prevDays.size) / prevExpected.total) : null
+
+  // Semanas con actividad O con previsto (una semana prevista sin entrenar
+  // tiene que aparecer en 0, no desaparecer del gráfico).
+  const allWeeks = new Set([...daysByWeek.keys(), ...expected.byWeek.keys()])
+  const attendanceWeekly = [...allWeeks]
+    .sort((a, b) => (a < b ? -1 : 1))
+    .map((week) => ({
+      week,
+      days: daysByWeek.get(week) || 0,
+      expected: round1(expected.byWeek.get(week) || 0),
+    }))
 
   // --- Activación vs trabajo principal (por sección del plan) ---
   const activationLogs = periodLogs.filter(isActivationLog)
@@ -364,6 +436,9 @@ export function buildReport({
       daysTrained: periodDays.size,
       prevDaysTrained: prevDays.size,
       sessionsPerWeek: round1(periodDays.size / weeksInPeriod),
+      expectedDays,
+      compliancePct,
+      prevCompliancePct,
       weekly: attendanceWeekly,
     },
     activation: {

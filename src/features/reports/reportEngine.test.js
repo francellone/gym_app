@@ -275,3 +275,95 @@ describe('informe vacío: módulos apagados, sin NaN', () => {
     expect(JSON.stringify(r)).not.toContain('NaN')
   })
 })
+
+// ----------------------------------------------------------------------
+describe('cumplimiento vs plan vigente (expectedTrainingDays)', () => {
+  // Período de referencia: 4 semanas exactas, lunes a domingo
+  const FROM = '2026-08-03' // lunes
+  const TO = '2026-08-30' // domingo
+  const asg = (over = {}) => ({
+    start_date: '2026-01-01',
+    end_date: null,
+    status: 'active',
+    plan_type: 'training',
+    sessions_per_week: 2,
+    ...over,
+  })
+
+  it('plan que cambia de 2 a 3 días a mitad del período: 2+2+3+3 = 10 previstos', async () => {
+    const { expectedTrainingDays } = await import('./reportEngine')
+    const { total, byWeek } = expectedTrainingDays(
+      [
+        asg({ start_date: '2026-01-01', end_date: '2026-08-16', sessions_per_week: 2 }),
+        asg({ start_date: '2026-08-17', sessions_per_week: 3 }),
+      ],
+      FROM,
+      TO
+    )
+    expect(Math.round(total)).toBe(10)
+    expect(byWeek.get('2026-08-03')).toBeCloseTo(2, 5)
+    expect(byWeek.get('2026-08-24')).toBeCloseTo(3, 5)
+  })
+
+  it('sin plan vigente no hay previsto: el hueco no cuenta como incumplimiento', async () => {
+    const { expectedTrainingDays } = await import('./reportEngine')
+    // Plan solo la última semana → previsto = 3, no 12
+    const { total } = expectedTrainingDays(
+      [asg({ start_date: '2026-08-24', sessions_per_week: 3 })],
+      FROM,
+      TO
+    )
+    expect(Math.round(total)).toBe(3)
+  })
+
+  it('evaluaciones y archived no suman previstos', async () => {
+    const { expectedTrainingDays } = await import('./reportEngine')
+    const { total } = expectedTrainingDays(
+      [
+        asg({ plan_type: 'evaluation', sessions_per_week: 5 }),
+        asg({ status: 'archived', sessions_per_week: 5 }),
+      ],
+      FROM,
+      TO
+    )
+    expect(total).toBe(0)
+  })
+
+  it('superposición en la transición: gana la asignación más nueva', async () => {
+    const { expectedTrainingDays } = await import('./reportEngine')
+    // Las dos vigentes el 2026-08-17: cuenta la de 3 días
+    const { byWeek } = expectedTrainingDays(
+      [
+        asg({ start_date: '2026-01-01', end_date: '2026-08-17', sessions_per_week: 2 }),
+        asg({ start_date: '2026-08-17', sessions_per_week: 3 }),
+      ],
+      '2026-08-17',
+      '2026-08-17'
+    )
+    expect(byWeek.get('2026-08-17')).toBeCloseTo(3 / 7, 5)
+  })
+
+  it('buildReport expone compliancePct y previsto por semana, null sin asignaciones', () => {
+    const rep = buildReport({
+      from: FROM,
+      to: TO,
+      logs: [
+        log({ date: '2026-08-04', exercise: EX_PRESS }),
+        log({ date: '2026-08-06', exercise: EX_PRESS }),
+        log({ date: '2026-08-11', exercise: EX_PRESS }),
+        log({ date: '2026-08-13', exercise: EX_PRESS }),
+      ],
+      assignments: [asg({ sessions_per_week: 2 })],
+      tagsByExercise: TAGS,
+    })
+    // 4 entrenados de 8 previstos = 50%
+    expect(rep.attendance.expectedDays).toBe(8)
+    expect(rep.attendance.compliancePct).toBe(50)
+    // La semana prevista SIN entrenar aparece en 0, no desaparece
+    const lastWeek = rep.attendance.weekly.find((w) => w.week === '2026-08-24')
+    expect(lastWeek).toEqual({ week: '2026-08-24', days: 0, expected: 2 })
+
+    const sinPlan = buildReport({ from: FROM, to: TO, logs: [], tagsByExercise: TAGS })
+    expect(sinPlan.attendance.compliancePct).toBe(null)
+  })
+})
