@@ -24,6 +24,7 @@ import {
 } from '../assignmentHelpers'
 import ReplacePlanModal from '../components/ReplacePlanModal'
 import DuplicatePlanModal from '../components/DuplicatePlanModal'
+import Pct1rmEvalGapNotice from '../components/Pct1rmEvalGapNotice'
 import { ScheduleEditorInline, ScheduleEditorModal } from '../components/ScheduleEditor'
 
 // ─────────────────────────────────────────────────────────────
@@ -492,6 +493,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                     sessionsPerWeek={sessionsPerWeek || undefined}
                   />
                 </div>
+              )}
+
+              {/* %RM: avisar antes de asignar si le falta la evaluación de 1RM */}
+              {selectedPlan && (
+                <Pct1rmEvalGapNotice planId={selectedPlan} studentId={studentId} />
               )}
 
               {currentActive && selectedPlan && (

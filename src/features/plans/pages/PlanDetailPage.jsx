@@ -36,6 +36,7 @@ import DeletePlanModal from '../components/DeletePlanModal'
 import PlanProgressTab from './PlanProgressTab'
 import PrescriptionHistoryTimeline from '../components/PrescriptionHistoryTimeline'
 import { assignTemplateToStudent } from '../assignmentHelpers'
+import Pct1rmEvalGapNotice from '../components/Pct1rmEvalGapNotice'
 import { fetchPrescriptionHistory, groupHistoryByExercise } from '../prescriptionHistory'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
@@ -197,6 +198,14 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
               ))
             )}
           </div>
+          {/* %RM: avisar ANTES de asignar a quién le falta la evaluación de 1RM */}
+          {selected && (
+            <Pct1rmEvalGapNotice
+              planId={planId}
+              studentId={selected}
+              studentName={students.find((s) => s.id === selected)?.name || ''}
+            />
+          )}
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>}
           <div className="flex gap-3">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">
