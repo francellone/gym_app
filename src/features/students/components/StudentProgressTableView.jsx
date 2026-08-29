@@ -13,6 +13,7 @@ import {
   getEffectiveWeightMode,
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
+import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 
 // ─────────────────────────────────────────────────────────────
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
@@ -359,44 +360,34 @@ export default function StudentProgressTableView({
           ? Math.round((pseVals.reduce((a, b) => a + b, 0) / pseVals.length) * 10) / 10
           : null
 
-      // Progreso %: primer log vs último log (peso o reps)
+      // Progreso %: misma definición que el gráfico (promedio de la primera
+      // semana vs la última — ver features/progress/progression.js). Antes era
+      // primer log vs último log, frágil a un día atípico en las puntas y
+      // dependiente del filtro de período. Peso si hay datos de peso; si no,
+      // reps (ejercicios de peso corporal).
       const weightValues = exLogs.map((l) => maxWeightOf(l)).filter((w) => w > 0)
+      const weightPts = exLogs
+        .map((l) => ({ date: l.logged_date, value: maxWeightOf(l) }))
+        .filter((pt) => pt.value > 0)
       let progressPct = null
       let progressColor = 'text-gray-400'
       let progressMetric = 'Peso'
 
-      // Helper local: máximo de reps del log (acepta jsonb o legacy).
-      // En unilateral, el valor sigue siendo "por lado" — para la sparkline
-      // representa cantidad de reps, no volumen, así que está OK.
-      const repsMaxOf = (l) => {
-        const arr = readLogReps(l)
-          .map((r) => parseFloat(r))
-          .filter((n) => !isNaN(n))
-        return arr.length > 0 ? Math.max(...arr) : 0
-      }
-
-      if (weightValues.length >= 2) {
-        const pct = Math.round(
-          ((weightValues[weightValues.length - 1] - weightValues[0]) / weightValues[0]) * 100
+      let prog = computeProgression(weightPts)
+      if (!prog) {
+        prog = computeProgression(
+          exLogs.map((l) => ({ date: l.logged_date, value: repsMaxOfLog(l) }))
         )
-        progressPct = pct
-        progressColor = pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-500' : 'text-gray-500'
-        progressMetric = 'Peso'
-      } else {
-        // Fallback: reps
-        const repValues = exLogs.map(repsMaxOf).filter((r) => r > 0)
-        if (repValues.length >= 2) {
-          const pct = Math.round(
-            ((repValues[repValues.length - 1] - repValues[0]) / repValues[0]) * 100
-          )
-          progressPct = pct
-          progressColor = pct > 0 ? 'text-green-600' : pct < 0 ? 'text-red-500' : 'text-gray-500'
-          progressMetric = 'Reps'
-        }
+        if (prog) progressMetric = 'Reps'
+      }
+      if (prog) {
+        progressPct = prog.pct
+        progressColor =
+          prog.pct > 0 ? 'text-green-600' : prog.pct < 0 ? 'text-red-500' : 'text-gray-500'
       }
 
       const sparklineValues =
-        weightValues.length >= 2 ? weightValues : exLogs.map(repsMaxOf).filter((r) => r > 0)
+        weightValues.length >= 2 ? weightValues : exLogs.map(repsMaxOfLog).filter((r) => r > 0)
 
       const recentLogs = [...exLogs].reverse() // más reciente primero
 
@@ -574,7 +565,12 @@ export default function StudentProgressTableView({
 
       {isCol('max_weight') && <th className="text-right font-semibold px-2 py-2">Peso máx.</th>}
       {isCol('progress') && (
-        <th className="text-right font-semibold px-2 py-2 min-w-[96px]">Progreso</th>
+        <th
+          className="text-right font-semibold px-2 py-2 min-w-[96px]"
+          title="Promedio de la primera semana vs la última del período (con menos de 2 semanas: primer vs último registro)"
+        >
+          Progreso
+        </th>
       )}
       {isCol('trend') && <th className="text-center font-semibold px-2 py-2">Tend.</th>}
       {isCol('count') && <th className="text-right font-semibold px-2 py-2">Veces</th>}

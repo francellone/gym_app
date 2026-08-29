@@ -26,6 +26,7 @@ import {
 } from '@/features/plans/helpers'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
 import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../attendanceRange'
+import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -295,6 +296,7 @@ export default function StudentProgressTab({ studentId }) {
       progressLogs
         .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
         .map((l) => ({
+          iso: l.logged_date,
           date: format(parseISO(l.logged_date), 'dd/MM'),
           Peso: maxWeightOfLog(l),
           PSE: l.perceived_difficulty,
@@ -302,6 +304,39 @@ export default function StudentProgressTab({ studentId }) {
         .filter((d) => d.Peso > 0),
     [progressLogs, selectedExercise]
   )
+
+  // Reps por sesión del ejercicio seleccionado. Es la métrica de progresión
+  // cuando el ejercicio no registra peso (bodyweight): ahí lo que progresa
+  // son las reps — mismo criterio que la vista Tabla usa como fallback.
+  // Decisión 2026-08-28: NO se reconstruye carga total con profiles.weight_kg
+  // (es un único valor actual, sin historia; usarlo hacia atrás fabrica datos).
+  const repsData = useMemo(
+    () =>
+      progressLogs
+        .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+        .map((l) => ({
+          iso: l.logged_date,
+          date: format(parseISO(l.logged_date), 'dd/MM'),
+          Reps: repsMaxOfLog(l),
+          PSE: l.perceived_difficulty,
+        }))
+        .filter((d) => d.Reps > 0),
+    [progressLogs, selectedExercise]
+  )
+
+  // Con al menos un registro de peso, el gráfico mide peso (si un BW empieza
+  // a usar lastre, la serie de peso arranca sola el día que arranca el dato).
+  // Sin ninguno, mide reps.
+  const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
+
+  // Lectura calculada de progresión del ejercicio seleccionado: promedio de
+  // la primera semana vs la última (ver features/progress/progression.js).
+  const progression = useMemo(() => {
+    const src = chartMetric === 'weight' ? weightData : repsData
+    return computeProgression(
+      src.map((d) => ({ date: d.iso, value: chartMetric === 'weight' ? d.Peso : d.Reps }))
+    )
+  }, [chartMetric, weightData, repsData])
 
   // Volumen (filtrado por etiqueta). Respeta weight_mode, unilateral y BW.
   const { volumeData, bwUncomputable } = useMemo(() => {
@@ -435,15 +470,16 @@ export default function StudentProgressTab({ studentId }) {
       borgData.length > 0
         ? Math.round((borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length) * 10) / 10
         : null
-    const maxWeight = progressLogs
-      .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
-      .reduce((mx, l) => Math.max(mx, maxWeightOfLog(l)), 0)
+    const selLogs = progressLogs.filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+    const maxWeight = selLogs.reduce((mx, l) => Math.max(mx, maxWeightOfLog(l)), 0)
+    const maxReps = selLogs.reduce((mx, l) => Math.max(mx, repsMaxOfLog(l)), 0)
     return {
       totalSessions: sessionDates.size,
       totalCompleted: progressLogs.filter((l) => l.completed).length,
       avgPSE,
       avgBorg,
       maxWeight,
+      maxReps,
     }
   }, [progressLogs, borgData, selectedExercise, blockDatesInPeriod])
 
@@ -629,15 +665,28 @@ export default function StudentProgressTab({ studentId }) {
                 </div>
               )}
 
-              {stats.maxWeight > 0 && (
+              {chartMetric === 'weight' && stats.maxWeight > 0 && (
                 <div className="card flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Peso máximo registrado</p>
+                    <p className="text-sm font-semibold text-gray-900">Peso máximo del período</p>
                     <p className="text-xs text-gray-500">
                       {progressExercises.find((e) => e.id === selectedExercise)?.name}
                     </p>
                   </div>
                   <span className="text-2xl font-bold text-primary-600">{stats.maxWeight}kg</span>
+                </div>
+              )}
+
+              {chartMetric === 'reps' && stats.maxReps > 0 && (
+                <div className="card flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Reps máximas del período</p>
+                    <p className="text-xs text-gray-500">
+                      {progressExercises.find((e) => e.id === selectedExercise)?.name} · peso
+                      corporal
+                    </p>
+                  </div>
+                  <span className="text-2xl font-bold text-primary-600">{stats.maxReps}</span>
                 </div>
               )}
 
@@ -716,19 +765,52 @@ export default function StudentProgressTab({ studentId }) {
                 </div>
               </div>
 
-              {/* ── Peso ── */}
+              {/* ── Peso (o reps si el ejercicio es de peso corporal) ── */}
               {activeChart === 'weight' && (
                 <div className="card space-y-3">
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">Progresión de peso</p>
-                    <p className="text-xs text-gray-500">Peso máximo levantado por sesión</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">
+                        {chartMetric === 'weight' ? 'Progresión de peso' : 'Progresión de reps'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {chartMetric === 'weight'
+                          ? 'Peso máximo levantado por sesión'
+                          : 'Máximo de reps por sesión · ejercicio de peso corporal'}
+                      </p>
+                    </div>
+                    {progression && (
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span
+                          className={`text-lg font-bold ${
+                            progression.pct > 0
+                              ? 'text-green-600'
+                              : progression.pct < 0
+                                ? 'text-red-500'
+                                : 'text-gray-500'
+                          }`}
+                        >
+                          {progression.pct > 0 ? '+' : ''}
+                          {progression.pct}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 text-right leading-tight">
+                          {progression.basis === 'weeks'
+                            ? `prom. 1ª vs última semana (${progression.firstAvg} → ${progression.lastAvg})`
+                            : `primer vs último registro (${progression.firstAvg} → ${progression.lastAvg})`}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  {weightData.length > 0 ? (
+                  {(chartMetric === 'weight' ? weightData : repsData).length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
-                      <ComposedChart data={weightData}>
+                      <ComposedChart data={chartMetric === 'weight' ? weightData : repsData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 10 }}
+                          unit={chartMetric === 'weight' ? 'kg' : ''}
+                        />
                         <YAxis
                           yAxisId="right"
                           orientation="right"
@@ -740,12 +822,12 @@ export default function StudentProgressTab({ studentId }) {
                         <Area
                           yAxisId="left"
                           type="monotone"
-                          dataKey="Peso"
+                          dataKey={chartMetric === 'weight' ? 'Peso' : 'Reps'}
                           fill="#fde68a"
                           stroke="#ea580c"
                           strokeWidth={2.5}
                           dot={{ fill: '#ea580c', r: 4 }}
-                          unit="kg"
+                          unit={chartMetric === 'weight' ? 'kg' : ''}
                         />
                         <Line
                           yAxisId="right"
@@ -760,7 +842,7 @@ export default function StudentProgressTab({ studentId }) {
                     </ResponsiveContainer>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      Sin datos de peso para este ejercicio
+                      Sin datos de peso ni reps para este ejercicio
                     </p>
                   )}
                 </div>
