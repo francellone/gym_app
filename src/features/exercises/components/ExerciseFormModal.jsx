@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { X, Save, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
-import { WEIGHT_MODES, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
+import { WEIGHT_MODES_LOGGABLE, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
 import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 import { findDuplicateByName } from '../exercise-name'
 
@@ -203,7 +203,7 @@ export default function ExerciseFormModal({
                 value={form.default_weight_mode || 'with_weight'}
                 onChange={(e) => setForm((p) => ({ ...p, default_weight_mode: e.target.value }))}
               >
-                {WEIGHT_MODES.map((m) => (
+                {WEIGHT_MODES_LOGGABLE.map((m) => (
                   <option key={m.key} value={m.key}>
                     {m.label}
                   </option>

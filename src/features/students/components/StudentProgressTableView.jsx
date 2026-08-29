@@ -11,6 +11,7 @@ import {
   maxWeightOfLog,
   calculateLogVolume,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
@@ -39,11 +40,13 @@ function displayWeight(ex) {
 
 function displayActualWeight(log) {
   if (!log) return '—'
-  const weightMode = getEffectiveWeightMode({
-    log,
-    planExercise: log.plan_exercise,
-    exercise: log.plan_exercise?.exercise,
-  })
+  const weightMode = getLoggingWeightMode(
+    getEffectiveWeightMode({
+      log,
+      planExercise: log.plan_exercise,
+      exercise: log.plan_exercise?.exercise,
+    })
+  )
   if (weightMode === 'bodyweight') return 'BW'
   const arr = readLogWeights(log).filter((w) => w !== '' && w != null)
   if (arr.length === 0) return '—'
@@ -335,11 +338,13 @@ export default function StudentProgressTableView({
         // El log puede no tener plan_exercise embebido (los logs del padre
         // suelen venir con menos joins). Heredamos del pex actual de la fila.
         const planEx = l.plan_exercise || pex
-        const weightMode = getEffectiveWeightMode({
-          log: l,
-          planExercise: planEx,
-          exercise: planEx?.exercise || pex.exercise,
-        })
+        const weightMode = getLoggingWeightMode(
+          getEffectiveWeightMode({
+            log: l,
+            planExercise: planEx,
+            exercise: planEx?.exercise || pex.exercise,
+          })
+        )
         const unilateral = getEffectiveUnilateral({
           log: l,
           planExercise: planEx,

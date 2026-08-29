@@ -10,6 +10,7 @@ import {
   WEIGHT_MODE_BY_KEY,
   getEffectiveWeightMode,
   getEffectiveUnilateral,
+  getEffectivePct1rm,
 } from '../helpers'
 
 // Devuelve true si el array tiene más de un valor único no vacío
@@ -52,7 +53,14 @@ export default function PlanExerciseRow({
     planExercise: ex,
     exercise: selectedExercise,
   })
-  const showWeightInputs = effectiveWeightMode !== 'bodyweight'
+  // '%RM' y 'sin peso' no llevan columna de kilos: el %RM prescribe un
+  // porcentaje y los kilos se derivan del 1RM de cada alumna.
+  const isPct1rm = effectiveWeightMode === 'pct_1rm'
+  const showWeightInputs = WEIGHT_MODE_BY_KEY[effectiveWeightMode]?.showsWeightInputs ?? true
+  const pct1rmValue = getEffectivePct1rm({ planExercise: ex })
+  const rmReferenceExercise = ex.rm_reference_exercise_id
+    ? exercises.find((e) => e.id === ex.rm_reference_exercise_id)
+    : null
   const repsLabel = effectiveUnilateral ? 'Reps (por lado)' : 'Reps'
 
   // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
@@ -316,6 +324,51 @@ export default function PlanExerciseRow({
             </div>
           </div>
 
+          {/* Configuración del %RM (solo si el modo de peso es '% del máximo') */}
+          {isPct1rm && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-2.5 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-amber-800 font-semibold mb-1 block">
+                    % del máximo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="200"
+                      step="1"
+                      className="input text-sm pr-7"
+                      placeholder="70"
+                      value={ex.pct_1rm ?? ''}
+                      onChange={(e) => onUpdate(index, 'pct_1rm', e.target.value)}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <ExercisePicker
+                    value={ex.rm_reference_exercise_id || ''}
+                    onChange={(id) => onUpdate(index, 'rm_reference_exercise_id', id || null)}
+                    label="Tomar el máximo de otro ejercicio (opcional)"
+                    placeholder="Usar el máximo de este mismo ejercicio"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-700 leading-snug">
+                Los kilos no se escriben: se calculan como{' '}
+                <strong className="font-medium">
+                  {pct1rmValue ? `${pct1rmValue}%` : 'el %'} del máximo
+                  {rmReferenceExercise ? ` de ${rmReferenceExercise.name}` : ''}
+                </strong>{' '}
+                de cada persona, así el plan sube solo cuando sube su máximo. Si todavía no tiene
+                evaluación, va a ver el porcentaje.
+              </p>
+            </div>
+          )}
+
           {/* Aviso de agrupación: la pausa de un bloque (misma letra) es del grupo */}
           {ex.block_letter && (
             <div className="flex items-start gap-1.5 text-[11px] text-primary-700 bg-primary-50 border border-primary-100 rounded-lg px-2 py-1.5">
@@ -475,11 +528,16 @@ export default function PlanExerciseRow({
                 </>
               )}
 
-              {!showWeightInputs && (
-                <p className="text-[11px] text-emerald-600 mt-2 px-0.5">
-                  Ejercicio sin peso · solo se cargan reps.
-                </p>
-              )}
+              {!showWeightInputs &&
+                (isPct1rm ? (
+                  <p className="text-[11px] text-amber-700 mt-2 px-0.5">
+                    Peso prescripto por porcentaje · los kilos se derivan del máximo.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-emerald-600 mt-2 px-0.5">
+                    Ejercicio sin peso · solo se cargan reps.
+                  </p>
+                ))}
             </div>
           )}
 

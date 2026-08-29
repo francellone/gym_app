@@ -344,12 +344,30 @@ export const WEIGHT_MODES = [
     description: 'Peso corporal puro (push up, plancha, chin up, etc.).',
     showsWeightInputs: false,
   },
+  {
+    // v39: modo de PRESCRIPCIÓN. Los kilos NUNCA se inscriben: se derivan de
+    // 1RM x %, así el plan progresa solo cuando sube el máximo de la alumna.
+    key: 'pct_1rm',
+    label: '% del máximo (RM)',
+    short: '%RM',
+    description: 'El peso se prescribe como % del 1RM; los kilos se derivan de la evaluación.',
+    showsWeightInputs: false, // no se cargan kilos en el plan: se carga el %
+    usesPct: true,
+    // Solo se ofrece al ARMAR el plan. Ni el catálogo de ejercicios
+    // (exercises.default_weight_mode no lo acepta) ni el registro del alumno
+    // (que siempre carga kilos reales) deben ofrecerlo → WEIGHT_MODES_LOGGABLE.
+    planOnly: true,
+  },
 ]
 
 export const WEIGHT_MODE_BY_KEY = WEIGHT_MODES.reduce((acc, m) => {
   acc[m.key] = m
   return acc
 }, {})
+
+// Modos elegibles FUERA del armado del plan: catálogo de ejercicios y registro
+// del alumno. Excluye los modos de sola prescripción (hoy: '%RM').
+export const WEIGHT_MODES_LOGGABLE = WEIGHT_MODES.filter((m) => !m.planOnly)
 
 // reps_unit válidos según CHECK constraint del back
 export const REPS_UNITS = [
@@ -384,6 +402,33 @@ export function getEffectiveUnilateral({ log, planExercise, exercise } = {}) {
   if (planExercise?.unilateral != null) return !!planExercise.unilateral
   if (exercise?.default_unilateral != null) return !!exercise.default_unilateral
   return false
+}
+
+/**
+ * Modo de peso con el que se REGISTRA un log del alumno.
+ * '%RM' es un modo de prescripción: la alumna siempre carga kilos reales,
+ * así que al guardar se comporta como 'with_weight'.
+ *
+ * @param {string} mode - modo efectivo (puede venir del plan)
+ * @returns {string} modo válido para workout_logs
+ */
+export function getLoggingWeightMode(mode) {
+  return mode === 'pct_1rm' ? 'with_weight' : mode || 'with_weight'
+}
+
+/**
+ * % del 1RM efectivo para un ejercicio del plan.
+ * Herencia: plan_exercise.pct_1rm > plan_block.default_pct_1rm > null.
+ *
+ * @param {Object} sources - { planExercise, block }
+ * @returns {number|null}
+ */
+export function getEffectivePct1rm({ planExercise, block } = {}) {
+  const own = planExercise?.pct_1rm
+  if (own !== '' && own != null) return Number(own)
+  const fromBlock = block?.default_pct_1rm
+  if (fromBlock !== '' && fromBlock != null) return Number(fromBlock)
+  return null
 }
 
 /**
@@ -577,6 +622,9 @@ export function emptyPlanExercise(section) {
     // Overrides del plan_exercise sobre el catálogo. null = hereda del exercise.
     weight_mode: null,
     unilateral: null,
+    // %RM (v39). Solo aplican con weight_mode === 'pct_1rm'.
+    pct_1rm: '',
+    rm_reference_exercise_id: null,
   }
 }
 
@@ -633,6 +681,9 @@ export function dbExToUIEx(ex) {
     // Overrides del plan_exercise. null = hereda del exercise.
     weight_mode: ex.weight_mode ?? null,
     unilateral: ex.unilateral ?? null,
+    // %RM (v39)
+    pct_1rm: ex.pct_1rm != null ? String(ex.pct_1rm) : '',
+    rm_reference_exercise_id: ex.rm_reference_exercise_id ?? null,
   }
 }
 
@@ -664,6 +715,14 @@ export function uiExToDBEx(ex, planId, section, index, blockId = null) {
     // Overrides del plan_exercise (NULL = hereda del exercise)
     weight_mode: ex.weight_mode ?? null,
     unilateral: ex.unilateral == null ? null : !!ex.unilateral,
+    // %RM (v39): solo se persiste si el modo es '%RM'. Cambiar de modo limpia
+    // el % y la referencia para no dejar prescripción fantasma.
+    pct_1rm:
+      ex.weight_mode === 'pct_1rm' && ex.pct_1rm !== '' && ex.pct_1rm != null
+        ? Number(ex.pct_1rm)
+        : null,
+    rm_reference_exercise_id:
+      ex.weight_mode === 'pct_1rm' ? ex.rm_reference_exercise_id || null : null,
   }
 }
 
@@ -855,6 +914,7 @@ export function emptyCircuitBlock(section, order = 0) {
     circuit_rounds: '',
     circuit_total_minutes: '',
     circuit_intensity: 'moderate',
+    default_pct_1rm: '', // "todo el circuito al X%": lo heredan los ejercicios
   }
 }
 
@@ -882,6 +942,9 @@ export function emptyCircuitExercise() {
     // null = hereda del exercise (handoff 2.4)
     weight_mode: null,
     unilateral: null,
+    // %RM (v39). '' = hereda el default del bloque.
+    pct_1rm: '',
+    rm_reference_exercise_id: null,
   }
 }
 
@@ -929,6 +992,7 @@ export function dbBlockToUI(block, exercisesDb = []) {
     circuit_total_minutes:
       block.circuit_total_minutes != null ? String(block.circuit_total_minutes) : '',
     circuit_intensity: block.circuit_intensity || 'moderate',
+    default_pct_1rm: block.default_pct_1rm != null ? String(block.default_pct_1rm) : '',
     exercises,
   }
 }
@@ -958,6 +1022,7 @@ export function uiBlockToDB(block, planId, index) {
     circuit_rounds: null,
     circuit_total_minutes: null,
     circuit_intensity: null,
+    default_pct_1rm: null,
   }
 
   if (block.block_type === 'aerobic') {
@@ -982,6 +1047,10 @@ export function uiBlockToDB(block, planId, index) {
   if (block.block_type === 'circuit') {
     base.circuit_type = block.circuit_type || 'hiit'
     base.circuit_intensity = block.circuit_intensity || null
+    base.default_pct_1rm =
+      block.default_pct_1rm !== '' && block.default_pct_1rm != null
+        ? Number(block.default_pct_1rm)
+        : null
     if (block.circuit_type === 'hiit') {
       base.circuit_work_seconds = block.circuit_work_seconds
         ? parseInt(block.circuit_work_seconds)

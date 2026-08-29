@@ -27,6 +27,7 @@ import {
   maxWeightOfLog,
   calculateLogVolume,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
@@ -312,11 +313,13 @@ export default function ProgressPage() {
   // Volumen real respetando weight_mode + unilateral + bodyweight.
   // Devuelve null si bodyweight sin weight_kg (no calculable).
   function volumeOfLog(l) {
-    const weightMode = getEffectiveWeightMode({
-      log: l,
-      planExercise: l.plan_exercise,
-      exercise: l.plan_exercise?.exercise,
-    })
+    const weightMode = getLoggingWeightMode(
+      getEffectiveWeightMode({
+        log: l,
+        planExercise: l.plan_exercise,
+        exercise: l.plan_exercise?.exercise,
+      })
+    )
     const unilateral = getEffectiveUnilateral({
       log: l,
       planExercise: l.plan_exercise,

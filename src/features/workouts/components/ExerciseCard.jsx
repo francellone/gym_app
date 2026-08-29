@@ -16,10 +16,12 @@ import { PRESCRIPTION_FIELD_KEYS } from '@/features/plans/prescriptionHistory'
 import {
   parseReps,
   displayReps,
-  WEIGHT_MODES,
+  WEIGHT_MODES_LOGGABLE,
   REPS_UNITS,
   PSE_OPTION_KEY,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
+  getEffectivePct1rm,
   getEffectiveUnilateral,
   readLogReps,
   readLogWeights,
@@ -102,16 +104,26 @@ export default function ExerciseCard({
   const exerciseDef = planEx.exercise || {}
   // Textos del ejercicio resueltos al idioma del que mira (fallback al canónico ES)
   const exText = exerciseDisplay(exerciseDef, i18n.language)
-  const initialWeightMode = getEffectiveWeightMode({
-    log,
-    planExercise: planEx,
-    exercise: exerciseDef,
-  })
+  // El plan puede prescribir '%RM', pero la alumna SIEMPRE registra kilos
+  // reales → al loguear ese modo se comporta como 'con peso'.
+  const initialWeightMode = getLoggingWeightMode(
+    getEffectiveWeightMode({
+      log,
+      planExercise: planEx,
+      exercise: exerciseDef,
+    })
+  )
   const initialUnilateral = getEffectiveUnilateral({
     log,
     planExercise: planEx,
     exercise: exerciseDef,
   })
+
+  // %RM: el coach prescribió un porcentaje del máximo en vez de kilos.
+  // Etapa 2: se muestra el porcentaje tal cual (la derivación de kilos a partir
+  // de la evaluación 1RM llega en la etapa 4).
+  const prescribedPct1rm =
+    planEx.weight_mode === 'pct_1rm' ? getEffectivePct1rm({ planExercise: planEx }) : null
 
   // Pesos sugeridos por serie: prioridad suggested_weights (array), fallback a suggested_weight (legacy)
   const suggestedWeightsArr = (() => {
@@ -588,9 +600,11 @@ export default function ExerciseCard({
                 planEx.suggested_sets &&
                   t('workout.series', { count: Number(planEx.suggested_sets) }),
                 suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
-                planEx.suggested_weight &&
-                  planEx.suggested_weight !== 'None' &&
-                  `· ${planEx.suggested_weight}`,
+                prescribedPct1rm
+                  ? `· ${prescribedPct1rm}% ${t('workout.ofYourMax')}`
+                  : planEx.suggested_weight &&
+                    planEx.suggested_weight !== 'None' &&
+                    `· ${planEx.suggested_weight}`,
                 restScope === 'set' &&
                   planEx.rest_time &&
                   planEx.rest_time !== 'None' &&
@@ -796,7 +810,7 @@ export default function ExerciseCard({
                         value={logData.weight_mode}
                         onChange={(e) => setLogData((p) => ({ ...p, weight_mode: e.target.value }))}
                       >
-                        {WEIGHT_MODES.map((m) => (
+                        {WEIGHT_MODES_LOGGABLE.map((m) => (
                           <option key={m.key} value={m.key}>
                             {t(`workout.weightMode.${m.key}`, { defaultValue: m.label })}
                           </option>
@@ -876,12 +890,20 @@ export default function ExerciseCard({
                     {showWeightInputs && (
                       <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
                         {t('workout.weightKgHeader')}
-                        {suggestedWeightsArr.some(Boolean) && (
+                        {prescribedPct1rm ? (
                           <span className="block font-normal normal-case text-primary-400">
                             {t('workout.suggestedShort', {
-                              value: suggestedWeightsArr.filter(Boolean).join(', '),
+                              value: `${prescribedPct1rm}% ${t('workout.ofYourMax')}`,
                             })}
                           </span>
+                        ) : (
+                          suggestedWeightsArr.some(Boolean) && (
+                            <span className="block font-normal normal-case text-primary-400">
+                              {t('workout.suggestedShort', {
+                                value: suggestedWeightsArr.filter(Boolean).join(', '),
+                              })}
+                            </span>
+                          )
                         )}
                       </div>
                     )}

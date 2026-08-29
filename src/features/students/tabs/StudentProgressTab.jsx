@@ -22,6 +22,7 @@ import {
   maxWeightOfLog,
   calculateLogVolume,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
@@ -72,11 +73,13 @@ function TooltipCard({ active, payload, label }) {
 // Volumen real respetando weight_mode + unilateral + bodyweight.
 // Necesita el peso corporal del alumno para BW.
 function volumeOf(l, bodyWeightKg) {
-  const weightMode = getEffectiveWeightMode({
-    log: l,
-    planExercise: l.plan_exercise,
-    exercise: l.plan_exercise?.exercise,
-  })
+  const weightMode = getLoggingWeightMode(
+    getEffectiveWeightMode({
+      log: l,
+      planExercise: l.plan_exercise,
+      exercise: l.plan_exercise?.exercise,
+    })
+  )
   const unilateral = getEffectiveUnilateral({
     log: l,
     planExercise: l.plan_exercise,

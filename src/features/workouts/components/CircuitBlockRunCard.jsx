@@ -17,6 +17,8 @@ import {
   INTENSITY_LEVELS,
   blockDisplayTitle,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
+  getEffectivePct1rm,
   getEffectiveUnilateral,
   readLogReps,
   readLogWeights,
@@ -150,10 +152,12 @@ export default function CircuitBlockRunCard({
         const hasData = isTime ? !!data.actual_time : !!data.actual_reps || !!data.actual_weight
         if (!hasData) continue
 
-        const weightMode = getEffectiveWeightMode({
-          planExercise: ex,
-          exercise: ex.exercise,
-        })
+        const weightMode = getLoggingWeightMode(
+          getEffectiveWeightMode({
+            planExercise: ex,
+            exercise: ex.exercise,
+          })
+        )
         const unilateral = getEffectiveUnilateral({
           planExercise: ex,
           exercise: ex.exercise,
@@ -352,6 +356,11 @@ export default function CircuitBlockRunCard({
                     exercise: ex.exercise,
                   })
                   const exText = exerciseDisplay(ex.exercise, i18n.language)
+                  // %RM prescripto: propio del ejercicio o el default del circuito.
+                  const exPct1rm =
+                    exWeightMode === 'pct_1rm'
+                      ? getEffectivePct1rm({ planExercise: ex, block })
+                      : null
                   const showWeight = exWeightMode !== 'bodyweight'
                   const repsLabel = exUnilateral
                     ? t('workout.repsPerSideHeader')
@@ -372,6 +381,7 @@ export default function CircuitBlockRunCard({
                             {exWeightMode === 'bodyweight' && ` · ${t('workout.noWeight')}`}
                             {exWeightMode === 'barbell_only' &&
                               ` · ${t('workout.barbellOnlyShort')}`}
+                            {exPct1rm ? ` · ${exPct1rm}% ${t('workout.ofYourMax')}` : ''}
                           </p>
                           {/* Q1 — "Última vez" del ejercicio + badge chat */}
                           <ExerciseHistoryHeaderLine

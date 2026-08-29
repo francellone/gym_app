@@ -22,6 +22,7 @@ import {
   maxWeightOfLog,
   calculateLogVolume,
   getEffectiveWeightMode,
+  getLoggingWeightMode,
   getEffectiveUnilateral,
 } from '../helpers'
 import StudentProgressTableView from '@/features/students/components/StudentProgressTableView'
@@ -193,11 +194,13 @@ export default function PlanProgressTab({ planId, assignments }) {
     const byDate = {}
     let uncomp = false
     progressLogs.forEach((l) => {
-      const weightMode = getEffectiveWeightMode({
-        log: l,
-        planExercise: l.plan_exercise,
-        exercise: l.plan_exercise?.exercise,
-      })
+      const weightMode = getLoggingWeightMode(
+        getEffectiveWeightMode({
+          log: l,
+          planExercise: l.plan_exercise,
+          exercise: l.plan_exercise?.exercise,
+        })
+      )
       const unilateral = getEffectiveUnilateral({
         log: l,
         planExercise: l.plan_exercise,

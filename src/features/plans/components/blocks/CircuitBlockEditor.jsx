@@ -3,9 +3,14 @@ import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
   EXERCISE_MODES,
+  WEIGHT_MODES,
+  WEIGHT_MODE_BY_KEY,
   emptyCircuitExercise,
+  getEffectiveWeightMode,
+  getEffectivePct1rm,
 } from '../../helpers'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
+import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
 
 /**
  * Editor del bloque CIRCUITO.
@@ -141,6 +146,32 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
         </select>
       </div>
 
+      {/* Todo el circuito al X% del máximo (lo heredan los ejercicios) */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">
+          Todo el circuito al % del máximo (opcional)
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            min="1"
+            max="200"
+            step="1"
+            className="input text-sm pr-7"
+            placeholder="Ej: 50"
+            value={block.default_pct_1rm || ''}
+            onChange={(e) => onUpdate({ default_pct_1rm: e.target.value })}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+            %
+          </span>
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+          Se aplica a los ejercicios en modo <strong className="font-medium">% del máximo</strong>{' '}
+          que no tengan su propio porcentaje. Cada ejercicio puede pisarlo.
+        </p>
+      </div>
+
       {/* Lista de ejercicios */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-700">Ejercicios del circuito</p>
@@ -153,6 +184,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
             ex={ex}
             index={i}
             total={list.length}
+            blockDefaultPct={block.default_pct_1rm || ''}
             onUpdate={(patch) => updateExercise(i, patch)}
             onRemove={() => removeExercise(i)}
             onMove={(dir) => moveExercise(i, dir)}
@@ -173,8 +205,23 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
 // ============================================================
 // Fila de ejercicio dentro del circuito (más compacto que fuerza)
 // ============================================================
-function CircuitExerciseRow({ ex, index, total, onUpdate, onRemove, onMove }) {
+function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRemove, onMove }) {
+  const { exercises } = useExerciseCatalog()
   const mode = ex.exercise_mode || 'reps'
+
+  // Peso del ejercicio dentro del circuito (antes no existía: el circuito es
+  // primo de fuerza, también se carga con peso · ver modelo de 2 ejes).
+  const selectedExercise = ex.exercise_id ? exercises.find((e) => e.id === ex.exercise_id) : null
+  const effectiveWeightMode = getEffectiveWeightMode({
+    planExercise: ex,
+    exercise: selectedExercise,
+  })
+  const isPct1rm = effectiveWeightMode === 'pct_1rm'
+  const showWeightInput = WEIGHT_MODE_BY_KEY[effectiveWeightMode]?.showsWeightInputs ?? true
+  const inheritedPct = getEffectivePct1rm({
+    planExercise: ex,
+    block: { default_pct_1rm: blockDefaultPct },
+  })
 
   return (
     <div className="bg-gray-50 rounded-xl p-2.5 space-y-2">
@@ -229,6 +276,69 @@ function CircuitExerciseRow({ ex, index, total, onUpdate, onRemove, onMove }) {
               </div>
             )}
           </div>
+
+          {/* Modo de peso + valor (kg o % del máximo) */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">Peso</label>
+              <select
+                className="input text-sm"
+                value={ex.weight_mode ?? ''}
+                onChange={(e) => onUpdate({ weight_mode: e.target.value || null })}
+              >
+                <option value="">
+                  Heredar
+                  {selectedExercise
+                    ? ` (${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode || 'with_weight']?.short || 'Con peso'})`
+                    : ''}
+                </option>
+                {WEIGHT_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.short}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {isPct1rm ? (
+              <div>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">% del máximo</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="200"
+                  step="1"
+                  className="input text-sm"
+                  placeholder={blockDefaultPct ? `${blockDefaultPct} (del bloque)` : '50'}
+                  value={ex.pct_1rm ?? ''}
+                  onChange={(e) => onUpdate({ pct_1rm: e.target.value })}
+                />
+              </div>
+            ) : showWeightInput ? (
+              <div>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">Peso (kg)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  className="input text-sm"
+                  placeholder="kg"
+                  value={(ex.suggested_weights_array || [''])[0] || ''}
+                  onChange={(e) => onUpdate({ suggested_weights_array: [e.target.value] })}
+                />
+              </div>
+            ) : (
+              <div className="flex items-end">
+                <p className="text-[11px] text-emerald-600 pb-2">Sin peso · solo reps</p>
+              </div>
+            )}
+          </div>
+          {isPct1rm && (
+            <p className="text-[11px] text-amber-700 leading-snug">
+              {inheritedPct
+                ? `Los kilos se calculan solos: ${inheritedPct}% del máximo de cada persona.`
+                : 'Falta el porcentaje: cargalo acá o a nivel del circuito.'}
+            </p>
+          )}
         </div>
 
         {/* Controles laterales */}

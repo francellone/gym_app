@@ -241,6 +241,7 @@
     "perSide": "per side",
     "noWeight": "no weight",
     "barbellOnlyShort": "barbell only",
+    "ofYourMax": "of your max",
     "warnMissingPse": "You didn't log your perceived effort (RPE). Your coach uses it to adjust the plan.",
     "warnWeightTooHigh": "Some logged weight looks very high. Is it correct?",
     "warnBarbellHeavy": "You selected \"Barbell only\" but the weight is over 20kg (the barbell's weight). Is that correct?",
@@ -465,7 +466,8 @@
     "weightMode": {
       "with_weight": "With weight",
       "barbell_only": "Barbell only",
-      "bodyweight": "No weight"
+      "bodyweight": "No weight",
+      "pct_1rm": "% of max"
     },
     "repsUnitOption": {
       "pasos": "steps",
