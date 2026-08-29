@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bloques de entrenamiento — modelo unificado v2</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --ink:#e8eaed; --muted:#9aa3b2;
+    --line:#2a2f3a; --accent:#7c9cff; --strength:#8b7cff; --aerobic:#4cc4e6; --circuit:#ff9a52;
+    --good:#5fd68a; --warn:#ffc857; --bad:#ff7a7a; --chip:#232734;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --ink:#1a1d23; --muted:#5b6472;
+      --line:#e2e6ec; --chip:#eef1f6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:32px 20px 80px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--muted);margin:0 0 28px;font-size:14px}
+  h2{font-size:19px;margin:38px 0 6px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  h2 .n{font-size:12px;font-weight:700;color:var(--bg);background:var(--accent);
+    width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  h3{font-size:15px;margin:24px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  p.lead{color:var(--muted);margin:2px 0 14px;max-width:80ch}
+  table{width:100%;border-collapse:collapse;margin:10px 0 6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px}
+  th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{background:var(--panel2);font-weight:700;font-size:12px;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  td.k{font-weight:600;color:var(--ink);width:200px}
+  .col-s{color:var(--strength)} .col-a{color:var(--aerobic)} .col-c{color:var(--circuit)}
+  th.col-s{border-top:2px solid var(--strength)} th.col-a{border-top:2px solid var(--aerobic)} th.col-c{border-top:2px solid var(--circuit)}
+  code{background:var(--chip);padding:1px 6px;border-radius:5px;font-size:12px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
+  .dup{color:var(--warn);font-weight:600}
+  .ok{color:var(--good);font-weight:600}
+  .no{color:var(--bad);font-weight:600}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:var(--chip);color:var(--muted);margin-right:5px}
+  .tag.shared{background:rgba(95,214,138,.16);color:var(--good)}
+  .tag.spec{background:rgba(255,154,82,.16);color:var(--circuit)}
+  .tag.new{background:rgba(124,156,255,.16);color:var(--accent)}
+  .schema{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.7;
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:10px 0;overflow-x:auto}
+  .schema .c{color:var(--muted)}
+  .schema .sh{color:var(--good)}
+  .schema .sp{color:var(--circuit)}
+  .schema .nw{color:var(--accent);font-weight:700}
+  .schema .key{color:var(--accent)}
+  ul{margin:6px 0 6px;padding-left:22px}
+  li{margin:5px 0}
+  .q{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:12px 15px;margin:10px 0}
+  .q .qh{font-weight:700;margin-bottom:3px}
+  .q .why{color:var(--muted);font-size:13px}
+  .q.crit{border-left-color:var(--bad)}
+  .q.done{border-left-color:var(--good)}
+  .callout{background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 18px;margin:14px 0;font-size:14px}
+  .callout b{color:var(--accent)}
+  .callout.risk{border-left:3px solid var(--bad)}
+  .callout.go{border-left:3px solid var(--good)}
+  hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+  .mono-sm{font-size:11.5px;color:var(--muted)}
+  .axis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+  @media(max-width:700px){.axis{grid-template-columns:1fr}}
+  .axis .cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 16px}
+  .axis .cell b{display:block;margin-bottom:4px}
+  .axis .cell .who{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Bloques de entrenamiento — modelo unificado v2</h1>
+<p class="sub">Fuerza · Circuito · Aeróbico &nbsp;·&nbsp; incorpora las respuestas de Anto + análisis de impacto &nbsp;·&nbsp; sin migrar &nbsp;·&nbsp; 2026-08-29</p>
+
+<div class="callout">
+<b>La conclusión que ordena todo.</b> No hay tres tipos paralelos: hay <b>dos ejes independientes</b>. Eje 1 — <b>qué unidad mide el ejercicio</b>: carga (peso + reps) o resistencia (tiempo / distancia / ritmo / zona). Eje 2 — <b>dónde se puntúa el esfuerzo</b>: por ejercicio o por bloque. Con las respuestas de Anto quedó claro que <b>circuito es primo de fuerza</b> (mismas 3 variables: peso, serie=ronda, repetición) <b>+ tiempo</b>; el outlier real es el aeróbico, que es el único que no usa peso/reps.
+</div>
+
+<div class="axis">
+  <div class="cell"><b>💪 Fuerza</b> carga (peso+reps) · puntúa <u>por ejercicio</u><span class="who">PSE y detalle por serie; pausa entre ejercicios</span></div>
+  <div class="cell"><b>🔥 Circuito</b> carga (peso+reps) · puntúa <u>por bloque</u> <b>+ tiempo</b><span class="who">se evalúa rapidez: cuánto tardó, rondas; PSE 1–10 y nota UNA vez al final</span></div>
+  <div class="cell"><b>🏃 Aeróbico</b> resistencia (tiempo/dist/ritmo/zona) · puntúa <u>por bloque</u><span class="who">la coach setea ≥2 métricas, el alumno completa el resto</span></div>
+  <div class="cell" style="opacity:.55"><b>— (4ª combinación)</b> resistencia · por ejercicio<span class="who">hoy no existe; si algún día hace falta, el modelo la admite</span></div>
+</div>
+
+<!-- ============================ 1 ============================ -->
+<h2><span class="n">1</span> Qué contestó Anto y qué decide cada respuesta</h2>
+
+<div class="q done">
+  <div class="qh">HIIT ≠ intervalo aeróbico — quedan separados ✓</div>
+  <div class="why">Intervalo aeróbico = una modalidad cardio alternando ritmo (1' corriendo / 1' caminando), vive dentro de aeróbico. HIIT = circuito a máxima intensidad ("el mayor esfuerzo posible en el menor tiempo posible", ≤1 min). La decisión de la migración v19 (HIIT solo en circuito) queda <b>ratificada</b>.</div>
+</div>
+<div class="q done">
+  <div class="qh">Peso en circuito — SÍ se prescribe ✓ (hueco confirmado: hoy el editor no lo permite)</div>
+  <div class="why">Puede ser kg, % de 1RM (típico 50% en circuitos de velocidad) o sin peso (corporal/bandas). "Libre" no significa sin variables: las 3 variables (peso·ronda·reps) están siempre; lo libre es la <b>estructura</b> de arriba (HIIT/AMRAP/EMOM son presets de estructura).</div>
+</div>
+<div class="q done">
+  <div class="qh">Zona + intensidad en palabra conviven ✓</div>
+  <div class="why">"Zona 1, estado cómodo, puede hablar" — las dos se muestran juntas en aeróbico. Se mantienen ambas.</div>
+</div>
+<div class="q done">
+  <div class="qh">Registro de circuito: nada por ejercicio salvo peso+reps ✓ (ya funciona así)</div>
+  <div class="why">PSE 1–10 + nota van UNA vez, al final, para el circuito completo (la fatiga acumulada distorsiona la percepción por ejercicio). El código actual ya lo hace (los logs por ejercicio de circuito van con PSE null); esta respuesta lo ratifica como regla de dominio.</div>
+</div>
+<div class="q done">
+  <div class="qh">Aeróbico: multi-ejercicio y métricas flexibles ✓ (hoy NO soportado)</div>
+  <div class="why">Puede combinar modalidades (tabata cinta + elíptico) y prescribe un subconjunto de {tiempo, km, ritmo, zona} — al menos 2 — y el alumno reporta el resto. Hoy el aeróbico admite 1 ejercicio y solo minutos: acá hay trabajo nuevo real.</div>
+</div>
+<div class="q crit">
+  <div class="qh">⏳ PENDIENTE — la única pregunta que falta (operativa, no conceptual)</div>
+  <div class="why">"Cuando ponés 50% en un circuito: ¿es 50% del <b>peso</b> máximo (1RM) — querés que calculemos los kilos desde el 1RM del alumno y se los mostremos — o solo la referencia y el alumno decide? ¿O es 50% del <b>esfuerzo</b>?" &nbsp;Define si hay que traer el 1RM (que ya vive en evaluaciones) al flujo del plan.</div>
+</div>
+
+<h3>%1RM vs PSE — por qué no son lo mismo</h3>
+<p class="lead">Convergen en el tope (PSE 10 ≈ 100% ≈ máximo), pero el circuito de velocidad de la propia Anto los separa: <b>50% de carga con esfuerzo máximo</b> — % bajo y PSE alto a la vez. El % es <b>entrada</b> (prescripción que resuelve a kilos); el PSE es <b>salida</b> (esfuerzo percibido reportado después). En el modelo son campos distintos siempre.</p>
+
+<div class="schema">
+<span class="c">// Cadena del %1RM — qué se guarda y qué se deriva</span><br>
+GUARDADO&nbsp;&nbsp;: % elegido por <b>cada coach, por plan/ejercicio</b> <span class="c">(nunca constante de la app)</span><br>
+GUARDADO&nbsp;&nbsp;: 1RM del alumno <span class="c">(evaluaciones/OneRMForm; fallback: estimar de logs)</span><br>
+<span class="nw">DERIVADO</span>&nbsp;&nbsp;: kilos mostrados = 1RM × % <span class="c">← nunca se inscribe → AUTO-PROGRESIÓN:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sube el 1RM ⇒ el mismo % resuelve a más kilos sin tocar el plan</span><br>
+GUARDADO&nbsp;&nbsp;: peso real usado <span class="c">(workout_logs — es un hecho, no una derivación)</span><br>
+<span class="c">Bordes: sin 1RM → mostrar "% de tu máximo" pelado + caja de pesos manual · 1RM viejo → mostrar fecha</span>
+</div>
+
+<p class="lead">El % se ofrece en <b>3 lugares</b>: la fila de ejercicio de fuerza (selector kg / %1RM / sin peso), la fila de ejercicio de circuito (donde hoy no hay campo de peso), y un atajo en la cabecera del bloque de circuito — "% del circuito" — que aplica a todos los ejercicios y se pisa por ejercicio (Anto habla del circuito al 50%, no de cada ejercicio).</p>
+
+<hr>
+
+<!-- ============================ 2 ============================ -->
+<h2><span class="n">2</span> El modelo de datos — antes y después</h2>
+
+<h3>Hoy (lo duplicado en ámbar)</h3>
+<table>
+<thead><tr><th>Concepto</th><th class="col-s">💪 Fuerza</th><th class="col-a">🏃 Aeróbico</th><th class="col-c">🔥 Circuito</th></tr></thead>
+<tbody>
+<tr><td class="k">Subtipo</td><td>—</td><td><code>aerobic_format</code></td><td><code>circuit_type</code></td></tr>
+<tr><td class="k">Intervalos (work/rest/rondas)</td><td>—</td><td class="dup"><code>aerobic_work_seconds</code> …</td><td class="dup"><code>circuit_work_seconds</code> …</td></tr>
+<tr><td class="k">Duración total</td><td>—</td><td class="dup"><code>aerobic_total_minutes</code></td><td class="dup"><code>circuit_total_minutes</code></td></tr>
+<tr><td class="k">Intensidad (palabra)</td><td>—</td><td class="dup"><code>aerobic_intensity</code></td><td class="dup"><code>circuit_intensity</code> <span class="mono-sm">← sobra: en circuito la intensidad es CARGA (%), no zona</span></td></tr>
+<tr><td class="k">Zona / sensación</td><td>—</td><td><code>aerobic_zone</code> + <code>expected_sensation</code></td><td>—</td></tr>
+<tr><td class="k">Peso prescripto</td><td>kg por serie ✓</td><td>n/a</td><td class="no">✗ no existe (pero el alumno SÍ registra peso)</td></tr>
+<tr><td class="k">Registro</td><td>por ejercicio/serie</td><td>por bloque (min+PSE)</td><td>por bloque (min+rondas+PSE) + peso/reps por ejercicio</td></tr>
+</tbody>
+</table>
+
+<h3>Propuesto</h3>
+<div class="schema">
+<span class="c">// ━━ plan_blocks — el contenedor ━━</span><br>
+🟩 id, plan_id, section(día A/B/C), order_index, <span class="key">block_type</span>, title, notes<br>
+🟩 <b>estructura</b> <span class="c">(circuito+aeróbico; null en fuerza)</span>: subtype · total_minutes · work_s · rest_s · rounds<br>
+<span class="nw">🆕 default_pct_1rm</span> <span class="c">(circuito: "todo el circuito al X%", hereda a los ejercicios)</span><br>
+🟧 <b>target resistencia</b> <span class="c">(solo aeróbico)</span>: <span class="nw">target_distance_km 🆕</span> · <span class="nw">target_pace 🆕</span> · target_zone(Z1–Z5) · target_intensity_word<br>
+&nbsp;&nbsp;&nbsp;<span class="c">↳ la coach setea ≥2; los null los completa el alumno al registrar</span><br>
+<br>
+<span class="c">// ━━ plan_exercises — prescripción por ejercicio ━━</span><br>
+🟩 exercise_id, order_index, group(A1/B1), extra_notes, video<br>
+🟩 <b>carga</b> <span class="c">(fuerza+circuito)</span>: sets <span class="c">(circuito: la "serie" es la ronda)</span> · reps[] ·<br>
+&nbsp;&nbsp;&nbsp;weight_mode: with_weight | barbell_only | bodyweight <span class="nw">+ pct_1rm 🆕 (si Anto confirma)</span><br>
+&nbsp;&nbsp;&nbsp;weight_kg[] <b>ó</b> pct_1rm <span class="c">(solo el %; los kilos SIEMPRE derivados)</span> · rest_time · suggested_pse?<br>
+🟧 <b>resistencia</b> <span class="c">(aeróbico, multimodal 🆕)</span>: target_seconds / target_distance_km / target_pace por modalidad<br>
+<br>
+<span class="c">// ━━ Registro — 2 primitivas componibles (YA existe así, no se migra) ━━</span><br>
+workout_logs <span class="c">(por ejercicio)</span>: fuerza=por serie (reps,peso,PSE) · circuito=SOLO {peso,reps} · aeróbico=—<br>
+workout_block_logs <span class="c">(por bloque)</span>: circuito={<b>minutos(TIEMPO)</b>, rondas, PSE 1–10, nota final}<br>
+&nbsp;&nbsp;&nbsp;aeróbico={minutos, <span class="nw">distancia 🆕</span>, <span class="nw">ritmo 🆕</span>, PSE, nota} · fuerza=—
+</div>
+
+<hr>
+
+<!-- ============================ 3 ============================ -->
+<h2><span class="n">3</span> Análisis de impacto — qué puede romperse</h2>
+<p class="lead">Verificado con búsqueda en el repo (no especulación). La superficie es más chica de lo que parece, pero tiene un punto crítico.</p>
+
+<div class="callout risk">
+<b style="color:var(--bad)">⚠ Hallazgo crítico:</b> la RPC <code>assign_template</code> (la que clona la plantilla al asignar un plan — el flujo más importante de la app) hace <code>INSERT INTO plan_blocks (…)</code> con la <b>lista explícita de todas las columnas</b>, incluidas todas las <code>aerobic_*</code> y <code>circuit_*</code>. Dos consecuencias: <b>(1)</b> cualquier rename/drop de columna rompe la asignación de planes; <b>(2)</b> toda columna nueva debe agregarse también a esa RPC — si no, el campo <b>no se clona al asignar</b> y aparece el bug silencioso "la coach lo carga en la plantilla y el alumno nunca lo ve". Regla de checklist desde ahora. (El duplicado de planes, en cambio, clona genérico con <code>select('*')</code> y hereda columnas nuevas gratis.)
+</div>
+
+<table>
+<thead><tr><th>Superficie</th><th>Qué hay</th><th>Riesgo si renombramos</th><th>Riesgo si solo agregamos</th></tr></thead>
+<tbody>
+<tr><td class="k">RPC de asignación (SQL)</td><td>Lista explícita de columnas</td><td class="no">ALTO — rompe asignar planes</td><td class="ok">BAJO — pero hay que sumar las columnas nuevas a la RPC</td></tr>
+<tr><td class="k">Front que usa <code>circuit_*/aerobic_*</code></td><td>Solo 6 archivos (2 editores, 2 run cards, helpers, PlanDetailPage)</td><td class="no">MEDIO — 6 archivos + payloads de Create/Edit</td><td class="ok">BAJO — se extienden, no se tocan</td></tr>
+<tr><td class="k">Datos existentes</td><td>Bloques en plantillas + instancias clonadas de alumnas activas</td><td class="no">MEDIO — migración de datos en caliente</td><td class="ok">NULO — columnas nuevas nacen null</td></tr>
+<tr><td class="k">PWA / caché del SW</td><td>Clientes con JS viejo cacheado (problema conocido del proyecto)</td><td class="no">ALTO — JS viejo escribe a columnas que ya no existen</td><td class="ok">BAJO — el cliente viejo simplemente no manda los campos nuevos</td></tr>
+<tr><td class="k"><code>weight_mode</code></td><td>CHECK constraint en DB + guardia de enums en english-smoke + i18n es/en</td><td>—</td><td class="ok">BAJO — actualizar constraint + 2 locales + test</td></tr>
+<tr><td class="k">Dashboards / tallies</td><td>Usan <code>plan_blocks</code> solo via <code>block_type</code> (grep negativo a circuit_/aerobic_)</td><td class="ok">BAJO</td><td class="ok">NULO</td></tr>
+</tbody>
+</table>
+
+<h3>Estrategia: aditivo sí, rename no (o mucho después)</h3>
+
+<div class="callout go">
+<b style="color:var(--good)">Fase 1 — todo el valor, riesgo bajo (solo agregar):</b> modo <code>pct_1rm</code> + campo de peso en el editor de circuito + <code>default_pct_1rm</code> del bloque · targets de distancia/ritmo en aeróbico + columnas de registro nuevas · aeróbico multi-ejercicio · capa compartida de presentación del ejercicio en la UI (notas/historial/video — el tema con el que empezó todo esto). Cada columna nueva entra también a la RPC de asignación.
+</div>
+
+<div class="callout">
+<b>Fase 2 — opcional, quizás nunca:</b> la dedup física de columnas (<code>aerobic_work_seconds</code>+<code>circuit_work_seconds</code> → una sola) es la parte riesgosa y su ganancia es solo higiene. <b>Alternativa sin riesgo:</b> unificar en la capa de la app con un accessor — <code>getBlockStructure(block)</code> que devuelve <code>{work_s, rest_s, rounds, total_min}</code> sin importar el prefijo — misma claridad conceptual, cero migración, cero clientes rotos. La base puede quedar como está indefinidamente. <code>circuit_intensity</code> no se dropea: se deja de ofrecer en la UI y la columna queda deprecada.
+</div>
+
+<div class="callout" style="margin-top:22px">
+<b>En una línea:</b> el modelo conceptual (2 ejes) se puede materializar casi entero <b>sin tocar ninguna columna existente</b> — todo lo nuevo es aditivo, la unificación de lo duplicado se hace en el código con accessors, y la única compuerta pendiente es la respuesta de Anto sobre qué significa exactamente su 50%.
+</div>
+
+</div>
+</body>
+</html>
