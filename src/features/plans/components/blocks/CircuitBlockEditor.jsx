@@ -12,8 +12,10 @@ import {
 } from '../../helpers'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
-import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
-import { usePct1rmPreview } from '../../Pct1rmPreviewContext'
+import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
+import { formatShortDate } from '@/i18n/dateLocale'
+import { usePlanTargetPerson } from '../../PlanTargetPersonContext'
+import StudentExerciseHistoryLine from '../StudentExerciseHistoryLine'
 
 /**
  * Editor del bloque CIRCUITO.
@@ -210,7 +212,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
 // ============================================================
 function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRemove, onMove }) {
   const { exercises } = useExerciseCatalog()
-  const preview = usePct1rmPreview()
+  const target = usePlanTargetPerson()
   const mode = ex.exercise_mode || 'reps'
 
   // Peso del ejercicio dentro del circuito (antes no existía: el circuito es
@@ -228,12 +230,12 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
   })
   // Vista previa "como [persona]" (mismo criterio que la fila de fuerza).
   const previewWeight =
-    isPct1rm && preview.studentId
+    isPct1rm && target.studentId
       ? resolvePrescribedWeight({
           planExercise: ex,
           block: { default_pct_1rm: blockDefaultPct },
           weightMode: 'pct_1rm',
-          oneRmMap: preview.oneRmMap,
+          oneRmMap: target.oneRmMap,
           today: format(new Date(), 'yyyy-MM-dd'),
         })
       : null
@@ -250,6 +252,8 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
             placeholder="Seleccionar ejercicio..."
             size="xs"
           />
+          {/* Con cuánto viene esta persona en este ejercicio */}
+          <StudentExerciseHistoryLine exerciseId={ex.exercise_id} compact />
 
           {/* Tipo (reps/tiempo) + valor */}
           <div className="grid grid-cols-2 gap-2">
@@ -352,14 +356,14 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               <p className="text-[11px] leading-snug">
                 {previewWeight.status === 'derived' ? (
                   <span className="text-emerald-700">
-                    <strong className="font-semibold">{preview.studentName}:</strong>{' '}
+                    <strong className="font-semibold">{target.studentName}:</strong>{' '}
                     <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
                     {previewWeight.pct}% de {previewWeight.oneRm} kg, evaluado el{' '}
-                    {formatOneRmDate(previewWeight.oneRmDate)}
+                    {formatShortDate(previewWeight.oneRmDate)}
                   </span>
                 ) : previewWeight.status === 'missing_1rm' ? (
                   <span className="text-amber-800">
-                    {preview.studentName} no tiene evaluación de este ejercicio: va a ver el
+                    {target.studentName} no tiene evaluación de este ejercicio: va a ver el
                     porcentaje.
                   </span>
                 ) : (

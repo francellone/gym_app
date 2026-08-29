@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Trash2, Info } from 'lucide-react'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
-import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
-import { usePct1rmPreview } from '../Pct1rmPreviewContext'
+import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
+import { formatShortDate } from '@/i18n/dateLocale'
+import { usePlanTargetPerson } from '../PlanTargetPersonContext'
+import StudentExerciseHistoryLine from './StudentExerciseHistoryLine'
 import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
 import {
   BLOCK_LETTERS,
@@ -44,7 +46,7 @@ export default function PlanExerciseRow({
   onRemove,
 }) {
   const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
-  const preview = usePct1rmPreview()
+  const target = usePlanTargetPerson()
   const setsCount = parseInt(ex.suggested_sets) || 0
 
   // Ejercicio del catálogo seleccionado (para conocer sus defaults)
@@ -67,11 +69,11 @@ export default function PlanExerciseRow({
     : null
   // Vista previa "como [persona]": resuelve los kilos que le tocarían a ella.
   const previewWeight =
-    isPct1rm && preview.studentId
+    isPct1rm && target.studentId
       ? resolvePrescribedWeight({
           planExercise: ex,
           weightMode: 'pct_1rm',
-          oneRmMap: preview.oneRmMap,
+          oneRmMap: target.oneRmMap,
           today: format(new Date(), 'yyyy-MM-dd'),
         })
       : null
@@ -240,6 +242,8 @@ export default function PlanExerciseRow({
                   </div>
                 )}
               </ExercisePicker>
+              {/* Con cuánto viene esta persona en este ejercicio */}
+              <StudentExerciseHistoryLine exerciseId={ex.exercise_id} />
             </div>
 
             {/* Bloque */}
@@ -375,13 +379,13 @@ export default function PlanExerciseRow({
                 <div className="rounded-lg bg-white border border-amber-200 px-2 py-1.5 text-[11px] leading-snug">
                   {previewWeight.status === 'derived' && (
                     <p className="text-emerald-700">
-                      <strong className="font-semibold">{preview.studentName}:</strong>{' '}
+                      <strong className="font-semibold">{target.studentName}:</strong>{' '}
                       <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
                       {previewWeight.pct}% de {previewWeight.oneRm} kg
                       {previewWeight.usedReference && rmReferenceExercise
                         ? ` (máximo de ${rmReferenceExercise.name})`
                         : ''}
-                      , evaluado el {formatOneRmDate(previewWeight.oneRmDate)}
+                      , evaluado el {formatShortDate(previewWeight.oneRmDate)}
                       {previewWeight.stale && (
                         <span className="text-amber-700"> · esa evaluación ya está vieja</span>
                       )}
@@ -389,7 +393,7 @@ export default function PlanExerciseRow({
                   )}
                   {previewWeight.status === 'missing_1rm' && (
                     <p className="text-amber-800">
-                      <strong className="font-semibold">{preview.studentName}</strong> no tiene
+                      <strong className="font-semibold">{target.studentName}</strong> no tiene
                       evaluación de 1RM de este ejercicio: va a ver el porcentaje en vez de los
                       kilos. Cargale una evaluación, elegí un ejercicio de referencia, o ponele los
                       kilos a mano en su plan una vez asignado.

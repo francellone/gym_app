@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import BlockCard from '../components/blocks/BlockCard'
-import { Pct1rmPreviewProvider, Pct1rmPreviewSelector } from '../Pct1rmPreviewContext'
+import { PlanTargetPersonProvider, PlanTargetPersonPicker } from '../PlanTargetPersonContext'
 import {
   ExerciseCatalogProvider,
   useExerciseCatalogData,
@@ -35,9 +35,9 @@ export default function CreatePlanPage() {
   const catalog = useExerciseCatalogData()
   return (
     <ExerciseCatalogProvider catalog={catalog}>
-      <Pct1rmPreviewProvider>
+      <PlanTargetPersonProvider>
         <CreatePlanPageInner />
-      </Pct1rmPreviewProvider>
+      </PlanTargetPersonProvider>
     </ExerciseCatalogProvider>
   )
 }
@@ -69,19 +69,6 @@ function CreatePlanPageInner() {
     day_b: [],
     day_c: [],
   })
-
-  // ¿Algún ejercicio del plan está prescripto por % del máximo? Solo entonces
-  // tiene sentido ofrecer la vista previa "como [persona]".
-  const planUsesPct1rm = useMemo(
-    () =>
-      Object.values(planBlocks || {}).some((blocks) =>
-        (blocks || []).some((b) =>
-          (b.exercises || []).some((e) => e.weight_mode === 'pct_1rm')
-        )
-      ),
-    [planBlocks]
-  )
-
 
   // Estado para evaluaciones exercise-based (doc 38): ejercicios por día.
   // { day_a: [row], day_b: [row], ... }
@@ -416,6 +403,9 @@ function CreatePlanPageInner() {
           </div>
         </div>
 
+        {/* ¿Para quién es? Define qué datos reales se ven al armar. */}
+        {!isEval && <PlanTargetPersonPicker />}
+
         {/* Categoría de evaluación */}
         {isEval && (
           <div>
@@ -697,9 +687,6 @@ function CreatePlanPageInner() {
       {!isEval && (
         <div className="card space-y-4">
           <h2 className="font-semibold text-gray-900">Bloques del plan</h2>
-
-          {/* %RM: ver los kilos que le tocarían a una persona concreta */}
-          <Pct1rmPreviewSelector visible={planUsesPct1rm} />
 
           {/* Tabs de secciones */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">

@@ -17,9 +17,6 @@
 //      best_one_rm / one_rm y exercise_id adentro del jsonb.
 // Las dos se mezclan y por ejercicio gana la evaluación MÁS RECIENTE.
 // ============================================================
-import { format, parseISO } from 'date-fns'
-import i18n from '@/i18n'
-import { dateLocale } from '@/i18n/dateLocale'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 
 // Un 1RM más viejo que esto se marca (no se descarta: la coach decide).
@@ -179,20 +176,6 @@ export function resolvePrescribedWeight({
     oneRmExerciseId: own ? ownId : refId,
     usedReference: !own,
     stale: isOneRmStale(hit.date, today),
-  }
-}
-
-/**
- * Fecha de la evaluación en formato corto y localizado ("6 jul").
- * @param {string} date - 'yyyy-MM-dd'
- * @returns {string}
- */
-export function formatOneRmDate(date) {
-  if (!date) return ''
-  try {
-    return format(parseISO(date), i18n.t('dates.dayMonthShort'), { locale: dateLocale() })
-  } catch {
-    return date
   }
 }
 

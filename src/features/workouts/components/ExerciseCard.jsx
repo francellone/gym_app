@@ -25,7 +25,8 @@ import {
   readLogReps,
   readLogWeights,
 } from '@/features/plans/helpers'
-import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
+import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
+import { formatShortDate } from '@/i18n/dateLocale'
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
@@ -640,12 +641,12 @@ export default function ExerciseCard({
                       pct: prescribedPct1rm,
                       oneRm: pctPrescription.oneRm,
                       exercise: rmReferenceName,
-                      date: formatOneRmDate(pctPrescription.oneRmDate),
+                      date: formatShortDate(pctPrescription.oneRmDate),
                     })
                   : t('workout.pct1rmFromOwnMax', {
                       pct: prescribedPct1rm,
                       oneRm: pctPrescription.oneRm,
-                      date: formatOneRmDate(pctPrescription.oneRmDate),
+                      date: formatShortDate(pctPrescription.oneRmDate),
                     })}
               </p>
             )}
