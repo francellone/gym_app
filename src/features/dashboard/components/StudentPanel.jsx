@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   ChevronRight,
+  FileBarChart,
   TrendingUp,
   Activity,
   Target,
@@ -256,9 +257,17 @@ export default function StudentPanel({
   if (!assignment) {
     return (
       <div className="card space-y-3">
-        <p className="text-sm text-gray-500">
-          {studentName || 'El alumno'} no tiene plan de entrenamiento activo en este período.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            {studentName || 'El alumno'} no tiene plan de entrenamiento activo en este período.
+          </p>
+          <Link
+            to={`/coach/students/${studentId}/informe`}
+            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline flex-shrink-0"
+          >
+            <FileBarChart size={14} /> Informe
+          </Link>
+        </div>
         {/* El wellbeing no depende del plan: se muestra igual. */}
         <WellbeingSummaryBlock
           summary={wellbeingSummary}
@@ -280,12 +289,20 @@ export default function StudentPanel({
             {assignment.plan?.title || 'Plan activo'} · {findPeriodLabel(periodKey)}
           </p>
         </div>
-        <Link
-          to={`/coach/students/${studentId}`}
-          className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline flex-shrink-0"
-        >
-          Ver alumno <ChevronRight size={14} />
-        </Link>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <Link
+            to={`/coach/students/${studentId}/informe`}
+            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline"
+          >
+            <FileBarChart size={14} /> Informe
+          </Link>
+          <Link
+            to={`/coach/students/${studentId}`}
+            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline"
+          >
+            Ver alumno <ChevronRight size={14} />
+          </Link>
+        </div>
       </div>
 
       {loading ? (
