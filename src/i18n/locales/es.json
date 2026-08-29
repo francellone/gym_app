@@ -117,7 +117,9 @@
       "goalOtherRequired": "Especificá tu objetivo en el campo \"Otro\".",
       "passwordsMismatch": "Las contraseñas no coinciden",
       "passwordTooShort": "La contraseña debe tener al menos 6 caracteres"
-    }
+    },
+    "followUpSentBody": "Tu coach te envió un formulario de seguimiento. Respondelo cuando puedas.",
+    "viewAllForms": "Ver todos mis formularios"
   },
   "dashboard": {
     "greetingMorning": "Buenos días",

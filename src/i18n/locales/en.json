@@ -117,7 +117,9 @@
       "goalOtherRequired": "Specify your goal in the \"Other\" field.",
       "passwordsMismatch": "Passwords don't match",
       "passwordTooShort": "Password must be at least 6 characters"
-    }
+    },
+    "followUpSentBody": "Your coach sent you a follow-up form. Answer it whenever you can.",
+    "viewAllForms": "View all my forms"
   },
   "dashboard": {
     "greetingMorning": "Good morning",

@@ -31,8 +31,6 @@ export default function StudentDashboard() {
   const [weekLogs, setWeekLogs] = useState([])
   const [streak, setStreak] = useState(0)
   const [, setLoading] = useState(true)
-  const [pendingIntake, setPendingIntake] = useState(false)
-  const [pendingFollowUps, setPendingFollowUps] = useState([])
   // Q2 — tallies por día (Día A ✓✓◐) para el plan activo.
   // Se carga aparte porque necesita la ventana completa del plan,
   // no la semana del heatmap.
@@ -49,12 +47,10 @@ export default function StudentDashboard() {
       const weekAgo = format(subDays(new Date(), 6), 'yyyy-MM-dd')
       const today = format(new Date(), 'yyyy-MM-dd')
 
-      // Liberar formularios programados que ya vencieron (idempotente, no bloquea)
-      try {
-        await supabase.rpc('release_due_forms')
-      } catch {}
-
-      const [assignmentsRes, logsRes, formsRes] = await Promise.all([
+      // Los formularios pendientes ya no se piden acá: el cartel vive en
+      // StudentLayout (PendingFormsBanner) para que se vea en todas las
+      // pantallas del alumno, no solo en el Inicio.
+      const [assignmentsRes, logsRes] = await Promise.all([
         supabase
           .from('plan_assignments')
           .select('*, plan:plans!plan_id(*)')
@@ -71,16 +67,7 @@ export default function StudentDashboard() {
           .eq('student_id', profile.id)
           .gte('logged_date', weekAgo)
           .lte('logged_date', today),
-        supabase
-          .from('intake_form_assignments')
-          .select('id, form_kind, form_snapshot')
-          .eq('student_id', profile.id)
-          .in('status', ['pending', 'in_progress']),
       ])
-
-      const allForms = formsRes.data || []
-      setPendingIntake(allForms.some((f) => f.form_kind === 'intake'))
-      setPendingFollowUps(allForms.filter((f) => f.form_kind === 'follow_up'))
 
       setAssignments(assignmentsRes.data || [])
 
@@ -171,50 +158,6 @@ export default function StudentDashboard() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Banner formulario de alta pendiente (prioritario) */}
-      {pendingIntake && (
-        <Link
-          to="/student/intake"
-          className="block mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 hover:bg-amber-100 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📋</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">
-                {t('dashboard.intakePendingTitle')}
-              </p>
-              <p className="text-xs text-amber-600">{t('dashboard.intakePendingBody')}</p>
-            </div>
-            <ChevronRight size={18} className="text-amber-400 flex-shrink-0" />
-          </div>
-        </Link>
-      )}
-
-      {/* Banner formularios de seguimiento pendientes */}
-      {!pendingIntake && pendingFollowUps.length > 0 && (
-        <Link
-          to={
-            pendingFollowUps.length === 1
-              ? `/student/form/${pendingFollowUps[0].id}`
-              : '/student/forms'
-          }
-          className="block mx-4 mt-4 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-3 hover:bg-purple-100 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📝</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-purple-800">
-                {t('dashboard.followUpPendingTitle', { count: pendingFollowUps.length })}
-              </p>
-              <p className="text-xs text-purple-600">
-                {t('dashboard.followUpPendingBody', { count: pendingFollowUps.length })}
-              </p>
-            </div>
-            <ChevronRight size={18} className="text-purple-400 flex-shrink-0" />
-          </div>
-        </Link>
-      )}
-
       {/* Header */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-8">
         <p className="text-primary-200 text-sm">{saludo}</p>
@@ -337,7 +280,9 @@ export default function StudentDashboard() {
                     {evalTypeIcon(a.plan?.eval_type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 break-words">{a.plan?.title}</p>
+                    <p className="font-semibold text-sm text-gray-900 break-words">
+                      {a.plan?.title}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {t(`evalType.${a.plan?.eval_type}`, {
                         defaultValue: evalTypeLabel(a.plan?.eval_type),

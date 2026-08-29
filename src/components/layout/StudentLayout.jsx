@@ -4,6 +4,7 @@ import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-re
 import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import IosInstallBanner from '@/components/IosInstallBanner'
+import PendingFormsBanner from '@/features/forms/components/PendingFormsBanner'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 
 // i18n (doc 46): labels como keys de traducción, se resuelven con t() en render
@@ -40,6 +41,9 @@ export default function StudentLayout() {
 
       {/* Main content (ajustado por el header fijo) */}
       <main className="flex-1 pb-20 pt-14">
+        {/* Formularios pendientes: vive acá (y no en el Inicio) para que el
+            alumno lo vea en cualquier pantalla. Ver PendingFormsBanner. */}
+        <PendingFormsBanner studentId={profile?.id} />
         <Outlet />
       </main>
 

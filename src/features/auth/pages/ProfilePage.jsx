@@ -21,6 +21,7 @@ import {
   resolveFormForLanguage,
   displayValueFor,
 } from '@/features/forms/intake/schema/resolve-form-language.js'
+import { formPathFor } from '@/features/forms/hooks/usePendingForms'
 
 // ── Opciones del form ──────────────────────────────────────────────────────────
 // Tomadas del intake form (intake_form_submissions.form_snapshot) para mantener
@@ -160,7 +161,9 @@ export default function ProfilePage() {
 
   // ── Intake form (sin cambios respecto a la versión previa) ───────────────────
   const [formSubmission, setFormSubmission] = useState(null)
-  const [formPending, setFormPending] = useState(false)
+  // Assignment pendiente completo (id + form_kind): con solo un booleano el
+  // botón mandaba siempre a /student/intake, aunque fuera un seguimiento.
+  const [pendingAssignment, setPendingAssignment] = useState(null)
   const [formLoading, setFormLoading] = useState(true)
 
   useEffect(() => {
@@ -178,14 +181,15 @@ export default function ProfilePage() {
             .maybeSingle(),
           supabase
             .from('intake_form_assignments')
-            .select('id, status')
+            .select('id, status, form_kind, sent_at')
             .eq('student_id', profile.id)
             .in('status', ['pending', 'in_progress'])
+            .order('sent_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
         ])
         setFormSubmission(submissionRes.data || null)
-        setFormPending(!!assignmentRes.data)
+        setPendingAssignment(assignmentRes.data || null)
       } finally {
         setFormLoading(false)
       }
@@ -658,11 +662,21 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {!formSubmission && formPending && (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">{t('profile.intakeSentBody')}</p>
+            {/* Pendiente: se muestra SIEMPRE que exista, haya respondido algo
+                antes o no. Hasta v39 el `!formSubmission` de esta condición
+                tapaba el formulario pendiente de cualquier alumno con una
+                respuesta previa (caso Franco Cellone, 27/8/2026). El destino
+                sale de form_kind: el intake tiene página propia, el
+                seguimiento va por :assignmentId. */}
+            {pendingAssignment && (
+              <div className="space-y-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-3">
+                <p className="text-sm text-amber-800">
+                  {pendingAssignment.form_kind === 'intake'
+                    ? t('profile.intakeSentBody')
+                    : t('profile.followUpSentBody')}
+                </p>
                 <button
-                  onClick={() => navigate('/student/intake')}
+                  onClick={() => navigate(formPathFor(pendingAssignment))}
                   className="btn-primary text-sm w-full"
                 >
                   {t('profile.completeFormButton')}
@@ -670,7 +684,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {!formSubmission && !formPending && (
+            {!formSubmission && !pendingAssignment && (
               <p className="text-sm text-gray-400 italic">{t('profile.intakeNotSent')}</p>
             )}
 
@@ -725,6 +739,16 @@ export default function ProfilePage() {
                   })}
               </div>
             )}
+
+            {/* Acceso fijo al listado: es la única puerta permanente a
+                /student/forms (el menú del alumno no tiene item propio). */}
+            <button
+              onClick={() => navigate('/student/forms')}
+              className="w-full flex items-center justify-between text-sm text-primary-600 pt-1"
+            >
+              <span>{t('profile.viewAllForms')}</span>
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
 
