@@ -31,6 +31,7 @@ import {
 } from '@/features/plans/helpers'
 import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
+import { computeProgression, repsMaxOfLog } from '../progression'
 
 const PERIODS = [
   { label: '1m', days: 30 },
@@ -137,6 +138,7 @@ export default function ProgressPage() {
   const sActualSets = t('progress.seriesActualSets')
   const sSuggestedSets = t('progress.seriesSuggestedSets')
   const sActualWeight = t('progress.seriesActualWeight')
+  const sReps = t('progress.seriesReps')
   const [logs, setLogs] = useState([])
   const [sessions, setSessions] = useState([])
   const [wellbeingLogs, setWellbeingLogs] = useState([])
@@ -327,11 +329,40 @@ export default function ProgressPage() {
   const weightData = logs
     .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise && hasWeightOrReps(l))
     .map((l) => ({
+      iso: l.logged_date,
       date: format(parseISO(l.logged_date), 'dd/MM'),
       [sWeight]: maxWeightOfLog(l),
       [sPse]: l.perceived_difficulty,
     }))
     .filter((d) => d[sWeight] > 0)
+
+  // 1b. Reps por sesión: métrica de progresión cuando el ejercicio no registra
+  // peso (bodyweight) — ahí lo que progresa son las reps. Misma decisión que
+  // en la vista del coach (2026-08-28): NO se reconstruye carga total con el
+  // peso corporal del perfil, porque es un valor único sin historia.
+  const repsData = logs
+    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+    .map((l) => ({
+      iso: l.logged_date,
+      date: format(parseISO(l.logged_date), 'dd/MM'),
+      [sReps]: repsMaxOfLog(l),
+      [sPse]: l.perceived_difficulty,
+    }))
+    .filter((d) => d[sReps] > 0)
+
+  // Con al menos un registro de peso el gráfico mide peso; sin ninguno, reps.
+  // Si un BW empieza a usar lastre, la serie de peso arranca sola ese día.
+  const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
+  const activeSeriesData = chartMetric === 'weight' ? weightData : repsData
+
+  // Progresión calculada: promedio de la 1ª semana vs la última
+  // (ver features/progress/progression.js — misma definición en toda la app).
+  const progression = computeProgression(
+    activeSeriesData.map((d) => ({
+      date: d.iso,
+      value: chartMetric === 'weight' ? d[sWeight] : d[sReps],
+    }))
+  )
 
   // 2. Volumen por sesión (filtrado por etiqueta)
   // Bodyweight sin weight_kg → bandera para mostrar CTA.
@@ -458,6 +489,9 @@ export default function ProgressPage() {
   const maxWeight = logs
     .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
     .reduce((max, l) => Math.max(max, maxWeightOfLog(l)), 0)
+  const maxReps = logs
+    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+    .reduce((max, l) => Math.max(max, repsMaxOfLog(l)), 0)
 
   const CHARTS = [
     { id: 'weight', label: t('progress.chartWeight') },
@@ -549,7 +583,7 @@ export default function ProgressPage() {
               </Card>
             )}
 
-            {maxWeight > 0 && (
+            {chartMetric === 'weight' && maxWeight > 0 && (
               <Card>
                 <div className="flex items-center justify-between">
                   <div>
@@ -563,6 +597,23 @@ export default function ProgressPage() {
                     )}
                   </div>
                   <span className="text-2xl font-bold text-primary-600">{maxWeight}kg</span>
+                </div>
+              </Card>
+            )}
+
+            {chartMetric === 'reps' && maxReps > 0 && (
+              <Card>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {t('progress.maxRepsTitle')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {allExercises.find((e) => e.id === selectedExercise)?.name} ·{' '}
+                      {t('progress.maxRepsSubtitle')}
+                    </p>
+                  </div>
+                  <span className="text-2xl font-bold text-primary-600">{maxReps}</span>
                 </div>
               </Card>
             )}
@@ -648,18 +699,54 @@ export default function ProgressPage() {
             {/* ── Gráfico: Peso ─────────────────────────────────── */}
             {activeChart === 'weight' && (
               <Card>
-                <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {t('progress.weightProgressTitle')}
-                  </h3>
-                  <p className="text-xs text-gray-500">{t('progress.weightProgressSubtitle')}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {chartMetric === 'weight'
+                        ? t('progress.weightProgressTitle')
+                        : t('progress.repsProgressTitle')}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {chartMetric === 'weight'
+                        ? t('progress.weightProgressSubtitle')
+                        : t('progress.repsProgressSubtitle')}
+                    </p>
+                  </div>
+                  {progression && (
+                    <div className="flex flex-col items-end flex-shrink-0">
+                      <span
+                        className={`text-lg font-bold ${
+                          progression.pct > 0
+                            ? 'text-green-600'
+                            : progression.pct < 0
+                              ? 'text-red-500'
+                              : 'text-gray-500'
+                        }`}
+                      >
+                        {progression.pct > 0 ? '+' : ''}
+                        {progression.pct}%
+                      </span>
+                      <span className="text-[10px] text-gray-400 text-right leading-tight">
+                        {t(
+                          progression.basis === 'weeks'
+                            ? 'progress.progressionBasisWeeks'
+                            : 'progress.progressionBasisPoints',
+                          { from: progression.firstAvg, to: progression.lastAvg }
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {weightData.length > 0 ? (
+                {activeSeriesData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <ComposedChart data={weightData}>
+                    <ComposedChart data={activeSeriesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fontSize: 10 }}
+                        unit={chartMetric === 'weight' ? 'kg' : ''}
+                      />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
@@ -671,12 +758,12 @@ export default function ProgressPage() {
                       <Area
                         yAxisId="left"
                         type="monotone"
-                        dataKey={sWeight}
+                        dataKey={chartMetric === 'weight' ? sWeight : sReps}
                         fill="#fde68a"
                         stroke="#ea580c"
                         strokeWidth={2.5}
                         dot={{ fill: '#ea580c', r: 4 }}
-                        unit="kg"
+                        unit={chartMetric === 'weight' ? 'kg' : ''}
                       />
                       <Line
                         yAxisId="right"
@@ -691,11 +778,11 @@ export default function ProgressPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    {t('progress.noWeightDataForExercise')}
+                    {t('progress.noWeightOrRepsData')}
                   </p>
                 )}
                 {/* doc 50: aviso para ampliar el período cuando hay 0-1 puntos */}
-                {weightData.length <= 1 && period < 365 && (
+                {activeSeriesData.length <= 1 && period < 365 && (
                   <p className="text-xs text-amber-600 mt-2 text-center">
                     {t('progress.widenPeriodHint')}
                   </p>
