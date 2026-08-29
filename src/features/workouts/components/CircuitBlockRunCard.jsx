@@ -18,11 +18,11 @@ import {
   blockDisplayTitle,
   getEffectiveWeightMode,
   getLoggingWeightMode,
-  getEffectivePct1rm,
   getEffectiveUnilateral,
   readLogReps,
   readLogWeights,
 } from '@/features/plans/helpers'
+import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
 import RPEScale from './RPEScale'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
@@ -62,6 +62,8 @@ export default function CircuitBlockRunCard({
   onOpenChat,
   // viewstate — persistir bloque desplegado por día
   loggedDate = null,
+  // %RM (v39) — mapa de 1RM de la persona, para derivar los kilos del %
+  oneRmMap = null,
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(() =>
@@ -356,11 +358,15 @@ export default function CircuitBlockRunCard({
                     exercise: ex.exercise,
                   })
                   const exText = exerciseDisplay(ex.exercise, i18n.language)
-                  // %RM prescripto: propio del ejercicio o el default del circuito.
-                  const exPct1rm =
-                    exWeightMode === 'pct_1rm'
-                      ? getEffectivePct1rm({ planExercise: ex, block })
-                      : null
+                  // %RM: los kilos se derivan del máximo de la persona
+                  // (% propio del ejercicio o el default del circuito).
+                  const exPct = resolvePrescribedWeight({
+                    planExercise: ex,
+                    block,
+                    oneRmMap,
+                    weightMode: exWeightMode,
+                    today: loggedDate,
+                  })
                   const showWeight = exWeightMode !== 'bodyweight'
                   const repsLabel = exUnilateral
                     ? t('workout.repsPerSideHeader')
@@ -381,7 +387,11 @@ export default function CircuitBlockRunCard({
                             {exWeightMode === 'bodyweight' && ` · ${t('workout.noWeight')}`}
                             {exWeightMode === 'barbell_only' &&
                               ` · ${t('workout.barbellOnlyShort')}`}
-                            {exPct1rm ? ` · ${exPct1rm}% ${t('workout.ofYourMax')}` : ''}
+                            {exPct.status === 'derived'
+                              ? ` · ${exPct.kg} kg (${exPct.pct}% ${t('workout.ofYourMax')})`
+                              : exPct.pct
+                                ? ` · ${exPct.pct}% ${t('workout.ofYourMax')}`
+                                : ''}
                           </p>
                           {/* Q1 — "Última vez" del ejercicio + badge chat */}
                           <ExerciseHistoryHeaderLine

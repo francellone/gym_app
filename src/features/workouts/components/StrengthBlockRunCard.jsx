@@ -28,6 +28,8 @@ export default function StrengthBlockRunCard({
   loggedDate = null,
   // doc 48 — último cambio de objetivo del coach por plan_exercise.id
   prescriptionByEx = {},
+  // %RM (v39) — mapa de 1RM de la persona, para derivar los kilos
+  oneRmMap = null,
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(() =>
@@ -92,6 +94,8 @@ export default function StrengthBlockRunCard({
         loggedDate={loggedDate}
         // doc 48 — cambio de objetivo del coach para este ejercicio
         prescriptionChange={prescriptionByEx?.[ex.id] || null}
+        // %RM — kilos derivados del máximo de la persona
+        oneRmMap={oneRmMap}
       />
     )
   }

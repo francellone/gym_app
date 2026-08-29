@@ -1,4 +1,5 @@
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { format } from 'date-fns'
 import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
@@ -11,6 +12,8 @@ import {
 } from '../../helpers'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
+import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
+import { usePct1rmPreview } from '../../Pct1rmPreviewContext'
 
 /**
  * Editor del bloque CIRCUITO.
@@ -207,6 +210,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
 // ============================================================
 function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRemove, onMove }) {
   const { exercises } = useExerciseCatalog()
+  const preview = usePct1rmPreview()
   const mode = ex.exercise_mode || 'reps'
 
   // Peso del ejercicio dentro del circuito (antes no existía: el circuito es
@@ -222,6 +226,17 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
     planExercise: ex,
     block: { default_pct_1rm: blockDefaultPct },
   })
+  // Vista previa "como [persona]" (mismo criterio que la fila de fuerza).
+  const previewWeight =
+    isPct1rm && preview.studentId
+      ? resolvePrescribedWeight({
+          planExercise: ex,
+          block: { default_pct_1rm: blockDefaultPct },
+          weightMode: 'pct_1rm',
+          oneRmMap: preview.oneRmMap,
+          today: format(new Date(), 'yyyy-MM-dd'),
+        })
+      : null
 
   return (
     <div className="bg-gray-50 rounded-xl p-2.5 space-y-2">
@@ -332,13 +347,34 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               </div>
             )}
           </div>
-          {isPct1rm && (
-            <p className="text-[11px] text-amber-700 leading-snug">
-              {inheritedPct
-                ? `Los kilos se calculan solos: ${inheritedPct}% del máximo de cada persona.`
-                : 'Falta el porcentaje: cargalo acá o a nivel del circuito.'}
-            </p>
-          )}
+          {isPct1rm &&
+            (previewWeight ? (
+              <p className="text-[11px] leading-snug">
+                {previewWeight.status === 'derived' ? (
+                  <span className="text-emerald-700">
+                    <strong className="font-semibold">{preview.studentName}:</strong>{' '}
+                    <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
+                    {previewWeight.pct}% de {previewWeight.oneRm} kg, evaluado el{' '}
+                    {formatOneRmDate(previewWeight.oneRmDate)}
+                  </span>
+                ) : previewWeight.status === 'missing_1rm' ? (
+                  <span className="text-amber-800">
+                    {preview.studentName} no tiene evaluación de este ejercicio: va a ver el
+                    porcentaje.
+                  </span>
+                ) : (
+                  <span className="text-amber-800">
+                    Falta el porcentaje: cargalo acá o a nivel del circuito.
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-700 leading-snug">
+                {inheritedPct
+                  ? `Los kilos se calculan solos: ${inheritedPct}% del máximo de cada persona.`
+                  : 'Falta el porcentaje: cargalo acá o a nivel del circuito.'}
+              </p>
+            ))}
         </div>
 
         {/* Controles laterales */}

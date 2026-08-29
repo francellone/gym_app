@@ -36,6 +36,8 @@ export default function BlockRenderer({
   loggedDate = null,
   // doc 48 — cambios de objetivo del coach por plan_exercise.id
   prescriptionByEx = {},
+  // %RM (v39) — mapa de 1RM de la persona (deriva los kilos del %)
+  oneRmMap = null,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -73,6 +75,7 @@ export default function BlockRenderer({
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
+        oneRmMap={oneRmMap}
       />
     )
   }
@@ -94,6 +97,8 @@ export default function BlockRenderer({
       loggedDate={loggedDate}
       // doc 48 — cambios de objetivo del coach
       prescriptionByEx={prescriptionByEx}
+      // %RM — kilos derivados del máximo de la persona
+      oneRmMap={oneRmMap}
     />
   )
 }

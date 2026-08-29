@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import BlockCard from '../components/blocks/BlockCard'
+import { Pct1rmPreviewProvider, Pct1rmPreviewSelector } from '../Pct1rmPreviewContext'
 import {
   ExerciseCatalogProvider,
   useExerciseCatalog,
@@ -44,7 +45,9 @@ export default function EditPlanPage() {
   const catalog = useExerciseCatalogData()
   return (
     <ExerciseCatalogProvider catalog={catalog}>
-      <EditPlanPageInner />
+      <Pct1rmPreviewProvider>
+        <EditPlanPageInner />
+      </Pct1rmPreviewProvider>
     </ExerciseCatalogProvider>
   )
 }
@@ -84,6 +87,19 @@ function EditPlanPageInner() {
   // { day_a: [block, block], day_b: [block], ... }
   const [planBlocks, setPlanBlocks] = useState({})
   const [activeSection, setActiveSection] = useState('day_a')
+
+  // ¿Algún ejercicio del plan está prescripto por % del máximo? Solo entonces
+  // tiene sentido ofrecer la vista previa "como [persona]".
+  const planUsesPct1rm = useMemo(
+    () =>
+      Object.values(planBlocks || {}).some((blocks) =>
+        (blocks || []).some((b) =>
+          (b.exercises || []).some((e) => e.weight_mode === 'pct_1rm')
+        )
+      ),
+    [planBlocks]
+  )
+
 
   // Evaluaciones exercise-based (doc 38): ejercicios por día.
   const [evalDays, setEvalDays] = useState({ day_a: [] })
@@ -1007,6 +1023,9 @@ function EditPlanPageInner() {
       {!isEval && (
         <div className="card space-y-4">
           <h2 className="font-semibold text-gray-900">Bloques del plan</h2>
+
+          {/* %RM: ver los kilos que le tocarían a una persona concreta */}
+          <Pct1rmPreviewSelector visible={planUsesPct1rm} />
 
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
             {dynamicSections.map((s) => {

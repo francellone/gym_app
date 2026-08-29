@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { fetchOneRmMap } from '@/features/evaluations/oneRm'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
@@ -144,6 +145,9 @@ export default function TodayWorkoutPage() {
   // header. Arranca cerrada para no empujar los ejercicios cada día.
   const [showPlanDesc, setShowPlanDesc] = useState(false)
   const [planExercises, setPlanExercises] = useState(initialSnapshot?.planExercises ?? [])
+  // %RM (v39) — Map<exercise_id, {oneRm, date}> de esta persona. Los kilos de
+  // un ejercicio prescripto por % se derivan de acá (nunca vienen en el plan).
+  const [oneRmMap, setOneRmMap] = useState(null)
   const [planBlocks, setPlanBlocks] = useState(initialSnapshot?.planBlocks ?? [])
   const [logs, setLogs] = useState(initialSnapshot?.logs ?? {})
   const [blockLogs, setBlockLogs] = useState(initialSnapshot?.blockLogs ?? {})
@@ -350,7 +354,9 @@ export default function TodayWorkoutPage() {
       ] = await Promise.all([
         supabase
           .from('plan_exercises')
-          .select('*, exercise:exercises!exercise_id(*)')
+          .select(
+            '*, exercise:exercises!exercise_id(*), rm_reference:exercises!rm_reference_exercise_id(id, name, i18n)'
+          )
           .eq('plan_id', assignData.plan_id)
           .order('order_index'),
         supabase
@@ -434,6 +440,17 @@ export default function TodayWorkoutPage() {
 
       setPlanExercises(exercisesRes.data || [])
       setPlanBlocks(blocksRes.data || [])
+
+      // Mapa de 1RM: solo hace falta si el plan tiene algo prescripto por %.
+      // Si falla, el plan se muestra igual con el porcentaje (degradación limpia).
+      const usesPct1rm = (exercisesRes.data || []).some((e) => e.weight_mode === 'pct_1rm')
+      if (usesPct1rm) {
+        fetchOneRmMap(supabase, studentId)
+          .then(setOneRmMap)
+          .catch((err) => console.error('No se pudo leer el 1RM del alumno:', err))
+      } else {
+        setOneRmMap(null)
+      }
       setRecentLogs(recentLogsRes.data || [])
       setRecentExerciseLogs(recentExerciseLogsRes.data || [])
       setRecentBlockLogs(recentBlockLogsRes.data || [])
@@ -1481,6 +1498,7 @@ export default function TodayWorkoutPage() {
                     studentId={studentId || null}
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
+                    oneRmMap={oneRmMap}
                   />
                 ))}
               </div>
@@ -1513,6 +1531,7 @@ export default function TodayWorkoutPage() {
                     studentId={studentId || null}
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
+                    oneRmMap={oneRmMap}
                   />
                 ))}
               </div>

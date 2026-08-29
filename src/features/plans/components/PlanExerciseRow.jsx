@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { format } from 'date-fns'
 import { Trash2, Info } from 'lucide-react'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
+import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
+import { usePct1rmPreview } from '../Pct1rmPreviewContext'
 import { useExerciseCatalog } from '@/features/exercises/ExerciseCatalogContext'
 import {
   BLOCK_LETTERS,
@@ -41,6 +44,7 @@ export default function PlanExerciseRow({
   onRemove,
 }) {
   const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
+  const preview = usePct1rmPreview()
   const setsCount = parseInt(ex.suggested_sets) || 0
 
   // Ejercicio del catálogo seleccionado (para conocer sus defaults)
@@ -61,6 +65,16 @@ export default function PlanExerciseRow({
   const rmReferenceExercise = ex.rm_reference_exercise_id
     ? exercises.find((e) => e.id === ex.rm_reference_exercise_id)
     : null
+  // Vista previa "como [persona]": resuelve los kilos que le tocarían a ella.
+  const previewWeight =
+    isPct1rm && preview.studentId
+      ? resolvePrescribedWeight({
+          planExercise: ex,
+          weightMode: 'pct_1rm',
+          oneRmMap: preview.oneRmMap,
+          today: format(new Date(), 'yyyy-MM-dd'),
+        })
+      : null
   const repsLabel = effectiveUnilateral ? 'Reps (por lado)' : 'Reps'
 
   // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
@@ -357,6 +371,35 @@ export default function PlanExerciseRow({
                   />
                 </div>
               </div>
+              {previewWeight && (
+                <div className="rounded-lg bg-white border border-amber-200 px-2 py-1.5 text-[11px] leading-snug">
+                  {previewWeight.status === 'derived' && (
+                    <p className="text-emerald-700">
+                      <strong className="font-semibold">{preview.studentName}:</strong>{' '}
+                      <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
+                      {previewWeight.pct}% de {previewWeight.oneRm} kg
+                      {previewWeight.usedReference && rmReferenceExercise
+                        ? ` (máximo de ${rmReferenceExercise.name})`
+                        : ''}
+                      , evaluado el {formatOneRmDate(previewWeight.oneRmDate)}
+                      {previewWeight.stale && (
+                        <span className="text-amber-700"> · esa evaluación ya está vieja</span>
+                      )}
+                    </p>
+                  )}
+                  {previewWeight.status === 'missing_1rm' && (
+                    <p className="text-amber-800">
+                      <strong className="font-semibold">{preview.studentName}</strong> no tiene
+                      evaluación de 1RM de este ejercicio: va a ver el porcentaje en vez de los
+                      kilos. Cargale una evaluación, elegí un ejercicio de referencia, o ponele los
+                      kilos a mano en su plan una vez asignado.
+                    </p>
+                  )}
+                  {previewWeight.status === 'missing_pct' && (
+                    <p className="text-amber-800">Falta cargar el porcentaje.</p>
+                  )}
+                </div>
+              )}
               <p className="text-[11px] text-amber-700 leading-snug">
                 Los kilos no se escriben: se calculan como{' '}
                 <strong className="font-medium">

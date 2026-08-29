@@ -21,11 +21,11 @@ import {
   PSE_OPTION_KEY,
   getEffectiveWeightMode,
   getLoggingWeightMode,
-  getEffectivePct1rm,
   getEffectiveUnilateral,
   readLogReps,
   readLogWeights,
 } from '@/features/plans/helpers'
+import { resolvePrescribedWeight, formatOneRmDate } from '@/features/evaluations/oneRm'
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
@@ -79,6 +79,9 @@ export default function ExerciseCard({
   // doc 48 — último cambio de objetivo hecho por el coach para este ejercicio.
   // { changed_at, changes: { fieldKey: {old,new} }, note } | null
   prescriptionChange = null,
+  // %RM (v39) — Map<exercise_id, {oneRm, date}> de esta persona. Sin él, un
+  // ejercicio prescripto por % muestra el porcentaje en vez de los kilos.
+  oneRmMap = null,
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -120,14 +123,28 @@ export default function ExerciseCard({
   })
 
   // %RM: el coach prescribió un porcentaje del máximo en vez de kilos.
-  // Etapa 2: se muestra el porcentaje tal cual (la derivación de kilos a partir
-  // de la evaluación 1RM llega en la etapa 4).
-  const prescribedPct1rm =
-    planEx.weight_mode === 'pct_1rm' ? getEffectivePct1rm({ planExercise: planEx }) : null
+  // Los kilos se DERIVAN acá (1RM de la persona × %), nunca vienen escritos en
+  // el plan: así el peso sube solo cuando sube el máximo. Sin evaluación, la
+  // degradación es limpia (se muestra el porcentaje, no se inventa un peso).
+  // OJO: el modo se resuelve SIN el log — el log guarda 'with_weight' porque la
+  // persona carga kilos reales, y eso taparía la prescripción.
+  const pctPrescription = resolvePrescribedWeight({
+    planExercise: planEx,
+    oneRmMap,
+    weightMode: getEffectiveWeightMode({ planExercise: planEx, exercise: exerciseDef }),
+    today: loggedDate,
+  })
+  const prescribedPct1rm = pctPrescription.pct
+  const derivedKg = pctPrescription.kg
+  const rmReferenceName = pctPrescription.usedReference
+    ? exerciseDisplay(planEx.rm_reference || {}, i18n.language).name
+    : null
 
   // Pesos sugeridos por serie: prioridad suggested_weights (array), fallback a suggested_weight (legacy)
   const suggestedWeightsArr = (() => {
     const count = setsCount
+    // %RM: el sugerido son los kilos derivados del máximo de esta persona.
+    if (derivedKg != null) return Array.from({ length: count || 1 }, () => String(derivedKg))
     const legacy = parseSuggestedWeight(planEx.suggested_weight)
     if (planEx.suggested_weights) {
       try {
@@ -601,7 +618,9 @@ export default function ExerciseCard({
                   t('workout.series', { count: Number(planEx.suggested_sets) }),
                 suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
                 prescribedPct1rm
-                  ? `· ${prescribedPct1rm}% ${t('workout.ofYourMax')}`
+                  ? derivedKg != null
+                    ? `· ${derivedKg} kg (${prescribedPct1rm}% ${t('workout.ofYourMax')})`
+                    : `· ${prescribedPct1rm}% ${t('workout.ofYourMax')}`
                   : planEx.suggested_weight &&
                     planEx.suggested_weight !== 'None' &&
                     `· ${planEx.suggested_weight}`,
@@ -613,6 +632,27 @@ export default function ExerciseCard({
                 .filter(Boolean)
                 .join(' ')}
             </p>
+            {/* %RM: de dónde salieron los kilos (o por qué todavía no hay) */}
+            {pctPrescription.status === 'derived' && (
+              <p className="text-[11px] text-primary-600 mt-0.5">
+                {rmReferenceName
+                  ? t('workout.pct1rmFromReference', {
+                      pct: prescribedPct1rm,
+                      oneRm: pctPrescription.oneRm,
+                      exercise: rmReferenceName,
+                      date: formatOneRmDate(pctPrescription.oneRmDate),
+                    })
+                  : t('workout.pct1rmFromOwnMax', {
+                      pct: prescribedPct1rm,
+                      oneRm: pctPrescription.oneRm,
+                      date: formatOneRmDate(pctPrescription.oneRmDate),
+                    })}
+              </p>
+            )}
+            {pctPrescription.status === 'missing_1rm' && (
+              <p className="text-[11px] text-amber-600 mt-0.5">{t('workout.pct1rmNoEval')}</p>
+            )}
+
             {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
             {prescriptionChange?.changes && (
               <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
@@ -890,7 +930,7 @@ export default function ExerciseCard({
                     {showWeightInputs && (
                       <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
                         {t('workout.weightKgHeader')}
-                        {prescribedPct1rm ? (
+                        {prescribedPct1rm && derivedKg == null ? (
                           <span className="block font-normal normal-case text-primary-400">
                             {t('workout.suggestedShort', {
                               value: `${prescribedPct1rm}% ${t('workout.ofYourMax')}`,
