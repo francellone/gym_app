@@ -68,6 +68,105 @@ export const SORT_SCRIPT = `
 `
 
 /**
+ * Secciones plegables en el archivo: todo <section> con un <h2> directo se
+ * convierte en <details open><summary>…</summary>…</details>. Interacción
+ * nativa del navegador: cero JS, funciona offline e imprime abierto.
+ */
+export function makeCollapsible(root) {
+  root.querySelectorAll('section').forEach((section) => {
+    const h2 = Array.from(section.children).find((c) => c.tagName === 'H2')
+    if (!h2) return
+    const doc = section.ownerDocument
+    const details = doc.createElement('details')
+    details.open = true
+    if (section.id) details.id = section.id
+    details.className = section.className
+    const summary = doc.createElement('summary')
+    summary.appendChild(h2)
+    details.appendChild(summary)
+    while (section.firstChild) details.appendChild(section.firstChild)
+    section.replaceWith(details)
+  })
+  return root
+}
+
+/**
+ * Índice con anclas al principio del archivo, armado con los títulos de
+ * sección presentes (el informe es modular: el índice también).
+ */
+export function buildToc(root) {
+  const doc = root.ownerDocument
+  const entries = []
+  root.querySelectorAll('section, details').forEach((sec) => {
+    const h2 = sec.querySelector(':scope > h2, :scope > summary > h2')
+    if (!h2) return
+    const text = h2.textContent.trim()
+    if (!sec.id) {
+      sec.id =
+        'sec-' +
+        text
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+    }
+    entries.push({ id: sec.id, text })
+  })
+  if (entries.length < 2) return root
+  const nav = doc.createElement('nav')
+  nav.className = 'export-toc'
+  nav.innerHTML =
+    '<b>Contenido:</b> ' + entries.map((e) => `<a href="#${e.id}">${e.text}</a>`).join(' · ')
+  const header = root.querySelector('header')
+  if (header) header.after(nav)
+  else root.prepend(nav)
+  return root
+}
+
+/**
+ * Tooltips nativos offline: inyecta <title> en las marcas de los SVG que
+ * Recharts dejó renderizados. Posicional a propósito — los grupos
+ * .recharts-bar y .recharts-bar-rectangle salen en el orden de los datos
+ * (Recharts crea el grupo aunque el valor sea 0), y para las líneas el
+ * caller pasa solo los puntos que existen (connectNulls saltea los null).
+ *
+ * @param {Element} root
+ * @param {Array<{selector:string, bars?:string[][], dots?:string[][]}>} specs
+ *   bars[i][j] = título de la barra j de la serie i; dots ídem para las
+ *   líneas (círculos de .recharts-line-dots).
+ */
+export function injectSvgTitles(root, specs = []) {
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+  const doc = root.ownerDocument
+  const put = (el, text) => {
+    if (!el || text == null) return
+    const t = doc.createElementNS(SVG_NS, 'title')
+    t.textContent = text
+    el.appendChild(t)
+  }
+  for (const spec of specs) {
+    const scope = root.querySelector(spec.selector)
+    if (!scope) continue
+    if (spec.bars) {
+      const groups = scope.querySelectorAll('.recharts-bar')
+      spec.bars.forEach((titles, gi) => {
+        const rects = groups[gi]?.querySelectorAll('.recharts-bar-rectangle') || []
+        titles.forEach((title, ri) => put(rects[ri], title))
+      })
+    }
+    if (spec.dots) {
+      const groups = scope.querySelectorAll('.recharts-line')
+      spec.dots.forEach((titles, gi) => {
+        const dots = groups[gi]?.querySelectorAll('.recharts-line-dots circle') || []
+        titles.forEach((title, di) => put(dots[di], title))
+      })
+    }
+  }
+  return root
+}
+
+/**
  * Documento HTML completo y autocontenido.
  * @param {Object} args
  * @param {string} args.bodyHtml - innerHTML del informe ya limpio
@@ -89,7 +188,13 @@ body { background: #f9fafb; margin: 0; -webkit-print-color-adjust: exact; print-
 .export-shell { max-width: 48rem; margin: 0 auto; padding: 1rem; }
 .recharts-wrapper svg { max-width: 100%; }
 .no-print { position: fixed; top: 12px; right: 12px; }
-@media print { .no-print { display: none } body { background: #fff } }
+.export-toc { font-size: 0.8rem; color: #6b7280; margin: 0.75rem 0; }
+.export-toc a { color: #4f46e5; text-decoration: none; }
+details.card > summary { cursor: pointer; list-style: none; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary h2::after { content: ' ▾'; color: #9ca3af; font-size: 0.8em; }
+details.card:not([open]) > summary h2::after { content: ' ▸'; }
+@media print { .no-print { display: none } body { background: #fff } details:not([open]) { display: block } }
 </style>
 </head>
 <body>
@@ -125,8 +230,11 @@ function slug(s) {
  * @param {HTMLElement} rootEl - contenedor del informe (#report-root)
  * @param {{studentName:string, from:string, to:string}} meta
  */
-export function downloadReportHtml(rootEl, { studentName, from, to }) {
+export function downloadReportHtml(rootEl, { studentName, from, to }, { svgTitleSpecs } = {}) {
   const clone = stripNonExport(rootEl.cloneNode(true))
+  injectSvgTitles(clone, svgTitleSpecs || [])
+  makeCollapsible(clone)
+  buildToc(clone)
   const title = `Informe de progreso — ${studentName}`
   const html = buildExportHtml({
     bodyHtml: clone.innerHTML,

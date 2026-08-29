@@ -44,6 +44,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthContext'
 import { buildReport, UNTAGGED_KEY } from '../reportEngine'
 import { fetchReportData } from '../fetchReportData'
 import { downloadReportHtml } from '../exportReportHtml'
@@ -105,6 +106,7 @@ function SectionTitle({ icon: Icon, children }) {
 export default function CoachReportPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { profile: coachProfile } = useAuth()
 
   const [student, setStudent] = useState(null)
   const [data, setData] = useState(null)
@@ -123,7 +125,7 @@ export default function CoachReportPage() {
       setError(null)
       try {
         const [{ data: profile }, reportData] = await Promise.all([
-          supabase.from('profiles').select('id, name').eq('id', id).maybeSingle(),
+          supabase.from('profiles').select('id, name, modality').eq('id', id).maybeSingle(),
           fetchReportData(supabase, id),
         ])
         if (!alive) return
@@ -191,10 +193,39 @@ export default function CoachReportPage() {
 
   const attendanceRows = report.attendance.weekly.map((w) => ({
     week: fmtShort(w.week),
-    Días: w.days,
+    Completos: w.fullDays,
+    'Solo activación': w.partialDays,
     Previstos: w.expected,
   }))
   const hasExpected = report.attendance.compliancePct != null
+  const hasPartialDays = report.attendance.partialDays > 0
+
+  // Tooltips nativos del archivo exportado: mismas filas que dibujan los
+  // charts, en el mismo orden (posicional). Las líneas con connectNulls
+  // saltean los null, por eso se filtra igual acá.
+  const svgTitleSpecs = [
+    {
+      selector: '#sec-constancia',
+      bars: [
+        attendanceRows.map((r) => `Semana del ${r.week}: ${r.Completos} días completos`),
+        attendanceRows.map((r) => `Semana del ${r.week}: ${r['Solo activación']} solo activación`),
+      ],
+    },
+    {
+      selector: '#sec-patrones',
+      bars: [
+        patternRows.map((r) => `${r.name}: ${r['Este período']} series`),
+        patternRows.map((r) => `${r.name}: ${r.Anterior} series el período anterior`),
+      ],
+    },
+    {
+      selector: '#sec-esfuerzo',
+      dots: [
+        effortRows.filter((r) => r.PSE != null).map((r) => `Semana del ${r.week}: PSE ${r.PSE}`),
+        effortRows.filter((r) => r.Borg != null).map((r) => `Semana del ${r.week}: Borg ${r.Borg}`),
+      ],
+    },
+  ]
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6" id="report-root">
@@ -215,11 +246,15 @@ export default function CoachReportPage() {
           </button>
           <button
             onClick={() =>
-              downloadReportHtml(document.getElementById('report-root'), {
-                studentName: student?.name || 'alumno',
-                from: report.period.from,
-                to: report.period.to,
-              })
+              downloadReportHtml(
+                document.getElementById('report-root'),
+                {
+                  studentName: student?.name || 'alumno',
+                  from: report.period.from,
+                  to: report.period.to,
+                },
+                { svgTitleSpecs }
+              )
             }
             className="btn-primary flex items-center gap-1.5 text-sm"
           >
@@ -279,7 +314,11 @@ export default function CoachReportPage() {
         <h1 className="text-xl font-bold text-gray-900">Informe de progreso</h1>
         <p className="text-sm text-gray-600">
           {student?.name || 'Alumno'} · {fmtDay(report.period.from)} — {fmtDay(report.period.to)}
+          {student?.modality && student.modality !== 'online' && ` · ${student.modality}`}
         </p>
+        {coachProfile?.name && (
+          <p className="text-xs text-gray-400 mt-0.5">Preparado por {coachProfile.name}</p>
+        )}
       </header>
 
       {noData && (
@@ -295,9 +334,18 @@ export default function CoachReportPage() {
             <StatCard
               label="Días entrenados"
               value={report.attendance.daysTrained}
-              sub={`${report.attendance.sessionsPerWeek} por semana`}
+              sub={
+                hasPartialDays
+                  ? `${report.attendance.fullDays} completos · ${report.attendance.partialDays} solo activación`
+                  : `${report.attendance.sessionsPerWeek} por semana`
+              }
             >
               <Delta now={report.attendance.daysTrained} prev={report.attendance.prevDaysTrained} />
+              {report.attendance.bestStreak > 1 && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Mejor racha: {report.attendance.bestStreak} días seguidos
+                </p>
+              )}
             </StatCard>
             {hasExpected ? (
               <StatCard
@@ -332,7 +380,7 @@ export default function CoachReportPage() {
 
       {/* Asistencia por semana */}
       {m.attendance && attendanceRows.length > 1 && (
-        <section className="card">
+        <section className="card" id="sec-constancia">
           <SectionTitle icon={CalendarCheck}>Constancia semanal</SectionTitle>
           <ResponsiveContainer width="100%" height={170}>
             <ComposedChart data={attendanceRows}>
@@ -346,8 +394,15 @@ export default function CoachReportPage() {
                 width={24}
               />
               <Tooltip />
-              {hasExpected && <Legend wrapperStyle={{ fontSize: 12 }} />}
-              <Bar dataKey="Días" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={36} />
+              {(hasExpected || hasPartialDays) && <Legend wrapperStyle={{ fontSize: 12 }} />}
+              <Bar dataKey="Completos" stackId="dias" fill="#6366f1" maxBarSize={36} />
+              <Bar
+                dataKey="Solo activación"
+                stackId="dias"
+                fill="#a5b4fc"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={36}
+              />
               {hasExpected && (
                 <Line
                   type="stepAfter"
@@ -371,7 +426,7 @@ export default function CoachReportPage() {
 
       {/* Series por patrón de movimiento */}
       {m.mainWork && (
-        <section className="card">
+        <section className="card" id="sec-patrones">
           <SectionTitle icon={Flame}>Trabajo principal por patrón de movimiento</SectionTitle>
           <p className="text-xs text-gray-400 -mt-2 mb-3">
             Series realizadas (sin contar la activación). Un ejercicio puede aportar a más de un
@@ -476,6 +531,7 @@ export default function CoachReportPage() {
                 <th className="py-2 pr-2 font-medium">Se mide en</th>
                 <th className="py-2 pr-2 font-medium text-right">Registros</th>
                 <th className="py-2 pr-2 font-medium text-right">Máx. período</th>
+                <th className="py-2 pr-2 font-medium text-right">Inicio → Fin</th>
                 <th className="py-2 font-medium text-right">Cambio</th>
               </tr>
             </thead>
@@ -491,6 +547,9 @@ export default function CoachReportPage() {
                   </td>
                   <td className="py-2 pr-2 text-right text-gray-500">{e.points.length}</td>
                   <td className="py-2 pr-2 text-right font-medium text-gray-800">{e.periodMax}</td>
+                  <td className="py-2 pr-2 text-right text-gray-500">
+                    {e.progression ? `${e.progression.firstAvg} → ${e.progression.lastAvg}` : '—'}
+                  </td>
                   <td className="py-2 text-right">
                     {e.progression ? (
                       <span
@@ -518,7 +577,7 @@ export default function CoachReportPage() {
 
       {/* Esfuerzo percibido */}
       {m.effort && effortRows.length > 1 && (
-        <section className="card">
+        <section className="card" id="sec-esfuerzo">
           <SectionTitle>Esfuerzo percibido por semana</SectionTitle>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={effortRows}>
@@ -602,7 +661,8 @@ export default function CoachReportPage() {
       )}
 
       <footer className="text-xs text-gray-300 text-center pb-6">
-        Generado el {format(new Date(), "d 'de' MMMM yyyy", { locale: es })}
+        {coachProfile?.name ? `Informe preparado por ${coachProfile.name} · ` : ''}
+        {format(new Date(), "d 'de' MMMM yyyy", { locale: es })}
       </footer>
     </div>
   )

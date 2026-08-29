@@ -319,6 +319,41 @@ export function buildReport({
     const k = weekKey(d)
     daysByWeek.set(k, (daysByWeek.get(k) || 0) + 1)
   }
+
+  // --- Completos vs solo activación (caso Andrea) ---
+  // Un día es COMPLETO si tiene trabajo principal: algún log fuera de la
+  // sección activación, o un bloque (aeróbico/circuito). Si todo lo que hay
+  // ese día es activación, es un día PARCIAL: cuenta como asistencia pero el
+  // informe lo distingue — que exista actividad no significa que se hizo la
+  // sesión (memoria: andrea-solo-activacion-verde).
+  const mainWorkDays = new Set()
+  for (const l of periodLogs)
+    if (!isActivationLog(l) && l.logged_date) mainWorkDays.add(l.logged_date)
+  for (const b of periodBlockLogs) if (b.logged_date) mainWorkDays.add(b.logged_date)
+  const fullDays = [...periodDays].filter((d) => mainWorkDays.has(d)).length
+  const partialDays = periodDays.size - fullDays
+  const fullByWeek = new Map()
+  for (const d of periodDays) {
+    if (!mainWorkDays.has(d)) continue
+    const k = weekKey(d)
+    fullByWeek.set(k, (fullByWeek.get(k) || 0) + 1)
+  }
+
+  // Mejor racha: días CALENDARIO consecutivos con actividad en el período.
+  const sortedDays = [...periodDays].sort()
+  let bestStreak = 0
+  let run = 0
+  for (let i = 0; i < sortedDays.length; i++) {
+    if (
+      i > 0 &&
+      differenceInCalendarDays(parseISO(sortedDays[i]), parseISO(sortedDays[i - 1])) === 1
+    ) {
+      run += 1
+    } else {
+      run = 1
+    }
+    if (run > bestStreak) bestStreak = run
+  }
   // Previstos por el plan vigente (ver expectedTrainingDays).
   const expected = expectedTrainingDays(assignments, from, to)
   const prevExpected = expectedTrainingDays(assignments, prev.from, prev.to)
@@ -333,11 +368,17 @@ export function buildReport({
   const allWeeks = new Set([...daysByWeek.keys(), ...expected.byWeek.keys()])
   const attendanceWeekly = [...allWeeks]
     .sort((a, b) => (a < b ? -1 : 1))
-    .map((week) => ({
-      week,
-      days: daysByWeek.get(week) || 0,
-      expected: round1(expected.byWeek.get(week) || 0),
-    }))
+    .map((week) => {
+      const days = daysByWeek.get(week) || 0
+      const full = fullByWeek.get(week) || 0
+      return {
+        week,
+        days,
+        fullDays: full,
+        partialDays: days - full,
+        expected: round1(expected.byWeek.get(week) || 0),
+      }
+    })
 
   // --- Activación vs trabajo principal (por sección del plan) ---
   const activationLogs = periodLogs.filter(isActivationLog)
@@ -436,6 +477,9 @@ export function buildReport({
       daysTrained: periodDays.size,
       prevDaysTrained: prevDays.size,
       sessionsPerWeek: round1(periodDays.size / weeksInPeriod),
+      fullDays,
+      partialDays,
+      bestStreak,
       expectedDays,
       compliancePct,
       prevCompliancePct,

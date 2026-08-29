@@ -361,9 +361,58 @@ describe('cumplimiento vs plan vigente (expectedTrainingDays)', () => {
     expect(rep.attendance.compliancePct).toBe(50)
     // La semana prevista SIN entrenar aparece en 0, no desaparece
     const lastWeek = rep.attendance.weekly.find((w) => w.week === '2026-08-24')
-    expect(lastWeek).toEqual({ week: '2026-08-24', days: 0, expected: 2 })
+    expect(lastWeek).toMatchObject({ week: '2026-08-24', days: 0, expected: 2 })
 
     const sinPlan = buildReport({ from: FROM, to: TO, logs: [], tagsByExercise: TAGS })
     expect(sinPlan.attendance.compliancePct).toBe(null)
+  })
+})
+
+// ----------------------------------------------------------------------
+describe('días completos vs solo activación + racha (caso Andrea)', () => {
+  it('día con solo activación = parcial; con trabajo principal o bloque = completo', () => {
+    const r = buildReport({
+      from: '2026-08-01',
+      to: '2026-08-28',
+      logs: [
+        // día 3: solo activación → parcial
+        log({ date: '2026-08-03', exercise: EX_GATO, section: 'activation' }),
+        // día 4: activación + día A → completo
+        log({ date: '2026-08-04', exercise: EX_GATO, section: 'activation' }),
+        log({ date: '2026-08-04', exercise: EX_PRESS, section: 'day_a' }),
+      ],
+      blockLogs: [
+        // día 5: solo un bloque aeróbico → completo (es trabajo principal)
+        {
+          logged_date: '2026-08-05',
+          actual_minutes: 20,
+          plan: { plan_type: 'training' },
+          plan_block: { block_type: 'aerobic', title: 'Cinta' },
+        },
+      ],
+      tagsByExercise: TAGS,
+    })
+    expect(r.attendance.daysTrained).toBe(3)
+    expect(r.attendance.fullDays).toBe(2)
+    expect(r.attendance.partialDays).toBe(1)
+    // racha: 3,4,5 consecutivos
+    expect(r.attendance.bestStreak).toBe(3)
+    const w = r.attendance.weekly.find((x) => x.week === '2026-08-03')
+    expect(w.fullDays).toBe(2)
+    expect(w.partialDays).toBe(1)
+  })
+
+  it('racha se corta con un día de hueco', () => {
+    const r = buildReport({
+      from: '2026-08-01',
+      to: '2026-08-28',
+      logs: [
+        log({ date: '2026-08-03', exercise: EX_PRESS }),
+        log({ date: '2026-08-04', exercise: EX_PRESS }),
+        log({ date: '2026-08-06', exercise: EX_PRESS }),
+      ],
+      tagsByExercise: TAGS,
+    })
+    expect(r.attendance.bestStreak).toBe(2)
   })
 })
