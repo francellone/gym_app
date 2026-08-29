@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
-import { ArrowLeft, ClipboardEdit } from 'lucide-react'
+import { ArrowLeft, ClipboardEdit, FileBarChart } from 'lucide-react'
 import { LEVEL_LABELS, MODALITY_LABELS } from '../helpers'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
 
@@ -205,6 +205,14 @@ export default function StudentDetailPage() {
         <h1 className="text-xl font-bold text-gray-900 truncate flex-1">{student.name}</h1>
         {/* v33 — registrar entrenamiento en nombre del alumno (modo coach).
             Queda auditado en el back: logged_by = coach, source = 'coach'. */}
+        <button
+          onClick={() => navigate(`/coach/students/${id}/informe`)}
+          className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
+          title="Informe de progreso"
+        >
+          <FileBarChart size={16} />
+          Informe
+        </button>
         <button
           onClick={() => navigate(`/coach/students/${id}/workout`)}
           className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"

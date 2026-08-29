@@ -14,6 +14,7 @@ import CoachDashboard from '@/features/dashboard/pages/CoachDashboard'
 import StudentsPage from '@/features/students/pages/StudentsPage'
 import StudentDetailPage from '@/features/students/pages/StudentDetailPage'
 import CreateStudentPage from '@/features/students/pages/CreateStudentPage'
+import CoachReportPage from '@/features/reports/pages/CoachReportPage'
 import PlansPage from '@/features/plans/pages/PlansPage'
 import PlanDetailPage from '@/features/plans/pages/PlanDetailPage'
 import CreatePlanPage from '@/features/plans/pages/CreatePlanPage'
@@ -106,6 +107,8 @@ function AppRoutes() {
         {/* v33 — modo coach: registrar entrenamiento en nombre del alumno.
             Misma página que /student/workout; detecta el modo por el :id. */}
         <Route path="students/:id/workout" element={<TodayWorkoutPage />} />
+        {/* Informe de progreso descargable (solo coach) */}
+        <Route path="students/:id/informe" element={<CoachReportPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="plans/new" element={<CreatePlanPage />} />
         <Route path="plans/:id" element={<PlanDetailPage />} />
