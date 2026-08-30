@@ -14,6 +14,8 @@ import { assignTemplateToStudent } from '@/features/plans/assignmentHelpers'
 // ─────────────────────────────────────────────────────────────
 export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
   const [students, setStudents] = useState([])
+  // v40: personas inactivas ocultas por defecto en el selector
+  const [showInactive, setShowInactive] = useState(false)
   const [loadingStudents, setLoadingStudents] = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [assignLoading, setAssignLoading] = useState(false)
@@ -25,7 +27,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
       try {
         const { data, error: e } = await supabase
           .from('profiles')
-          .select('id, name, email')
+          .select('id, name, email, active')
           .eq('role', 'student')
           .order('name')
         if (e) throw e
@@ -100,12 +102,28 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
               onChange={(e) => setSelectedStudentId(e.target.value)}
             >
               <option value="">— Seleccionar alumno —</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name || s.email}
-                </option>
-              ))}
+              {students
+                .filter(
+                  (s) => showInactive || s.active !== false || s.id === selectedStudentId
+                )
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name || s.email}
+                    {s.active === false ? ' (inactivo)' : ''}
+                  </option>
+                ))}
             </select>
+          )}
+          {students.some((s) => s.active === false) && (
+            <label className="mt-2 flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              Mostrar personas inactivas
+            </label>
           )}
         </div>
 

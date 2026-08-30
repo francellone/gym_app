@@ -495,6 +495,20 @@ export default function StudentInfoTab({
                 ))}
               </select>
             </div>
+            {/* v40: estado del perfil. Inactivo = deja de aparecer en las
+                vistas del coach (lista default, calendario, alertas,
+                selectores). La persona puede seguir entrando a su app. */}
+            <div>
+              <label className="label text-xs">Estado</label>
+              <select
+                className="input text-sm"
+                value={editData.active === false ? 'false' : 'true'}
+                onChange={(e) => setEditData((p) => ({ ...p, active: e.target.value === 'true' }))}
+              >
+                <option value="true">Activo</option>
+                <option value="false">Inactivo</option>
+              </select>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -523,6 +537,7 @@ export default function StudentInfoTab({
                 label: 'Modalidad',
                 value: MODALITY_LABELS[student.modality] || MODALITY_LABELS.online,
               },
+              { label: 'Estado', value: displayValue('active', student.active) },
             ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-500">{item.label}</p>

@@ -79,7 +79,7 @@ export function PlanTargetPersonProvider({ children }) {
     let cancelled = false
     supabase
       .from('profiles')
-      .select('id, name, email')
+      .select('id, name, email, active')
       .eq('role', 'student')
       .order('name')
       .then(({ data }) => {
@@ -145,6 +145,13 @@ export function PlanTargetPersonProvider({ children }) {
  */
 export function PlanTargetPersonPicker({ locked = false }) {
   const { students, studentId, studentName, setStudentId, loading } = usePlanTargetPerson()
+  // v40: personas inactivas ocultas por defecto; la seleccionada se
+  // muestra siempre para no romper un plan que ya la tenía elegida.
+  const [showInactive, setShowInactive] = useState(false)
+  const visibleStudents = students.filter(
+    (s) => showInactive || s.active !== false || s.id === studentId
+  )
+  const hasInactive = students.some((s) => s.active === false)
 
   // Plan personal ya asignado: la persona no se elige, viene dada.
   if (locked) {
@@ -174,9 +181,10 @@ export function PlanTargetPersonPicker({ locked = false }) {
           onChange={(e) => setStudentId(e.target.value || null)}
         >
           <option value="">Genérico — para varias personas</option>
-          {students.map((s) => (
+          {visibleStudents.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name || s.email}
+              {s.active === false ? ' (inactivo)' : ''}
             </option>
           ))}
         </select>
@@ -187,6 +195,17 @@ export function PlanTargetPersonPicker({ locked = false }) {
           />
         )}
       </div>
+      {hasInactive && (
+        <label className="mt-1.5 flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+            className="rounded"
+          />
+          Mostrar personas inactivas
+        </label>
+      )}
       {studentId ? (
         <p className="text-[11px] text-emerald-700 mt-1.5 flex items-start gap-1.5 leading-snug">
           <UserCheck size={13} className="mt-px flex-shrink-0" />

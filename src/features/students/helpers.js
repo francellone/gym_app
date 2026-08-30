@@ -24,6 +24,8 @@ export const FIELD_LABELS = {
   language: 'Idioma de la app',
   // v33: modalidad de uso (online / híbrido / solo coach)
   modality: 'Modalidad',
+  // v40: estado del perfil (activo/inactivo) para gestión del coach
+  active: 'Estado',
 }
 
 // Opciones canónicas de patologías. Coincide con el catálogo del intake
@@ -67,6 +69,11 @@ export const MODALITY_LABELS = {
 }
 
 export function displayValue(field, value) {
+  // 'active' va antes del early-return porque false es un valor válido
+  // y null/undefined cuentan como activo (default true en la BD).
+  if (field === 'active') {
+    return value === false || value === 'false' ? 'Inactivo' : 'Activo'
+  }
   if (value === null || value === undefined || value === '') return '—'
   if (field === 'gender') return GENDER_LABELS[value] || value
   if (field === 'level') return LEVEL_LABELS[value] || value
@@ -106,4 +113,28 @@ export function lesionesCheckErrorMessage(error) {
     return 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
   }
   return null
+}
+
+// ─────────────────────────────────────────────────────────────
+// v40: estado activo/inactivo del perfil (profiles.active)
+// ─────────────────────────────────────────────────────────────
+
+// null/undefined cuentan como activo (la columna tiene default true).
+export function isProfileActive(profile) {
+  return profile?.active !== false
+}
+
+/**
+ * Filtra/ordena la lista de alumnos según el filtro de estado.
+ * activeFilter: 'active' (default) | 'inactive' | 'all'
+ * En 'all' los activos van primero; el sort es estable, así que se
+ * preserva el orden alfabético que ya trae el fetch.
+ */
+export function filterByActiveStatus(students, activeFilter) {
+  const list = students || []
+  if (activeFilter === 'inactive') return list.filter((s) => !isProfileActive(s))
+  if (activeFilter === 'all') {
+    return [...list].sort((a, b) => Number(isProfileActive(b)) - Number(isProfileActive(a)))
+  }
+  return list.filter((s) => isProfileActive(s))
 }

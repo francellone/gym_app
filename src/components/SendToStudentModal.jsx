@@ -51,6 +51,8 @@ export default function SendToStudentModal({
   // steps intake: 'students' → 'results'
 
   const [students, setStudents] = useState([])
+  // v40: personas inactivas ocultas por defecto en el selector
+  const [showInactive, setShowInactive] = useState(false)
   const [plansByStudent, setPlansByStudent] = useState({}) // { studentId: [plan_assignment, ...] }
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -72,7 +74,7 @@ export default function SendToStudentModal({
       setLoading(true)
       const { data: studs } = await supabase
         .from('profiles')
-        .select('id, name, email, language')
+        .select('id, name, email, language, active')
         .eq('role', 'student')
         .order('name')
 
@@ -132,11 +134,14 @@ export default function SendToStudentModal({
     setSelectedIds(visible)
   }
 
-  const filteredStudents = students.filter(
-    (s) =>
-      s.name?.toLowerCase().includes(search.toLowerCase()) ||
-      s.email?.toLowerCase().includes(search.toLowerCase())
-  )
+  const hasInactive = students.some((s) => s.active === false)
+  const filteredStudents = students
+    .filter((s) => showInactive || s.active !== false)
+    .filter(
+      (s) =>
+        s.name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.email?.toLowerCase().includes(search.toLowerCase())
+    )
 
   // Estudiantes que necesitan resolver plan (más de 1 activo) y están seleccionados
   const studentsNeedingPlanChoice = triggerNeedsPlan
@@ -384,6 +389,18 @@ export default function SendToStudentModal({
                   </button>
                 </div>
 
+                {hasInactive && (
+                  <label className="px-4 py-2 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showInactive}
+                      onChange={(e) => setShowInactive(e.target.checked)}
+                      className="rounded"
+                    />
+                    Mostrar personas inactivas
+                  </label>
+                )}
+
                 {triggerNeedsPlan && (
                   <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-800">
                     Solo alumnos con plan activo. Si tienen más de uno, te pediré elegir.
@@ -454,6 +471,11 @@ export default function SendToStudentModal({
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-gray-900 truncate">
                                 {student.name}
+                                {student.active === false && (
+                                  <span className="ml-1.5 text-[10px] text-gray-400 font-normal">
+                                    · Inactivo
+                                  </span>
+                                )}
                               </p>
                               <p
                                 className={`text-xs truncate ${emptyForm ? 'text-amber-600' : 'text-gray-400'}`}

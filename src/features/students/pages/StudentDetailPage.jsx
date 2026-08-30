@@ -202,7 +202,13 @@ export default function StudentDetailPage() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-bold text-gray-900 truncate flex-1">{student.name}</h1>
+        <h1 className="text-xl font-bold text-gray-900 truncate flex-1 flex items-center gap-2">
+          <span className="truncate">{student.name}</span>
+          {/* v40: perfil inactivo — no aparece en lista default, calendario ni alertas */}
+          {student.active === false && (
+            <span className="badge bg-gray-200 text-gray-600 text-xs shrink-0">Inactivo</span>
+          )}
+        </h1>
         {/* v33 — registrar entrenamiento en nombre del alumno (modo coach).
             Queda auditado en el back: logged_by = coach, source = 'coach'. */}
         <button

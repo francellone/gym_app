@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Users, Plus, Search, ChevronRight, AlertCircle } from 'lucide-react'
+import { Users, Plus, Search, ChevronRight, AlertCircle, UserX, UserCheck } from 'lucide-react'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
+import { isProfileActive, filterByActiveStatus } from '../helpers'
+import { useAuth } from '@/features/auth/AuthContext'
 import {
   pickPrimaryTrainingAssignment,
   getAssignmentStatus,
@@ -13,11 +15,16 @@ import { summarizeByStudent, formatYMD } from '@/features/wellbeing/wellbeingSum
 import { ALERT_THRESHOLDS } from '@/features/dashboard/alerts'
 
 export default function StudentsPage() {
+  const { profile } = useAuth()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [fetchError, setFetchError] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+  // v40: filtro de estado del perfil. Default 'active' para que la lista
+  // no crezca con gente que ya no entrena. 'inactive' | 'all' bajo demanda.
+  const [activeFilter, setActiveFilter] = useState('active')
+  const [togglingId, setTogglingId] = useState(null)
   // Wellbeing por alumno (2026-08-27): Map<studentId, summary> de los últimos
   // WELLBEING_WINDOW_DAYS días. Un solo query bulk para toda la lista.
   const [wellbeingByStudent, setWellbeingByStudent] = useState(new Map())
@@ -106,7 +113,11 @@ export default function StudentsPage() {
     advanced: 'Avanzado',
   }
 
-  const filtered = students.filter((s) => {
+  const byActive = filterByActiveStatus(students, activeFilter)
+  const activeCount = students.filter(isProfileActive).length
+  const inactiveCount = students.length - activeCount
+
+  const filtered = byActive.filter((s) => {
     const matchSearch =
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase())
@@ -121,13 +132,53 @@ export default function StudentsPage() {
     return true
   })
 
-  // Contadores de alertas
-  const overdueCount = students.filter((s) => getPaymentStatus(s) === 'overdue').length
-  const dueSoonCount = students.filter((s) => getPaymentStatus(s) === 'due_soon').length
-  const noPlanCount = students.filter((s) => getPlanStatus(s.plan_assignments) === 'no_plan').length
-  const wellbeingAlertCount = students.filter(
+  // Contadores de alertas — solo sobre perfiles activos, para que un
+  // inactivo no infle las alertas de pago/plan/wellbeing (v40).
+  const activeStudents = students.filter(isProfileActive)
+  const overdueCount = activeStudents.filter((s) => getPaymentStatus(s) === 'overdue').length
+  const dueSoonCount = activeStudents.filter((s) => getPaymentStatus(s) === 'due_soon').length
+  const noPlanCount = activeStudents.filter(
+    (s) => getPlanStatus(s.plan_assignments) === 'no_plan'
+  ).length
+  const wellbeingAlertCount = activeStudents.filter(
     (s) => wellbeingByStudent.get(s.id)?.status === 'bad'
   ).length
+
+  // v40: activar/desactivar sin entrar a la ficha. Mismo par
+  // update+historial que StudentInfoTab para que quede auditado.
+  async function handleToggleActive(student) {
+    const makeInactive = isProfileActive(student)
+    if (makeInactive) {
+      const ok = window.confirm(
+        `¿Marcar a ${student.name} como inactivo?\n\nDeja de aparecer en la lista, el calendario, las alertas y los selectores del coach. Su cuenta y su historial no se tocan, y podés reactivarlo cuando quieras.`
+      )
+      if (!ok) return
+    }
+    setTogglingId(student.id)
+    try {
+      const newActive = !makeInactive
+      const { error } = await supabase
+        .from('profiles')
+        .update({ active: newActive })
+        .eq('id', student.id)
+      if (error) throw error
+      await supabase.from('student_edit_history').insert({
+        student_id: student.id,
+        changed_by: profile?.id,
+        field_name: 'active',
+        old_value: makeInactive ? 'Activo' : 'Inactivo',
+        new_value: newActive ? 'Activo' : 'Inactivo',
+      })
+      setStudents((prev) =>
+        prev.map((s) => (s.id === student.id ? { ...s, active: newActive } : s))
+      )
+    } catch (err) {
+      console.error('[StudentsPage] toggle active', err)
+      window.alert(err.message || 'No se pudo cambiar el estado')
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -135,12 +186,36 @@ export default function StudentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Alumnos</h1>
-          <p className="text-sm text-gray-500">{students.length} registrados</p>
+          <p className="text-sm text-gray-500">
+            {activeCount} activo{activeCount !== 1 ? 's' : ''}
+            {inactiveCount > 0 ? ` · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}` : ''}
+          </p>
         </div>
         <Link to="/coach/students/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
           <span className="hidden sm:inline">Nuevo alumno</span>
         </Link>
+      </div>
+
+      {/* v40: filtro de estado del perfil (default: solo activos) */}
+      <div className="flex items-center gap-2">
+        {[
+          { key: 'active', label: `Activos (${activeCount})` },
+          { key: 'inactive', label: `Inactivos (${inactiveCount})` },
+          { key: 'all', label: 'Todos' },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setActiveFilter(opt.key)}
+            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
+              activeFilter === opt.key
+                ? 'bg-primary-100 text-primary-700 border-primary-300'
+                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {/* Alertas rápidas de gestión */}
@@ -240,11 +315,11 @@ export default function StudentsPage() {
           <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">No hay alumnos</p>
           <p className="text-gray-400 text-sm mt-1">
-            {search || filterStatus !== 'all'
-              ? 'Ningún resultado para tu búsqueda'
+            {search || filterStatus !== 'all' || activeFilter !== 'active'
+              ? 'Ningún resultado para tu búsqueda o filtros'
               : 'Creá tu primer alumno'}
           </p>
-          {!search && filterStatus === 'all' && (
+          {!search && filterStatus === 'all' && activeFilter === 'active' && (
             <Link
               to="/coach/students/new"
               className="btn-primary inline-flex items-center gap-2 mt-4"
@@ -252,8 +327,14 @@ export default function StudentsPage() {
               <Plus size={16} /> Agregar alumno
             </Link>
           )}
-          {filterStatus !== 'all' && (
-            <button onClick={() => setFilterStatus('all')} className="btn-secondary text-sm mt-3">
+          {(filterStatus !== 'all' || activeFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setFilterStatus('all')
+                setActiveFilter('all')
+              }}
+              className="btn-secondary text-sm mt-3"
+            >
               Ver todos
             </button>
           )}
@@ -278,12 +359,15 @@ export default function StudentsPage() {
             const payConfig = PAYMENT_STATUS[payStatus]
             const planStatus = getPlanStatus(student.plan_assignments)
             const planConfig = PLAN_STATUS[planStatus]
+            const studentActive = isProfileActive(student)
 
             return (
               <Link
                 key={student.id}
                 to={`/coach/students/${student.id}`}
-                className="card hover:shadow-md transition-all flex items-center gap-3 active:scale-[0.98]"
+                className={`card hover:shadow-md transition-all flex items-center gap-3 active:scale-[0.98] ${
+                  studentActive ? '' : 'opacity-60'
+                }`}
               >
                 {/* Avatar con indicador de pago */}
                 <div className="relative flex-shrink-0">
@@ -301,6 +385,9 @@ export default function StudentsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 truncate">{student.name}</p>
+                    {!studentActive && (
+                      <span className="badge bg-gray-200 text-gray-600 text-xs">Inactivo</span>
+                    )}
                     {student.level && (
                       <span className={`badge ${levelColor[student.level]}`}>
                         {levelLabel[student.level]}
@@ -337,6 +424,19 @@ export default function StudentsPage() {
                   </div>
                 </div>
 
+                {/* v40: activar/desactivar sin entrar a la ficha */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleToggleActive(student)
+                  }}
+                  disabled={togglingId === student.id}
+                  title={studentActive ? 'Marcar como inactivo' : 'Reactivar'}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0 disabled:opacity-40"
+                >
+                  {studentActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                </button>
                 <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
               </Link>
             )

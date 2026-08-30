@@ -61,6 +61,8 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
   const [alreadyAssigned, setAlreadyAssigned] = useState(new Set())
   const [studentsWithActiveTraining, setStudentsWithActiveTraining] = useState(new Set())
   const [search, setSearch] = useState('')
+  // v40: personas inactivas ocultas por defecto en el selector
+  const [showInactive, setShowInactive] = useState(false)
   const [selected, setSelected] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -69,7 +71,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 
   useEffect(() => {
     const promises = [
-      supabase.from('profiles').select('id, name').eq('role', 'student').order('name'),
+      supabase.from('profiles').select('id, name, active').eq('role', 'student').order('name'),
       supabase
         .from('plan_assignments')
         .select('student_id')
@@ -139,7 +141,9 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
     }
   }
 
+  const hasInactive = students.some((s) => s.active === false)
   const filtered = students
+    .filter((s) => showInactive || s.active !== false)
     .filter((s) => s.name?.toLowerCase().includes(search.toLowerCase()))
     .filter((s) => !alreadyAssigned.has(s.id))
 
@@ -169,6 +173,17 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
           />
+          {hasInactive && (
+            <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded"
+              />
+              Mostrar personas inactivas
+            </label>
+          )}
           <div className="space-y-1.5 max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">
@@ -190,7 +205,14 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
                       {s.name?.[0]?.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">{s.name}</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {s.name}
+                    {s.active === false && (
+                      <span className="ml-1.5 text-[10px] text-gray-400 font-normal">
+                        · Inactivo
+                      </span>
+                    )}
+                  </span>
                   {selected === s.id && (
                     <div className="ml-auto w-3.5 h-3.5 bg-primary-600 rounded-full" />
                   )}
