@@ -18,7 +18,8 @@ dashboard/
 │   ├── useCoachAlerts.js          Computa las alertas a partir de logs + assignments + thresholds.
 │   └── useCoachCalendarData.js    Trae datos del calendario + re-exporta utilidades de calendarLogic.
 ├── components/
-│   └── MonthlyCalendar.jsx        Calendario mensual con asistencia (consumido por CoachDashboard).
+│   ├── MonthlyCalendar.jsx        Calendario mensual con asistencia (consumido por CoachDashboard).
+│   └── StudentPanel.jsx           Panel al filtrar por alumno: KPIs + donut + wellbeing + botones "Informe" (→ /coach/students/:id/informe) y "Ver alumno".
 └── pages/
     ├── CoachDashboard.jsx         /coach — vista de inicio del coach.
     └── StudentDashboard.jsx       /student — vista de inicio del alumno.
@@ -26,10 +27,10 @@ dashboard/
 
 ## Quién consume
 
-| Consumidor | Importa |
-|---|---|
-| `src/App.jsx` | `CoachDashboard`, `StudentDashboard` (route components) |
-| Internamente | `CoachDashboard` usa `MonthlyCalendar`, `useCoachAlerts`, `alerts.ALERT_*`. `MonthlyCalendar` usa `useCoachCalendarData` que a su vez usa `calendarLogic` |
+| Consumidor         | Importa                                                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.jsx`      | `CoachDashboard`, `StudentDashboard` (route components)                                                                                                                                      |
+| Internamente       | `CoachDashboard` usa `MonthlyCalendar`, `useCoachAlerts`, `alerts.ALERT_*`. `MonthlyCalendar` usa `useCoachCalendarData` que a su vez usa `calendarLogic`                                    |
 | `StudentDashboard` | `@/features/students/dashboardLogic` (computeStreak, computeWeekTrainingDays, filterTrainingLogs) — los helpers viven en students/ porque son helpers del alumno, no del dashboard genérico. |
 
 Importar con alias:
@@ -45,13 +46,13 @@ import { ALERT_KIND } from '@/features/dashboard/alerts'
 
 Cinco categorías ordenadas por severidad (`ALERT_RENDER_ORDER`):
 
-| Kind | Condición |
-|---|---|
-| `no_plan` | Alumno sin plan activo |
-| `stagnation` | Mismo peso/reps por N sesiones (configurable via `ALERT_THRESHOLDS`) |
-| `high_effort` | RPE alto sostenido (≥ N sesiones con PSE ≥ X) |
-| `inactive` | Sin logs en > N días |
-| `plan_expiring` | Plan próximo a vencer (≤ N días) |
+| Kind            | Condición                                                            |
+| --------------- | -------------------------------------------------------------------- |
+| `no_plan`       | Alumno sin plan activo                                               |
+| `stagnation`    | Mismo peso/reps por N sesiones (configurable via `ALERT_THRESHOLDS`) |
+| `high_effort`   | RPE alto sostenido (≥ N sesiones con PSE ≥ X)                        |
+| `inactive`      | Sin logs en > N días                                                 |
+| `plan_expiring` | Plan próximo a vencer (≤ N días)                                     |
 
 Thresholds en `ALERT_THRESHOLDS`. Cambiarlos = cambiar la sensibilidad de las alertas, sin tocar la lógica.
 
