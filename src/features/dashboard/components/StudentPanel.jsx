@@ -263,9 +263,9 @@ export default function StudentPanel({
           </p>
           <Link
             to={`/coach/students/${studentId}/informe`}
-            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline flex-shrink-0"
+            className="btn-primary inline-flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
           >
-            <FileBarChart size={14} /> Informe
+            <FileBarChart size={16} /> Informe
           </Link>
         </div>
         {/* El wellbeing no depende del plan: se muestra igual. */}
@@ -289,16 +289,16 @@ export default function StudentPanel({
             {assignment.plan?.title || 'Plan activo'} · {findPeriodLabel(periodKey)}
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Link
             to={`/coach/students/${studentId}/informe`}
-            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline"
+            className="btn-primary inline-flex items-center gap-1.5 text-sm px-3 py-2"
           >
-            <FileBarChart size={14} /> Informe
+            <FileBarChart size={16} /> Informe
           </Link>
           <Link
             to={`/coach/students/${studentId}`}
-            className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline"
+            className="btn-secondary inline-flex items-center gap-1.5 text-sm px-3 py-2"
           >
             Ver alumno <ChevronRight size={14} />
           </Link>
