@@ -172,11 +172,13 @@ export function injectSvgTitles(root, specs = []) {
  * @param {string} args.bodyHtml - innerHTML del informe ya limpio
  * @param {string} args.css - CSS embebido
  * @param {string} args.title - título del documento
+ * @param {string} [args.lang='es'] - idioma del documento (informe cliente:
+ *   el del ALUMNO, no el de la UI del coach)
  * @returns {string}
  */
-export function buildExportHtml({ bodyHtml, css, title }) {
+export function buildExportHtml({ bodyHtml, css, title, lang = 'es' }) {
   return `<!doctype html>
-<html lang="es">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -229,23 +231,49 @@ function slug(s) {
  * Arma y descarga el archivo desde el nodo ya renderizado.
  * @param {HTMLElement} rootEl - contenedor del informe (#report-root)
  * @param {{studentName:string, from:string, to:string}} meta
+ * @param {Object} [opts]
+ * @param {Array} [opts.svgTitleSpecs] - tooltips nativos (injectSvgTitles)
+ * @param {boolean} [opts.collapsible=true] - secciones → <details> (informe
+ *   coach). El informe cliente lo apaga: es una carta de 1 página y sus
+ *   <details> de mini-gráficos ya viven en el DOM.
+ * @param {boolean} [opts.toc=true] - índice con anclas (apagado en cliente)
+ * @param {string} [opts.lang='es'] - lang del documento (cliente: el del alumno)
+ * @param {string} [opts.title] - título del documento (default: informe coach)
+ * @param {string} [opts.filePrefix='informe'] - prefijo del nombre de archivo
+ * @param {Function} [opts.prepare] - hook (clone) => void para limpiar el
+ *   clon antes de serializar (p. ej. sacar contenteditable y vaciar
+ *   secciones sin texto en el informe cliente).
  */
-export function downloadReportHtml(rootEl, { studentName, from, to }, { svgTitleSpecs } = {}) {
+export function downloadReportHtml(
+  rootEl,
+  { studentName, from, to },
+  {
+    svgTitleSpecs,
+    collapsible = true,
+    toc = true,
+    lang = 'es',
+    title: customTitle,
+    filePrefix = 'informe',
+    prepare,
+  } = {}
+) {
   const clone = stripNonExport(rootEl.cloneNode(true))
+  if (prepare) prepare(clone)
   injectSvgTitles(clone, svgTitleSpecs || [])
-  makeCollapsible(clone)
-  buildToc(clone)
-  const title = `Informe de progreso — ${studentName}`
+  if (collapsible) makeCollapsible(clone)
+  if (toc) buildToc(clone)
+  const title = customTitle || `Informe de progreso — ${studentName}`
   const html = buildExportHtml({
     bodyHtml: clone.innerHTML,
     css: collectPageCss(rootEl.ownerDocument),
     title,
+    lang,
   })
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = rootEl.ownerDocument.createElement('a')
   a.href = url
-  a.download = `informe-${slug(studentName)}-${from}-a-${to}.html`
+  a.download = `${filePrefix}-${slug(studentName)}-${from}-a-${to}.html`
   a.click()
   URL.revokeObjectURL(url)
 }

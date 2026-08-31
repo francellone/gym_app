@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
-import { ArrowLeft, ClipboardEdit, FileBarChart } from 'lucide-react'
+import { ArrowLeft, ClipboardEdit, FileBarChart, FileHeart } from 'lucide-react'
 import { LEVEL_LABELS, MODALITY_LABELS } from '../helpers'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
 
@@ -214,10 +214,18 @@ export default function StudentDetailPage() {
         <button
           onClick={() => navigate(`/coach/students/${id}/informe`)}
           className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
-          title="Informe de progreso"
+          title="Informe de progreso (técnico, para la coach)"
         >
           <FileBarChart size={16} />
           Informe
+        </button>
+        <button
+          onClick={() => navigate(`/coach/students/${id}/informe-cliente`)}
+          className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
+          title="Informe cliente (carta simple para el alumno)"
+        >
+          <FileHeart size={16} />
+          Informe cliente
         </button>
         <button
           onClick={() => navigate(`/coach/students/${id}/workout`)}

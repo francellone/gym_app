@@ -884,5 +884,37 @@
       "recentEmpty": "No extra activities in the last 60 days."
     },
     "confirmDeleteTitle": "Delete activity?"
+  },
+  "report": {
+    "client": {
+      "badge": "Your progress",
+      "heroTitle": "Great block, {{name}}! 💪",
+      "heroText": "These weeks brought real progress. Here's what matters most 👇",
+      "sectionBest": "Highlights of this period",
+      "sectionGoals": "Next goals",
+      "sectionCoach": "From your coach",
+      "sectionWellbeing": "How you felt",
+      "wellbeingAvgNote": "Period averages (1–5) · {{n}} entries",
+      "wellbeingBefore": "before {{value}}",
+      "challengeLabel": "Next challenge",
+      "preparedBy": "Report prepared by {{name}}",
+      "seeDetail": "See the detail",
+      "unitWeight": "kg",
+      "unitReps": "reps",
+      "points": {
+        "attendance": "You trained <b>{{days}} days</b> ({{perWeek}} per week).",
+        "attendanceWithPlan": "You completed <b>{{days}} of {{expected}} planned workouts</b>.",
+        "streak": "Your best streak: <b>{{streak}} days in a row</b>.",
+        "record": "New record in {{name}}: <b>{{value}} {{unit}}</b> (your previous best: {{prev}}).",
+        "progress": "Your {{name}} went from <b>{{first}} to {{last}} {{unit}}</b> ({{pct}}%).",
+        "volume": "You did <b>{{series}} sets</b> of main work (previous period: {{prevSeries}}).",
+        "blocksAerobic": "You added <b>{{count}} aerobic blocks</b> ({{minutes}} min total).",
+        "blocksAerobicNoMin": "You added <b>{{count}} aerobic blocks</b>.",
+        "blocksCircuit": "You completed <b>{{count}} circuits</b> ({{minutes}} min total).",
+        "blocksCircuitNoMin": "You completed <b>{{count}} circuits</b>.",
+        "effort": "Average perceived effort: <b>{{avg}}/10</b>.",
+        "stalled": "{{name}}: you held steady at <b>{{value}} {{unit}}</b>."
+      }
+    }
   }
 }

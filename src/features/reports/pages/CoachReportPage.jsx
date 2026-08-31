@@ -239,6 +239,13 @@ export default function CoachReportPage() {
         </button>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate(`/coach/students/${id}/informe-cliente`)}
+            className="btn-ghost text-sm"
+            title="Carta simple para el alumno, sin gráficos a la vista"
+          >
+            Versión cliente
+          </button>
+          <button
             onClick={() => window.print()}
             className="btn-secondary flex items-center gap-1.5 text-sm"
           >

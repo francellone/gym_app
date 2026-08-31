@@ -14,8 +14,16 @@ reports/
 ├── fetchReportData.js       Historia completa del alumno + plan_assignments (fetchAllRows SIEMPRE).
 ├── exportReportHtml.js      Export: serializa la PANTALLA renderizada + CSS embebido + interacción vanilla.
 ├── exportReportHtml.test.js
+├── clientReportContent.js   Contenido del informe CLIENTE (puro): buildReport → bullets con claves i18n + params.
+├── clientReportContent.test.js
 └── pages/
-    └── CoachReportPage.jsx  /coach/students/:id/informe — única ruta de la feature.
+    ├── CoachReportPage.jsx  /coach/students/:id/informe — informe técnico (coach).
+    └── ClientReportPage.jsx /coach/students/:id/informe-cliente — carta 1 página para el alumno:
+                             texto primero (mockup docs/mockup-informe-alumno.html), números crudos,
+                             mini-gráficos en <details> cerrados (dimensiones FIJAS: details cerrado
+                             mide 0 y ResponsiveContainer no puede), preview editable (contentEditable
+                             no controlado), idioma del ALUMNO vía getFixedT, "Sin cambios" con toggle
+                             apagado por defecto.
 ```
 
 ## Accesos

@@ -884,5 +884,37 @@
       "recentEmpty": "Sin actividades extra en los últimos 60 días."
     },
     "confirmDeleteTitle": "¿Borrar actividad?"
+  },
+  "report": {
+    "client": {
+      "badge": "Tu progreso",
+      "heroTitle": "¡Gran bloque, {{name}}! 💪",
+      "heroText": "Estas semanas dejaron avances concretos. Acá va lo más importante 👇",
+      "sectionBest": "Lo mejor del período",
+      "sectionGoals": "Próximos objetivos",
+      "sectionCoach": "De tu coach",
+      "sectionWellbeing": "Cómo te sentiste",
+      "wellbeingAvgNote": "Promedios del período (1–5) · {{n}} registros",
+      "wellbeingBefore": "antes {{value}}",
+      "challengeLabel": "Próximo desafío",
+      "preparedBy": "Informe preparado por {{name}}",
+      "seeDetail": "Ver el detalle",
+      "unitWeight": "kg",
+      "unitReps": "reps",
+      "points": {
+        "attendance": "Entrenaste <b>{{days}} días</b> ({{perWeek}} por semana).",
+        "attendanceWithPlan": "Completaste <b>{{days}} de {{expected}} entrenamientos</b> previstos.",
+        "streak": "Tu mejor racha: <b>{{streak}} días seguidos</b> entrenando.",
+        "record": "Récord en {{name}}: <b>{{value}} {{unit}}</b> (tu mejor marca anterior: {{prev}}).",
+        "progress": "Tu {{name}} pasó de <b>{{first}} a {{last}} {{unit}}</b> ({{pct}}%).",
+        "volume": "Hiciste <b>{{series}} series</b> de trabajo principal (el período anterior: {{prevSeries}}).",
+        "blocksAerobic": "Sumaste <b>{{count}} bloques aeróbicos</b> ({{minutes}} min en total).",
+        "blocksAerobicNoMin": "Sumaste <b>{{count}} bloques aeróbicos</b>.",
+        "blocksCircuit": "Completaste <b>{{count}} circuitos</b> ({{minutes}} min en total).",
+        "blocksCircuitNoMin": "Completaste <b>{{count}} circuitos</b>.",
+        "effort": "Esfuerzo percibido promedio: <b>{{avg}}/10</b>.",
+        "stalled": "{{name}}: te mantuviste en <b>{{value}} {{unit}}</b>."
+      }
+    }
   }
 }
