@@ -164,11 +164,15 @@ export default function EvalWorkoutPage() {
 
       if (isExerciseBasedEval(data.eval_type)) {
         // Leer plan_exercises de la eval (sin hardcodear day_a) + join ejercicio.
-        const { data: peData } = await supabase
+        // Hint !exercise_id obligatorio: plan_exercises tiene DOS FKs a
+        // exercises desde v39 (rm_reference_exercise_id) y sin hint PostgREST
+        // devuelve 300 (ambiguo) → la eval salía vacía (bug Jessi 2026-09-02).
+        const { data: peData, error: peError } = await supabase
           .from('plan_exercises')
-          .select('*, exercises(name, i18n, video_url)')
+          .select('*, exercises!exercise_id(name, i18n, video_url)')
           .eq('plan_id', planId)
           .order('order_index')
+        if (peError) throw peError
         let rows = peData || []
 
         // Compat hacia atrás: evals custom pre-cutover viven en
@@ -176,7 +180,7 @@ export default function EvalWorkoutPage() {
         if (rows.length === 0 && data.eval_type === 'custom') {
           const { data: testsData } = await supabase
             .from('evaluation_tests')
-            .select('*, exercises(name, i18n, video_url)')
+            .select('*, exercises!exercise_id(name, i18n, video_url)')
             .eq('plan_id', planId)
             .order('order_index')
           rows = (testsData || []).map((t) => ({

@@ -636,7 +636,9 @@ export default function EvaluationDetailPage() {
         const resultIds = resultsWithPanel.map((r) => r.id)
         const { data: respData } = await supabase
           .from('evaluation_test_responses')
-          .select('*, plan_exercise:plan_exercises!plan_exercise_id(*, exercises(name, video_url))')
+          .select(
+            '*, plan_exercise:plan_exercises!plan_exercise_id(*, exercises!exercise_id(name, video_url))'
+          )
           .in('evaluation_result_id', resultIds)
         const byResult = {}
         for (const r of respData || []) {

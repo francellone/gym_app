@@ -186,7 +186,7 @@ function EditPlanPageInner() {
           if (evalRows.length === 0 && loadedPlan.eval_type === 'custom') {
             const { data: pruebasData } = await supabase
               .from('evaluation_tests')
-              .select('*, exercises(video_url)')
+              .select('*, exercises!exercise_id(video_url)')
               .eq('plan_id', id)
               .order('order_index')
             evalRows = (pruebasData || []).map((t) => ({

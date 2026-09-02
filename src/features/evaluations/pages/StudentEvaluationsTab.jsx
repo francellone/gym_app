@@ -425,18 +425,20 @@ function EvaluationCard({
     try {
       // doc 41: evals exercise-based → cargar plan_exercises (por día).
       if (exerciseBased) {
-        const { data: peData } = await supabase
+        // Hint !exercise_id obligatorio (dos FKs a exercises desde v39).
+        const { data: peData, error: peError } = await supabase
           .from('plan_exercises')
-          .select('*, exercises(name, video_url)')
+          .select('*, exercises!exercise_id(name, video_url)')
           .eq('plan_id', plan.id)
           .order('order_index')
+        if (peError) throw peError
         let peRows = peData || []
 
         // Compat: custom pre-cutover puede vivir todavía en evaluation_tests.
         if (peRows.length === 0 && plan.eval_type === 'custom') {
           const { data: testsData } = await supabase
             .from('evaluation_tests')
-            .select('*, exercises(name, video_url)')
+            .select('*, exercises!exercise_id(name, video_url)')
             .eq('plan_id', plan.id)
             .order('order_index')
           peRows = (testsData || []).map((t) => ({

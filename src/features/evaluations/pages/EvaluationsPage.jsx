@@ -37,7 +37,36 @@ export default function EvaluationsPage() {
         .eq('plan_type', 'evaluation')
         .order('created_at', { ascending: false })
       if (error) throw error
-      setEvalPlans(data || [])
+      // Mismo fix que B6 en EvaluationDetailPage (30/05): las asignaciones y
+      // los resultados viven en el CLON del alumno (cloned_from_plan_id =
+      // template.id), nunca en la plantilla. Sin este fold, la card de la
+      // plantilla decía "sin alumnos" aunque estuviera asignada. Se dedupe
+      // por alumno: una persona con varios clones activos cuenta una vez.
+      const all = data || []
+      const byId = new Map(all.map((p) => [p.id, p]))
+      const folded = all.map((p) => ({
+        ...p,
+        plan_assignments: [...(p.plan_assignments || [])],
+        evaluation_results: [...(p.evaluation_results || [])],
+      }))
+      const foldedById = new Map(folded.map((p) => [p.id, p]))
+      for (const clone of all) {
+        const parent = clone.cloned_from_plan_id && foldedById.get(clone.cloned_from_plan_id)
+        if (!parent || !byId.has(clone.id) || clone.id === parent.id) continue
+        parent.plan_assignments.push(...(clone.plan_assignments || []))
+        parent.evaluation_results.push(...(clone.evaluation_results || []))
+      }
+      for (const p of folded) {
+        const seen = new Set()
+        p.plan_assignments = p.plan_assignments.filter((a) => {
+          const key = a.student?.id || a.id
+          if (!a.active) return true
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+      }
+      setEvalPlans(folded)
     } catch (err) {
       console.error(err)
     } finally {
