@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabla de Progreso y planes anteriores — cómo está y cómo quedaría</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb;
+    --old:#b45309; --old-bg:#fffbeb; --old-line:#fcd34d;
+    --new:#4338ca; --new-bg:#eef2ff; --new-line:#a5b4fc;
+    --bad:#b91c1c; --bad-bg:#fef2f2;
+    --ok:#047857; --ok-bg:#ecfdf5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:26px;line-height:1.25;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:19px;margin:44px 0 10px;letter-spacing:-.01em}
+  h3{font-size:15px;margin:22px 0 8px}
+  p{margin:10px 0}
+  .lede{color:var(--muted);font-size:15px;margin:0 0 4px}
+  .meta{color:var(--muted);font-size:12.5px;margin:2px 0 0}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  hr{border:0;border-top:1px solid var(--line);margin:36px 0}
+
+  /* ── diagrama de entidades ── */
+  .flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  @media(max-width:760px){.flow{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff}
+  .card h4{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 4px}
+  .ent{border:1px solid var(--line);border-radius:8px;padding:5px 9px;background:var(--soft);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:nowrap}
+  .ent.hi{background:var(--new-bg);border-color:var(--new-line);color:var(--new)}
+  .arrow{color:var(--muted);font-size:13px}
+  .flag{display:inline-block;font-size:11.5px;border-radius:999px;padding:2px 8px;font-weight:600}
+  .flag.old{background:var(--old-bg);color:var(--old);border:1px solid var(--old-line)}
+  .flag.new{background:var(--new-bg);color:var(--new);border:1px solid var(--new-line)}
+  .flag.bad{background:var(--bad-bg);color:var(--bad);border:1px solid #fecaca}
+  .flag.ok{background:var(--ok-bg);color:var(--ok);border:1px solid #a7f3d0}
+  .note{font-size:13px;color:var(--muted);margin-top:8px}
+  .bad-note{background:var(--bad-bg);border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin:16px 0;font-size:14px}
+  .ok-note{background:var(--ok-bg);border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;margin:16px 0;font-size:14px}
+
+  /* ── controles ── */
+  .panel{border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--soft);margin:16px 0}
+  .ctl{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+  .ctl-group{min-width:220px}
+  .ctl-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+  .chips{display:flex;gap:4px;background:#e5e7eb;padding:3px;border-radius:10px}
+  .chips button{border:0;background:transparent;padding:6px 11px;border-radius:8px;cursor:pointer;
+    font:inherit;font-size:12.5px;color:#4b5563;white-space:nowrap}
+  .chips button[aria-pressed="true"]{background:#fff;color:var(--ink);font-weight:600;
+    box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .counters{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .counter .n{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  .counter .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .counter.warn .n{color:var(--bad)}
+
+  /* ── tabla maqueta ── */
+  .scroller{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+  table.mock{border-collapse:collapse;font-size:12.5px;width:100%}
+  table.mock th,table.mock td{padding:6px 9px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+  table.mock thead th{background:var(--soft);font-size:11px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--muted);position:sticky;top:0}
+  table.mock td.num,table.mock th.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.mock tr.grp td{background:var(--soft);font-weight:600;font-size:12px;padding:8px 9px}
+  table.mock td.ex{font-weight:500;max-width:260px;white-space:normal}
+  .cut{border-left:2px dashed var(--old)!important}
+  .cut-head{color:var(--old);font-weight:700}
+  .cell-old{color:var(--old)}
+  .cell-new{color:var(--new)}
+  .empty{color:#d1d5db}
+  .pos{color:var(--ok);font-weight:600}
+  .neg{color:var(--bad);font-weight:600}
+  .zero{color:var(--muted)}
+  .badge{font-size:10.5px;border-radius:999px;padding:1px 6px;border:1px solid var(--line);color:var(--muted)}
+  .mix{background:var(--bad-bg);border-color:#fecaca;color:var(--bad);font-weight:600}
+
+  /* ── tabla comparativa ── */
+  table.cmp{border-collapse:collapse;width:100%;font-size:13.5px;margin:14px 0}
+  table.cmp th,table.cmp td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left}
+  table.cmp thead th{background:var(--soft);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  table.cmp td:first-child{font-weight:600;white-space:nowrap}
+  ul{margin:10px 0;padding-left:20px}
+  li{margin:5px 0}
+  .rec{border-left:3px solid var(--new);padding-left:14px;margin:16px 0}
+  .rec h3{margin-top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Tabla de Progreso: por qué no aparece el plan anterior</h1>
+<p class="lede">Diagnóstico, propuesta y simulador con los datos reales de Andrea Martinez.</p>
+<p class="meta">gym_app · 6 de septiembre de 2026 · <code>StudentProgressTableView.jsx</code></p>
+
+<hr>
+
+<h2>1. Las tres entidades que hay que tener en la cabeza</h2>
+
+<p>Un registro de entrenamiento (<code>workout_logs</code>) apunta a un ejercicio <em>de un plan</em>
+(<code>plan_exercise_id</code>), no al ejercicio del catálogo. Cuando Anto asigna un plan nuevo, se crean
+ejercicios de plan nuevos, con ids nuevos, aunque el ejercicio del catálogo sea el mismo. El historial
+viejo queda colgando de los ids viejos.</p>
+
+<div class="chain">
+  <span class="ent">plan_assignments</span><span class="arrow">→</span>
+  <span class="ent">plans</span><span class="arrow">→</span>
+  <span class="ent">plan_exercises</span><span class="arrow">←</span>
+  <span class="ent hi">workout_logs</span><span class="arrow">→</span>
+  <span class="ent">exercises</span>
+</div>
+<p class="note">La única entidad que sobrevive a un cambio de plan es <code>exercises</code>, el ejercicio del
+catálogo. Es la bisagra para poder cruzar planes.</p>
+
+<h2>2. Cómo está hoy</h2>
+
+<div class="flow">
+  <div class="card">
+    <h4>De dónde salen las FILAS</h4>
+    <div class="chain">
+      <span class="ent">plan_assignments</span>
+      <span class="flag new">active = true</span>
+    </div>
+    <div class="chain">
+      <span class="arrow">→</span><span class="ent">plan_exercises</span>
+      <span class="arrow">→</span><span class="ent">una fila cada uno</span>
+    </div>
+    <p class="note">Este pedido depende <strong>solo de qué alumna es</strong>. El filtro de período
+    no lo toca: por eso cambiar las fechas no agrega ni una fila.</p>
+  </div>
+  <div class="card">
+    <h4>De dónde salen los DATOS</h4>
+    <div class="chain">
+      <span class="ent">workout_logs</span>
+      <span class="flag old">logged_date entre X e Y</span>
+    </div>
+    <div class="chain">
+      <span class="arrow">→</span><span class="ent">se reparten en las filas</span>
+    </div>
+    <p class="note">Este pedido <strong>no filtra por plan</strong>. Los registros del plan viejo
+    llegan al componente, pero no encuentran fila donde pintarse.</p>
+  </div>
+</div>
+
+<div class="bad-note">
+  <strong>El embudo.</strong> Andrea tiene 131 registros del plan anterior (27/07 al 24/08) y 22 del
+  plan vigente. Con cualquier rango de fechas que incluya julio y agosto, la tabla recibe los 153 y
+  pinta como mucho 22. Los otros 131 se descartan en silencio: no hay cartel, no hay fila vacía, no
+  hay nada que le avise a Anto que se perdió algo.
+</div>
+
+<h2>3. Simulador</h2>
+<p>Elegí un período y una versión de la tabla. Son los datos reales de Andrea, con las 16 fechas en las
+que entrenó.</p>
+
+<div class="panel">
+  <div class="ctl">
+    <div class="ctl-group">
+      <div class="ctl-label">Período</div>
+      <div class="chips" id="periodChips">
+        <button data-p="30" aria-pressed="false">1 mes</button>
+        <button data-p="90" aria-pressed="true">3 meses</button>
+        <button data-p="custom" aria-pressed="false">27/07 – 06/09</button>
+        <button data-p="365" aria-pressed="false">Todo</button>
+      </div>
+    </div>
+    <div class="ctl-group">
+      <div class="ctl-label">Versión de la tabla</div>
+      <div class="chips" id="modeChips">
+        <button data-m="today" aria-pressed="true">Hoy</button>
+        <button data-m="byplan" aria-pressed="false">Propuesta · por plan</button>
+        <button data-m="byex" aria-pressed="false">Propuesta · por ejercicio</button>
+      </div>
+    </div>
+  </div>
+  <div class="counters" id="counters"></div>
+</div>
+
+<div id="explain" class="note" style="margin-bottom:10px"></div>
+<div class="scroller"><table class="mock" id="mock"></table></div>
+<p class="note" id="legend"></p>
+
+<h2>4. Qué cambia, columna por columna</h2>
+
+<table class="cmp">
+  <thead>
+    <tr><th>&nbsp;</th><th>Hoy</th><th>Propuesta · por plan</th><th>Propuesta · por ejercicio</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Qué es una fila</td>
+      <td>Un ejercicio del plan vigente</td>
+      <td>Un ejercicio de cada plan que se solape con el período</td>
+      <td>Un ejercicio del catálogo, con todo su historial</td>
+    </tr>
+    <tr>
+      <td>Alcance</td>
+      <td>Plan activo, siempre</td>
+      <td>Todos los planes del período</td>
+      <td>Todos los planes del período, fundidos</td>
+    </tr>
+    <tr>
+      <td>Agrupación</td>
+      <td>Sección del plan vigente</td>
+      <td>Plan, con su período real en el encabezado, y adentro la sección</td>
+      <td>Sin agrupar; columna con en cuántos planes estuvo</td>
+    </tr>
+    <tr>
+      <td>Serie, reps y peso sugeridos</td>
+      <td>Los del plan vigente</td>
+      <td>Los del plan de esa fila, que es lo correcto</td>
+      <td>Los del plan vigente, con aviso si cambiaron respecto del anterior</td>
+    </tr>
+    <tr>
+      <td>Columnas de fecha</td>
+      <td>Fechas con registro, sin marca de nada</td>
+      <td colspan="2">Igual, más un corte vertical punteado en cada cambio de plan</td>
+    </tr>
+    <tr>
+      <td>Progreso %</td>
+      <td>Sobre lo que haya quedado visible</td>
+      <td>Dentro del plan de la fila</td>
+      <td>Sobre todo el rango, cruzando planes</td>
+    </tr>
+    <tr>
+      <td>Para qué sirve</td>
+      <td>Ver la semana en curso</td>
+      <td>Auditar un plan: qué prescribí y qué se cumplió</td>
+      <td>Fijar objetivos: en cuánto venía este ejercicio</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. El caso que hoy engaña</h2>
+
+<p>Las filas usan un atajo: si el ejercicio del plan vigente no tiene ningún registro,
+la fila se rellena con registros del mismo ejercicio del catálogo, sin importar de qué plan vengan.
+Andrea tiene exactamente ese caso.</p>
+
+<table class="cmp">
+  <thead><tr><th>Push Up Banco</th><th>Plan 1 (anterior)</th><th>Plan 2 (vigente)</th></tr></thead>
+  <tbody>
+    <tr><td>Dónde vive</td><td>Día A, bloque A2</td><td>Día B, bloque B1</td></tr>
+    <tr><td>Prescripción</td><td>3 × 6</td><td>3 × 6</td></tr>
+    <tr><td>Registros</td><td>27/07, 13/08, 24/08</td><td>ninguno todavía</td></tr>
+  </tbody>
+</table>
+
+<div class="bad-note">
+  Hoy, en la fila del <strong>Día B</strong> del plan vigente, Anto ve los tres registros de julio y
+  agosto, que en realidad son del Día A del plan anterior. Nada en la pantalla lo dice. Y en cuanto
+  Andrea registre una sola vez el ejercicio con el plan nuevo, los tres viejos desaparecen de golpe.
+  Es la peor combinación posible: cuando no hay datos inventa historia, y cuando hay datos borra la
+  historia real.
+</div>
+
+<div class="ok-note">
+  En las dos versiones propuestas el registro se pinta siempre en el plan al que pertenece. Si un
+  ejercicio arrastra historial de otro plan, la fila lo dice con una etiqueta, no en silencio.
+</div>
+
+<h2>6. Hallazgo lateral, para otro día</h2>
+
+<p>Armando el simulador me sobraron registros. Andrea tiene 153 registros en total, pero 14 de ellos
+no apuntan a ningún ejercicio de plan: <code>plan_exercise_id</code> viene vacío. Son del 27/07,
+cargados por la coach, y del 28/07, cargados por la alumna. Esos 14 no aparecen en ninguna vista de
+la app, ni en la tabla ni en los gráficos, porque todo cuelga de esa columna.</p>
+
+<p>En toda la base hay 201 registros así, repartidos entre marzo y agosto de 2026. En septiembre no
+apareció ninguno nuevo, así que parece un camino que ya se cerró, pero el historial viejo quedó
+invisible. Lo dejo anotado como tarea aparte: no lo mezclo con este cambio.</p>
+
+<h2>7. Qué sugiero</h2>
+
+<div class="rec">
+  <h3>Hacer las dos vistas, no elegir una</h3>
+  <p>No son dos maneras de dibujar lo mismo: responden preguntas distintas. <em>Por plan</em> responde
+  “¿qué le prescribí y qué cumplió?”, y necesita que cada fila conserve su propia prescripción.
+  <em>Por ejercicio</em> responde “¿en cuánto venía esto?”, que es literalmente lo que Anto estaba
+  buscando para fijar los objetivos del plan nuevo. Si hacemos solo la primera, para comparar el
+  Frontal Squat de agosto con el Sumo Squat de septiembre hay que leer dos grupos separados y
+  hacer la cuenta a ojo.</p>
+</div>
+
+<div class="rec">
+  <h3>El corte de plan es un elemento de la interfaz, no un detalle</h3>
+  <p>Una línea vertical punteada en la fila de fechas, con la fecha y el nombre del plan que arranca.
+  El mismo corte va en el gráfico de progresión como línea vertical. Es lo que evita leer una caída
+  de peso como un retroceso de la alumna cuando en realidad cambió el ejercicio o el esquema.</p>
+</div>
+
+<div class="rec">
+  <h3>Que el período no esconda el plan anterior</h3>
+  <p>Aunque la tabla ya pueda mostrarlo, con el período en “1 mes” Anto sigue sin verlo. Sumaría un
+  botón <strong>“Desde el plan anterior”</strong> al selector de período, que estira el rango hasta el
+  inicio de la asignación previa. De paso arreglo que “Todo” hoy sean 365 días y no todo.</p>
+</div>
+
+<div class="rec">
+  <h3>Lo que no haría</h3>
+  <p>No pondría un selector de plan al estilo “ver Plan 1 / ver Plan 2”. Vuelve a poner al plan como
+  filtro excluyente, que es justo el problema de hoy, y obliga a saltar de una vista a otra para
+  comparar. El plan tiene que ser una dimensión de lectura, no una llave que cierra la puerta.</p>
+  <p>Tampoco tocaría el modelo de datos. Todo esto sale con consultas y presentación: los registros ya
+  tienen el plan y la fecha. Es una tarde de trabajo, no una migración.</p>
+</div>
+
+<div class="rec">
+  <h3>Alcance sugerido</h3>
+  <ul>
+    <li>Traer las asignaciones que se solapen con el rango, no solo la activa.</li>
+    <li>Interruptor <em>por plan / por ejercicio</em> arriba de la tabla, arrancando en <em>por plan</em>.</li>
+    <li>Corte de plan en la fila de fechas y en el gráfico de progresión.</li>
+    <li>Eliminar el atajo que mezcla planes sin avisar, reemplazado por la etiqueta de historial.</li>
+    <li>Botón “Desde el plan anterior” en el selector de período y arreglo del “Todo”.</li>
+  </ul>
+  <p class="note">Alcanza a 14 de las 27 alumnas con plan asignado, que ya tuvieron más de uno.
+  De ellas, 12 tienen al menos un ejercicio repetido entre planes: 82 pares alumna-ejercicio en total.</p>
+</div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ── Datos reales (Andrea Martinez) ───────────────────────────────
+  // [ejercicio, seccion, plan, "MM-DD", peso, series]
+  var LOGS = [
+["Banded Hip Hinge (Power Band + Weight)","day_a","viejo","07-27",null,0],
+["Banded Hip Hinge (Power Band + Weight)","day_a","viejo","08-13",12,3],
+["Banded Hip Hinge (Power Band + Weight)","day_a","viejo","08-24",12,3],
+["Curl de Isquiotibiales con Fitball","day_b","viejo","08-03",null,2],
+["Curl de Isquiotibiales con Fitball","day_b","viejo","08-17",null,3],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","07-27",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","07-28",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","07-29",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","07-30",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-03",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-04",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-06",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-13",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-14",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-15",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-17",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-19",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-21",null,1],
+["Deslizamiento Neural del Nervio Mediano","activation","viejo","08-24",null,1],
+["Estocadas Caminando","day_b","viejo","08-03",12,2],
+["Estocadas Caminando","day_b","viejo","08-17",16,3],
+["Frontal Squat con mancuernas","day_a","viejo","07-27",4,1],
+["Frontal Squat con mancuernas","day_a","viejo","08-13",15,3],
+["Frontal Squat con mancuernas","day_a","viejo","08-24",15,3],
+["Jefferson curl","activation","viejo","07-29",6,2],
+["Jefferson curl","activation","viejo","07-30",6,2],
+["Jefferson curl","activation","viejo","08-03",8,2],
+["Jefferson curl","activation","viejo","08-04",6,2],
+["Jefferson curl","activation","viejo","08-06",6,2],
+["Jefferson curl","activation","viejo","08-13",10,2],
+["Jefferson curl","activation","viejo","08-14",6,2],
+["Jefferson curl","activation","viejo","08-15",6,2],
+["Jefferson curl","activation","viejo","08-17",10,2],
+["Jefferson curl","activation","viejo","08-19",6,2],
+["Jefferson curl","activation","viejo","08-21",6,2],
+["Jefferson curl","activation","viejo","08-24",10,2],
+["Movilidad de hombro con palo","activation","viejo","07-29",null,2],
+["Movilidad de hombro con palo","activation","viejo","07-30",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-03",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-04",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-06",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-13",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-14",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-15",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-17",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-19",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-21",null,2],
+["Movilidad de hombro con palo","activation","viejo","08-24",1.25,2],
+["Pallof press polea","activation","viejo","07-29",null,2],
+["Pallof press polea","activation","viejo","07-30",null,2],
+["Pallof press polea","activation","viejo","08-03",null,2],
+["Pallof press polea","activation","viejo","08-06",null,2],
+["Pallof press polea","activation","viejo","08-13",8.5,2],
+["Pallof press polea","activation","viejo","08-14",null,2],
+["Pallof press polea","activation","viejo","08-15",null,2],
+["Pallof press polea","activation","viejo","08-17",null,2],
+["Pallof press polea","activation","viejo","08-19",null,2],
+["Pallof press polea","activation","viejo","08-21",null,2],
+["Pallof press polea","activation","viejo","08-24",null,2],
+["PLANK (W Bracing)","activation","viejo","07-29",null,2],
+["PLANK (W Bracing)","activation","viejo","07-30",null,2],
+["PLANK (W Bracing)","activation","viejo","08-03",null,2],
+["PLANK (W Bracing)","activation","viejo","08-04",null,2],
+["PLANK (W Bracing)","activation","viejo","08-06",null,2],
+["PLANK (W Bracing)","activation","viejo","08-13",null,2],
+["PLANK (W Bracing)","activation","viejo","08-14",null,2],
+["PLANK (W Bracing)","activation","viejo","08-15",null,2],
+["PLANK (W Bracing)","activation","viejo","08-17",null,2],
+["PLANK (W Bracing)","activation","viejo","08-19",null,2],
+["PLANK (W Bracing)","activation","viejo","08-21",null,2],
+["PLANK (W Bracing)","activation","viejo","08-24",null,2],
+["Press militar con mancuernas","day_b","viejo","08-03",5,2],
+["Press militar con mancuernas","day_b","viejo","08-17",6,3],
+["Push Up Banco","day_a","viejo","07-27",null,1],
+["Push Up Banco","day_a","viejo","08-13",null,3],
+["Push Up Banco","day_a","viejo","08-24",null,3],
+["Remo invertido/a con barra","day_b","viejo","08-03",null,2],
+["Remo invertido/a con barra","day_b","viejo","08-17",null,3],
+["Seal Row","day_a","viejo","07-27",null,0],
+["Seal Row","day_a","viejo","08-13",5,3],
+["Seal Row","day_a","viejo","08-24",6,3],
+["Single Glute Raises + Abd","activation","viejo","07-29",null,2],
+["Single Glute Raises + Abd","activation","viejo","07-30",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-03",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-04",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-06",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-13",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-14",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-15",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-17",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-19",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-21",null,2],
+["Single Glute Raises + Abd","activation","viejo","08-24",null,2],
+["Spiderman Molino","activation","viejo","07-29",null,2],
+["Spiderman Molino","activation","viejo","07-30",null,2],
+["Spiderman Molino","activation","viejo","08-03",null,2],
+["Spiderman Molino","activation","viejo","08-04",null,2],
+["Spiderman Molino","activation","viejo","08-06",null,2],
+["Spiderman Molino","activation","viejo","08-13",null,2],
+["Spiderman Molino","activation","viejo","08-14",null,2],
+["Spiderman Molino","activation","viejo","08-15",null,2],
+["Spiderman Molino","activation","viejo","08-17",null,2],
+["Spiderman Molino","activation","viejo","08-19",null,2],
+["Spiderman Molino","activation","viejo","08-21",null,2],
+["Spiderman Molino","activation","viejo","08-24",null,2],
+["W A Y Posicion Supina","activation","viejo","07-29",null,2],
+["W A Y Posicion Supina","activation","viejo","07-30",null,2],
+["W A Y Posicion Supina","activation","viejo","08-03",null,2],
+["W A Y Posicion Supina","activation","viejo","08-04",null,2],
+["W A Y Posicion Supina","activation","viejo","08-06",null,2],
+["W A Y Posicion Supina","activation","viejo","08-13",null,2],
+["W A Y Posicion Supina","activation","viejo","08-14",null,2],
+["W A Y Posicion Supina","activation","viejo","08-15",null,2],
+["W A Y Posicion Supina","activation","viejo","08-17",null,2],
+["W A Y Posicion Supina","activation","viejo","08-19",null,2],
+["W A Y Posicion Supina","activation","viejo","08-21",null,2],
+["W A Y Posicion Supina","activation","viejo","08-24",null,2],
+["Bicho Muerto con Fitball","activation","nuevo","09-02",null,2],
+["Bicho Muerto con Fitball","activation","nuevo","09-04",null,2],
+["BIRD DOG","activation","nuevo","09-02",null,2],
+["BIRD DOG","activation","nuevo","09-04",null,2],
+["Carpa","activation","nuevo","09-02",null,1],
+["Carpa","activation","nuevo","09-04",null,2],
+["CURL ISQUIOS CON TRX","day_a","nuevo","09-02",null,3],
+["CURL ISQUIOS CON TRX","day_a","nuevo","09-04",null,3],
+["Deslizamiento porción distal n. mediano","activation","nuevo","09-02",null,1],
+["Deslizamiento porción distal n. mediano","activation","nuevo","09-04",null,1],
+["Molino Con Aductor","activation","nuevo","09-02",null,1],
+["Molino Con Aductor","activation","nuevo","09-04",null,2],
+["Movilidad unilateral de cadera","activation","nuevo","09-02",null,1],
+["Movilidad unilateral de cadera","activation","nuevo","09-04",null,2],
+["Plancha Lateral","activation","nuevo","09-02",null,2],
+["Plancha Lateral","activation","nuevo","09-04",null,2],
+["Push Press Db","day_a","nuevo","09-02",8,3],
+["Push Press Db","day_a","nuevo","09-04",null,3],
+["Remo en Bird dog","day_a","nuevo","09-02",6,3],
+["Remo en Bird dog","day_a","nuevo","09-04",null,3],
+["Sumo squat con mancuerna","day_a","nuevo","09-02",10,3],
+["Sumo squat con mancuerna","day_a","nuevo","09-04",12,3]
+  ];
+
+  // [plan, ejercicio, seccion, bloque, series, reps, peso sugerido]
+  var PEX = [
+["viejo","Deslizamiento Neural del Nervio Mediano","activation","A1",1,"10",null],
+["viejo","Frontal Squat con mancuernas","day_a","A1",3,"8","4"],
+["viejo","Push Up Banco","day_a","A2",3,"6",null],
+["viejo","Banded Hip Hinge (Power Band + Weight)","day_a","B1",3,"10","10"],
+["viejo","Seal Row","day_a","B2",3,"8","4"],
+["viejo","Curl de Isquiotibiales con Fitball","day_b","A1",3,"8",null],
+["viejo","Press militar con mancuernas","day_b","A2",3,"8","4"],
+["viejo","Estocadas Caminando","day_b","B1",3,"6",null],
+["viejo","Remo invertido/a con barra","day_b","B2",3,"10",null],
+["viejo","Movilidad de hombro con palo","activation","B1",2,"6",null],
+["viejo","W A Y Posicion Supina","activation","B2",2,"6",null],
+["viejo","Spiderman Molino","activation","B3",2,"5",null],
+["viejo","Jefferson curl","activation","B4",2,"5","6"],
+["viejo","PLANK (W Bracing)","activation","C1",2,"5",null],
+["viejo","Single Glute Raises + Abd","activation","C2",2,"5",null],
+["viejo","Pallof press polea","activation","C3",2,"6",null],
+["nuevo","Sumo squat con mancuerna","day_a","A1",3,"10","12"],
+["nuevo","Push Press Db","day_a","A2",3,"12",null],
+["nuevo","CURL ISQUIOS CON TRX","day_a","B1",3,null,null],
+["nuevo","Remo en Bird dog","day_a","B2",3,null,null],
+["nuevo","Polea al pecho","day_b","A1",3,"10",null],
+["nuevo","Peso muerto con Mancuernas","day_b","A2",3,"10",null],
+["nuevo","Push Up Banco","day_b","B1",3,"6",null],
+["nuevo","ESTOCADA ATRAS + SUBIR BANCO CON MANCUERNAS","day_b","B2",3,"4",null],
+["nuevo","Molino Con Aductor","activation","A1",2,"4",null],
+["nuevo","Deslizamiento porción distal n. mediano","activation","—",1,"10",null],
+["nuevo","Carpa","activation","A2",2,"5",null],
+["nuevo","Movilidad unilateral de cadera","activation","A3",2,"5",null],
+["nuevo","Bicho Muerto con Fitball","activation","B1",2,"4",null],
+["nuevo","Plancha Lateral","activation","B2",2,"20 seg",null],
+["nuevo","BIRD DOG","activation","B3",2,"4",null]
+  ];
+
+  var PLANS = {
+    viejo:{label:"Plan 1 · Andrea Martinez", asignado:"2026-07-26", hasta:"2026-08-31",
+           estado:"anterior", cls:"old"},
+    nuevo:{label:"Plan 2 · Andrea Martinez", asignado:"2026-09-01", hasta:"2026-12-31",
+           estado:"vigente", cls:"new"}
+  };
+  var SECTIONS = {activation:"Activación", day_a:"Día A", day_b:"Día B"};
+  var HOY = "2026-09-06";
+  var CAMBIO = "2026-09-01"; // arranque del plan vigente
+
+  function iso(md){ return "2026-" + md; }
+  function ddmm(md){ var p = md.split("-"); return p[1] + "/" + p[0]; }
+  function minusDays(isoDate, n){
+    var d = new Date(isoDate + "T00:00:00");
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0,10);
+  }
+
+  var state = { period:"90", mode:"today" };
+
+  function rangeStart(){
+    if (state.period === "custom") return "2026-07-27";
+    return minusDays(HOY, parseInt(state.period,10));
+  }
+
+  function logsInRange(){
+    var from = rangeStart();
+    return LOGS.filter(function(l){ return iso(l[3]) >= from; });
+  }
+
+  // progresión: promedio de la 1ª semana contra la última; < 14 días, primer vs último
+  function progression(points){
+    var pts = points.filter(function(p){ return p.v != null && p.v > 0; })
+                    .sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+    if (pts.length < 2) return null;
+    var first = pts[0].d, last = pts[pts.length-1].d;
+    var span = (new Date(last) - new Date(first)) / 86400000;
+    var a, b;
+    if (span < 14){
+      a = pts[0].v; b = pts[pts.length-1].v;
+    } else {
+      var wEnd = new Date(new Date(first).getTime() + 7*86400000).toISOString().slice(0,10);
+      var wStart = new Date(new Date(last).getTime() - 7*86400000).toISOString().slice(0,10);
+      var A = pts.filter(function(p){ return p.d <= wEnd; }).map(function(p){ return p.v; });
+      var B = pts.filter(function(p){ return p.d >= wStart; }).map(function(p){ return p.v; });
+      if (!A.length || !B.length) return null;
+      a = A.reduce(function(x,y){return x+y;},0)/A.length;
+      b = B.reduce(function(x,y){return x+y;},0)/B.length;
+    }
+    if (!a) return null;
+    return Math.round(((b - a) / a) * 100);
+  }
+
+  function pexOf(plan, ej){
+    for (var i=0;i<PEX.length;i++) if (PEX[i][0]===plan && PEX[i][1]===ej) return PEX[i];
+    return null;
+  }
+  function fmtSug(p){
+    if (!p) return "—";
+    var s = (p[4]||"—") + " × " + (p[5]||"—");
+    if (p[6]) s += " · " + p[6] + "kg";
+    return s;
+  }
+
+  // ── construir las filas según el modo ────────────────────────────
+  function build(){
+    var logs = logsInRange();
+    var dates = [];
+    logs.forEach(function(l){ if (dates.indexOf(l[3]) < 0) dates.push(l[3]); });
+    dates.sort();
+
+    var groups = [], usedLogs = 0;
+
+    function rowFor(name, plan, planesSet, myLogs, sugPex, mixed){
+      var byDate = {};
+      myLogs.forEach(function(l){ byDate[l[3]] = l; });
+      var wPts = myLogs.map(function(l){ return {d:iso(l[3]), v:l[4]}; });
+      var pct = progression(wPts);
+      var metric = "peso";
+      if (pct === null){
+        pct = progression(myLogs.map(function(l){ return {d:iso(l[3]), v:l[5]}; }));
+        metric = "series";
+      }
+      var maxW = myLogs.reduce(function(m,l){ return l[4] && l[4] > m ? l[4] : m; }, 0);
+      return { name:name, plan:plan, planes:planesSet, sug:fmtSug(sugPex),
+               byDate:byDate, n:myLogs.length, pct:pct, metric:metric,
+               max:maxW || null, mixed:mixed };
+    }
+
+    if (state.mode === "today"){
+      // filas = ejercicios del plan vigente; atajo por ejercicio si no hay registros propios
+      var rows = [];
+      PEX.filter(function(p){ return p[0] === "nuevo"; }).forEach(function(p){
+        var own = logs.filter(function(l){ return l[2]==="nuevo" && l[0]===p[1]; });
+        var mixed = false;
+        if (own.length === 0){
+          var fallback = logs.filter(function(l){ return l[0]===p[1]; });
+          if (fallback.length){ own = fallback; mixed = true; }
+        }
+        usedLogs += own.length;
+        rows.push(rowFor(p[1], "nuevo", null, own, p, mixed));
+      });
+      ["activation","day_a","day_b"].forEach(function(sec){
+        var rs = rows.filter(function(r){ return pexOf("nuevo", r.name)[2] === sec; });
+        if (rs.length) groups.push({ title: PLANS.nuevo.label + " · " + SECTIONS[sec],
+                                     cls:"new", rows: rs });
+      });
+
+    } else if (state.mode === "byplan"){
+      ["viejo","nuevo"].forEach(function(plan){
+        var planLogs = logs.filter(function(l){ return l[2] === plan; });
+        if (!planLogs.length) return;
+        var d1 = planLogs.map(function(l){return l[3];}).sort()[0];
+        var d2 = planLogs.map(function(l){return l[3];}).sort().slice(-1)[0];
+        ["activation","day_a","day_b"].forEach(function(sec){
+          var exs = [];
+          PEX.filter(function(p){ return p[0]===plan && p[2]===sec; }).forEach(function(p){
+            var own = planLogs.filter(function(l){ return l[0]===p[1]; });
+            if (!own.length) return;
+            usedLogs += own.length;
+            exs.push(rowFor(p[1], plan, null, own, p, false));
+          });
+          if (exs.length) groups.push({
+            title: PLANS[plan].label + " · " + SECTIONS[sec],
+            sub: ddmm(d1) + " – " + ddmm(d2) + " · " + PLANS[plan].estado,
+            cls: PLANS[plan].cls, rows: exs });
+        });
+      });
+
+    } else { // byex
+      var names = [];
+      logs.forEach(function(l){ if (names.indexOf(l[0]) < 0) names.push(l[0]); });
+      names.sort(function(a,b){ return a.localeCompare(b,"es"); });
+      var rows2 = names.map(function(n){
+        var mine = logs.filter(function(l){ return l[0] === n; });
+        usedLogs += mine.length;
+        var planes = [];
+        mine.forEach(function(l){ if (planes.indexOf(l[2]) < 0) planes.push(l[2]); });
+        var sug = pexOf("nuevo", n) || pexOf("viejo", n);
+        return rowFor(n, planes.length > 1 ? "ambos" : planes[0], planes, mine, sug, false);
+      });
+      groups.push({ title:"Todos los ejercicios registrados en el período",
+                    sub:"el plan pasa a ser una columna", cls:"new", rows: rows2 });
+    }
+
+    return { dates: dates, groups: groups, total: logs.length, used: usedLogs };
+  }
+
+  // ── pintar ───────────────────────────────────────────────────────
+  function render(){
+    var m = build();
+    var t = document.getElementById("mock");
+    var cutAt = null;
+    for (var i=0;i<m.dates.length;i++){
+      if (iso(m.dates[i]) >= CAMBIO){ cutAt = i; break; }
+    }
+    var showCut = (state.mode !== "today") && cutAt !== null && cutAt > 0;
+
+    var h = "<thead><tr>";
+    h += "<th>Ejercicio</th>";
+    if (state.mode === "byex") h += "<th>Planes</th>";
+    h += "<th>Sugerido</th>";
+    m.dates.forEach(function(d, i){
+      var cls = (showCut && i === cutAt) ? ' class="num cut cut-head"' : ' class="num"';
+      h += "<th" + cls + ">" + ddmm(d) + "</th>";
+    });
+    h += '<th class="num">Máx</th><th class="num">Prog.</th><th class="num">Reg.</th>';
+    h += "</tr></thead><tbody>";
+
+    var span = 4 + m.dates.length + (state.mode === "byex" ? 1 : 0);
+
+    m.groups.forEach(function(g){
+      h += '<tr class="grp"><td colspan="' + span + '">' +
+           '<span class="flag ' + g.cls + '">' + g.title + "</span>" +
+           (g.sub ? ' <span class="badge">' + g.sub + "</span>" : "") + "</td></tr>";
+      g.rows.forEach(function(r){
+        h += "<tr>";
+        h += '<td class="ex">' + r.name +
+             (r.mixed ? ' <span class="badge mix">datos de otro plan</span>' : "") + "</td>";
+        if (state.mode === "byex"){
+          var pl = r.planes.map(function(p){
+            return '<span class="flag ' + PLANS[p].cls + '">' + (p === "viejo" ? "Plan 1" : "Plan 2") + "</span>";
+          }).join(" ");
+          h += "<td>" + pl + "</td>";
+        }
+        h += "<td>" + r.sug + "</td>";
+        m.dates.forEach(function(d, i){
+          var l = r.byDate[d];
+          var cls = "num" + ((showCut && i === cutAt) ? " cut" : "");
+          if (!l){ h += '<td class="' + cls + '"><span class="empty">·</span></td>'; return; }
+          var txt = l[4] != null ? l[4] + "kg" : (l[5] ? l[5] + "s" : "✓");
+          var tone = l[2] === "viejo" ? "cell-old" : "cell-new";
+          h += '<td class="' + cls + '"><span class="' + tone + '">' + txt + "</span></td>";
+        });
+        h += '<td class="num">' + (r.max ? r.max + "kg" : "—") + "</td>";
+        var pc = r.pct;
+        var pcls = pc === null ? "zero" : (pc > 0 ? "pos" : (pc < 0 ? "neg" : "zero"));
+        var ptxt = pc === null ? "—" : (pc > 0 ? "+" : "") + pc + "%";
+        h += '<td class="num ' + pcls + '" title="' + (pc===null?"":"medido en "+r.metric) + '">' + ptxt + "</td>";
+        h += '<td class="num">' + r.n + "</td>";
+        h += "</tr>";
+      });
+    });
+    h += "</tbody>";
+    t.innerHTML = h;
+
+    var lost = m.total - m.used;
+    var c = document.getElementById("counters");
+    c.innerHTML =
+      '<div class="counter"><div class="n">' + m.total + '</div><div class="l">registros en el rango</div></div>' +
+      '<div class="counter"><div class="n">' + m.used + '</div><div class="l">visibles en la tabla</div></div>' +
+      '<div class="counter' + (lost > 0 ? " warn" : "") + '"><div class="n">' + lost +
+      '</div><div class="l">' + (lost > 0 ? "descartados en silencio" : "descartados") + '</div></div>' +
+      '<div class="counter"><div class="n">' + m.groups.reduce(function(a,g){return a+g.rows.length;},0) +
+      '</div><div class="l">filas</div></div>';
+
+    var e = document.getElementById("explain");
+    if (state.mode === "today"){
+      e.innerHTML = "<strong>Hoy.</strong> Las filas son los ejercicios del plan vigente y no cambian " +
+        "con el período. Estirar las fechas solo agrega columnas vacías. Fijate en el contador de " +
+        "descartados y en las filas marcadas <span class='badge mix'>datos de otro plan</span>.";
+    } else if (state.mode === "byplan"){
+      e.innerHTML = "<strong>Por plan.</strong> Cada plan que se solapa con el período trae sus propios " +
+        "ejercicios, con su prescripción y su período real. La línea punteada marca el arranque del " +
+        "plan vigente, el 01/09.";
+    } else {
+      e.innerHTML = "<strong>Por ejercicio.</strong> Una fila por ejercicio del catálogo, con todo su " +
+        "historial del período aunque venga de planes distintos. El progreso se mide de punta a punta. " +
+        "Es la vista para fijar objetivos.";
+    }
+
+    document.getElementById("legend").innerHTML =
+      '<span class="cell-old">■</span> registro del plan anterior &nbsp;&nbsp;' +
+      '<span class="cell-new">■</span> registro del plan vigente &nbsp;&nbsp;' +
+      '“✓” = sesión registrada sin peso &nbsp;&nbsp; “3s” = 3 series sin peso';
+  }
+
+  function wire(id, key, attr){
+    var box = document.getElementById(id);
+    box.addEventListener("click", function(ev){
+      var b = ev.target.closest("button");
+      if (!b) return;
+      state[key] = b.getAttribute(attr);
+      Array.prototype.forEach.call(box.querySelectorAll("button"), function(x){
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      render();
+    });
+  }
+  wire("periodChips", "period", "data-p");
+  wire("modeChips", "mode", "data-m");
+  render();
+})();
+</script>
+</body>
+</html>

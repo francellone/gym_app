@@ -189,6 +189,29 @@ export default function ExercisesLibraryPage() {
   async function deleteExercise(ex) {
     const id = ex.id
 
+    // Un ejercicio con entrenamientos registrados NO se borra (v41): la FK
+    // workout_logs.exercise_id es ON DELETE RESTRICT. Se chequea acá para dar un
+    // mensaje claro en vez del error crudo de la base.
+    let logCount = 0
+    try {
+      const { count } = await supabase
+        .from('workout_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('exercise_id', id)
+      logCount = count || 0
+    } catch {
+      logCount = 0
+    }
+    if (logCount > 0) {
+      alert(
+        `No se puede eliminar "${ex.name}": tiene ${logCount} ` +
+          `${logCount === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}. ` +
+          'Borrarlo dejaría ese historial sin ejercicio. ' +
+          'Si ya no lo usás, sacalo de los planes en lugar de eliminarlo.'
+      )
+      return
+    }
+
     // Avisar si el ejercicio está usado en planes: el FK es ON DELETE CASCADE,
     // así que borrarlo lo quita de esos planes (de las alumnas) sin más aviso.
     let planCount = 0
@@ -217,7 +240,14 @@ export default function ExercisesLibraryPage() {
     const { data, error } = await supabase.from('exercises').delete().eq('id', id).select('id')
 
     if (error) {
-      alert(`No se pudo eliminar el ejercicio: ${error.message}`)
+      if (error.code === '23503') {
+        alert(
+          `No se puede eliminar "${ex.name}": tiene entrenamientos registrados. ` +
+            'Borrarlo dejaría ese historial sin ejercicio.'
+        )
+      } else {
+        alert(`No se pudo eliminar el ejercicio: ${error.message}`)
+      }
       return
     }
     if (!data || data.length === 0) {
