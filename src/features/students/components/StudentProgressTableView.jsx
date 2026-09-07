@@ -15,6 +15,7 @@ import {
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
+import { planWindowsFromLogs, planCutDates, realPlanWindows, cutIndexes } from '../planWindows'
 
 // ─────────────────────────────────────────────────────────────
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
@@ -129,6 +130,15 @@ const defaultVisibleCols = () =>
 // ─────────────────────────────────────────────────────────────
 // Sesiones (columnas dinámicas por fecha real)
 // ─────────────────────────────────────────────────────────────
+const ROW_MODES = [
+  { id: 'plan', label: 'Por plan', hint: 'Qué le prescribiste en cada plan y qué cumplió' },
+  {
+    id: 'exercise',
+    label: 'Por ejercicio',
+    hint: 'Todo el historial de un ejercicio, cruzando planes',
+  },
+]
+
 const SESSIONS_COUNT_OPTIONS = [
   { value: 3, label: '3' },
   { value: 5, label: '5' },
@@ -161,8 +171,13 @@ export default function StudentProgressTableView({
   selectedTag = '',
 }) {
   const [planExercises, setPlanExercises] = useState([])
-  const [activePlans, setActivePlans] = useState([])
+  const [plansInPeriod, setPlansInPeriod] = useState([])
   const [loadingPlan, setLoadingPlan] = useState(false)
+
+  // Cómo se arma cada fila:
+  //   'plan'     → un ejercicio de cada plan que se solape con el período
+  //   'exercise' → un ejercicio del catálogo con todo su historial, cruzando planes
+  const [rowMode, setRowMode] = useState('plan')
 
   // Visualización / filtros
   const [visibleCols, setVisibleCols] = useState(defaultVisibleCols())
@@ -179,27 +194,49 @@ export default function StudentProgressTableView({
   // Modal de notas
   const [activeNote, setActiveNote] = useState(null) // { key, text }
 
-  // ── Cargar plan_exercises de los planes activos ────────────
+  // ── Planes que tocó el alumno en el período ────────────────
+  // Los registros ya vienen filtrados por fecha desde el padre, así que de
+  // ellos sale qué planes hay que traer. Antes esto pedía solo la asignación
+  // activa y el plan anterior no tenía dónde pintarse: los registros viejos
+  // llegaban y se descartaban en silencio.
+  const planIdsInLogs = useMemo(() => {
+    const set = new Set()
+    for (const l of logs) if (l.plan_id) set.add(l.plan_id)
+    return [...set].sort()
+  }, [logs])
+  const planIdsKey = planIdsInLogs.join(',')
+
   useEffect(() => {
     let cancelled = false
     async function loadPlanData() {
       setLoadingPlan(true)
       try {
-        const { data: assigns } = await supabase
+        const { data: assigns, error: assignErr } = await supabase
           .from('plan_assignments')
-          .select('plan:plans!plan_id(id, title, sessions_per_week, has_activation)')
+          .select('plan_id, active')
           .eq('student_id', studentId)
-          .eq('active', true)
-        const plans = (assigns || []).map((a) => a.plan).filter(Boolean)
+        if (assignErr) throw assignErr
+        const activeIds = new Set((assigns || []).filter((a) => a.active).map((a) => a.plan_id))
+        // El plan vigente entra aunque todavía no tenga registros, para que se
+        // vea lo prescrito; los planes anteriores entran por sus registros.
+        const planIds = [...new Set([...planIdsInLogs, ...activeIds])].filter(Boolean)
         if (cancelled) return
-        setActivePlans(plans)
 
-        if (plans.length === 0) {
+        if (planIds.length === 0) {
+          setPlansInPeriod([])
           setPlanExercises([])
           return
         }
 
-        const planIds = plans.map((p) => p.id)
+        // Se piden por id y no por la asignación: un plan cuya asignación se
+        // borró igual tiene registros que hay que mostrar.
+        const { data: planRows, error: planErr } = await supabase
+          .from('plans')
+          .select('id, title, sessions_per_week, has_activation')
+          .in('id', planIds)
+        if (planErr) throw planErr
+        if (cancelled) return
+        setPlansInPeriod((planRows || []).map((p) => ({ ...p, active: activeIds.has(p.id) })))
         const { data: pex } = await supabase
           .from('plan_exercises')
           .select(
@@ -217,6 +254,10 @@ export default function StudentProgressTableView({
         setPlanExercises(pex || [])
       } catch (err) {
         console.error('[StudentProgressTableView]', err)
+        if (!cancelled) {
+          setPlansInPeriod([])
+          setPlanExercises([])
+        }
       } finally {
         if (!cancelled) setLoadingPlan(false)
       }
@@ -225,7 +266,9 @@ export default function StudentProgressTableView({
     return () => {
       cancelled = true
     }
-  }, [studentId])
+    // planIdsKey y no planIdsInLogs: el array se recrea en cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, planIdsKey])
 
   // ── Índices de logs ────────────────────────────────────────
 
@@ -250,20 +293,6 @@ export default function StudentProgressTableView({
     return map
   }, [logs])
 
-  // exercise_id → logs[] ordenados por fecha asc (fallback)
-  const logsByExerciseId = useMemo(() => {
-    const map = new Map()
-    for (const log of logs) {
-      const exId = log.plan_exercise?.exercise?.id
-      if (!exId) continue
-      if (!map.has(exId)) map.set(exId, [])
-      map.get(exId).push(log)
-    }
-    for (const arr of map.values())
-      arr.sort((a, b) => (a.logged_date || '').localeCompare(b.logged_date || ''))
-    return map
-  }, [logs])
-
   // plan_exercise_id → date → log  (lookup rápido por fecha)
   const logsByExAndDate = useMemo(() => {
     const map = new Map()
@@ -279,10 +308,26 @@ export default function StudentProgressTableView({
   const logsByExerciseAndDate = useMemo(() => {
     const map = new Map()
     for (const log of logs) {
-      const exId = log.plan_exercise?.exercise?.id
+      const exId = log.exercise_id || log.plan_exercise?.exercise?.id
       if (!exId || !log.logged_date) continue
       if (!map.has(exId)) map.set(exId, new Map())
-      if (!map.get(exId).has(log.logged_date)) map.get(exId).set(log.logged_date, log)
+      // Mismo criterio que el índice por plan_exercise: gana el último. Si un
+      // ejercicio se registró dos veces el mismo día (dos secciones, o dos
+      // planes en la misma fecha) la celda avisa con "·N".
+      map.get(exId).set(log.logged_date, log)
+    }
+    return map
+  }, [logs])
+
+  // Cuántos registros hay del mismo ejercicio en un mismo día (modo por
+  // ejercicio): la celda muestra uno, pero las métricas cuentan todos.
+  const logCountByExerciseAndDate = useMemo(() => {
+    const map = new Map()
+    for (const log of logs) {
+      const exId = log.exercise_id || log.plan_exercise?.exercise?.id
+      if (!exId || !log.logged_date) continue
+      const key = `${exId}|${log.logged_date}`
+      map.set(key, (map.get(key) || 0) + 1)
     }
     return map
   }, [logs])
@@ -308,13 +353,25 @@ export default function StudentProgressTableView({
   }, [logs, sessionsCount])
 
   // ── Filas: una por plan_exercise ───────────────────────────
-  const rows = useMemo(() => {
-    return planExercises.map((pex) => {
+  // ── Ventanas de plan dentro del período (para agrupar y para el corte) ──
+  const planWindows = useMemo(() => planWindowsFromLogs(logs), [logs])
+  const cutDates = useMemo(() => planCutDates(planWindows), [planWindows])
+  const windowByPlan = useMemo(() => {
+    const m = new Map()
+    for (const w of planWindows) m.set(w.planId, w)
+    return m
+  }, [planWindows])
+
+  const activePlanIds = useMemo(
+    () => new Set(plansInPeriod.filter((p) => p.active).map((p) => p.id)),
+    [plansInPeriod]
+  )
+
+  // Métricas de una fila. La usan los dos modos: por plan recibe los registros
+  // de ese ejercicio del plan, por ejercicio recibe todo su historial del período.
+  const buildRow = useCallback((pex, exLogs, overrides = {}) => {
+    {
       const exerciseId = pex.exercise?.id
-      const exLogs =
-        logsByPlanExercise.get(pex.id) ||
-        (exerciseId ? logsByExerciseId.get(exerciseId) : null) ||
-        []
 
       const lastLog = exLogs.length > 0 ? exLogs[exLogs.length - 1] : null
       const prevLog = exLogs.length > 1 ? exLogs[exLogs.length - 2] : null
@@ -419,13 +476,96 @@ export default function StudentProgressTableView({
         progressColor,
         progressMetric,
         hasLogs: exLogs.length > 0,
+        ...overrides,
       }
-    })
-  }, [planExercises, logsByPlanExercise, logsByExerciseId])
+    }
+  }, [])
+
+  // Modo "por plan": una fila por ejercicio de cada plan del período.
+  // Solo los registros de ESE ejercicio de ESE plan. Antes, si el ejercicio del
+  // plan vigente no tenía registros, la fila se rellenaba con los del mismo
+  // ejercicio de otro plan sin avisar (y desaparecían apenas había uno propio).
+  const rows = useMemo(
+    () => planExercises.map((pex) => buildRow(pex, logsByPlanExercise.get(pex.id) || [])),
+    [planExercises, logsByPlanExercise, buildRow]
+  )
+
+  // Modo "por ejercicio": una fila por ejercicio del catálogo, con todo su
+  // historial del período aunque venga de planes distintos. Se apoya en
+  // workout_logs.exercise_id (v41), que sobrevive al borrado del plan.
+  const exerciseRows = useMemo(() => {
+    const byExercise = new Map()
+    for (const log of logs) {
+      const exId = log.exercise_id || log.plan_exercise?.exercise?.id
+      if (!exId) continue
+      if (!byExercise.has(exId)) byExercise.set(exId, [])
+      byExercise.get(exId).push(log)
+    }
+
+    // Prescripción de referencia: la del plan vigente si el ejercicio sigue ahí;
+    // si no, la del plan más reciente en el que estuvo. El orden sale de las
+    // ventanas de plan (fecha real de entrenamiento), no del orden en que la
+    // base devolvió los plan_exercises.
+    const rank = new Map(planWindows.map((w, i) => [w.planId, i]))
+    const rankOf = (planId) =>
+      activePlanIds.has(planId) ? Number.MAX_SAFE_INTEGER : (rank.get(planId) ?? -1)
+    const pexByExercise = new Map()
+    for (const pex of planExercises) {
+      const exId = pex.exercise?.id
+      if (!exId) continue
+      const prev = pexByExercise.get(exId)
+      if (!prev || rankOf(pex.plan_id) > rankOf(prev.plan_id)) pexByExercise.set(exId, pex)
+    }
+
+    const out = []
+    for (const [exId, exLogs] of byExercise) {
+      const sorted = [...exLogs].sort((a, b) =>
+        (a.logged_date || '').localeCompare(b.logged_date || '')
+      )
+      const pex = pexByExercise.get(exId)
+      const planIds = [...new Set(sorted.map((l) => l.plan_id).filter(Boolean))]
+      const name =
+        sorted.find((l) => l.exercise?.name)?.exercise?.name ||
+        pex?.exercise?.name ||
+        sorted.find((l) => l.plan_exercise?.exercise?.name)?.plan_exercise?.exercise?.name ||
+        'Ejercicio eliminado del plan'
+      const base = pex || {
+        id: `ex-${exId}`,
+        plan_id: null,
+        section: null,
+        block_label: '',
+        exercise: { id: exId, name },
+      }
+      const inCurrentPlan = pex ? activePlanIds.has(pex.plan_id) : false
+      out.push(
+        buildRow(base, sorted, {
+          id: `ex-${exId}`,
+          exerciseId: exId,
+          planId: null,
+          section: null,
+          exerciseName: name,
+          planIds,
+          inCurrentPlan,
+          // De qué plan sale la prescripción que muestra la fila: si el
+          // ejercicio pasó por varios, decirlo en vez de mostrar un número
+          // suelto sin dueño.
+          prescriptionPlanId: pex?.plan_id || null,
+          prescriptionIsCurrent: inCurrentPlan,
+        })
+      )
+    }
+    return out.sort((a, b) => a.exerciseName.localeCompare(b.exerciseName, 'es'))
+  }, [logs, planExercises, activePlanIds, planWindows, buildRow])
+
+  // Si los ejercicios del plan fueron borrados pero los registros conservan su
+  // ejercicio (v41), la vista por plan no tiene nada que mostrar: se usa la
+  // otra en lugar de dejar la tabla vacía.
+  const planViewUnavailable = planExercises.length === 0 && exerciseRows.length > 0
+  const effectiveRowMode = planViewUnavailable ? 'exercise' : rowMode
 
   // ── Filtro "solo con logs" + filtro por etiqueta ──────────
   const filteredRows = useMemo(() => {
-    let result = rows
+    let result = effectiveRowMode === 'exercise' ? exerciseRows : rows
     if (showOnlyWithLogs) result = result.filter((r) => r.hasLogs)
     if (selectedTag) {
       result = result.filter(
@@ -435,20 +575,36 @@ export default function StudentProgressTableView({
       )
     }
     return result
-  }, [rows, showOnlyWithLogs, selectedTag, tagAssignments])
+  }, [rows, exerciseRows, effectiveRowMode, showOnlyWithLogs, selectedTag, tagAssignments])
+
+  // Planes ordenados como se leen: primero el más viejo del período, y el
+  // vigente sin registros al final.
+  const orderedPlans = useMemo(() => {
+    const order = new Map(planWindows.map((w, i) => [w.planId, i]))
+    return [...plansInPeriod].sort((a, b) => {
+      const ia = order.has(a.id) ? order.get(a.id) : Number.MAX_SAFE_INTEGER
+      const ib = order.has(b.id) ? order.get(b.id) : Number.MAX_SAFE_INTEGER
+      if (ia !== ib) return ia - ib
+      return (a.title || '').localeCompare(b.title || '', 'es')
+    })
+  }, [plansInPeriod, planWindows])
 
   // ── Agrupación por sección ─────────────────────────────────
   const groupedRows = useMemo(() => {
-    if (!groupBySection) return null
+    if (!groupBySection || effectiveRowMode === 'exercise') return null
     const groups = []
-    for (const plan of activePlans) {
+    for (const plan of orderedPlans) {
       const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
+      const win = windowByPlan.get(plan.id)
       for (const s of sections) {
         const rowsInSection = filteredRows.filter((r) => r.planId === plan.id && r.section === s.id)
         if (rowsInSection.length === 0) continue
         groups.push({
           key: `${plan.id}:${s.id}`,
           planTitle: plan.title,
+          planActive: plan.active,
+          planFrom: win?.from || null,
+          planTo: win?.to || null,
           sectionLabel: s.label,
           rows: rowsInSection,
         })
@@ -460,7 +616,7 @@ export default function StudentProgressTableView({
     if (orphans.length > 0)
       groups.push({ key: 'orphans', planTitle: '', sectionLabel: 'Otros', rows: orphans })
     return groups
-  }, [filteredRows, activePlans, groupBySection])
+  }, [filteredRows, orderedPlans, windowByPlan, groupBySection, effectiveRowMode])
 
   const toggleCol = (colId) =>
     setVisibleCols((prev) => {
@@ -478,16 +634,23 @@ export default function StudentProgressTableView({
       return next
     })
 
+  // Columnas donde arranca un plan distinto: ahí va la línea punteada.
+  const cutCols = useMemo(() => cutIndexes(allSessionDates, cutDates), [allSessionDates, cutDates])
+  const cutClass = (i) => (cutCols.has(i) ? 'border-l-2 border-dashed border-amber-400' : '')
+
   const isCol = (id) => visibleCols.has(id)
   const isField = (id) => sessionFields.has(id)
 
   // Lookup de log por fila + fecha
+  // En modo por plan, cada celda muestra SOLO el registro de ese ejercicio de
+  // ese plan. El cruce entre planes vive en el modo por ejercicio, donde la
+  // fila lo dice.
   const getLogForDate = useCallback(
     (row, date) =>
-      logsByExAndDate.get(row.id)?.get(date) ??
-      logsByExerciseAndDate.get(row.exerciseId)?.get(date) ??
-      null,
-    [logsByExAndDate, logsByExerciseAndDate]
+      effectiveRowMode === 'exercise'
+        ? (logsByExerciseAndDate.get(row.exerciseId)?.get(date) ?? null)
+        : (logsByExAndDate.get(row.id)?.get(date) ?? null),
+    [logsByExAndDate, logsByExerciseAndDate, effectiveRowMode]
   )
 
   // Abrir/cerrar modal de nota
@@ -521,7 +684,11 @@ export default function StudentProgressTableView({
 
   // ── Conteo de columnas (para colSpan) ─────────────────────
   const visibleColCount =
-    1 /* ejercicio */ + COLUMN_DEFS.filter((c) => isCol(c.id)).length + allSessionDates.length
+    1 /* ejercicio */ +
+    (effectiveRowMode === 'exercise' ? 1 /* planes */ : 0) +
+    COLUMN_DEFS.filter((c) => isCol(c.id) && !(effectiveRowMode === 'exercise' && c.id === 'block'))
+      .length +
+    allSessionDates.length
 
   // ── Header de la tabla ─────────────────────────────────────
   const renderHeader = () => (
@@ -529,7 +696,12 @@ export default function StudentProgressTableView({
       <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[140px]">
         Ejercicio
       </th>
-      {isCol('block') && <th className="text-left font-semibold px-2 py-2">Bloque</th>}
+      {effectiveRowMode === 'exercise' && (
+        <th className="text-left font-semibold px-2 py-2 min-w-[90px]">Planes</th>
+      )}
+      {isCol('block') && effectiveRowMode !== 'exercise' && (
+        <th className="text-left font-semibold px-2 py-2">Bloque</th>
+      )}
       {isCol('plan_sets') && <th className="text-right font-semibold px-2 py-2">Series</th>}
       {isCol('plan_reps') && <th className="text-right font-semibold px-2 py-2">Reps</th>}
       {isCol('plan_weight') && <th className="text-right font-semibold px-2 py-2">Peso sug.</th>}
@@ -552,9 +724,15 @@ export default function StudentProgressTableView({
             key={`sh-${date}`}
             className={`text-center font-semibold px-2 py-2 min-w-[82px] border-l border-gray-100 ${
               isLatest ? 'bg-primary-50 text-primary-700' : ''
-            }`}
+            } ${cutClass(i)}`}
+            title={cutCols.has(i) ? 'Acá arranca otro plan' : undefined}
           >
             <div className="flex flex-col items-center leading-none gap-[3px]">
+              {cutCols.has(i) && (
+                <span className="text-[8px] font-bold text-amber-600 tracking-wide">
+                  PLAN NUEVO
+                </span>
+              )}
               <span>{format(parseISO(date), 'dd/MM')}</span>
               {blockLabel && (
                 <span
@@ -595,19 +773,38 @@ export default function StudentProgressTableView({
     )
 
   // Celda de sesión
-  const renderSessionCell = (log, prevLog, highlight, noteKey) => {
+  const renderSessionCell = (
+    log,
+    prevLog,
+    highlight,
+    noteKey,
+    extraClass = '',
+    sameDayCount = 0
+  ) => {
     const bg = highlight ? 'bg-primary-50/40' : ''
     if (!log) {
       return (
-        <td className={`px-2 py-2 text-center text-gray-300 border-l border-gray-100 ${bg}`}>—</td>
+        <td
+          className={`px-2 py-2 text-center text-gray-300 border-l border-gray-100 ${bg} ${extraClass}`}
+        >
+          —
+        </td>
       )
     }
     const hasNotes = !!(log.notes && log.notes.trim())
     const status = isField('status') ? getStatusEmoji(log, prevLog) : null
 
     return (
-      <td className={`px-2 py-2 text-center border-l border-gray-100 ${bg}`}>
+      <td className={`px-2 py-2 text-center border-l border-gray-100 ${bg} ${extraClass}`}>
         <div className="flex flex-col items-center gap-0.5 leading-tight">
+          {sameDayCount > 1 && (
+            <span
+              className="text-[9px] text-amber-600 font-semibold"
+              title={`${sameDayCount} registros de este ejercicio ese día; la celda muestra el último y los totales los cuentan a todos`}
+            >
+              ·{sameDayCount}
+            </span>
+          )}
           {isField('date') && (
             <span className="text-[10px] text-gray-400">
               {log.logged_date ? format(parseISO(log.logged_date), 'dd/MM') : ''}
@@ -670,8 +867,26 @@ export default function StudentProgressTableView({
           {r.muscleGroup && <div className="text-[10px] text-gray-400">{r.muscleGroup}</div>}
         </td>
 
+        {/* En modo por ejercicio: en cuántos planes estuvo */}
+        {effectiveRowMode === 'exercise' && (
+          <td className="px-2 py-2">
+            {r.planIds?.length > 1 ? (
+              <span
+                className="badge bg-amber-100 text-amber-700"
+                title="Este ejercicio tiene historial en más de un plan"
+              >
+                {r.planIds.length} planes
+              </span>
+            ) : r.inCurrentPlan ? (
+              <span className="badge bg-primary-100 text-primary-700">Vigente</span>
+            ) : (
+              <span className="badge bg-gray-100 text-gray-500">Anterior</span>
+            )}
+          </td>
+        )}
+
         {/* Columnas estáticas del plan */}
-        {isCol('block') && (
+        {isCol('block') && effectiveRowMode !== 'exercise' && (
           <td className="px-2 py-2">
             {r.block_label ? (
               <span className="badge bg-primary-100 text-primary-700">{r.block_label}</span>
@@ -689,7 +904,23 @@ export default function StudentProgressTableView({
           </td>
         )}
         {isCol('plan_weight') && (
-          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_weightStr}</td>
+          <td className="px-2 py-2 text-right text-gray-700">
+            {r.suggested_weightStr}
+            {effectiveRowMode === 'exercise' &&
+              r.planIds?.length > 1 &&
+              r.suggested_weightStr !== '—' && (
+                <span
+                  className="text-[9px] text-amber-600 align-super ml-0.5"
+                  title={
+                    r.prescriptionIsCurrent
+                      ? 'Prescripción del plan vigente; en los planes anteriores pudo ser otra'
+                      : 'Prescripción del último plan en el que estuvo este ejercicio'
+                  }
+                >
+                  ●
+                </span>
+              )}
+          </td>
         )}
         {isCol('plan_pse') && (
           <td className="px-2 py-2 text-right text-gray-700">{r.suggested_pse || '—'}</td>
@@ -768,7 +999,16 @@ export default function StudentProgressTableView({
           const noteKey = `${r.id}-${date}`
           return (
             <Fragment key={`sc-${r.id}-${date}`}>
-              {renderSessionCell(log, prevLog, isLatest, noteKey)}
+              {renderSessionCell(
+                log,
+                prevLog,
+                isLatest,
+                noteKey,
+                cutClass(i),
+                effectiveRowMode === 'exercise'
+                  ? logCountByExerciseAndDate.get(`${r.exerciseId}|${date}`) || 0
+                  : 0
+              )}
             </Fragment>
           )
         })}
@@ -830,14 +1070,14 @@ export default function StudentProgressTableView({
     )
   }
 
-  if (planExercises.length === 0) {
+  if (planExercises.length === 0 && exerciseRows.length === 0) {
     return (
       <div className="card text-center py-8 text-gray-400">
         <TableIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p className="text-sm">
-          {activePlans.length === 0
-            ? 'El alumno no tiene planes activos asignados'
-            : 'Los planes activos no tienen ejercicios cargados'}
+          {plansInPeriod.length === 0
+            ? 'No hay planes con registros en este período'
+            : 'Los planes del período no tienen ejercicios cargados'}
         </p>
       </div>
     )
@@ -873,6 +1113,41 @@ export default function StudentProgressTableView({
           </div>
         </div>
       )}
+
+      {/* ── Cómo se arma cada fila ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+          {ROW_MODES.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setRowMode(m.id)}
+              disabled={planViewUnavailable && m.id === 'plan'}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                effectiveRowMode === m.id
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              } ${planViewUnavailable && m.id === 'plan' ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={
+                planViewUnavailable && m.id === 'plan'
+                  ? 'Los ejercicios de este plan ya no existen: solo queda el historial por ejercicio'
+                  : m.hint
+              }
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-gray-400">
+          {effectiveRowMode === 'exercise'
+            ? 'Historial completo de cada ejercicio, cruzando planes. Solo lo entrenado.'
+            : 'Cada plan con su prescripción, agrupado por sección'}
+        </span>
+        {realPlanWindows(planWindows).length > 1 && (
+          <span className="text-[11px] text-amber-600 font-medium ml-auto">
+            {realPlanWindows(planWindows).length} planes en el período
+          </span>
+        )}
+      </div>
 
       {/* ── Selector de cantidad de sesiones ── */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -955,24 +1230,30 @@ export default function StudentProgressTableView({
           <Columns3 size={13} />
           Columnas ({visibleCols.size})
         </button>
-        <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showOnlyWithLogs}
-            onChange={(e) => setShowOnlyWithLogs(e.target.checked)}
-            className="rounded"
-          />
-          Solo con registros
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={groupBySection}
-            onChange={(e) => setGroupBySection(e.target.checked)}
-            className="rounded"
-          />
-          Agrupar por sección
-        </label>
+        {/* En modo por ejercicio no aplican: las filas salen de los registros
+            (todas tienen) y no hay secciones que agrupar. */}
+        {effectiveRowMode !== 'exercise' && (
+          <>
+            <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showOnlyWithLogs}
+                onChange={(e) => setShowOnlyWithLogs(e.target.checked)}
+                className="rounded"
+              />
+              Solo con registros
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={groupBySection}
+                onChange={(e) => setGroupBySection(e.target.checked)}
+                className="rounded"
+              />
+              Agrupar por sección
+            </label>
+          </>
+        )}
         <div className="flex items-center gap-1 text-xs text-gray-400 ml-auto">
           <Filter size={12} />
           {filteredRows.length} ejercicio{filteredRows.length !== 1 ? 's' : ''}
@@ -1077,9 +1358,26 @@ export default function StudentProgressTableView({
                                 <ChevronUp size={14} className="text-gray-400" />
                               )}
                               <span>{group.sectionLabel}</span>
-                              {group.planTitle && activePlans.length > 1 && (
+                              {group.planTitle && orderedPlans.length > 1 && (
                                 <span className="text-gray-400 font-normal">
                                   · {group.planTitle}
+                                </span>
+                              )}
+                              {group.planFrom && (
+                                <span className="text-[10px] text-gray-400 font-normal">
+                                  {format(parseISO(group.planFrom), 'dd/MM')} –{' '}
+                                  {format(parseISO(group.planTo), 'dd/MM')}
+                                </span>
+                              )}
+                              {orderedPlans.length > 1 && (
+                                <span
+                                  className={`badge text-[10px] ${
+                                    group.planActive
+                                      ? 'bg-primary-100 text-primary-700'
+                                      : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {group.planActive ? 'vigente' : 'anterior'}
                                 </span>
                               )}
                               <span className="ml-auto text-gray-400 font-normal">

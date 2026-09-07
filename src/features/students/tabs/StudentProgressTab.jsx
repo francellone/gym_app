@@ -15,6 +15,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts'
 import {
   borgColor,
@@ -28,6 +29,7 @@ import {
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
 import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../attendanceRange'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
+import { planWindowsFromLogs, planCutDates, previousPlanStart } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -43,11 +45,15 @@ const CHARTS = [
   { id: 'compare', label: 'Plan vs Real' },
 ]
 
+// "Todo" arranca en 2020: antes eran 365 días y se comía el historial viejo
+// sin decirlo (la app empezó en 2026, así que alcanza de sobra).
+const ALL_TIME_FROM = '2020-01-01'
+
 const PERIODS = [
   { label: '1m', days: 30 },
   { label: '3m', days: 90 },
   { label: '6m', days: 180 },
-  { label: 'Todo', days: 365 },
+  { label: 'Todo', days: 'all' },
 ]
 
 const VIEW_MODES = [
@@ -88,6 +94,12 @@ function volumeOf(l, bodyWeightKg) {
   return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
 }
 
+// Ejercicio del catálogo de un registro. Desde v41 el registro lo guarda por
+// su cuenta; el embed del plan queda como respaldo para datos viejos.
+function logExerciseId(log) {
+  return log?.exercise_id || log?.plan_exercise?.exercise?.id || null
+}
+
 // ─────────────────────────────────────────────────────────────
 // StudentProgressTab
 // ─────────────────────────────────────────────────────────────
@@ -99,6 +111,7 @@ export default function StudentProgressTab({ studentId }) {
   const [useCustomRange, setUseCustomRange] = useState(false)
   const [customFrom, setCustomFrom] = useState(() => format(subDays(new Date(), 30), 'yyyy-MM-dd'))
   const [customTo, setCustomTo] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [prevPlanStart, setPrevPlanStart] = useState(null)
   const [progressExercises, setProgressExercises] = useState([])
   const [selectedExercise, setSelectedExercise] = useState('')
   const [activeChart, setActiveChart] = useState('weight')
@@ -143,7 +156,9 @@ export default function StudentProgressTab({ studentId }) {
     setLoading(true)
     const since = useCustomRange
       ? customFrom
-      : format(subDays(new Date(), progressPeriod), 'yyyy-MM-dd')
+      : progressPeriod === 'all'
+        ? ALL_TIME_FROM
+        : format(subDays(new Date(), progressPeriod), 'yyyy-MM-dd')
     const until = useCustomRange ? customTo : null
 
     // Joineamos plan_type para excluir logs de evaluaciones de los
@@ -154,6 +169,7 @@ export default function StudentProgressTab({ studentId }) {
         `
         *,
         plan:plans!plan_id(plan_type),
+        exercise:exercises!exercise_id(id, name, muscle_group),
         plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section, suggested_sets, suggested_weight,
           weight_mode, unilateral,
@@ -182,24 +198,36 @@ export default function StudentProgressTab({ studentId }) {
     if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
     sessionsQuery = sessionsQuery.order('logged_date')
 
-    const [logsRes, sessionsRes, tagsRes, tagAssignRes, studentRes, blockLogsRes, attLogsRes] =
-      await Promise.all([
-        logsQuery,
-        sessionsQuery,
-        supabase.from('exercise_tags').select('*').order('name'),
-        supabase.from('exercise_tag_assignments').select('*'),
-        supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
-        supabase
-          .from('workout_block_logs')
-          .select('logged_date, plan:plans!plan_id(plan_type)')
-          .eq('student_id', studentId)
-          .gte('logged_date', blocksFrom),
-        supabase
-          .from('workout_logs')
-          .select('logged_date, plan:plans!plan_id(plan_type)')
-          .eq('student_id', studentId)
-          .gte('logged_date', attendanceFrom),
-      ])
+    const [
+      logsRes,
+      sessionsRes,
+      tagsRes,
+      tagAssignRes,
+      studentRes,
+      blockLogsRes,
+      attLogsRes,
+      assignRes,
+    ] = await Promise.all([
+      logsQuery,
+      sessionsQuery,
+      supabase.from('exercise_tags').select('*').order('name'),
+      supabase.from('exercise_tag_assignments').select('*'),
+      supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
+      supabase
+        .from('workout_block_logs')
+        .select('logged_date, plan:plans!plan_id(plan_type)')
+        .eq('student_id', studentId)
+        .gte('logged_date', blocksFrom),
+      supabase
+        .from('workout_logs')
+        .select('logged_date, plan:plans!plan_id(plan_type)')
+        .eq('student_id', studentId)
+        .gte('logged_date', attendanceFrom),
+      supabase
+        .from('plan_assignments')
+        .select('plan_id, active, created_at, start_date')
+        .eq('student_id', studentId),
+    ])
 
     // Excluir logs de evaluaciones del cómputo de gráficos.
     const logData = filterTrainingLogs(logsRes.data || [])
@@ -221,6 +249,7 @@ export default function StudentProgressTab({ studentId }) {
     setExerciseTags(tagsRes.data || [])
     setTagAssignments(tagAssignRes.data || [])
     setStudentWeightKg(studentRes.data?.weight_kg ?? null)
+    setPrevPlanStart(previousPlanStart(assignRes.data || []))
 
     // Las evaluaciones no cuentan como entrenamiento, misma regla que en los
     // gráficos (ver filterTrainingLogs).
@@ -241,8 +270,11 @@ export default function StudentProgressTab({ studentId }) {
 
     const exMap = {}
     logData.forEach((l) => {
-      const ex = l.plan_exercise?.exercise
-      if (ex) exMap[ex.id] = ex.name
+      // El ejercicio sale del propio registro (v41): así el selector también
+      // lista los de planes anteriores cuyo ejercicio del plan ya no existe.
+      const id = logExerciseId(l)
+      const name = l.exercise?.name || l.plan_exercise?.exercise?.name
+      if (id && name) exMap[id] = name
     })
     const exList = Object.entries(exMap)
       .map(([id, name]) => ({ id, name }))
@@ -269,7 +301,7 @@ export default function StudentProgressTab({ studentId }) {
     () =>
       selectedTag
         ? progressLogs.filter((l) => {
-            const exId = l.plan_exercise?.exercise?.id
+            const exId = logExerciseId(l)
             return (
               exId &&
               tagAssignments.some((ta) => ta.exercise_id === exId && ta.tag_id === selectedTag)
@@ -284,7 +316,7 @@ export default function StudentProgressTab({ studentId }) {
     () =>
       exerciseTags.filter((tag) =>
         progressLogs.some((l) => {
-          const exId = l.plan_exercise?.exercise?.id
+          const exId = logExerciseId(l)
           return (
             exId && tagAssignments.some((ta) => ta.exercise_id === exId && ta.tag_id === tag.id)
           )
@@ -294,18 +326,28 @@ export default function StudentProgressTab({ studentId }) {
   )
 
   // ── Datos de gráficos (memoizados) ────────────────────────
+  // Con "Todo" el rango puede pasar el año y dd/MM deja de ser único.
+  const axisFormat = useMemo(() => {
+    const dates = progressLogs.map((l) => l.logged_date).filter(Boolean)
+    if (dates.length < 2) return 'dd/MM'
+    const min = dates.reduce((a, b) => (a < b ? a : b))
+    const max = dates.reduce((a, b) => (a > b ? a : b))
+    const days = (new Date(max) - new Date(min)) / 86400000
+    return days > 330 ? 'dd/MM/yy' : 'dd/MM'
+  }, [progressLogs])
+
   const weightData = useMemo(
     () =>
       progressLogs
-        .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+        .filter((l) => logExerciseId(l) === selectedExercise)
         .map((l) => ({
           iso: l.logged_date,
-          date: format(parseISO(l.logged_date), 'dd/MM'),
+          date: format(parseISO(l.logged_date), axisFormat),
           Peso: maxWeightOfLog(l),
           PSE: l.perceived_difficulty,
         }))
         .filter((d) => d.Peso > 0),
-    [progressLogs, selectedExercise]
+    [progressLogs, selectedExercise, axisFormat]
   )
 
   // Reps por sesión del ejercicio seleccionado. Es la métrica de progresión
@@ -316,21 +358,38 @@ export default function StudentProgressTab({ studentId }) {
   const repsData = useMemo(
     () =>
       progressLogs
-        .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+        .filter((l) => logExerciseId(l) === selectedExercise)
         .map((l) => ({
           iso: l.logged_date,
-          date: format(parseISO(l.logged_date), 'dd/MM'),
+          date: format(parseISO(l.logged_date), axisFormat),
           Reps: repsMaxOfLog(l),
           PSE: l.perceived_difficulty,
         }))
         .filter((d) => d.Reps > 0),
-    [progressLogs, selectedExercise]
+    [progressLogs, selectedExercise, axisFormat]
   )
 
   // Con al menos un registro de peso, el gráfico mide peso (si un BW empieza
   // a usar lastre, la serie de peso arranca sola el día que arranca el dato).
   // Sin ninguno, mide reps.
   const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
+
+  // Fechas del gráfico donde arranca otro plan. El eje X es categórico
+  // (dd/MM), así que el corte se ancla en el primer punto de la serie que cae
+  // en o después del cambio; si el ejercicio no se entrenó más, no se dibuja.
+  const planCutLabels = useMemo(() => {
+    const cuts = planCutDates(planWindowsFromLogs(progressLogs))
+    if (cuts.length === 0) return []
+    const series = chartMetric === 'weight' ? weightData : repsData
+    const out = []
+    for (const cut of cuts) {
+      const point = series.find((d) => d.iso >= cut)
+      if (!point) continue
+      if (series[0]?.iso === point.iso) continue // el primer punto no separa nada
+      if (!out.some((o) => o.date === point.date)) out.push({ date: point.date, iso: point.iso })
+    }
+    return out
+  }, [progressLogs, weightData, repsData, chartMetric])
 
   // Lectura calculada de progresión del ejercicio seleccionado: promedio de
   // la primera semana vs la última (ver features/progress/progression.js).
@@ -369,7 +428,7 @@ export default function StudentProgressTab({ studentId }) {
       byTagAndDate[tag.id] = {}
     })
     progressLogs.forEach((l) => {
-      const exId = l.plan_exercise?.exercise?.id
+      const exId = logExerciseId(l)
       if (!exId) return
       const myTags = tagAssignments.filter((ta) => ta.exercise_id === exId).map((ta) => ta.tag_id)
       if (!myTags.length) return
@@ -447,7 +506,7 @@ export default function StudentProgressTab({ studentId }) {
   const compareData = useMemo(
     () =>
       progressLogs
-        .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+        .filter((l) => logExerciseId(l) === selectedExercise)
         .map((l) => ({
           date: format(parseISO(l.logged_date), 'dd/MM'),
           'Series reales': l.actual_sets || 0,
@@ -458,10 +517,7 @@ export default function StudentProgressTab({ studentId }) {
   )
 
   const stats = useMemo(() => {
-    const sessionDates = new Set([
-      ...progressLogs.map((l) => l.logged_date),
-      ...blockDatesInPeriod,
-    ])
+    const sessionDates = new Set([...progressLogs.map((l) => l.logged_date), ...blockDatesInPeriod])
     const withPSE = progressLogs.filter((l) => l.perceived_difficulty)
     const avgPSE =
       withPSE.length > 0
@@ -473,7 +529,7 @@ export default function StudentProgressTab({ studentId }) {
       borgData.length > 0
         ? Math.round((borgData.reduce((a, d) => a + d.Intensidad, 0) / borgData.length) * 10) / 10
         : null
-    const selLogs = progressLogs.filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+    const selLogs = progressLogs.filter((l) => logExerciseId(l) === selectedExercise)
     const maxWeight = selLogs.reduce((mx, l) => Math.max(mx, maxWeightOfLog(l)), 0)
     const maxReps = selLogs.reduce((mx, l) => Math.max(mx, repsMaxOfLog(l)), 0)
     return {
@@ -539,6 +595,22 @@ export default function StudentProgressTab({ studentId }) {
           Personalizado
         </button>
       </div>
+
+      {/* Atajo: estirar el rango hasta el arranque del plan anterior. Sin esto,
+          con el período en "1m" el plan viejo queda fuera aunque la tabla ya
+          sepa mostrarlo. */}
+      {prevPlanStart && (
+        <button
+          onClick={() => {
+            setCustomFrom(prevPlanStart)
+            setCustomTo(format(new Date(), 'yyyy-MM-dd'))
+            setUseCustomRange(true)
+          }}
+          className="text-xs text-primary-600 hover:underline self-start"
+        >
+          Desde el plan anterior ({format(parseISO(prevPlanStart), 'dd/MM/yy')})
+        </button>
+      )}
 
       {useCustomRange && (
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-2">
@@ -822,6 +894,23 @@ export default function StudentProgressTab({ studentId }) {
                         />
                         <Tooltip content={<TooltipCard />} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
+                        {/* Dónde arranca otro plan: una caída después de esta
+                            línea puede ser un cambio de esquema, no un retroceso. */}
+                        {planCutLabels.map((c) => (
+                          <ReferenceLine
+                            key={`cut-${c.date}`}
+                            yAxisId="left"
+                            x={c.date}
+                            stroke="#f59e0b"
+                            strokeDasharray="4 3"
+                            label={{
+                              value: 'plan nuevo',
+                              position: 'insideTopRight',
+                              fontSize: 9,
+                              fill: '#b45309',
+                            }}
+                          />
+                        ))}
                         <Area
                           yAxisId="left"
                           type="monotone"
