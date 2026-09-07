@@ -29,7 +29,7 @@ import {
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
 import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../attendanceRange'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
-import { planWindowsFromLogs, planCutDates, previousPlanStart } from '../planWindows'
+import { planWindowsFromLogs, previousPlanStart, NO_PLAN } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -92,6 +92,12 @@ function volumeOf(l, bodyWeightKg) {
     exercise: l.plan_exercise?.exercise,
   })
   return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
+}
+
+// Nombre corto del plan para el rótulo de la línea del gráfico.
+function shortPlanTitle(title = '') {
+  const head = String(title).split('—')[0].trim()
+  return head.length > 16 ? `${head.slice(0, 15)}…` : head || 'Plan'
 }
 
 // Ejercicio del catálogo de un registro. Desde v41 el registro lo guarda por
@@ -168,7 +174,7 @@ export default function StudentProgressTab({ studentId }) {
       .select(
         `
         *,
-        plan:plans!plan_id(plan_type),
+        plan:plans!plan_id(plan_type, title),
         exercise:exercises!exercise_id(id, name, muscle_group),
         plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section, suggested_sets, suggested_weight,
@@ -374,20 +380,30 @@ export default function StudentProgressTab({ studentId }) {
   // Sin ninguno, mide reps.
   const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
 
-  // Fechas del gráfico donde arranca otro plan. El eje X es categórico
-  // (dd/MM), así que el corte se ancla en el primer punto de la serie que cae
-  // en o después del cambio; si el ejercicio no se entrenó más, no se dibuja.
+  // Dónde arranca cada plan dentro del gráfico. El eje X es categórico, así
+  // que la marca se ancla en el primer punto de la serie que cae en o después
+  // del arranque del plan. Se marcan TODOS los planes, el primero incluido:
+  // si un ejercicio solo se entrenó con el plan nuevo, su primer punto es el
+  // arranque de ese plan y antes no se dibujaba nada.
   const planCutLabels = useMemo(() => {
-    const cuts = planCutDates(planWindowsFromLogs(progressLogs))
-    if (cuts.length === 0) return []
+    const windows = planWindowsFromLogs(progressLogs).filter((w) => w.planId !== NO_PLAN)
+    if (windows.length === 0) return []
     const series = chartMetric === 'weight' ? weightData : repsData
+    const titles = new Map(
+      progressLogs.filter((l) => l.plan_id).map((l) => [l.plan_id, l.plan?.title || ''])
+    )
     const out = []
-    for (const cut of cuts) {
-      const point = series.find((d) => d.iso >= cut)
+    for (const win of windows) {
+      // La marca va en el primer punto que este ejercicio tenga DENTRO de la
+      // ventana de ese plan. Si no lo entrenó con ese plan, no hay marca: si
+      // no, la marca se corría al plan siguiente y quedaba mal rotulada.
+      const point = series.find((d) => d.iso >= win.from && d.iso <= win.to)
       if (!point) continue
-      if (series[0]?.iso === point.iso) continue // el primer punto no separa nada
-      if (!out.some((o) => o.date === point.date)) out.push({ date: point.date, iso: point.iso })
+      if (out.some((o) => o.date === point.date)) continue
+      out.push({ date: point.date, iso: point.iso, title: titles.get(win.planId) || '' })
     }
+    // Con un solo plan en el período no hay nada que separar.
+    if (windows.length < 2) return []
     return out
   }, [progressLogs, weightData, repsData, chartMetric])
 
@@ -904,7 +920,7 @@ export default function StudentProgressTab({ studentId }) {
                             stroke="#f59e0b"
                             strokeDasharray="4 3"
                             label={{
-                              value: 'plan nuevo',
+                              value: c.title ? shortPlanTitle(c.title) : 'plan nuevo',
                               position: 'insideTopRight',
                               fontSize: 9,
                               fill: '#b45309',

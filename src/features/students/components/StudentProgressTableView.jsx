@@ -15,7 +15,13 @@ import {
   getEffectiveUnilateral,
 } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
-import { planWindowsFromLogs, planCutDates, realPlanWindows, cutIndexes } from '../planWindows'
+import {
+  planWindowsFromLogs,
+  planStartMarks,
+  realPlanWindows,
+  hasMultiplePlans,
+  markIndexes,
+} from '../planWindows'
 
 // ─────────────────────────────────────────────────────────────
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
@@ -130,6 +136,13 @@ const defaultVisibleCols = () =>
 // ─────────────────────────────────────────────────────────────
 // Sesiones (columnas dinámicas por fecha real)
 // ─────────────────────────────────────────────────────────────
+// Los planes se llaman "PLAN 2. Andrea Martinez — Andrea Martinez": para el
+// rótulo de la marca alcanza con la primera parte.
+function shortPlanTitle(title = '') {
+  const head = String(title).split('—')[0].trim()
+  return head.length > 16 ? `${head.slice(0, 15)}…` : head || 'Plan'
+}
+
 const ROW_MODES = [
   { id: 'plan', label: 'Por plan', hint: 'Qué le prescribiste en cada plan y qué cumplió' },
   {
@@ -188,6 +201,7 @@ export default function StudentProgressTableView({
 
   // Sesiones dinámicas
   const [sessionsCount, setSessionsCount] = useState(3)
+  const [sessionsCountTouched, setSessionsCountTouched] = useState(false)
   const [sessionFields, setSessionFields] = useState(defaultSessionFields())
   const [showFieldsPicker, setShowFieldsPicker] = useState(false)
 
@@ -344,24 +358,29 @@ export default function StudentProgressTableView({
     return dateToBlock
   }, [logs, pexById])
 
-  // ── Fechas de sesión únicas, ordenadas asc, limitadas a N ──
-  const allSessionDates = useMemo(() => {
-    const dates = new Set(logs.map((l) => l.logged_date).filter(Boolean))
-    const sorted = [...dates].sort() // ascendente: más viejo primero → izquierda
-    if (sessionsCount === 'all') return sorted
-    return sorted.slice(-Number(sessionsCount)) // N más recientes
-  }, [logs, sessionsCount])
-
-  // ── Filas: una por plan_exercise ───────────────────────────
   // ── Ventanas de plan dentro del período (para agrupar y para el corte) ──
   const planWindows = useMemo(() => planWindowsFromLogs(logs), [logs])
-  const cutDates = useMemo(() => planCutDates(planWindows), [planWindows])
+  const multiPlan = useMemo(() => hasMultiplePlans(planWindows), [planWindows])
+  const startMarks = useMemo(() => planStartMarks(planWindows), [planWindows])
   const windowByPlan = useMemo(() => {
     const m = new Map()
     for (const w of planWindows) m.set(w.planId, w)
     return m
   }, [planWindows])
 
+  // ── Fechas de sesión únicas, ordenadas asc, limitadas a N ──
+  const allSessionDates = useMemo(() => {
+    const dates = new Set(logs.map((l) => l.logged_date).filter(Boolean))
+    const sorted = [...dates].sort() // ascendente: más viejo primero → izquierda
+    // Con varios planes en el período, mostrar solo las últimas 3 sesiones
+    // esconde el cambio de plan (y buena parte del plan anterior): salvo que
+    // la coach elija otra cosa, se muestran todas.
+    const effective = !sessionsCountTouched && multiPlan ? 'all' : sessionsCount
+    if (effective === 'all') return sorted
+    return sorted.slice(-Number(effective)) // N más recientes
+  }, [logs, sessionsCount, sessionsCountTouched, multiPlan])
+
+  // ── Filas: una por plan_exercise ───────────────────────────
   const activePlanIds = useMemo(
     () => new Set(plansInPeriod.filter((p) => p.active).map((p) => p.id)),
     [plansInPeriod]
@@ -634,9 +653,25 @@ export default function StudentProgressTableView({
       return next
     })
 
-  // Columnas donde arranca un plan distinto: ahí va la línea punteada.
-  const cutCols = useMemo(() => cutIndexes(allSessionDates, cutDates), [allSessionDates, cutDates])
-  const cutClass = (i) => (cutCols.has(i) ? 'border-l-2 border-dashed border-amber-400' : '')
+  // Columna donde arranca cada plan: ahí va la marca. Incluye el primero, así
+  // en un período con un solo plan también se ve dónde empieza.
+  const markCols = useMemo(
+    () => markIndexes(allSessionDates, startMarks),
+    [allSessionDates, startMarks]
+  )
+  const planTitleById = useMemo(() => {
+    const m = new Map()
+    for (const p of plansInPeriod) m.set(p.id, p.title)
+    return m
+  }, [plansInPeriod])
+  // El borde separa dos planes; en la primera columna no hay nada que separar,
+  // pero el rótulo va igual.
+  const cutClass = (i) =>
+    markCols.has(i) && i > 0 ? 'border-l-2 border-dashed border-amber-400' : ''
+
+  // Un plan que arrancó antes de la primera columna visible no tiene marca: si
+  // el recorte de sesiones se comió alguna, hay que avisarlo.
+  const marksHidden = useMemo(() => startMarks.length - markCols.size, [startMarks, markCols])
 
   const isCol = (id) => visibleCols.has(id)
   const isField = (id) => sessionFields.has(id)
@@ -725,12 +760,16 @@ export default function StudentProgressTableView({
             className={`text-center font-semibold px-2 py-2 min-w-[82px] border-l border-gray-100 ${
               isLatest ? 'bg-primary-50 text-primary-700' : ''
             } ${cutClass(i)}`}
-            title={cutCols.has(i) ? 'Acá arranca otro plan' : undefined}
+            title={
+              markCols.has(i)
+                ? `Acá arranca ${planTitleById.get(markCols.get(i)) || 'otro plan'}`
+                : undefined
+            }
           >
             <div className="flex flex-col items-center leading-none gap-[3px]">
-              {cutCols.has(i) && (
+              {markCols.has(i) && (
                 <span className="text-[8px] font-bold text-amber-600 tracking-wide">
-                  PLAN NUEVO
+                  ▸ {shortPlanTitle(planTitleById.get(markCols.get(i)))}
                 </span>
               )}
               <span>{format(parseISO(date), 'dd/MM')}</span>
@@ -1156,9 +1195,12 @@ export default function StudentProgressTableView({
           {SESSIONS_COUNT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setSessionsCount(opt.value)}
+              onClick={() => {
+                setSessionsCount(opt.value)
+                setSessionsCountTouched(true)
+              }}
               className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                sessionsCount === opt.value
+                (!sessionsCountTouched && multiPlan ? 'all' : sessionsCount) === opt.value
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -1175,6 +1217,13 @@ export default function StudentProgressTableView({
           {showFieldsPicker ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
       </div>
+
+      {marksHidden > 0 && (
+        <p className="text-[11px] text-amber-600">
+          Hay {marksHidden === 1 ? 'un plan que arranca' : `${marksHidden} planes que arrancan`}{' '}
+          antes de la primera sesión que se está mostrando. Poné “Todas” en Sesiones para verlo.
+        </p>
+      )}
 
       {/* ── Picker de campos por celda ── */}
       {showFieldsPicker && (

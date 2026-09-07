@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   planWindowsFromLogs,
-  planCutDates,
+  planStartMarks,
   realPlanWindows,
-  cutIndexes,
+  hasMultiplePlans,
+  markIndexes,
   previousPlanStart,
   NO_PLAN,
 } from './planWindows'
@@ -47,38 +48,70 @@ describe('planWindowsFromLogs', () => {
   })
 })
 
-describe('planCutDates', () => {
-  it('marca el arranque de cada plan salvo el primero', () => {
-    expect(planCutDates(planWindowsFromLogs(ANDREA))).toEqual(['2026-09-02'])
+describe('planStartMarks', () => {
+  it('marca el arranque de CADA plan, el primero incluido', () => {
+    expect(planStartMarks(planWindowsFromLogs(ANDREA))).toEqual([
+      { date: '2026-07-27', planId: 'p1' },
+      { date: '2026-09-02', planId: 'p2' },
+    ])
   })
 
-  it('un solo plan no genera corte', () => {
-    expect(planCutDates(planWindowsFromLogs(ANDREA.slice(0, 3)))).toEqual([])
+  it('con un solo plan igual marca su inicio', () => {
+    expect(planStartMarks(planWindowsFromLogs(ANDREA.slice(0, 3)))).toEqual([
+      { date: '2026-07-27', planId: 'p1' },
+    ])
   })
 
-  it('tres planes generan dos cortes', () => {
+  it('tres planes dan tres marcas', () => {
     const win = planWindowsFromLogs([...ANDREA, { plan_id: 'p3', logged_date: '2026-10-01' }])
-    expect(planCutDates(win)).toEqual(['2026-09-02', '2026-10-01'])
+    expect(planStartMarks(win).map((m) => m.planId)).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  it('no repite fecha si dos planes arrancan el mismo día', () => {
+    const win = planWindowsFromLogs([
+      { plan_id: 'p1', logged_date: '2026-07-27' },
+      { plan_id: 'p2', logged_date: '2026-07-27' },
+    ])
+    expect(planStartMarks(win)).toHaveLength(1)
   })
 })
 
-describe('cutIndexes', () => {
-  const dates = ['2026-07-27', '2026-08-13', '2026-08-24', '2026-09-02', '2026-09-04']
+describe('hasMultiplePlans', () => {
+  it('es true con dos planes reales', () => {
+    expect(hasMultiplePlans(planWindowsFromLogs(ANDREA))).toBe(true)
+  })
 
-  it('ubica el corte en la columna donde arranca el plan nuevo', () => {
-    expect([...cutIndexes(dates, ['2026-09-02'])]).toEqual([3])
+  it('es false con un plan real más registros sin plan', () => {
+    const win = planWindowsFromLogs([
+      { plan_id: null, logged_date: '2026-03-27' },
+      { plan_id: 'p1', logged_date: '2026-07-27' },
+    ])
+    expect(hasMultiplePlans(win)).toBe(false)
+  })
+})
+
+describe('markIndexes', () => {
+  const dates = ['2026-07-27', '2026-08-13', '2026-08-24', '2026-09-02', '2026-09-04']
+  const marks = planStartMarks(planWindowsFromLogs(ANDREA))
+
+  it('ubica cada plan en su columna, incluida la primera', () => {
+    expect([...markIndexes(dates, marks)]).toEqual([
+      [0, 'p1'],
+      [3, 'p2'],
+    ])
   })
 
   it('si la fecha exacta no está, cae en la primera posterior', () => {
-    expect([...cutIndexes(dates, ['2026-08-30'])]).toEqual([3])
+    expect([...markIndexes(dates, [{ date: '2026-08-30', planId: 'p2' }])]).toEqual([[3, 'p2']])
   })
 
-  it('no marca la primera columna: no hay nada antes que separar', () => {
-    expect([...cutIndexes(dates, ['2026-07-27'])]).toEqual([])
+  it('un plan que arrancó antes de la primera columna visible no se marca', () => {
+    const recortadas = dates.slice(3) // solo 02/09 y 04/09
+    expect([...markIndexes(recortadas, marks)]).toEqual([[0, 'p2']])
   })
 
-  it('un corte posterior a todas las fechas no marca nada', () => {
-    expect([...cutIndexes(dates, ['2026-12-01'])]).toEqual([])
+  it('un plan posterior a todas las fechas no se marca', () => {
+    expect([...markIndexes(dates, [{ date: '2026-12-01', planId: 'pX' }])]).toEqual([])
   })
 })
 
@@ -152,19 +185,19 @@ describe('registros sin plan (datos viejos huérfanos)', () => {
     { plan_id: 'p1', logged_date: '2026-08-24' },
   ]
 
-  it('no cuentan como plan y no dibujan corte', () => {
+  it('no cuentan como plan y no generan marca propia', () => {
     const win = planWindowsFromLogs(conHuerfanos)
     expect(win).toHaveLength(2)
-    expect(planCutDates(win)).toEqual([])
+    expect(planStartMarks(win)).toEqual([{ date: '2026-07-27', planId: 'p1' }])
   })
 
   it('realPlanWindows los deja afuera del conteo de planes', () => {
     expect(realPlanWindows(planWindowsFromLogs(conHuerfanos))).toHaveLength(1)
   })
 
-  it('con huérfanos y dos planes reales, el corte sigue siendo el del plan real', () => {
+  it('con huérfanos y dos planes reales, las marcas son las de los planes reales', () => {
     const win = planWindowsFromLogs([...conHuerfanos, { plan_id: 'p2', logged_date: '2026-09-02' }])
-    expect(planCutDates(win)).toEqual(['2026-09-02'])
+    expect(planStartMarks(win).map((m) => m.date)).toEqual(['2026-07-27', '2026-09-02'])
     expect(win[0].planId).toBe(NO_PLAN)
   })
 })

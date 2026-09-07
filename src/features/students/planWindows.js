@@ -41,21 +41,21 @@ export function planWindowsFromLogs(logs = []) {
 }
 
 /**
- * Fechas en las que empieza un plan distinto del anterior: son las marcas
- * de corte. La primera ventana no genera corte (no hay nada antes).
- * @returns {string[]} fechas ISO ascendentes, sin repetir
+ * Fecha en la que arranca cada plan del período, el primero incluido. Cada una
+ * es una marca a dibujar: sirve tanto para separar dos planes como para decir
+ * "acá empieza este plan" cuando en el período hay uno solo visible.
+ * Los registros sin plan (datos viejos que perdieron el vínculo) no cuentan
+ * como plan y no generan marca.
+ * @returns {Array<{date: string, planId: string}>} ascendente, sin repetir fecha
  */
-export function planCutDates(windows = []) {
-  // Los registros sin plan (datos viejos a los que el borrado del plan les
-  // soltó la mano) no son "otro plan": no deben dibujar un corte ni contar
-  // como plan en la UI.
+export function planStartMarks(windows = []) {
   const real = windows.filter((w) => w.planId !== NO_PLAN)
   const out = []
-  real.forEach((w, i) => {
-    if (i === 0) return
-    if (!out.includes(w.from)) out.push(w.from)
-  })
-  return out.sort()
+  for (const w of real) {
+    if (out.some((m) => m.date === w.from)) continue
+    out.push({ date: w.from, planId: w.planId })
+  }
+  return out.sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
 /** Ventanas que corresponden a un plan de verdad. */
@@ -64,20 +64,30 @@ export function realPlanWindows(windows = []) {
 }
 
 /**
- * Índices de la grilla de fechas donde hay que dibujar el corte. Si la fecha
- * exacta del corte no está en la grilla (por ejemplo porque se recortó la
- * cantidad de sesiones visibles), la marca cae en la primera fecha posterior.
+ * Dónde cae cada marca en la grilla de fechas visible. Si la fecha exacta no
+ * está (porque se recortó la cantidad de sesiones que se muestran), la marca
+ * cae en la primera fecha posterior; si el plan arranca antes de la primera
+ * columna visible, no se dibuja.
  * @param {string[]} dates fechas ISO ascendentes que se muestran como columnas
- * @param {string[]} cutDates fechas ISO de corte
- * @returns {Set<number>}
+ * @param {Array<{date: string, planId: string}>} marks
+ * @returns {Map<number, string>} índice de columna → planId
  */
-export function cutIndexes(dates = [], cutDates = []) {
-  const out = new Set()
-  for (const cut of cutDates) {
-    const idx = dates.findIndex((d) => d >= cut)
-    if (idx > 0) out.add(idx)
+export function markIndexes(dates = [], marks = []) {
+  const out = new Map()
+  for (const mark of marks) {
+    const idx = dates.findIndex((d) => d >= mark.date)
+    if (idx < 0) continue
+    // La primera columna solo lleva marca si el plan realmente arranca ahí, no
+    // si viene de antes y quedó recortado.
+    if (idx === 0 && dates[0] !== mark.date) continue
+    if (!out.has(idx)) out.set(idx, mark.planId)
   }
   return out
+}
+
+/** ¿Hay más de un plan de verdad en el período? */
+export function hasMultiplePlans(windows = []) {
+  return realPlanWindows(windows).length > 1
 }
 
 /**
