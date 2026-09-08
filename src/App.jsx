@@ -28,6 +28,7 @@ import EvaluationDetailPage from '@/features/evaluations/pages/EvaluationDetailP
 import StudentLayout from './components/layout/StudentLayout'
 import StudentDashboard from '@/features/dashboard/pages/StudentDashboard'
 import TodayWorkoutPage from '@/features/workouts/pages/TodayWorkoutPage'
+import CoachModeLanguageProvider from '@/features/workouts/CoachModeLanguage'
 import ProgressPage from '@/features/progress/pages/ProgressPage'
 import HistoryPage from '@/features/workouts/pages/HistoryPage'
 import ProfilePage from '@/features/auth/pages/ProfilePage'
@@ -106,8 +107,18 @@ function AppRoutes() {
         <Route path="students/new" element={<CreateStudentPage />} />
         <Route path="students/:id" element={<StudentDetailPage />} />
         {/* v33 — modo coach: registrar entrenamiento en nombre del alumno.
-            Misma página que /student/workout; detecta el modo por el :id. */}
-        <Route path="students/:id/workout" element={<TodayWorkoutPage />} />
+            Misma página que /student/workout; detecta el modo por el :id.
+            El provider le da a ESTA pantalla su propio idioma (el de la
+            alumna), independiente del idioma del panel. Ver
+            src/features/workouts/CoachModeLanguage.jsx. */}
+        <Route
+          path="students/:id/workout"
+          element={
+            <CoachModeLanguageProvider>
+              <TodayWorkoutPage />
+            </CoachModeLanguageProvider>
+          }
+        />
         {/* Informe de progreso descargable (solo coach) */}
         <Route path="students/:id/informe" element={<CoachReportPage />} />
         {/* Informe cliente: carta 1 página para el alumno (mockup Anto) */}

@@ -28,6 +28,14 @@ import { differenceInCalendarDays, parseISO } from 'date-fns'
 // son idénticos a los strings históricos, así los tests existentes no cambian.
 import i18n from '@/i18n'
 
+// `t` por parámetro (2026-09-08): la pantalla de registro en modo coach corre
+// en una instancia CLONADA de i18next con el idioma de la alumna. Estas
+// funciones son puras y no ven ese contexto, así que el llamador que esté en
+// ese subárbol tiene que pasarle la `t` de useTranslation(). Sin argumento
+// siguen usando la instancia global (vista de la alumna y tests).
+// Ver src/features/workouts/CoachModeLanguage.jsx.
+const globalT = (key, options) => i18n.t(key, options)
+
 // ============================================================
 // pickLastLogPerExercise
 // ------------------------------------------------------------
@@ -298,7 +306,7 @@ export function groupNotesByExercise(notes) {
 //   - Reps: máximo del array actual_reps_jsonb (similar)
 //   - Si no hay peso (bodyweight), solo reps
 // ============================================================
-export function formatLastLogSummary(log) {
+export function formatLastLogSummary(log, t = globalT) {
   if (!log) return ''
 
   const weights = readWeightsArray(log)
@@ -321,7 +329,7 @@ export function formatLastLogSummary(log) {
 
   // Si está el PSE, lo agregamos solo cuando ya hay algo
   if (parts.length > 0 && log.perceived_difficulty) {
-    parts.push(i18n.t('workout.pseValue', { value: log.perceived_difficulty }))
+    parts.push(t('workout.pseValue', { value: log.perceived_difficulty }))
   }
 
   return parts.join(' · ')
@@ -333,17 +341,17 @@ export function formatLastLogSummary(log) {
 // Convierte un workout_block_log a etiqueta corta:
 //   "20 min · 3 rounds · PSE 7" (omite los que falten)
 // ============================================================
-export function formatLastBlockLogSummary(blockLog) {
+export function formatLastBlockLogSummary(blockLog, t = globalT) {
   if (!blockLog) return ''
   const parts = []
   if (blockLog.actual_minutes != null) {
     parts.push(`${formatNumber(blockLog.actual_minutes)} min`)
   }
   if (blockLog.actual_rounds != null && blockLog.actual_rounds > 0) {
-    parts.push(i18n.t('workout.rounds', { count: blockLog.actual_rounds }))
+    parts.push(t('workout.rounds', { count: blockLog.actual_rounds }))
   }
   if (blockLog.perceived_difficulty) {
-    parts.push(i18n.t('workout.pseValue', { value: blockLog.perceived_difficulty }))
+    parts.push(t('workout.pseValue', { value: blockLog.perceived_difficulty }))
   }
   return parts.join(' · ')
 }
@@ -359,14 +367,14 @@ export function formatLastBlockLogSummary(blockLog) {
 //
 // Tomar `today` como prop para tests determinísticos.
 // ============================================================
-export function formatRelativeDate(loggedDate, today = new Date()) {
+export function formatRelativeDate(loggedDate, today = new Date(), t = globalT) {
   if (!loggedDate) return ''
   try {
     const logged = parseISO(loggedDate)
     const diff = differenceInCalendarDays(today, logged)
-    if (diff === 0) return i18n.t('dates.relToday')
-    if (diff === 1) return i18n.t('dates.relYesterday')
-    if (diff > 1 && diff < 7) return i18n.t('dates.relDaysAgo', { count: diff })
+    if (diff === 0) return t('dates.relToday')
+    if (diff === 1) return t('dates.relYesterday')
+    if (diff > 1 && diff < 7) return t('dates.relDaysAgo', { count: diff })
     // Más viejo: DD/MM
     const day = String(logged.getDate()).padStart(2, '0')
     const month = String(logged.getMonth() + 1).padStart(2, '0')

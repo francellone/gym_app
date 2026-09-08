@@ -49,6 +49,7 @@ import {
   fetchPrescriptionHistory,
   groupHistoryByExercise,
 } from '@/features/plans/prescriptionHistory'
+import CoachModeLangToggle from '../components/CoachModeLangToggle'
 import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
 import DayActivitiesCard from '@/features/activities/components/DayActivitiesCard'
@@ -104,7 +105,9 @@ const SECTION_EMOJIS = {
 // Página principal
 // ============================================================
 export default function TodayWorkoutPage() {
-  const { t } = useTranslation()
+  // `i18n` del contexto, NO la instancia global: en modo coach esta pantalla
+  // corre en una instancia clonada con el idioma de la alumna.
+  const { t, i18n } = useTranslation()
   const { profile } = useAuth()
   // v33 — modo coach ("registrar por alumno"): la misma página montada en
   // /coach/students/:id/workout. `studentId` es el dueño de los datos;
@@ -1234,15 +1237,23 @@ export default function TodayWorkoutPage() {
           {/* v33 — banner de modo coach: deja claro que todo lo que se
               registre queda en la cuenta del alumno, con autoría coach. */}
           {coachMode && (
-            <div className="flex items-center gap-2 bg-white/15 rounded-xl px-3 py-2 mb-3">
-              <UserCog size={16} className="text-white flex-shrink-0" />
-              <p className="text-white text-xs font-semibold">
-                {t('workout.coachModeBanner', { name: studentName || '…' })}
-              </p>
+            <div className="bg-white/15 rounded-xl px-3 py-2 mb-3">
+              {/* Idioma de ESTA pantalla, no el del panel: pedido de Anto para
+                  mostrarle el celu a una alumna que habla inglés. Arranca en
+                  el idioma de la alumna. Ver CoachModeLanguage.jsx. */}
+              <CoachModeLangToggle />
+              <div className="flex items-center gap-2">
+                <UserCog size={16} className="text-white flex-shrink-0" />
+                <p className="text-white text-xs font-semibold">
+                  {t('workout.coachModeBanner', { name: studentName || '…' })}
+                </p>
+              </div>
             </div>
           )}
           <p className="text-primary-200 text-sm capitalize">
-            {format(parseISO(selectedDate), t('dates.fullDate'), { locale: dateLocale() })}
+            {format(parseISO(selectedDate), t('dates.fullDate'), {
+              locale: dateLocale(i18n.language),
+            })}
           </p>
           <h1 className="text-xl font-bold text-white mt-1">{assignment.plan?.title}</h1>
 

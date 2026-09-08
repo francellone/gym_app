@@ -132,7 +132,7 @@ export default function NoteCard({
   currentUserId,
   onDeleted,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editBody, setEditBody] = useState('')
   const [saving, setSaving] = useState(false)
@@ -172,10 +172,10 @@ export default function NoteCard({
   const isPrivate = note.visibility === 'coach_private'
   const dateObj = safeDate(note.created_at)
   const relativeTime = dateObj
-    ? formatDistanceToNow(dateObj, { addSuffix: true, locale: dateLocale() })
+    ? formatDistanceToNow(dateObj, { addSuffix: true, locale: dateLocale(i18n.language) })
     : ''
   const fullDate = dateObj
-    ? format(dateObj, t('dates.dayMonthYearTime'), { locale: dateLocale() })
+    ? format(dateObj, t('dates.dayMonthYearTime'), { locale: dateLocale(i18n.language) })
     : ''
 
   const contextLabel = buildContextLabel(note, exercisesMap, t)

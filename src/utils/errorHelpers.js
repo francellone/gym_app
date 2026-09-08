@@ -63,29 +63,42 @@ export function isRecoverableError(error) {
  * un fallback genérico.
  *
  * @param {Object|Error|null} error
+ * @param {Function} [t] - `t` del contexto (modo coach); sin ella, la global
  * @returns {string}
  */
-export function getFriendlyErrorMessage(error) {
+export function getFriendlyErrorMessage(error, t) {
   if (!error) return ''
   const code = String(error.code || error.status || '')
   const msg = error.message || ''
   const details = error.details || ''
   const haystack = `${msg} ${details}`
 
-  // i18n (doc 46): T traduce el mensaje vía la instancia global; el fallback
-  // (texto histórico en español) mantiene el comportamiento exacto con lng 'es'
-  // (default, coach y tests). Claves en errors.friendly.* de los locales.
-  const T = (key, fallback) => i18n.t(`errors.friendly.${key}`, { defaultValue: fallback })
+  // i18n (doc 46): T traduce el mensaje; el fallback (texto histórico en
+  // español) mantiene el comportamiento exacto con lng 'es' (default y tests).
+  // Claves en errors.friendly.* de los locales.
+  //
+  // `t` por parámetro (2026-09-08): la pantalla de registro en modo coach corre
+  // en una instancia CLONADA con el idioma de la alumna, que la instancia
+  // global de este módulo no conoce. Sin argumento, instancia global.
+  // Ver src/features/workouts/CoachModeLanguage.jsx.
+  const translate = t || i18n.t.bind(i18n)
+  const T = (key, fallback) => translate(`errors.friendly.${key}`, { defaultValue: fallback })
 
   // ────────────────────────────────────────────────────────────
   // 23514 — CHECK constraint violation (no recuperable)
   // ────────────────────────────────────────────────────────────
   if (code === '23514') {
     if (/bodyweight_no_weights/i.test(haystack)) {
-      return T('bodyweightNoWeights', 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.')
+      return T(
+        'bodyweightNoWeights',
+        'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.'
+      )
     }
     if (/reps_weights_same_length/i.test(haystack)) {
-      return T('repsWeightsMismatch', 'La cantidad de reps no coincide con la de pesos. Revisá los sets.')
+      return T(
+        'repsWeightsMismatch',
+        'La cantidad de reps no coincide con la de pesos. Revisá los sets.'
+      )
     }
     if (/workout_logs_weight_mode_check/i.test(haystack)) {
       return T('invalidWeightMode', 'Modo de peso inválido. Recargá la página.')
@@ -97,7 +110,10 @@ export function getFriendlyErrorMessage(error) {
       /profiles_lesiones_requires_detail/i.test(haystack) ||
       /profiles_lesiones_/i.test(haystack)
     ) {
-      return T('injuriesRequireDetail', 'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.')
+      return T(
+        'injuriesRequireDetail',
+        'Si marcaste que tenés lesiones, completá la descripción o seleccioná al menos una patología.'
+      )
     }
     if (
       /sessions_finished_requires_started/i.test(haystack) ||
@@ -106,14 +122,20 @@ export function getFriendlyErrorMessage(error) {
       return T('sessionInternalError', 'Error interno de sesión. Avisá al coach.')
     }
     if (/apunta a una plantilla/i.test(haystack)) {
-      return T('templateAssignError', 'Error técnico al asignar el plan. Avisá al coach (cod: 23514 template).')
+      return T(
+        'templateAssignError',
+        'Error técnico al asignar el plan. Avisá al coach (cod: 23514 template).'
+      )
     }
     // Mensajes en español del RPC save_workout_log (RAISE EXCEPTION USING ERRCODE='check_violation').
     // El RPC NO emite el nombre del constraint en el mensaje, así que los patrones de arriba
     // (que buscan workout_logs_*) no matchean. Sin estos catches, todo error de save_workout_log
     // caía al fallback "Hay un dato que no cumple las reglas".
     if (/p_reps y p_weights|misma longitud/i.test(haystack)) {
-      return T('repsWeightsMismatch', 'La cantidad de reps no coincide con la de pesos. Revisá los sets.')
+      return T(
+        'repsWeightsMismatch',
+        'La cantidad de reps no coincide con la de pesos. Revisá los sets.'
+      )
     }
     if (/weight_mode inválido/i.test(haystack)) {
       return T('invalidWeightMode', 'Modo de peso inválido. Recargá la página.')
@@ -122,9 +144,15 @@ export function getFriendlyErrorMessage(error) {
       return T('invalidRepsUnit', 'Unidad de reps inválida. Recargá la página.')
     }
     if (/bodyweight no admite p_weights|no admite p_weights/i.test(haystack)) {
-      return T('bodyweightNoWeights', 'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.')
+      return T(
+        'bodyweightNoWeights',
+        'Si elegiste "Sin peso", no podés cargar peso. Sacá el peso o cambiá el modo.'
+      )
     }
-    return T('checkFallback', 'Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo.')
+    return T(
+      'checkFallback',
+      'Hay un dato que no cumple las reglas de la app. Revisá lo cargado y probá de nuevo.'
+    )
   }
 
   // ────────────────────────────────────────────────────────────
@@ -213,10 +241,11 @@ export function getFriendlyErrorMessage(error) {
  *
  * @param {Object|Error|null} error
  * @param {string} [overrideMessage] - si se pasa, reemplaza el friendly
+ * @param {Function} [t] - `t` del contexto (modo coach); sin ella, la global
  * @returns {{ message: string, persistent: boolean }}
  */
-export function buildErrorBanner(error, overrideMessage) {
+export function buildErrorBanner(error, overrideMessage, t) {
   const persistent = !isRecoverableError(error)
-  const message = overrideMessage || getFriendlyErrorMessage(error)
+  const message = overrideMessage || getFriendlyErrorMessage(error, t)
   return { message, persistent }
 }

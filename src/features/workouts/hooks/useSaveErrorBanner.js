@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { buildErrorBanner } from '@/utils/errorHelpers'
 
 // Hook para banner de error de save con timer de auto-cierre.
@@ -19,6 +20,10 @@ import { buildErrorBanner } from '@/utils/errorHelpers'
 // Los banners no-persistentes se cierran solos a los ~6s.
 // Si aparece un segundo consumidor fuera de workouts, promover a `src/utils/`.
 export default function useSaveErrorBanner() {
+  // `t` del contexto: en modo coach la pantalla corre en una instancia clonada
+  // con el idioma de la alumna (ver CoachModeLanguage.jsx), y los mensajes de
+  // error tienen que salir en ESE idioma, no en el del panel.
+  const { t } = useTranslation()
   const [banner, setBanner] = useState(null)
   const timerRef = useRef(null)
 
@@ -30,10 +35,10 @@ export default function useSaveErrorBanner() {
     let next
     if (arg && typeof arg === 'object') {
       // Caso 1: nos pasaron el error directo
-      next = buildErrorBanner(arg)
+      next = buildErrorBanner(arg, undefined, t)
     } else {
       // Caso 2 y 3: mensaje custom (opcionalmente con error para inferir persistencia)
-      next = buildErrorBanner(errOverride || null, arg)
+      next = buildErrorBanner(errOverride || null, arg, t)
     }
     setBanner(next)
     if (!next.persistent) {

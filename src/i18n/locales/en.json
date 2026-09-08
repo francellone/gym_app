@@ -181,6 +181,7 @@
     "editingPast": "Editing past date",
     "planDescriptionToggle": "Plan description",
     "coachModeBanner": "Logging for {{name}} — data is saved to their account, marked as entered by you",
+    "coachModeLangLabel": "Screen language",
     "loggedByCoach": "Coach",
     "wellbeingReminderTitle": "Remember:",
     "wellbeingReminderBody": "you haven't logged your wellbeing today. You can do it from the card above whenever you want.",

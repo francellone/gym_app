@@ -21,7 +21,11 @@
 
 import { useTranslation } from 'react-i18next'
 import { History, MessageCircle, ChevronRight, User } from 'lucide-react'
-import { formatLastLogSummary, formatLastBlockLogSummary, formatRelativeDate } from '../exerciseHistoryLogic'
+import {
+  formatLastLogSummary,
+  formatLastBlockLogSummary,
+  formatRelativeDate,
+} from '../exerciseHistoryLogic'
 
 // ============================================================
 // HeaderLine — 1 línea para el header del card
@@ -50,12 +54,12 @@ export function ExerciseHistoryHeaderLine({
   if (!hasLog && !hasChat) return null
 
   const summary = lastLog
-    ? formatLastLogSummary(lastLog)
+    ? formatLastLogSummary(lastLog, t)
     : lastBlockLog
-      ? formatLastBlockLogSummary(lastBlockLog)
+      ? formatLastBlockLogSummary(lastBlockLog, t)
       : ''
 
-  const relDate = hasLog ? formatRelativeDate(log.logged_date) : ''
+  const relDate = hasLog ? formatRelativeDate(log.logged_date, undefined, t) : ''
 
   const textSize = isCompact ? 'text-[10px]' : 'text-[11px]'
 
@@ -101,11 +105,7 @@ export function ExerciseHistoryHeaderLine({
 //   noteCount      number — para mostrar el contador
 //   onOpenChat     () => void — abre el drawer
 // ============================================================
-export function ExerciseHistoryBodyBlock({
-  previewNote = null,
-  noteCount = 0,
-  onOpenChat,
-}) {
+export function ExerciseHistoryBodyBlock({ previewNote = null, noteCount = 0, onOpenChat }) {
   const { t } = useTranslation()
   const hasNote = !!previewNote
   const hasChat = noteCount > 0
@@ -140,7 +140,7 @@ export function ExerciseHistoryBodyBlock({
         <span>{titleText}</span>
         {hasNote && previewNote.created_at && (
           <span className={`${theme.date} font-normal`}>
-            · {formatRelativeDate(previewNote.created_at.slice(0, 10))}
+            · {formatRelativeDate(previewNote.created_at.slice(0, 10), undefined, t)}
           </span>
         )}
       </div>

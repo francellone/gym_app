@@ -641,12 +641,12 @@ export default function ExerciseCard({
                       pct: prescribedPct1rm,
                       oneRm: pctPrescription.oneRm,
                       exercise: rmReferenceName,
-                      date: formatShortDate(pctPrescription.oneRmDate),
+                      date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
                     })
                   : t('workout.pct1rmFromOwnMax', {
                       pct: prescribedPct1rm,
                       oneRm: pctPrescription.oneRm,
-                      date: formatShortDate(pctPrescription.oneRmDate),
+                      date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
                     })}
               </p>
             )}
@@ -798,7 +798,9 @@ export default function ExerciseCard({
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
                     <RotateCcw size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
                     <p className="text-[11px] text-amber-800 flex-1 leading-tight">
-                      {t('workout.draftRestored', { date: formatRelativeDate(restoredAt) })}
+                      {t('workout.draftRestored', {
+                        date: formatRelativeDate(restoredAt, undefined, t),
+                      })}
                     </p>
                     <button
                       type="button"

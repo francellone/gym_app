@@ -458,9 +458,30 @@ describe('pickLastPreviewNotePerExercise', () => {
 
   it('prioriza la nota del coach aunque el alumno haya comentado después', () => {
     const notes = [
-      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'coach vieja' },
-      { ...base, id: 'c2', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-21T10:00:00Z', body: 'coach nueva' },
-      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-23T10:00:00Z', body: 'alumno más nueva' },
+      {
+        ...base,
+        id: 'c1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'coach vieja',
+      },
+      {
+        ...base,
+        id: 'c2',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-21T10:00:00Z',
+        body: 'coach nueva',
+      },
+      {
+        ...base,
+        id: 's1',
+        author_role: 'student',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-23T10:00:00Z',
+        body: 'alumno más nueva',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes)
     expect(map.get('ex-press').id).toBe('c2')
@@ -469,8 +490,22 @@ describe('pickLastPreviewNotePerExercise', () => {
 
   it('cae al último comentario del alumno cuando no hay nota del coach', () => {
     const notes = [
-      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-row', created_at: '2026-07-20T10:00:00Z', body: 'alumno vieja' },
-      { ...base, id: 's2', author_role: 'student', exercise_id: 'ex-row', created_at: '2026-07-22T10:00:00Z', body: 'alumno nueva' },
+      {
+        ...base,
+        id: 's1',
+        author_role: 'student',
+        exercise_id: 'ex-row',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'alumno vieja',
+      },
+      {
+        ...base,
+        id: 's2',
+        author_role: 'student',
+        exercise_id: 'ex-row',
+        created_at: '2026-07-22T10:00:00Z',
+        body: 'alumno nueva',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes)
     expect(map.get('ex-row').id).toBe('s2')
@@ -481,8 +516,22 @@ describe('pickLastPreviewNotePerExercise', () => {
   // escribió ella, lo que necesita ver es el comentario de la alumna.
   it('prefer="student" invierte la prioridad (vista de la coach)', () => {
     const notes = [
-      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-25T10:00:00Z', body: 'coach nueva' },
-      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'alumna vieja' },
+      {
+        ...base,
+        id: 'c1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-25T10:00:00Z',
+        body: 'coach nueva',
+      },
+      {
+        ...base,
+        id: 's1',
+        author_role: 'student',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'alumna vieja',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes, { prefer: 'student' })
     expect(map.get('ex-press').id).toBe('s1')
@@ -491,7 +540,14 @@ describe('pickLastPreviewNotePerExercise', () => {
 
   it('prefer="student" cae al coach si la alumna no comentó ese ejercicio', () => {
     const notes = [
-      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-25T10:00:00Z', body: 'coach' },
+      {
+        ...base,
+        id: 'c1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-25T10:00:00Z',
+        body: 'coach',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes, { prefer: 'student' })
     expect(map.get('ex-press').author_role).toBe('coach')
@@ -499,8 +555,22 @@ describe('pickLastPreviewNotePerExercise', () => {
 
   it('mezcla por ejercicio: coach en uno, alumno en otro', () => {
     const notes = [
-      { ...base, id: 'c1', author_role: 'coach', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'coach press' },
-      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-squat', created_at: '2026-07-20T10:00:00Z', body: 'alumno squat' },
+      {
+        ...base,
+        id: 'c1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'coach press',
+      },
+      {
+        ...base,
+        id: 's1',
+        author_role: 'student',
+        exercise_id: 'ex-squat',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'alumno squat',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes)
     expect(map.get('ex-press').author_role).toBe('coach')
@@ -509,10 +579,40 @@ describe('pickLastPreviewNotePerExercise', () => {
 
   it('ignora coach_private, borradas y notas sin exercise_id (cae al alumno)', () => {
     const notes = [
-      { ...base, id: 'p1', author_role: 'coach', exercise_id: 'ex-press', visibility: 'coach_private', created_at: '2026-07-25T10:00:00Z', body: 'privada' },
-      { ...base, id: 'd1', author_role: 'coach', exercise_id: 'ex-press', deleted_at: '2026-07-24T10:00:00Z', created_at: '2026-07-24T10:00:00Z', body: 'borrada' },
-      { ...base, id: 's1', author_role: 'student', exercise_id: 'ex-press', created_at: '2026-07-20T10:00:00Z', body: 'alumno visible' },
-      { ...base, id: 'f1', author_role: 'coach', exercise_id: null, created_at: '2026-07-26T10:00:00Z', body: 'libre sin ejercicio' },
+      {
+        ...base,
+        id: 'p1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        visibility: 'coach_private',
+        created_at: '2026-07-25T10:00:00Z',
+        body: 'privada',
+      },
+      {
+        ...base,
+        id: 'd1',
+        author_role: 'coach',
+        exercise_id: 'ex-press',
+        deleted_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-24T10:00:00Z',
+        body: 'borrada',
+      },
+      {
+        ...base,
+        id: 's1',
+        author_role: 'student',
+        exercise_id: 'ex-press',
+        created_at: '2026-07-20T10:00:00Z',
+        body: 'alumno visible',
+      },
+      {
+        ...base,
+        id: 'f1',
+        author_role: 'coach',
+        exercise_id: null,
+        created_at: '2026-07-26T10:00:00Z',
+        body: 'libre sin ejercicio',
+      },
     ]
     const map = pickLastPreviewNotePerExercise(notes)
     expect(map.get('ex-press').id).toBe('s1')
@@ -522,5 +622,42 @@ describe('pickLastPreviewNotePerExercise', () => {
   it('inputs vacíos / nulos no rompen', () => {
     expect(pickLastPreviewNotePerExercise([]).size).toBe(0)
     expect(pickLastPreviewNotePerExercise(null).size).toBe(0)
+  })
+})
+
+// ============================================================
+// `t` por parámetro — aislamiento de idioma del modo coach
+// ------------------------------------------------------------
+// Estas tres funciones son puras y no ven el contexto de React, así que en la
+// pantalla de registro en modo coach (instancia clonada con el idioma de la
+// alumna) el llamador les pasa su `t`. Sin argumento siguen usando la
+// instancia global, que es lo que hace la vista de la alumna y estos tests.
+// Ver src/features/workouts/CoachModeLanguage.jsx
+// ============================================================
+describe('idioma por parámetro (modo coach)', () => {
+  // `t` de juguete: devuelve la clave, así el test verifica QUE SE USE la t
+  // que le pasan y no la global, sin acoplarse a los textos de los locales.
+  const fakeT = (key, opts) => `[${key}${opts?.count != null ? `:${opts.count}` : ''}]`
+
+  it('formatLastLogSummary usa la t que le pasan', () => {
+    const log = { actual_weights_jsonb: [20], actual_reps_jsonb: [8], perceived_difficulty: 7 }
+    expect(formatLastLogSummary(log, fakeT)).toContain('[workout.pseValue]')
+    expect(formatLastLogSummary(log)).not.toContain('[workout.pseValue]')
+  })
+
+  it('formatLastBlockLogSummary usa la t que le pasan', () => {
+    const blockLog = { actual_minutes: 20, actual_rounds: 3, perceived_difficulty: 7 }
+    const out = formatLastBlockLogSummary(blockLog, fakeT)
+    expect(out).toContain('[workout.rounds:3]')
+    expect(out).toContain('[workout.pseValue]')
+  })
+
+  it('formatRelativeDate usa la t que le pasan sin perder el `today` de tests', () => {
+    const today = new Date('2026-09-08T12:00:00')
+    expect(formatRelativeDate('2026-09-08', today, fakeT)).toBe('[dates.relToday]')
+    expect(formatRelativeDate('2026-09-07', today, fakeT)).toBe('[dates.relYesterday]')
+    expect(formatRelativeDate('2026-09-05', today, fakeT)).toBe('[dates.relDaysAgo:3]')
+    // Más viejo que 7 días no pasa por i18n: sigue siendo DD/MM
+    expect(formatRelativeDate('2026-08-20', today, fakeT)).toBe('20/08')
   })
 })
