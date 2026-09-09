@@ -189,23 +189,37 @@ export default function ExercisesLibraryPage() {
   async function deleteExercise(ex) {
     const id = ex.id
 
-    // Un ejercicio con entrenamientos registrados NO se borra (v41): la FK
-    // workout_logs.exercise_id es ON DELETE RESTRICT. Se chequea acá para dar un
-    // mensaje claro en vez del error crudo de la base.
-    let logCount = 0
+    // Un ejercicio referenciado por un hecho NO se borra (v41 + v45): las FKs de
+    // workout_logs, evaluation_test_responses, evaluation_tests y
+    // plan_exercise_prescription_history son ON DELETE RESTRICT. Se chequea acá
+    // con exercise_usage() para dar un mensaje claro en vez del error crudo.
+    let usage = null
     try {
-      const { count } = await supabase
-        .from('workout_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('exercise_id', id)
-      logCount = count || 0
+      const { data } = await supabase.rpc('exercise_usage', { p_exercise_id: id })
+      usage = data || null
     } catch {
-      logCount = 0
+      usage = null
     }
-    if (logCount > 0) {
+    const logCount = usage?.workout_logs || 0
+    const evalCount = (usage?.eval_responses || 0) + (usage?.eval_tests || 0)
+    const histCount = usage?.prescription_history || 0
+    if (logCount > 0 || evalCount > 0 || histCount > 0) {
+      const partes = []
+      if (logCount > 0) {
+        partes.push(
+          `${logCount} ${logCount === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
+        )
+      }
+      if (evalCount > 0) {
+        partes.push(`${evalCount} ${evalCount === 1 ? 'evaluación' : 'evaluaciones'}`)
+      }
+      if (histCount > 0) {
+        partes.push(
+          `${histCount} ${histCount === 1 ? 'cambio de prescripción' : 'cambios de prescripción'}`
+        )
+      }
       alert(
-        `No se puede eliminar "${ex.name}": tiene ${logCount} ` +
-          `${logCount === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}. ` +
+        `No se puede eliminar "${ex.name}": tiene ${partes.join(', ')}. ` +
           'Borrarlo dejaría ese historial sin ejercicio. ' +
           'Si ya no lo usás, sacalo de los planes en lugar de eliminarlo.'
       )
@@ -214,16 +228,7 @@ export default function ExercisesLibraryPage() {
 
     // Avisar si el ejercicio está usado en planes: el FK es ON DELETE CASCADE,
     // así que borrarlo lo quita de esos planes (de las alumnas) sin más aviso.
-    let planCount = 0
-    try {
-      const { count } = await supabase
-        .from('plan_exercises')
-        .select('id', { count: 'exact', head: true })
-        .eq('exercise_id', id)
-      planCount = count || 0
-    } catch {
-      planCount = 0
-    }
+    const planCount = usage?.plans || 0
 
     const msg =
       planCount > 0
@@ -242,7 +247,7 @@ export default function ExercisesLibraryPage() {
     if (error) {
       if (error.code === '23503') {
         alert(
-          `No se puede eliminar "${ex.name}": tiene entrenamientos registrados. ` +
+          `No se puede eliminar "${ex.name}": tiene entrenamientos o evaluaciones registrados. ` +
             'Borrarlo dejaría ese historial sin ejercicio.'
         )
       } else {

@@ -56,7 +56,7 @@ function keepMostRecent(map, exerciseId, entry) {
  * @param {Object} sources
  * @param {Array} sources.responses - filas de evaluation_test_responses ya
  *        joineadas: { student_response, evaluation_result: {eval_date},
- *        plan_exercise: {exercise_id} }
+ *        exercise_id (propio, v45) y/o plan_exercise: {exercise_id} }
  * @param {Array} sources.legacyResults - filas de evaluation_results con
  *        results.exercises[] (modelo viejo)
  * @returns {Map<string, {oneRm:number, date:string, source:string}>}
@@ -80,7 +80,9 @@ export function buildOneRmMap({ responses = [], legacyResults = [] } = {}) {
   }
 
   for (const row of responses) {
-    keepMostRecent(map, row?.plan_exercise?.exercise_id, {
+    // v45: la respuesta guarda su propio exercise_id; el embed del casillero es el
+    // fallback para filas anteriores y sobrevive aunque el casillero ya no exista.
+    keepMostRecent(map, row?.exercise_id || row?.plan_exercise?.exercise_id, {
       oneRm: toNumber(row?.student_response?.one_rm_estimated),
       date: row?.evaluation_result?.eval_date || '',
       source: 'exercise_eval',
@@ -235,7 +237,7 @@ export async function fetchOneRmMapsForStudents(supabase, studentIds = []) {
       supabase
         .from('evaluation_test_responses')
         .select(
-          'evaluation_result_id, student_response, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
+          'evaluation_result_id, student_response, exercise_id, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
         )
         .in('evaluation_result_id', chunk)
         .order('id')
