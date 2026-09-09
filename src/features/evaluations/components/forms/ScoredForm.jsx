@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FMS_PATTERNS, calcFMSScore } from '../../helpers'
 import MethodBadge from '../MethodBadge'
 import NumInput from '../NumInput'
@@ -13,6 +14,7 @@ const SCORES = [0, 1, 2, 3]
 // Puntúa cada patrón motor 0-3 (ScoreButton). Suma da el FMS Score total.
 // Detecta asimetrías y patrones con dolor.
 export default function ScoredForm({ results, onChange, planMethod }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'fms'
 
   function updateFMS(i, field, value) {
@@ -53,15 +55,15 @@ export default function ScoredForm({ results, onChange, planMethod }) {
                       : 'bg-white text-gray-400 border border-gray-200'
                   }`}
                 >
-                  {p.pain ? '⚠️ Dolor' : 'Sin dolor'}
+                  {p.pain ? t('evalForms.scoredPain') : t('evalForms.scoredNoPain')}
                 </button>
               </div>
 
               {p.bilateral ? (
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    ['score_left', '← Izquierda'],
-                    ['score_right', 'Derecha →'],
+                    ['score_left', t('evalForms.scoredLeftArrow')],
+                    ['score_right', t('evalForms.scoredRightArrow')],
                   ].map(([field, lbl]) => (
                     <div key={field}>
                       <p className="text-xs text-gray-500 mb-2">{lbl}</p>
@@ -80,7 +82,7 @@ export default function ScoredForm({ results, onChange, planMethod }) {
                 </div>
               ) : (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2">Puntuación</p>
+                  <p className="text-xs text-gray-500 mb-2">{t('evalForms.scoredScore')}</p>
                   <div className="flex gap-1.5">
                     {SCORES.map((s) => (
                       <ScoreButton
@@ -96,7 +98,7 @@ export default function ScoredForm({ results, onChange, planMethod }) {
 
               <input
                 className="input text-xs"
-                placeholder="Observaciones de este patrón..."
+                placeholder={t('evalForms.scoredPatternNotesPlaceholder')}
                 value={p.notes || ''}
                 onChange={(e) => updateFMS(i, 'notes', e.target.value)}
               />
@@ -105,15 +107,17 @@ export default function ScoredForm({ results, onChange, planMethod }) {
 
           {fmsTotal !== undefined && fmsTotal !== null && (
             <ResultBox
-              label="Puntaje FMS Total"
+              label={t('evalForms.scoredFmsTotal')}
               value={fmsTotal}
               unit="/ 21"
               sub={
                 fmsTotal < 14
-                  ? '⚠️ Riesgo de lesión — score < 14'
+                  ? t('evalForms.scoredFmsRisk')
                   : results.result?.asymmetries?.length > 0
-                    ? `Asimetrías detectadas en: ${results.result.asymmetries.join(', ')}`
-                    : '✅ Score dentro del rango aceptable'
+                    ? t('evalForms.scoredFmsAsymmetries', {
+                        list: results.result.asymmetries.join(', '),
+                      })
+                    : t('evalForms.scoredFmsOk')
               }
             />
           )}
@@ -122,30 +126,28 @@ export default function ScoredForm({ results, onChange, planMethod }) {
 
       {method === 'sit_reach' && (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">
-            Distancia desde la línea de los pies. Positivo = más allá de los pies.
-          </p>
+          <p className="text-xs text-gray-500">{t('evalForms.scoredSitReachHint')}</p>
           <div className="grid grid-cols-2 gap-3">
             <NumInput
-              label="Mejor intento"
+              label={t('evalForms.scoredBestAttempt')}
               unit="cm"
               step="0.5"
-              placeholder="Ej: 12"
+              placeholder={t('evalForms.egPlaceholder', { value: '12' })}
               value={results.distance_left_cm || ''}
               onChange={(v) => onChange({ ...results, distance_left_cm: v })}
             />
             <NumInput
-              label="Segundo intento"
+              label={t('evalForms.scoredSecondAttempt')}
               unit="cm"
               step="0.5"
-              placeholder="Ej: 10"
+              placeholder={t('evalForms.egPlaceholder', { value: '10' })}
               value={results.distance_right_cm || ''}
               onChange={(v) => onChange({ ...results, distance_right_cm: v })}
             />
           </div>
           {results.distance_left_cm && (
             <ResultBox
-              label="Flexibilidad isquiosural"
+              label={t('evalForms.scoredHamstringFlex')}
               value={results.distance_left_cm}
               unit="cm"
             />
@@ -155,23 +157,21 @@ export default function ScoredForm({ results, onChange, planMethod }) {
 
       {method === 'shoulder_mob' && (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">
-            Distancia entre ambas manos detrás de la espalda. Menor = mejor movilidad.
-          </p>
+          <p className="text-xs text-gray-500">{t('evalForms.scoredShoulderMobHint')}</p>
           <div className="grid grid-cols-2 gap-3">
             <NumInput
-              label="Mano derecha arriba"
+              label={t('evalForms.scoredRightHandUp')}
               unit="cm"
               step="0.5"
-              placeholder="Ej: 5"
+              placeholder={t('evalForms.egPlaceholder', { value: '5' })}
               value={results.distance_left_cm || ''}
               onChange={(v) => onChange({ ...results, distance_left_cm: v })}
             />
             <NumInput
-              label="Mano izquierda arriba"
+              label={t('evalForms.scoredLeftHandUp')}
               unit="cm"
               step="0.5"
-              placeholder="Ej: 8"
+              placeholder={t('evalForms.egPlaceholder', { value: '8' })}
               value={results.distance_right_cm || ''}
               onChange={(v) => onChange({ ...results, distance_right_cm: v })}
             />
@@ -181,8 +181,8 @@ export default function ScoredForm({ results, onChange, planMethod }) {
               {Math.abs(
                 parseFloat(results.distance_left_cm) - parseFloat(results.distance_right_cm)
               ) > 1.5
-                ? '⚠️ Asimetría detectada (diferencia > 1.5 cm)'
-                : '✅ Simetría dentro del rango normal'}
+                ? t('evalForms.scoredAsymmetryDetected')
+                : t('evalForms.scoredSymmetryOk')}
             </div>
           )}
         </div>
@@ -190,20 +190,17 @@ export default function ScoredForm({ results, onChange, planMethod }) {
 
       {method === 'y_balance' && (
         <div className="space-y-4">
-          <p className="text-xs text-gray-500">
-            3 vectores de alcance en apoyo monopodal (cm). Normalizar dividiendo por largo de
-            pierna.
-          </p>
+          <p className="text-xs text-gray-500">{t('evalForms.scoredYBalanceHint')}</p>
           {[
-            ['reach_anterior', 'Vector Anterior'],
-            ['reach_posteromedial', 'Vector Posteromedial'],
-            ['reach_posterolateral', 'Vector Posterolateral'],
+            ['reach_anterior', t('evalForms.scoredVectorAnterior')],
+            ['reach_posteromedial', t('evalForms.scoredVectorPosteromedial')],
+            ['reach_posterolateral', t('evalForms.scoredVectorPosterolateral')],
           ].map(([field, label]) => (
             <div key={field}>
               <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
               <div className="grid grid-cols-2 gap-3">
                 <NumInput
-                  label="Izquierda"
+                  label={t('evalForms.left')}
                   unit="cm"
                   step="0.5"
                   placeholder="0"
@@ -211,7 +208,7 @@ export default function ScoredForm({ results, onChange, planMethod }) {
                   onChange={(v) => onChange({ ...results, [`${field}_l`]: v })}
                 />
                 <NumInput
-                  label="Derecha"
+                  label={t('evalForms.right')}
                   unit="cm"
                   step="0.5"
                   placeholder="0"
@@ -225,11 +222,11 @@ export default function ScoredForm({ results, onChange, planMethod }) {
       )}
 
       <div>
-        <label className="label">Notas generales</label>
+        <label className="label">{t('evalForms.scoredGeneralNotes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Observaciones de la evaluación..."
+          placeholder={t('evalForms.scoredNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

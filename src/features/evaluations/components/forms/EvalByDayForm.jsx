@@ -32,7 +32,11 @@ export default function EvalByDayForm({
   savingSection = null,
   savedSections = null, // Set de sections ya guardadas (tienen datos)
   maxDate,
+  // v44 — la misma form la usa la coach desde /coach/students/:id/eval/:planId.
+  // Cambia de qué lado se escribe el comentario y cuál se muestra en solo lectura.
+  coachMode = false,
 }) {
+  const { t, i18n } = useTranslation()
   const sections = getDynamicSections(sessionsPerWeek, false).filter(
     (s) => (exercisesByDay[s.id] || []).length > 0
   )
@@ -49,16 +53,19 @@ export default function EvalByDayForm({
 
   if (sections.length === 0) {
     return (
-      <p className="text-sm text-gray-400 text-center py-4">
-        Esta evaluación no tiene ejercicios configurados. Pedile al coach que los agregue.
-      </p>
+      <p className="text-sm text-gray-400 text-center py-4">{t('evalForms.byDayNoExercises')}</p>
     )
   }
 
   const multi = sections.length > 1
   const fmtDate = (d) =>
     d
-      ? new Date(d + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+      ? new Date(d + 'T12:00:00').toLocaleDateString(
+          // v44 — el locale sale del i18n de ESTA pantalla (en modo coach es
+          // el de la alumna), no de una constante es-AR.
+          i18n.language === 'en' ? 'en-US' : 'es-AR',
+          { day: 'numeric', month: 'short' }
+        )
       : ''
 
   return (
@@ -76,7 +83,9 @@ export default function EvalByDayForm({
             >
               <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{s.label} guardado</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {t('evalForms.byDaySaved', { day: s.label })}
+                </p>
                 {dayDates[s.id] && (
                   <p className="text-xs text-gray-500">{fmtDate(dayDates[s.id])}</p>
                 )}
@@ -85,7 +94,7 @@ export default function EvalByDayForm({
                 onClick={() => expandDay(s.id)}
                 className="text-sm text-primary-600 font-medium hover:text-primary-700 flex items-center gap-1"
               >
-                <Pencil size={13} /> Editar
+                <Pencil size={13} /> {t('evalForms.byDayEdit')}
               </button>
             </div>
           )
@@ -120,6 +129,7 @@ export default function EvalByDayForm({
                 pe={pe}
                 resp={responses[pe.id] || {}}
                 onChange={(field, value) => onChange(pe.id, field, value)}
+                coachMode={coachMode}
               />
             ))}
             {perDaySave && (
@@ -135,7 +145,10 @@ export default function EvalByDayForm({
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    <Save size={15} /> {isSaved ? `Actualizar ${s.label}` : `Guardar ${s.label}`}
+                    <Save size={15} />{' '}
+                    {isSaved
+                      ? t('evalForms.byDayUpdate', { day: s.label })
+                      : t('evalForms.byDaySave', { day: s.label })}
                   </>
                 )}
               </button>
@@ -153,17 +166,19 @@ function methodLabel(evalType, methodKey) {
   return m?.label || methodKey || ''
 }
 
-function ExerciseEvalCard({ pe, resp, onChange }) {
-  const { i18n } = useTranslation()
+function ExerciseEvalCard({ pe, resp, onChange, coachMode = false }) {
+  const { t, i18n } = useTranslation()
   const evalType = pe.eval_type || 'custom'
-  const name = exerciseDisplay(pe.exercises || pe.exercise, i18n.language).name || 'Ejercicio'
+  const name =
+    exerciseDisplay(pe.exercises || pe.exercise, i18n.language).name ||
+    t('evalForms.exerciseFallback')
   const videoUrl = pe.exercises?.video_url || pe.exercise?.video_url || null
 
   // Recomendación del coach (si la cargó al armar la eval).
   const sug = []
-  if (pe.suggested_sets) sug.push(`${pe.suggested_sets} series`)
-  if (pe.suggested_reps) sug.push(`${pe.suggested_reps} reps`)
-  if (pe.suggested_weight) sug.push(`${pe.suggested_weight} kg`)
+  if (pe.suggested_sets) sug.push(t('evalForms.unitSetsN', { n: pe.suggested_sets }))
+  if (pe.suggested_reps) sug.push(t('evalForms.unitRepsN', { n: pe.suggested_reps }))
+  if (pe.suggested_weight) sug.push(t('evalForms.unitKgN', { n: pe.suggested_weight }))
 
   return (
     <div className="border-2 border-gray-100 rounded-2xl overflow-hidden">
@@ -177,7 +192,7 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                title="Ver video del ejercicio"
+                title={t('evalForms.customWatchVideo')}
               >
                 <PlayCircle size={16} />
               </a>
@@ -187,19 +202,19 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
             </span>
             {pe.mandatory && (
               <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                Obligatorio
+                {t('evalForms.mandatoryExercise')}
               </span>
             )}
           </div>
           {pe.instructions && <p className="text-xs text-gray-500 mt-0.5">{pe.instructions}</p>}
           {sug.length > 0 && (
             <p className="text-xs text-purple-600 mt-0.5">
-              Recomendado por tu coach: <strong>{sug.join(' · ')}</strong>
+              {t('evalForms.coachSuggests')} <strong>{sug.join(' · ')}</strong>
             </p>
           )}
           {pe.expected_value && (
             <p className="text-xs text-blue-500 mt-0.5">
-              Esperado:{' '}
+              {t('evalForms.customExpected')}{' '}
               <strong>
                 {pe.expected_value} {pe.expected_unit}
               </strong>
@@ -216,14 +231,32 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
           onChange={onChange}
         />
 
+        {/* v44 — el comentario del OTRO lado, en solo lectura. Antes esta
+            pantalla solo leía el del alumno, así que lo que escribía la coach
+            (rotulado "visible al alumno" en su panel) no aparecía nunca. */}
+        {resp.otherComment && (
+          <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
+            <p className="text-[11px] font-semibold text-amber-700 mb-0.5 flex items-center gap-1">
+              <MessageSquare size={11} />
+              {coachMode ? t('evalForms.commentFromStudent') : t('evalForms.commentFromCoach')}
+            </p>
+            <p className="text-sm text-amber-900 whitespace-pre-line">{resp.otherComment}</p>
+          </div>
+        )}
+
         <div>
           <label className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-            <MessageSquare size={12} /> Tu comentario (opcional)
+            <MessageSquare size={12} />{' '}
+            {coachMode ? t('evalForms.yourCommentCoach') : t('evalForms.customYourComment')}
           </label>
           <textarea
             className="input resize-none text-sm"
             rows={2}
-            placeholder="¿Cómo te sentiste?"
+            placeholder={
+              coachMode
+                ? t('evalForms.yourCommentCoachPlaceholder')
+                : t('evalForms.customCommentPlaceholder')
+            }
             value={resp.comment || ''}
             onChange={(e) => onChange('comment', e.target.value)}
           />
@@ -237,6 +270,7 @@ function ExerciseEvalCard({ pe, resp, onChange }) {
 // Input por ejercicio según eval_type
 // ============================================================
 function ExerciseInput({ evalType, method, resp, onChange }) {
+  const { t } = useTranslation()
   if (evalType === 'one_rm') {
     const m = method || 'brzycki'
     const oneRm = calc1RM(m, resp.weight_kg, resp.reps)
@@ -244,7 +278,7 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="label text-xs">Peso (kg)</label>
+            <label className="label text-xs">{t('evalForms.customWeightKg')}</label>
             <input
               type="number"
               step="0.5"
@@ -260,7 +294,7 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
             />
           </div>
           <div>
-            <label className="label text-xs">Reps</label>
+            <label className="label text-xs">{t('evalForms.byDayRepsShort')}</label>
             <input
               type="number"
               min="1"
@@ -280,7 +314,9 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
             <p className="text-lg font-bold text-red-700">
               {oneRm} <span className="text-xs font-normal">kg</span>
             </p>
-            <p className="text-xs text-red-500">1RM estimado ({methodLabel('one_rm', m)})</p>
+            <p className="text-xs text-red-500">
+              {t('evalForms.byDayOneRmEstimated', { method: methodLabel('one_rm', m) })}
+            </p>
           </div>
         )}
       </div>
@@ -290,7 +326,7 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
   if (evalType === 'max_reps') {
     return (
       <div>
-        <label className="label text-xs">Repeticiones máximas</label>
+        <label className="label text-xs">{t('evalForms.byDayMaxReps')}</label>
         <div className="flex gap-2 items-center">
           <input
             type="number"
@@ -322,11 +358,12 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
 
 // Reusa la misma lógica de inputs que CustomForm (PruebaInput).
 function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeUnit }) {
+  const { t } = useTranslation()
   switch (testType) {
     case 'reps':
       return (
         <div>
-          <label className="label text-xs">Repeticiones</label>
+          <label className="label text-xs">{t('evalForms.customReps')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -342,7 +379,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'tiempo':
       return (
         <div>
-          <label className="label text-xs">Tiempo (segundos)</label>
+          <label className="label text-xs">{t('evalForms.customTimeSeconds')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -359,7 +396,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'distancia':
       return (
         <div>
-          <label className="label text-xs">Distancia</label>
+          <label className="label text-xs">{t('evalForms.distance')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -381,7 +418,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'peso':
       return (
         <div>
-          <label className="label text-xs">Peso (kg)</label>
+          <label className="label text-xs">{t('evalForms.customWeightKg')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -398,7 +435,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'movilidad':
       return (
         <div>
-          <label className="label text-xs">Medición (cm)</label>
+          <label className="label text-xs">{t('evalForms.customMeasurementCm')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -416,7 +453,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
       const numVal = parseInt(value) || 0
       return (
         <div>
-          <label className="label text-xs">Puntaje técnica (1–10)</label>
+          <label className="label text-xs">{t('evalForms.customTechniqueScore')}</label>
           <div className="flex gap-1.5 flex-wrap">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
               <button
@@ -439,7 +476,7 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'video':
       return (
         <div>
-          <label className="label text-xs">Link del video</label>
+          <label className="label text-xs">{t('evalForms.customVideoLink')}</label>
           <input
             type="url"
             className="input"
@@ -452,17 +489,17 @@ function CustomInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     default: // libre
       return (
         <div>
-          <label className="label text-xs">Respuesta</label>
+          <label className="label text-xs">{t('evalForms.customAnswer')}</label>
           <div className="flex gap-2">
             <input
               className="input flex-1"
-              placeholder={typeInfo.placeholder || 'Escribí tu respuesta...'}
+              placeholder={typeInfo.placeholder || t('evalForms.customAnswerPlaceholder')}
               value={value}
               onChange={(e) => onChangeValue(e.target.value)}
             />
             <input
               className="input w-20 text-sm"
-              placeholder="unidad"
+              placeholder={t('evalForms.customUnitPlaceholder')}
               value={unit}
               onChange={(e) => onChangeUnit(e.target.value)}
             />

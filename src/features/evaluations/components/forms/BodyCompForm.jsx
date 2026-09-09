@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { calcBodyComp } from '../../helpers'
 import MethodBadge from '../MethodBadge'
 import NumInput from '../NumInput'
@@ -10,6 +11,7 @@ import SexSelector from '../SexSelector'
 // % grasa por Jackson-Pollock 3 / 7 pliegues, o ICC. Requiere mediciones
 // de pliegues cutáneos / perímetros y datos antropométricos.
 export default function BodyCompForm({ results, onChange, planMethod }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'jp3'
   const sex = results.sex || 'male'
 
@@ -17,29 +19,29 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
     jp3:
       sex === 'male'
         ? [
-            ['chest', 'Pectoral'],
-            ['abdomen', 'Abdominal'],
-            ['thigh', 'Muslo'],
+            ['chest', t('evalForms.skinfoldChest')],
+            ['abdomen', t('evalForms.skinfoldAbdomen')],
+            ['thigh', t('evalForms.skinfoldThigh')],
           ]
         : [
-            ['triceps', 'Tríceps'],
-            ['suprailiac', 'Suprailiaco'],
-            ['thigh', 'Muslo'],
+            ['triceps', t('evalForms.skinfoldTriceps')],
+            ['suprailiac', t('evalForms.skinfoldSuprailiac')],
+            ['thigh', t('evalForms.skinfoldThigh')],
           ],
     jp7: [
-      ['chest', 'Pectoral'],
-      ['abdomen', 'Abdominal'],
-      ['thigh', 'Muslo'],
-      ['triceps', 'Tríceps'],
-      ['subscapular', 'Subescapular'],
-      ['suprailiac', 'Suprailiaco'],
-      ['midaxillary', 'Midaxilar'],
+      ['chest', t('evalForms.skinfoldChest')],
+      ['abdomen', t('evalForms.skinfoldAbdomen')],
+      ['thigh', t('evalForms.skinfoldThigh')],
+      ['triceps', t('evalForms.skinfoldTriceps')],
+      ['subscapular', t('evalForms.skinfoldSubscapular')],
+      ['suprailiac', t('evalForms.skinfoldSuprailiac')],
+      ['midaxillary', t('evalForms.skinfoldMidaxillary')],
     ],
     dw: [
-      ['biceps', 'Bíceps'],
-      ['triceps', 'Tríceps'],
-      ['subscapular', 'Subescapular'],
-      ['suprailiac', 'Suprailiaco'],
+      ['biceps', t('evalForms.skinfoldBiceps')],
+      ['triceps', t('evalForms.skinfoldTriceps')],
+      ['subscapular', t('evalForms.skinfoldSubscapular')],
+      ['suprailiac', t('evalForms.skinfoldSuprailiac')],
     ],
     navy: [],
   }
@@ -48,13 +50,13 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
     navy:
       sex === 'male'
         ? [
-            ['neck', 'Cuello'],
-            ['waist', 'Cintura'],
+            ['neck', t('evalForms.perimeterNeck')],
+            ['waist', t('evalForms.perimeterWaist')],
           ]
         : [
-            ['neck', 'Cuello'],
-            ['waist', 'Cintura'],
-            ['hip', 'Cadera'],
+            ['neck', t('evalForms.perimeterNeck')],
+            ['waist', t('evalForms.perimeterWaist')],
+            ['hip', t('evalForms.perimeterHip')],
           ],
     jp3: [],
     jp7: [],
@@ -92,14 +94,14 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
 
       <div className="grid grid-cols-2 gap-3">
         <NumInput
-          label="Edad"
-          unit="años"
+          label={t('evalForms.age')}
+          unit={t('evalForms.unitYears')}
           placeholder="28"
           value={results.age || ''}
           onChange={(v) => update({ age: v })}
         />
         <NumInput
-          label="Peso corporal"
+          label={t('evalForms.bodyWeight')}
           unit="kg"
           step="0.1"
           placeholder="70"
@@ -108,7 +110,7 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
         />
         {method === 'navy' && (
           <NumInput
-            label="Talla"
+            label={t('evalForms.bodyCompHeight')}
             unit="cm"
             step="0.5"
             placeholder="175"
@@ -120,7 +122,7 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
 
       {sFields.length > 0 && (
         <div>
-          <label className="label">Pliegues cutáneos (mm)</label>
+          <label className="label">{t('evalForms.bodyCompSkinfoldsTitle')}</label>
           <div className="grid grid-cols-2 gap-2">
             {sFields.map(([key, label]) => (
               <NumInput
@@ -139,7 +141,7 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
 
       {pFields.length > 0 && (
         <div>
-          <label className="label">Perímetros (cm)</label>
+          <label className="label">{t('evalForms.bodyCompPerimetersTitle')}</label>
           <div className="grid grid-cols-2 gap-2">
             {pFields.map(([key, label]) => (
               <NumInput
@@ -158,25 +160,31 @@ export default function BodyCompForm({ results, onChange, planMethod }) {
 
       {computed && (
         <div className="space-y-3">
-          <ResultBox label="% Grasa corporal" value={computed.fat_pct} unit="%" />
+          <ResultBox label={t('evalForms.bodyCompFatPct')} value={computed.fat_pct} unit="%" />
           {computed.fat_kg !== null && (
             <div className="grid grid-cols-2 gap-3">
-              <ResultBox label="Masa grasa" value={computed.fat_kg} unit="kg" />
-              <ResultBox label="Masa magra" value={computed.lean_kg} unit="kg" />
+              <ResultBox label={t('evalForms.bodyCompFatMass')} value={computed.fat_kg} unit="kg" />
+              <ResultBox
+                label={t('evalForms.bodyCompLeanMass')}
+                value={computed.lean_kg}
+                unit="kg"
+              />
             </div>
           )}
           {computed.sum_mm && (
-            <p className="text-xs text-gray-400 text-center">Suma pliegues: {computed.sum_mm} mm</p>
+            <p className="text-xs text-gray-400 text-center">
+              {t('evalForms.bodyCompSkinfoldSum', { value: computed.sum_mm })}
+            </p>
           )}
         </div>
       )}
 
       <div>
-        <label className="label">Notas</label>
+        <label className="label">{t('evalForms.notes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Condiciones, equipo utilizado..."
+          placeholder={t('evalForms.bodyCompNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

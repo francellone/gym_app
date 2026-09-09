@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, PlayCircle } from 'lucide-react'
 import { pruebaTypeInfo } from '../../helpers'
 
@@ -10,12 +11,9 @@ import { pruebaTypeInfo } from '../../helpers'
 // El alumno completa una respuesta por prueba + opcionalmente un comentario.
 // El input se adapta al `test_type` de cada prueba vía PruebaInput.
 export default function CustomForm({ pruebas, responses, onChange }) {
+  const { t } = useTranslation()
   if (pruebas.length === 0) {
-    return (
-      <p className="text-sm text-gray-400 text-center py-4">
-        Esta evaluación no tiene pruebas configuradas. Pedile al coach que las agregue.
-      </p>
-    )
+    return <p className="text-sm text-gray-400 text-center py-4">{t('evalForms.customNoTests')}</p>
   }
 
   return (
@@ -31,7 +29,7 @@ export default function CustomForm({ pruebas, responses, onChange }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-sm font-semibold text-gray-800">
-                    {prueba.exercise_name || `Prueba ${i + 1}`}
+                    {prueba.exercise_name || t('evalForms.customTestN', { n: i + 1 })}
                   </p>
                   {/* B7 (30/05): video de referencia del ejercicio (link de
                       Drive/YouTube cargado por el coach). El dato llega vía el
@@ -42,7 +40,7 @@ export default function CustomForm({ pruebas, responses, onChange }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                      title="Ver video del ejercicio"
+                      title={t('evalForms.customWatchVideo')}
                     >
                       <PlayCircle size={16} />
                     </a>
@@ -52,7 +50,7 @@ export default function CustomForm({ pruebas, responses, onChange }) {
                   </span>
                   {prueba.mandatory && (
                     <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                      Obligatoria
+                      {t('evalForms.customMandatory')}
                     </span>
                   )}
                 </div>
@@ -61,7 +59,7 @@ export default function CustomForm({ pruebas, responses, onChange }) {
                 )}
                 {prueba.expected_value && (
                   <p className="text-xs text-blue-500 mt-0.5">
-                    Esperado:{' '}
+                    {t('evalForms.customExpected')}{' '}
                     <strong>
                       {prueba.expected_value} {prueba.expected_unit}
                     </strong>
@@ -84,12 +82,12 @@ export default function CustomForm({ pruebas, responses, onChange }) {
               {/* Comentario del alumno */}
               <div>
                 <label className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-                  <MessageSquare size={12} /> Tu comentario (opcional)
+                  <MessageSquare size={12} /> {t('evalForms.customYourComment')}
                 </label>
                 <textarea
                   className="input resize-none text-sm"
                   rows={2}
-                  placeholder="¿Cómo te sentiste en esta prueba?"
+                  placeholder={t('evalForms.customCommentPlaceholder')}
                   value={resp.comment || ''}
                   onChange={(e) => onChange(prueba.id, 'comment', e.target.value)}
                 />
@@ -106,11 +104,12 @@ export default function CustomForm({ pruebas, responses, onChange }) {
 // Input adaptado al tipo de prueba (helper interno de CustomForm)
 // ============================================================
 function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeUnit }) {
+  const { t } = useTranslation()
   switch (testType) {
     case 'reps':
       return (
         <div>
-          <label className="label text-xs">Repeticiones</label>
+          <label className="label text-xs">{t('evalForms.customReps')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -127,7 +126,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'tiempo':
       return (
         <div>
-          <label className="label text-xs">Tiempo (segundos)</label>
+          <label className="label text-xs">{t('evalForms.customTimeSeconds')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -145,7 +144,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'distancia':
       return (
         <div>
-          <label className="label text-xs">Distancia</label>
+          <label className="label text-xs">{t('evalForms.distance')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -168,7 +167,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'peso':
       return (
         <div>
-          <label className="label text-xs">Peso (kg)</label>
+          <label className="label text-xs">{t('evalForms.customWeightKg')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -186,7 +185,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'movilidad':
       return (
         <div>
-          <label className="label text-xs">Medición (cm)</label>
+          <label className="label text-xs">{t('evalForms.customMeasurementCm')}</label>
           <div className="flex gap-2 items-center">
             <input
               type="number"
@@ -205,7 +204,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
       const numVal = parseInt(value) || 0
       return (
         <div>
-          <label className="label text-xs">Puntaje técnica (1–10)</label>
+          <label className="label text-xs">{t('evalForms.customTechniqueScore')}</label>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
               <button
@@ -229,7 +228,7 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
     case 'video':
       return (
         <div>
-          <label className="label text-xs">Link del video</label>
+          <label className="label text-xs">{t('evalForms.customVideoLink')}</label>
           <input
             type="url"
             className="input"
@@ -237,26 +236,24 @@ function PruebaInput({ testType, typeInfo, value, unit, onChangeValue, onChangeU
             value={value}
             onChange={(e) => onChangeValue(e.target.value)}
           />
-          <p className="text-xs text-gray-400 mt-1">
-            Podés usar YouTube, Google Drive, Instagram u otro servicio. No se sube el archivo.
-          </p>
+          <p className="text-xs text-gray-400 mt-1">{t('evalForms.customVideoHint')}</p>
         </div>
       )
 
     default: // libre
       return (
         <div>
-          <label className="label text-xs">Respuesta</label>
+          <label className="label text-xs">{t('evalForms.customAnswer')}</label>
           <div className="flex gap-2">
             <input
               className="input flex-1"
-              placeholder={typeInfo.placeholder || 'Escribí tu respuesta...'}
+              placeholder={typeInfo.placeholder || t('evalForms.customAnswerPlaceholder')}
               value={value}
               onChange={(e) => onChangeValue(e.target.value)}
             />
             <input
               className="input w-20 text-sm"
-              placeholder="unidad"
+              placeholder={t('evalForms.customUnitPlaceholder')}
               value={unit}
               onChange={(e) => onChangeUnit(e.target.value)}
             />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
   evalTypeIcon,
@@ -29,6 +30,7 @@ import {
   Link2,
   X,
   AlertTriangle,
+  ClipboardEdit,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -594,6 +596,20 @@ function EvaluationCard({
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
               {resultados.length} {resultados.length === 1 ? 'registro' : 'registros'}
             </span>
+          )}
+          {/* v44 — cargar la evaluación por el alumno. Antes esta acción no
+              existía para la coach: la pantalla de carga solo estaba montada
+              en /student. La autoría queda registrada en la base
+              (evaluation_results.source='coach'). */}
+          {!historical && (
+            <Link
+              to={`/coach/students/${studentId}/eval/${plan?.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+              title="Cargar los resultados de esta evaluación por la persona"
+            >
+              <ClipboardEdit size={14} /> Cargar
+            </Link>
           )}
           {canUnassign && (
             <button

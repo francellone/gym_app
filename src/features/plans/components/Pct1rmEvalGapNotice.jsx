@@ -133,8 +133,8 @@ export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '
         </span>
       </p>
       <p className="text-amber-700 leading-snug">
-        Podés asignar igual y resolverlo después: cargale una evaluación de 1RM, o ponele los kilos
-        a mano en su plan una vez asignado.
+        Podés asignar igual y resolverlo después: cargale una evaluación de 1RM (la podés completar
+        vos por esa persona desde su ficha) o ponele los kilos a mano en su plan una vez asignado.
       </p>
       <Link
         to={`/coach/students/${studentId}?tab=evaluaciones`}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { calcVO2max } from '../../helpers'
 import MethodBadge from '../MethodBadge'
 import NumInput from '../NumInput'
@@ -10,6 +11,7 @@ import SexSelector from '../SexSelector'
 // VO2max según método: Cooper (12 min), Rockport (1 mile walk), o
 // Astrand-Rhyming. Algunos requieren sexo, edad, peso.
 export default function CardioForm({ results, onChange, planMethod }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'cooper'
 
   function update(patch) {
@@ -26,12 +28,12 @@ export default function CardioForm({ results, onChange, planMethod }) {
 
       {method === 'cooper' && (
         <NumInput
-          label="Distancia recorrida en 12 min"
+          label={t('evalForms.cardioDistance12min')}
           unit="m"
           placeholder="2800"
           value={results.distance_m || ''}
           onChange={(v) => update({ distance_m: v })}
-          hint="Test Cooper clásico: correr 12 minutos y medir distancia"
+          hint={t('evalForms.cardioCooperHint')}
         />
       )}
 
@@ -40,14 +42,14 @@ export default function CardioForm({ results, onChange, planMethod }) {
           <SexSelector value={results.sex || 'male'} onChange={(v) => update({ sex: v })} />
           <div className="grid grid-cols-2 gap-3">
             <NumInput
-              label="Edad"
-              unit="años"
+              label={t('evalForms.age')}
+              unit={t('evalForms.unitYears')}
               placeholder="30"
               value={results.age || ''}
               onChange={(v) => update({ age: v })}
             />
             <NumInput
-              label="Peso corporal"
+              label={t('evalForms.bodyWeight')}
               unit="kg"
               step="0.1"
               placeholder="70"
@@ -55,16 +57,16 @@ export default function CardioForm({ results, onChange, planMethod }) {
               onChange={(v) => update({ weight_kg: v })}
             />
             <NumInput
-              label="Tiempo en caminar 1 milla"
+              label={t('evalForms.cardioMileWalkTime')}
               unit="min"
               step="0.01"
               placeholder="12.5"
               value={results.time_min || ''}
               onChange={(v) => update({ time_min: v })}
-              hint="1 milla = 1609 m"
+              hint={t('evalForms.cardioMileHint')}
             />
             <NumInput
-              label="FC al finalizar"
+              label={t('evalForms.cardioFinalHr')}
               unit="bpm"
               placeholder="150"
               value={results.heart_rate || ''}
@@ -76,24 +78,24 @@ export default function CardioForm({ results, onChange, planMethod }) {
 
       {method === 'yoyo' && (
         <NumInput
-          label="Nivel alcanzado (Yo-Yo Nivel 1)"
-          placeholder="Ej: 16.3"
+          label={t('evalForms.cardioYoyoLevel')}
+          placeholder={t('evalForms.egPlaceholder', { value: '16.3' })}
           value={results.yoyo_level || ''}
           onChange={(v) => update({ yoyo_level: v })}
-          hint="Nivel en formato etapa.número (ej: 16.3)"
+          hint={t('evalForms.cardioYoyoHint')}
         />
       )}
 
       {method === 'beep' && (
         <div className="grid grid-cols-2 gap-3">
           <NumInput
-            label="Nivel alcanzado"
-            placeholder="Ej: 12"
+            label={t('evalForms.cardioLevelReached')}
+            placeholder={t('evalForms.egPlaceholder', { value: '12' })}
             value={results.beep_level || ''}
             onChange={(v) => update({ beep_level: v })}
           />
           <NumInput
-            label="Velocidad (km/h)"
+            label={t('evalForms.cardioBeepSpeed')}
             step="0.1"
             placeholder="12"
             value={results.beep_speed || ''}
@@ -104,26 +106,24 @@ export default function CardioForm({ results, onChange, planMethod }) {
 
       {method === 'harvard' && (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500">
-            Pulso de recuperación: contar durante 30 seg y multiplicar × 2
-          </p>
+          <p className="text-xs text-gray-500">{t('evalForms.cardioHarvardHint')}</p>
           <div className="grid grid-cols-3 gap-3">
             <NumInput
-              label={`FC 1'-1'30"`}
+              label={t('evalForms.cardioHr1')}
               unit="bpm"
               placeholder="150"
               value={results.hr1 || ''}
               onChange={(v) => update({ hr1: v })}
             />
             <NumInput
-              label={`FC 2'-2'30"`}
+              label={t('evalForms.cardioHr2')}
               unit="bpm"
               placeholder="130"
               value={results.hr2 || ''}
               onChange={(v) => update({ hr2: v })}
             />
             <NumInput
-              label={`FC 3'-3'30"`}
+              label={t('evalForms.cardioHr3')}
               unit="bpm"
               placeholder="120"
               value={results.hr3 || ''}
@@ -131,47 +131,47 @@ export default function CardioForm({ results, onChange, planMethod }) {
             />
           </div>
           <NumInput
-            label="Duración del test"
+            label={t('evalForms.cardioTestDuration')}
             unit="seg"
             placeholder="300"
             value={results.step_duration_sec || '300'}
             onChange={(v) => update({ step_duration_sec: v })}
-            hint="Máx 300 seg (5 min)"
+            hint={t('evalForms.cardioHarvardDurationHint')}
           />
         </div>
       )}
 
       {vo2 !== null && (
         <ResultBox
-          label={method === 'harvard' ? 'Índice Físico (PFI)' : 'VO₂max estimado'}
+          label={method === 'harvard' ? t('evalForms.cardioPfi') : t('evalForms.cardioVo2max')}
           value={vo2}
           unit={method === 'harvard' ? 'pts' : 'ml/kg/min'}
           sub={
             method === 'harvard'
               ? vo2 < 55
-                ? 'Aceptable'
+                ? t('evalForms.ratingAcceptable')
                 : vo2 < 70
-                  ? 'Bueno'
-                  : 'Excelente'
+                  ? t('evalForms.ratingGood')
+                  : t('evalForms.ratingExcellent')
               : vo2 < 30
-                ? 'Muy bajo'
+                ? t('evalForms.ratingVeryLow')
                 : vo2 < 40
-                  ? 'Regular'
+                  ? t('evalForms.ratingFair')
                   : vo2 < 50
-                    ? 'Bueno'
+                    ? t('evalForms.ratingGood')
                     : vo2 < 60
-                      ? 'Muy bueno'
-                      : 'Superior'
+                      ? t('evalForms.ratingVeryGood')
+                      : t('evalForms.ratingSuperior')
           }
         />
       )}
 
       <div>
-        <label className="label">Notas</label>
+        <label className="label">{t('evalForms.notes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Condiciones del test, temperatura, sensaciones..."
+          placeholder={t('evalForms.cardioNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

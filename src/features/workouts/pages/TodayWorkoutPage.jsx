@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { fetchOneRmMap } from '@/features/evaluations/oneRm'
@@ -15,6 +15,7 @@ import {
   Info,
   ChevronDown,
   Activity,
+  ClipboardEdit,
 } from 'lucide-react'
 import {
   DAY_SECTION_IDS,
@@ -124,6 +125,11 @@ export default function TodayWorkoutPage() {
   // ya había comentado ese log, la coach le pisaba el texto.
   const noteAuthorRole = coachMode ? 'coach' : 'student'
   const noteAuthorId = coachMode ? profile?.id : studentId
+  // v44 — evaluaciones pendientes de esta persona. Solo en modo coach: la
+  // coach entra a registrar el entrenamiento y ahí se entera de que además
+  // tiene una evaluación por cargar, sin tener que volver a la ficha.
+  const [pendingEvals, setPendingEvals] = useState([])
+
   // Pintado instantáneo (PWA cold start): si tenemos en caché el último estado
   // del entrenamiento para este alumno + hoy, sembramos todo con eso y evitamos
   // el spinner; luego fetchWorkout revalida en silencio por detrás.
@@ -183,6 +189,32 @@ export default function TodayWorkoutPage() {
   // Q1 — drawer del chat del ejercicio: null cerrado, sino { exerciseId,
   // exerciseName }.
   const [chatDrawer, setChatDrawer] = useState(null)
+
+  useEffect(() => {
+    if (!coachMode || !studentId) return undefined
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('plan_assignments')
+        .select('id, plan_id, plan:plans!plan_id(title)')
+        .eq('student_id', studentId)
+        .eq('plan_type', 'evaluation')
+        .eq('active', true)
+      if (error) {
+        console.warn('[pendingEvals] no se pudieron leer las evaluaciones:', error)
+        return
+      }
+      if (cancelled) return
+      // Una eval puede estar asignada dos veces (duplicados históricos): una
+      // fila por PLAN, que es lo que la pantalla de carga necesita.
+      const byPlan = new Map()
+      for (const a of data || []) if (a.plan_id) byPlan.set(a.plan_id, a)
+      setPendingEvals([...byPlan.values()])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [coachMode, studentId])
   // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
   const [activeDay, setActiveDay] = useState(initialSnapshot?.activeDay ?? null)
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
@@ -1352,6 +1384,29 @@ export default function TodayWorkoutPage() {
         </div>
 
         <div className="px-4 py-4 space-y-4">
+          {/* v44 — evaluación pendiente: aviso con acción. */}
+          {coachMode && pendingEvals.length > 0 && (
+            <div className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-2.5 space-y-2">
+              <p className="text-xs font-semibold text-purple-900 flex items-center gap-1.5">
+                <ClipboardEdit size={14} className="flex-shrink-0" />
+                {t('evalWorkout.pendingEvalTitle')}
+              </p>
+              {pendingEvals.map((a) => (
+                <div key={a.id} className="flex items-center gap-2">
+                  <p className="text-xs text-purple-800 flex-1 min-w-0 break-words">
+                    {a.plan?.title}
+                  </p>
+                  <Link
+                    to={`/coach/students/${studentId}/eval/${a.plan_id}`}
+                    className="text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg px-2.5 py-1 flex-shrink-0 transition-colors"
+                  >
+                    {t('evalWorkout.pendingEvalCta')}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Selector de fecha */}
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-400 flex-shrink-0" />

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { calcPower } from '../../helpers'
 import MethodBadge from '../MethodBadge'
 import NumInput from '../NumInput'
@@ -9,6 +10,7 @@ import ResultBox from '../ResultBox'
 // Potencia explosiva en saltos (Lewis, Harman, broad jump) y sprints.
 // Cada método requiere campos distintos (masa, altura de salto, distancia, tiempo).
 export default function PowerForm({ results, onChange, planMethod }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'harman'
 
   const computed = calcPower(method, {
@@ -42,7 +44,7 @@ export default function PowerForm({ results, onChange, planMethod }) {
       <div className="grid grid-cols-2 gap-3">
         {needsMass && (
           <NumInput
-            label="Masa corporal"
+            label={t('evalForms.powerBodyMass')}
             unit="kg"
             step="0.1"
             placeholder="70"
@@ -52,7 +54,7 @@ export default function PowerForm({ results, onChange, planMethod }) {
         )}
         {needsJump && (
           <NumInput
-            label="Altura de salto"
+            label={t('evalForms.powerJumpHeight')}
             unit="cm"
             step="0.5"
             placeholder="45"
@@ -62,20 +64,20 @@ export default function PowerForm({ results, onChange, planMethod }) {
         )}
         {needsDist && (
           <NumInput
-            label="Distancia"
+            label={t('evalForms.distance')}
             unit="m"
             step="0.01"
-            placeholder="Ej: 2.35"
+            placeholder={t('evalForms.egPlaceholder', { value: '2.35' })}
             value={results.distance_m || ''}
             onChange={(v) => update('distance_m', v)}
           />
         )}
         {needsTime && (
           <NumInput
-            label="Tiempo"
+            label={t('evalForms.time')}
             unit="seg"
             step="0.01"
-            placeholder="Ej: 1.85"
+            placeholder={t('evalForms.egPlaceholder', { value: '1.85' })}
             value={results.time_sec || ''}
             onChange={(v) => update('time_sec', v)}
           />
@@ -85,36 +87,40 @@ export default function PowerForm({ results, onChange, planMethod }) {
       {computed && (
         <div className="space-y-3">
           {computed.power_w !== undefined && (
-            <ResultBox label="Potencia media (Lewis)" value={computed.power_w} unit="W" />
+            <ResultBox label={t('evalForms.powerMeanLewis')} value={computed.power_w} unit="W" />
           )}
           {computed.peak_w !== undefined && (
             <ResultBox
-              label="Potencia pico (Harman)"
+              label={t('evalForms.powerPeakHarman')}
               value={computed.peak_w}
               unit="W"
-              sub={`Potencia media: ${computed.mean_w} W`}
+              sub={t('evalForms.powerMeanSub', { value: computed.mean_w })}
             />
           )}
           {computed.distance_m !== undefined && method === 'broad_jump' && (
-            <ResultBox label="Distancia horizontal" value={computed.distance_m} unit="m" />
+            <ResultBox
+              label={t('evalForms.powerHorizontalDistance')}
+              value={computed.distance_m}
+              unit="m"
+            />
           )}
           {computed.time_sec !== undefined && method === 'sprint' && (
             <ResultBox
-              label="Tiempo en pista"
+              label={t('evalForms.powerTrackTime')}
               value={computed.time_sec}
               unit="seg"
-              sub={`Velocidad media: ${computed.speed_ms} m/s`}
+              sub={t('evalForms.powerMeanSpeed', { value: computed.speed_ms })}
             />
           )}
         </div>
       )}
 
       <div>
-        <label className="label">Notas</label>
+        <label className="label">{t('evalForms.notes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Tipo de superficie, calzado, intentos..."
+          placeholder={t('evalForms.powerNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

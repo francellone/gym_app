@@ -119,6 +119,18 @@ function AppRoutes() {
             </CoachModeLanguageProvider>
           }
         />
+        {/* v44 — modo coach: cargar la EVALUACIÓN por el alumno. Misma
+            página que /student/eval/:planId; detecta el modo por el :id.
+            Mismo provider de idioma que la de registro: la pantalla puede
+            terminar en manos de la alumna, así que sale en SU idioma. */}
+        <Route
+          path="students/:id/eval/:planId"
+          element={
+            <CoachModeLanguageProvider>
+              <EvalWorkoutPage />
+            </CoachModeLanguageProvider>
+          }
+        />
         {/* Informe de progreso descargable (solo coach) */}
         <Route path="students/:id/informe" element={<CoachReportPage />} />
         {/* Informe cliente: carta 1 página para el alumno (mockup Anto) */}

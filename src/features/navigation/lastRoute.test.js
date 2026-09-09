@@ -88,6 +88,8 @@ describe('isRestorablePath', () => {
     expect(isRestorablePath('/student/workout')).toBe(true)
     expect(isRestorablePath('/coach/students/123')).toBe(true)
     expect(isRestorablePath('/coach/plans/9/edit')).toBe(true)
+    // v44 — carga de la evaluación en modo coach.
+    expect(isRestorablePath('/coach/students/123/eval/456')).toBe(true)
   })
   it('ignora el querystring al comparar contra landings', () => {
     expect(isRestorablePath('/student/workout?day=B')).toBe(true)
@@ -105,6 +107,10 @@ describe('pathMatchesRole', () => {
   it('empareja rutas de coach solo para coach', () => {
     expect(pathMatchesRole('/coach/students/1', 'coach')).toBe(true)
     expect(pathMatchesRole('/coach/students/1', 'student')).toBe(false)
+    // v44 — la ruta de la evaluación en modo coach es del panel de la coach:
+    // si un alumno reabre la PWA, no lo pueden mandar ahí.
+    expect(pathMatchesRole('/coach/students/1/eval/2', 'coach')).toBe(true)
+    expect(pathMatchesRole('/coach/students/1/eval/2', 'student')).toBe(false)
   })
   it('empareja rutas de student solo para student', () => {
     expect(pathMatchesRole('/student/workout', 'student')).toBe(true)

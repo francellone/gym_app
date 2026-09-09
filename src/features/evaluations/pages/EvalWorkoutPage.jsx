@@ -14,7 +14,7 @@ import {
   buildExerciseResponseJson,
   calc1RM,
 } from '../helpers'
-import { ArrowLeft, Save, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, AlertCircle, CheckCircle, UserCog } from 'lucide-react'
 import {
   fetchEvalMirrorBodies,
   postEvalCommentNote,
@@ -26,16 +26,21 @@ import CardioForm from '../components/forms/CardioForm'
 import BodyCompForm from '../components/forms/BodyCompForm'
 import ScoredForm from '../components/forms/ScoredForm'
 import EvalByDayForm from '../components/forms/EvalByDayForm'
+import CoachModeLangToggle from '@/features/workouts/components/CoachModeLangToggle'
 
 // ============================================================
 // Helper: leer la nota general de un evaluation_result desde el panel
 // (post v26f: la columna evaluation_results.notes fue dropeada).
 // ============================================================
-async function loadResultNotesFromPanel(resultId) {
+// v44 — `authorRole` es obligatorio en la práctica: desde el modo coach un
+// mismo evaluation_result puede tener DOS notas generales vivas (la del
+// alumno y la de la coach) y sin filtro gana la última que llega.
+async function loadResultNotesFromPanel(resultId, authorRole = 'student') {
   if (!resultId) return ''
   const m = await fetchSingleMirrorBodies({
     contextType: 'evaluation_result',
     contextIds: [resultId],
+    authorRole,
   })
   return m.get(resultId) ?? ''
 }
@@ -73,9 +78,25 @@ function ProtocolForm({ evalType, results, onChange, planMethod }) {
 // ============================================================
 export default function EvalWorkoutPage() {
   const { t } = useTranslation()
-  const { planId } = useParams()
+  // v44 — modo coach ("cargar la evaluación por el alumno"): la MISMA página
+  // montada en /coach/students/:id/eval/:planId. `studentId` es el dueño de
+  // los datos; el usuario logueado sigue siendo el autor. La autoría real la
+  // garantiza la base: trg_evaluation_results_author deriva logged_by/source
+  // de auth.uid(), no se manda desde el cliente. Patrón de TodayWorkoutPage.
+  const { planId, id: routeStudentId } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const coachMode = Boolean(routeStudentId)
+  const studentId = routeStudentId || user?.id
+  // v35 — autoría de las notas espejo. La RLS de `notes` exige
+  // author_id = auth.uid() + author_role='coach' para la coach; posteando
+  // como alumno el INSERT se rechaza EN SILENCIO y el comentario se pierde.
+  const noteAuthorRole = coachMode ? 'coach' : 'student'
+  const noteAuthorId = coachMode ? profile?.id || user?.id : studentId
+  const [studentName, setStudentName] = useState('')
+  // Nota general del OTRO lado (solo lectura). Ver el comentario de
+  // loadExerciseResponses: cada lado edita la suya y ve la del otro.
+  const [otherNote, setOtherNote] = useState('')
 
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -149,10 +170,26 @@ export default function EvalWorkoutPage() {
         // alias para inputs custom legacy
         value: r.student_response?.value ?? '',
         unit: r.student_response?.unit ?? '',
-        comment: mirror?.studentComment ?? r.student_comment ?? '',
+        // v44 — cada lado edita SU comentario y ve el del otro en solo
+        // lectura. Antes se leía siempre `studentComment`: lo que la coach
+        // escribía desde el tab de evaluaciones (rotulado "visible al
+        // alumno") no se pintaba en ninguna parte de esta pantalla.
+        comment: (coachMode ? mirror?.coachPublic : mirror?.studentComment) ?? '',
+        otherComment: (coachMode ? mirror?.studentComment : mirror?.coachPublic) ?? '',
       }
     }
     return map
+  }
+
+  // v44 — la nota general del intento: la propia (editable) y la del otro
+  // lado (solo lectura). Dos notas distintas en el panel, una por autor.
+  async function applyResultNotes(resultId) {
+    const [mine, theirs] = await Promise.all([
+      loadResultNotesFromPanel(resultId, noteAuthorRole),
+      loadResultNotesFromPanel(resultId, coachMode ? 'student' : 'coach'),
+    ])
+    setNotes(mine)
+    setOtherNote(theirs)
   }
 
   async function fetchPlan() {
@@ -160,6 +197,16 @@ export default function EvalWorkoutPage() {
       const { data, error } = await supabase.from('plans').select('*').eq('id', planId).single()
       if (error) throw error
       setPlan(data)
+      // Modo coach: el banner nombra a la persona evaluada, para que quede
+      // claro en qué cuenta van a quedar los datos.
+      if (coachMode && studentId) {
+        const { data: st } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', studentId)
+          .maybeSingle()
+        setStudentName(st?.name || '')
+      }
       const today = new Date().toISOString().slice(0, 10)
 
       if (isExerciseBasedEval(data.eval_type)) {
@@ -215,7 +262,7 @@ export default function EvalWorkoutPage() {
             .from('evaluation_results')
             .select('*')
             .eq('plan_id', planId)
-            .eq('student_id', user.id)
+            .eq('student_id', studentId)
             .order('eval_date', { ascending: false })
             .limit(1)
           const recent = recents?.[0]
@@ -230,7 +277,7 @@ export default function EvalWorkoutPage() {
               setDayDates({ ...defaults, ...savedDates })
               setSavedSections(covered)
               setExResponses(respMap)
-              setNotes(await loadResultNotesFromPanel(recent.id))
+              await applyResultNotes(recent.id)
             } else {
               // el último intento está completo → intento nuevo, vacío
               setDayDates(defaults)
@@ -246,12 +293,12 @@ export default function EvalWorkoutPage() {
           .from('evaluation_results')
           .select('*')
           .eq('plan_id', planId)
-          .eq('student_id', user.id)
+          .eq('student_id', studentId)
           .eq('eval_date', today)
           .maybeSingle()
         if (existing) {
           setExistingResultId(existing.id)
-          setNotes(await loadResultNotesFromPanel(existing.id))
+          await applyResultNotes(existing.id)
           setExResponses(await loadExerciseResponses(existing.id))
         }
         return
@@ -265,12 +312,12 @@ export default function EvalWorkoutPage() {
         .from('evaluation_results')
         .select('*')
         .eq('plan_id', planId)
-        .eq('student_id', user.id)
+        .eq('student_id', studentId)
         .eq('eval_date', today)
         .maybeSingle()
       if (existing) {
         setResults(existing.results)
-        setNotes(await loadResultNotesFromPanel(existing.id))
+        await applyResultNotes(existing.id)
         setExistingResultId(existing.id)
       }
     } catch (err) {
@@ -294,12 +341,12 @@ export default function EvalWorkoutPage() {
         .from('evaluation_results')
         .select('*')
         .eq('plan_id', planId)
-        .eq('student_id', user.id)
+        .eq('student_id', studentId)
         .eq('eval_date', dateStr)
         .maybeSingle()
       if (existing) {
         setExistingResultId(existing.id)
-        setNotes(await loadResultNotesFromPanel(existing.id))
+        await applyResultNotes(existing.id)
         setExResponses(await loadExerciseResponses(existing.id))
       }
       return
@@ -310,12 +357,12 @@ export default function EvalWorkoutPage() {
       .from('evaluation_results')
       .select('*')
       .eq('plan_id', planId)
-      .eq('student_id', user.id)
+      .eq('student_id', studentId)
       .eq('eval_date', dateStr)
       .maybeSingle()
     if (existing) {
       setResults(existing.results)
-      setNotes(await loadResultNotesFromPanel(existing.id))
+      await applyResultNotes(existing.id)
       setExistingResultId(existing.id)
     }
   }
@@ -331,7 +378,7 @@ export default function EvalWorkoutPage() {
       .eq('id', existingResultId)
       .single()
     if (!existing) return
-    setNotes(await loadResultNotesFromPanel(existing.id))
+    await applyResultNotes(existing.id)
     if (exerciseBased) {
       setExResponses(await loadExerciseResponses(existing.id))
     } else {
@@ -375,7 +422,7 @@ export default function EvalWorkoutPage() {
         .from('evaluation_results')
         .upsert(
           {
-            student_id: user.id,
+            student_id: studentId,
             plan_id: planId,
             eval_date: evalDate,
             eval_type: plan.eval_type,
@@ -391,9 +438,11 @@ export default function EvalWorkoutPage() {
 
       // 1.b — guardar nota general en el panel
       const { error: noteErr } = await postEvalResultNote({
-        studentId: user.id,
+        studentId,
         resultId,
         body: notes || '',
+        authorId: noteAuthorId,
+        authorRole: noteAuthorRole,
       })
       if (noteErr) {
         console.warn('[handleSave] no se pudo guardar la nota general en el panel:', noteErr)
@@ -432,11 +481,12 @@ export default function EvalWorkoutPage() {
 
           if (upsertedResp?.id) {
             const { error: cErr } = await postEvalCommentNote({
-              studentId: user.id,
+              studentId,
               responseId: upsertedResp.id,
               body: resp.comment || '',
-              role: 'student',
+              role: noteAuthorRole,
               visibility: 'shared',
+              coachId: noteAuthorId,
             })
             if (cErr) {
               console.warn('[saveEval] no se pudo guardar el comment en el panel:', cErr)
@@ -484,7 +534,7 @@ export default function EvalWorkoutPage() {
         const { data: ins, error: insErr } = await supabase
           .from('evaluation_results')
           .insert({
-            student_id: user.id,
+            student_id: studentId,
             plan_id: planId,
             eval_date: dayDate,
             eval_type: plan.eval_type,
@@ -507,9 +557,11 @@ export default function EvalWorkoutPage() {
 
       // 2. Nota general (una sola para toda la eval).
       const { error: noteErr } = await postEvalResultNote({
-        studentId: user.id,
+        studentId,
         resultId,
         body: notes || '',
+        authorId: noteAuthorId,
+        authorRole: noteAuthorRole,
       })
       if (noteErr) console.warn('[handleSaveDay] nota general:', noteErr)
 
@@ -539,11 +591,12 @@ export default function EvalWorkoutPage() {
           .single()
         if (upsertedResp?.id) {
           const { error: cErr } = await postEvalCommentNote({
-            studentId: user.id,
+            studentId,
             responseId: upsertedResp.id,
             body: resp.comment || '',
-            role: 'student',
+            role: noteAuthorRole,
             visibility: 'shared',
+            coachId: noteAuthorId,
           })
           if (cErr) console.warn('[handleSaveDay] comment:', cErr)
         }
@@ -571,7 +624,7 @@ export default function EvalWorkoutPage() {
         const { data: ins, error: insErr } = await supabase
           .from('evaluation_results')
           .insert({
-            student_id: user.id,
+            student_id: studentId,
             plan_id: planId,
             eval_date: today,
             eval_type: plan.eval_type,
@@ -585,9 +638,11 @@ export default function EvalWorkoutPage() {
         setExistingResultId(resultId)
       }
       const { error: noteErr } = await postEvalResultNote({
-        studentId: user.id,
+        studentId,
         resultId,
         body: notes || '',
+        authorId: noteAuthorId,
+        authorRole: noteAuthorRole,
       })
       if (noteErr) throw noteErr
       setNoteSaved(true)
@@ -660,6 +715,22 @@ export default function EvalWorkoutPage() {
         </div>
       )}
 
+      {/* v44 — banner de modo coach. Mismo criterio que la pantalla de
+          registro: dejar explícito de quién es la cuenta y que la carga
+          queda marcada como hecha por la coach (evaluation_results.source). */}
+      {coachMode && (
+        <div className="bg-primary-600 rounded-2xl px-3 py-2">
+          {/* Idioma de ESTA pantalla, no el del panel. Ver CoachModeLanguage.jsx. */}
+          <CoachModeLangToggle />
+          <div className="flex items-center gap-2">
+            <UserCog size={16} className="text-white flex-shrink-0" />
+            <p className="text-white text-xs font-semibold">
+              {t('evalWorkout.coachModeBanner', { name: studentName || '…' })}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
@@ -708,6 +779,7 @@ export default function EvalWorkoutPage() {
             savingSection={savingSection}
             savedSections={savedSections}
             maxDate={new Date().toISOString().slice(0, 10)}
+            coachMode={coachMode}
           />
         ) : (
           <ProtocolForm
@@ -734,6 +806,16 @@ export default function EvalWorkoutPage() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
+        {/* v44 — la observación del otro lado. Hasta ahora esta pantalla solo
+            leía la del alumno: la de la coach no se veía en ningún lado. */}
+        {otherNote && (
+          <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
+            <p className="text-[11px] font-semibold text-amber-700 mb-0.5">
+              {coachMode ? t('evalWorkout.noteFromStudent') : t('evalWorkout.noteFromCoach')}
+            </p>
+            <p className="text-sm text-amber-900 whitespace-pre-line">{otherNote}</p>
+          </div>
+        )}
         {multiDay && (
           <div className="flex items-center gap-3">
             <button
