@@ -29,6 +29,15 @@ import {
   lesionesCheckErrorMessage,
 } from '../helpers'
 import { getPaymentStatus, getPlanExpiryInfo, PAYMENT_STATUS, PLAN_EXPIRY_STATUS } from '../status'
+import {
+  fetchPayments,
+  createPayment,
+  deletePayment,
+  proposeNextPeriod,
+  formatAmount,
+  periodLength,
+} from '../payments'
+import PaymentModal from '../components/PaymentModal'
 import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '@/utils/errorHelpers'
 
 // ─────────────────────────────────────────────────────────────
@@ -65,9 +74,13 @@ export default function StudentInfoTab({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
-  // ── Edición de gestión / pagos ───────────────────────────
-  const [payEditMode, setPayEditMode] = useState(false)
-  const [payEditData, setPayEditData] = useState({})
+  // ── Pagos (v49: historial en tabla propia) ───────────────
+  // Las fechas del perfil son caché derivado, así que acá no se
+  // editan: se registra un cobro y el trigger las recalcula.
+  const [payments, setPayments] = useState([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [showAllPayments, setShowAllPayments] = useState(false)
+  const [payModalOpen, setPayModalOpen] = useState(false)
   const [paySaving, setPaySaving] = useState(false)
   const [paySaveError, setPaySaveError] = useState(null)
 
@@ -233,40 +246,73 @@ export default function StudentInfoTab({
     }
   }
 
-  // ── Handlers: pagos ──────────────────────────────────────
-  function startPayEdit() {
-    setPayEditData({
-      last_payment_date: student.last_payment_date || '',
-      next_payment_due: student.next_payment_due || '',
-      payment_notes: student.payment_notes || '',
-    })
-    setPayEditMode(true)
-    setPaySaveError(null)
+  // ── Handlers: pagos (v49) ────────────────────────────────
+  async function loadPayments() {
+    setPaymentsLoading(true)
+    try {
+      setPayments(await fetchPayments(supabase, studentId))
+    } catch (err) {
+      console.error('[StudentInfoTab] loadPayments', err)
+      setPaySaveError('No se pudo cargar el historial de pagos')
+    } finally {
+      setPaymentsLoading(false)
+    }
   }
 
-  function cancelPayEdit() {
-    setPayEditData({})
-    setPayEditMode(false)
-    setPaySaveError(null)
-  }
+  useEffect(() => {
+    if (studentId) loadPayments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId])
 
-  async function savePayEdit() {
+  async function handleSavePayment(form, { extendPlan }) {
     setPaySaving(true)
     setPaySaveError(null)
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          last_payment_date: payEditData.last_payment_date || null,
-          next_payment_due: payEditData.next_payment_due || null,
-          payment_notes: payEditData.payment_notes || null,
-        })
-        .eq('id', studentId)
-      if (error) throw error
-      setPayEditMode(false)
+      await createPayment(supabase, {
+        student_id: studentId,
+        coach_id: coachId,
+        created_by: coachId,
+        paid_on: form.paid_on,
+        period_start: form.period_start,
+        period_end: form.period_end,
+        amount: form.amount === '' ? null : Number(form.amount),
+        method: form.method?.trim() || null,
+        notes: form.notes?.trim() || null,
+      })
+
+      // D4: la extensión del plan es una acción aparte y opcional.
+      if (extendPlan && planExpiry.assignment) {
+        const { error: planErr } = await supabase
+          .from('plan_assignments')
+          .update({ expected_end_date: form.period_end })
+          .eq('id', planExpiry.assignment.id)
+        if (planErr) throw planErr
+      }
+
+      setPayModalOpen(false)
+      await loadPayments()
       onRefresh()
     } catch (err) {
-      setPaySaveError(err.message || 'Error al guardar el pago')
+      setPaySaveError(err.message || 'Error al registrar el pago')
+    } finally {
+      setPaySaving(false)
+    }
+  }
+
+  async function handleDeletePayment(payment) {
+    const label = `${format(parseISO(payment.period_start), 'dd/MM/yy')} a ${format(
+      parseISO(payment.period_end),
+      'dd/MM/yy'
+    )}`
+    if (!window.confirm(`¿Borrar el pago que cubre ${label}? El vencimiento se recalcula solo.`))
+      return
+    setPaySaving(true)
+    try {
+      await deletePayment(supabase, payment.id)
+      await loadPayments()
+      onRefresh()
+    } catch (err) {
+      setPaySaveError(err.message || 'Error al borrar el pago')
     } finally {
       setPaySaving(false)
     }
@@ -792,130 +838,132 @@ export default function StudentInfoTab({
         )}
       </div>
 
-      {/* ── Gestión de pagos ── */}
+      {/* ── Gestión de pagos (v49: historial en tabla propia) ── */}
       <div className="card space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CreditCard size={15} className="text-primary-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">Gestión de pagos</h3>
-          </div>
-          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 text-sm">Pagos</h3>
             <span className={`badge text-xs ${paymentConfig.badgeClass}`}>
               {paymentConfig.label}
             </span>
-            {!payEditMode && (
-              <button
-                onClick={startPayEdit}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                title="Editar información de pago"
-              >
-                <Edit2 size={13} />
-              </button>
-            )}
+          </div>
+          <button
+            onClick={() => {
+              setPaySaveError(null)
+              setPayModalOpen(true)
+            }}
+            className="text-xs text-primary-600 hover:underline font-medium"
+          >
+            Registrar pago
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <Calendar size={11} /> Último pago
+            </p>
+            <p className="text-sm font-medium text-gray-900">
+              {student.last_payment_date
+                ? format(parseISO(student.last_payment_date), 'dd/MM/yyyy')
+                : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <Calendar size={11} /> Vence el pago
+            </p>
+            <p
+              className={`text-sm font-medium ${
+                paymentStatus === 'overdue'
+                  ? 'text-red-600'
+                  : paymentStatus === 'due_soon'
+                    ? 'text-yellow-600'
+                    : 'text-gray-900'
+              }`}
+            >
+              {student.next_payment_due
+                ? format(parseISO(student.next_payment_due), 'dd/MM/yyyy')
+                : '—'}
+            </p>
           </div>
         </div>
 
-        {payEditMode ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label text-xs">Último pago</label>
-                <input
-                  type="date"
-                  className="input text-sm"
-                  value={payEditData.last_payment_date || ''}
-                  onChange={(e) =>
-                    setPayEditData((p) => ({ ...p, last_payment_date: e.target.value }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="label text-xs">Próximo vencimiento</label>
-                <input
-                  type="date"
-                  className="input text-sm"
-                  value={payEditData.next_payment_due || ''}
-                  onChange={(e) =>
-                    setPayEditData((p) => ({ ...p, next_payment_due: e.target.value }))
-                  }
-                />
-              </div>
+        {/* Historial */}
+        <div className="pt-2 border-t border-gray-100">
+          {paymentsLoading ? (
+            <p className="text-xs text-gray-400">Cargando historial...</p>
+          ) : payments.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              Todavía no hay pagos registrados para esta persona.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {(showAllPayments ? payments : payments.slice(0, 3)).map((pay) => {
+                const dias = periodLength(pay)
+                return (
+                  <div key={pay.id} className="flex items-start gap-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-900">
+                        {format(parseISO(pay.period_start), 'dd/MM/yy')} a{' '}
+                        {format(parseISO(pay.period_end), 'dd/MM/yy')}
+                        {dias ? <span className="text-gray-400"> · {dias} días</span> : null}
+                        {formatAmount(pay.amount, pay.currency) && (
+                          <span className="ml-1 font-medium">
+                            · {formatAmount(pay.amount, pay.currency)}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-gray-500">
+                        Pagado el {format(parseISO(pay.paid_on), 'dd/MM/yy')}
+                        {pay.method ? ` · ${pay.method}` : ''}
+                        {pay.source === 'backfill' ? ' · cargado antes del historial' : ''}
+                      </p>
+                      {pay.notes && <p className="text-gray-600 italic break-words">{pay.notes}</p>}
+                    </div>
+                    <button
+                      onClick={() => handleDeletePayment(pay)}
+                      disabled={paySaving}
+                      className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                      title="Borrar este pago"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )
+              })}
+              {payments.length > 3 && (
+                <button
+                  onClick={() => setShowAllPayments((v) => !v)}
+                  className="text-xs text-primary-600 hover:underline"
+                >
+                  {showAllPayments
+                    ? 'Ver menos'
+                    : `Ver los ${payments.length} pagos`}
+                </button>
+              )}
             </div>
-            <div>
-              <label className="label text-xs">Notas de pago (privadas)</label>
-              <input
-                className="input text-sm"
-                placeholder="Ej: paga los 5 de cada mes, debe 2 meses..."
-                value={payEditData.payment_notes || ''}
-                onChange={(e) => setPayEditData((p) => ({ ...p, payment_notes: e.target.value }))}
-              />
-            </div>
-            {paySaveError && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-2.5 text-xs">
-                <AlertCircle size={13} /> {paySaveError}
-              </div>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={cancelPayEdit}
-                className="btn-ghost text-sm text-gray-600 flex items-center gap-1"
-              >
-                <X size={13} /> Cancelar
-              </button>
-              <button
-                onClick={savePayEdit}
-                disabled={paySaving}
-                className="btn-primary text-sm flex items-center gap-1"
-              >
-                {paySaving ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Save size={13} /> Guardar
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <Calendar size={11} /> Último pago
-              </p>
-              <p className="text-sm font-medium text-gray-900">
-                {student.last_payment_date
-                  ? format(parseISO(student.last_payment_date), 'dd/MM/yyyy')
-                  : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <Calendar size={11} /> Vencimiento
-              </p>
-              <p
-                className={`text-sm font-medium ${
-                  paymentStatus === 'overdue'
-                    ? 'text-red-600'
-                    : paymentStatus === 'due_soon'
-                      ? 'text-yellow-600'
-                      : 'text-gray-900'
-                }`}
-              >
-                {student.next_payment_due
-                  ? format(parseISO(student.next_payment_due), 'dd/MM/yyyy')
-                  : '—'}
-              </p>
-            </div>
-            {student.payment_notes && (
-              <div className="col-span-2">
-                <p className="text-xs text-gray-500">Notas</p>
-                <p className="text-sm text-gray-600 italic">{student.payment_notes}</p>
-              </div>
-            )}
+          )}
+        </div>
+
+        {paySaveError && !payModalOpen && (
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-2.5 text-xs">
+            <AlertCircle size={13} /> {paySaveError}
           </div>
         )}
       </div>
+
+      {payModalOpen && (
+        <PaymentModal
+          proposal={proposeNextPeriod(payments, student.payment_cycle_days)}
+          activeAssignment={planExpiry.assignment}
+          saving={paySaving}
+          error={paySaveError}
+          onCancel={() => setPayModalOpen(false)}
+          onSave={handleSavePayment}
+        />
+      )}
 
       {/* ── Formulario de ingreso ── */}
       <div className="card space-y-3">

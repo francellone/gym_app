@@ -300,6 +300,20 @@ iguales uno al lado del otro se leen como uno solo.
 
 ---
 
+## 4.bis Estado de implementación
+
+| Etapa | Estado |
+|---|---|
+| A — vigencia del plan | ✅ v48 aplicada en prod, commit `680b4c8` |
+| B — historial de pagos | ✅ v49 aplicada en prod (8 pagos backfilleados, 3 notas mudadas, `profiles.payment_notes` vaciada) |
+| C — extensión opcional del plan al cobrar | ✅ incluida en el modal de la etapa B |
+| D — notificaciones (cron a `expected_end_date`, solo coach) | pendiente |
+| v50 — borrar `end_date` y `profiles.payment_notes` | pendiente, después de verificar el deploy |
+
+Pendiente menor: `profiles.payment_cycle_days` existe pero todavía no se carga desde
+ninguna pantalla. Mientras esté en NULL, el período propuesto repite el largo del
+período anterior, que es lo que la coach venía haciendo a mano.
+
 ## 5. Orden de trabajo
 
 1. **Etapa A — vigencia del plan.** Migración + trigger + backfill + `status.js`
