@@ -144,7 +144,7 @@ insert into public.payments (
 )
 select
   p.id,
-  coalesce(p.coach_id, (select id from public.profiles c where c.role = 'coach' order by created_at limit 1)),
+  p.coach_id,
   p.last_payment_date,
   p.last_payment_date,
   -- Un perfil con last = next (carga vieja incompleta) queda como un
@@ -156,6 +156,10 @@ select
 from public.profiles p
 where p.last_payment_date is not null
   and p.next_payment_due is not null
+  -- v50b: sin coach no hay a quién atribuirle el cobro, y los perfiles de
+  -- prueba no dejan rastro.
+  and p.coach_id is not null
+  and coalesce(p.is_test, false) = false
   and not exists (select 1 from public.payments x where x.student_id = p.id);
 
 -- D9: el texto ya está en payments.notes; sacarlo del alcance del alumno.

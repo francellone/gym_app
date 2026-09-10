@@ -853,7 +853,11 @@ export default function StudentInfoTab({
               setPaySaveError(null)
               setPayModalOpen(true)
             }}
-            className="text-xs text-primary-600 hover:underline font-medium"
+            disabled={paymentsLoading}
+            className="text-xs text-primary-600 hover:underline font-medium disabled:opacity-40 disabled:no-underline"
+            title={
+              paymentsLoading ? 'Esperando el historial para proponer el período' : undefined
+            }
           >
             Registrar pago
           </button>

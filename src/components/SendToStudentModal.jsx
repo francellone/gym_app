@@ -85,9 +85,14 @@ export default function SendToStudentModal({
         const ids = studs.map((s) => s.id)
         const { data: pas } = await supabase
           .from('plan_assignments')
-          .select('id, plan_id, student_id, start_date, expected_end_date, active, plans:plan_id(id, title)')
+          .select(
+            'id, plan_id, student_id, start_date, expected_end_date, status, plan_type, plans:plan_id(id, title)'
+          )
           .in('student_id', ids)
-          .eq('active', true)
+          .eq('status', 'active')
+          // Un formulario "al fin del plan" se agenda contra el plan de
+          // entrenamiento, no contra una evaluación.
+          .eq('plan_type', 'training')
 
         const map = {}
         ;(pas || []).forEach((pa) => {

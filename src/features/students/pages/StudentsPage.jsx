@@ -237,7 +237,12 @@ export default function StudentsPage() {
 
       {/* Alertas rápidas de gestión */}
       {!loading &&
-        (overdueCount > 0 || dueSoonCount > 0 || noPlanCount > 0 || wellbeingAlertCount > 0) && (
+        (overdueCount > 0 ||
+          dueSoonCount > 0 ||
+          noPlanCount > 0 ||
+          planExpiredCount > 0 ||
+          planExpiringCount > 0 ||
+          wellbeingAlertCount > 0) && (
           <div className="flex flex-wrap gap-2">
             {overdueCount > 0 && (
               <button

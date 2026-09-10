@@ -53,7 +53,7 @@ export async function assignTemplateToStudent(
     p_template_id: templateId,
     p_student_id: studentId,
     p_start_date: startDate || null, // null deja que el back use CURRENT_DATE
-    p_end_date: closedAt, // la RPC conserva el nombre viejo hasta la v49
+    p_end_date: closedAt, // la RPC conserva el nombre viejo hasta la v51
     p_schedule_mode: isFixed ? 'fixed' : 'flexible',
     p_preferred_days: isFixed && preferredDays?.length ? preferredDays : null,
     p_linked_assignment_id: linkedAssignmentId,

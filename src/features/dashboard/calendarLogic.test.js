@@ -6,7 +6,7 @@
 // —que entrenaba solo la activación— le figuraba cumplida a la coach.
 // ============================================================
 import { describe, it, expect } from 'vitest'
-import { computeStudentDayStatus, STUDENT_DAY_STYLE } from './calendarLogic'
+import { computeStudentDayStatus, STUDENT_DAY_STYLE, computeCalendarEvents } from './calendarLogic'
 
 const TODAY = new Date(2026, 7, 27) // jueves 2026-08-27
 const YMD = '2026-08-24'
@@ -103,5 +103,63 @@ describe('STUDENT_DAY_STYLE', () => {
       expect(STUDENT_DAY_STYLE[status]).toBeTruthy()
       expect(STUDENT_DAY_STYLE[status].label).toBeTruthy()
     }
+  })
+})
+
+// ============================================================
+// Eventos del calendario del coach (v48/v50b)
+// ------------------------------------------------------------
+// El evento "Vence" salía de end_date (cierre) y nunca se pintaba.
+// Ahora sale de expected_end_date, y SOLO en asignaciones vigentes:
+// una reemplazada conserva su vencimiento previsto y pintaría un plan
+// que ya nadie entrena.
+// ============================================================
+describe('computeCalendarEvents — vencimiento del plan', () => {
+  const win = { start: new Date(2026, 8, 1), end: new Date(2026, 8, 30) }
+  const alumnos = [{ id: 's1', name: 'Ana' }]
+  const asg = (props) => ({
+    id: 'a1',
+    student_id: 's1',
+    start_date: '2026-08-01',
+    plan: { title: 'Fuerza' },
+    ...props,
+  })
+  const tipos = (map, ymd) => (map.get(ymd) || []).map((e) => e.type)
+
+  it('pinta el vencimiento de un plan activo', () => {
+    const map = computeCalendarEvents(
+      alumnos,
+      [asg({ status: 'active', expected_end_date: '2026-09-15' })],
+      win
+    )
+    expect(tipos(map, '2026-09-15')).toContain('plan_end')
+    expect(map.get('2026-09-15')[0].title).toBe('Vence Fuerza')
+  })
+
+  it('NO pinta el de una asignación reemplazada', () => {
+    const map = computeCalendarEvents(
+      alumnos,
+      [asg({ status: 'replaced', expected_end_date: '2026-09-15', closed_at: '2026-08-20' })],
+      win
+    )
+    expect(tipos(map, '2026-09-15')).not.toContain('plan_end')
+  })
+
+  it('el cierre real no genera evento', () => {
+    const map = computeCalendarEvents(
+      alumnos,
+      [asg({ status: 'active', expected_end_date: null, closed_at: '2026-09-10' })],
+      win
+    )
+    expect(tipos(map, '2026-09-10')).not.toContain('plan_end')
+  })
+
+  it('el vencimiento de pago sigue siendo otro evento', () => {
+    const map = computeCalendarEvents(
+      [{ id: 's1', name: 'Ana', next_payment_due: '2026-09-12' }],
+      [asg({ status: 'active', expected_end_date: '2026-09-12' })],
+      win
+    )
+    expect(tipos(map, '2026-09-12').sort()).toEqual(['payment_due', 'plan_end'])
   })
 })

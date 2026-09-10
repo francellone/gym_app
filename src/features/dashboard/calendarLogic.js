@@ -188,7 +188,11 @@ export function computeCalendarEvents(students, assignments, window) {
     }
     // Vencimiento previsto (v48), no el cierre real: al coach le sirve
     // ver lo que viene, y el cierre siempre está en el pasado.
-    const ed = parseYMD(a.expected_end_date)
+    // Solo en asignaciones VIGENTES: una reemplazada o archivada conserva
+    // su expected_end_date y pintaría "Vence" un plan que ya no se entrena.
+    const asgStatus = a.status || (a.active ? 'active' : null)
+    const asgIsLive = asgStatus === 'active' || asgStatus === 'paused'
+    const ed = asgIsLive ? parseYMD(a.expected_end_date) : null
     if (ed && inWindow(ed)) {
       push(toYMD(ed), {
         type: 'plan_end',

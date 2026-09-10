@@ -329,3 +329,54 @@ período anterior, que es lo que la coach venía haciendo a mano.
 Ninguna del diseño inicial: las tres que quedaban se cerraron como D7, D8 y D9
 (10/09/2026). Queda por definir, ya en la etapa B, si el monto es obligatorio o
 sigue siendo opcional cuando la coach registra el pago.
+
+---
+
+## 7. Revisión general (10/09/2026, v50b)
+
+Repaso completo de la tanda antes de pushear. Lo que se encontró y se corrigió:
+
+**Base**
+
+1. `fn_notify_expiring_plans` quedaba expuesta como RPC ejecutable por `anon`, y con
+   `p_notify_student = true` cualquiera podía generar una notificación para **cada**
+   alumna. Revocado (el cron corre como `postgres`). Quedan ~58 funciones con la misma
+   exposición de antes de esta tanda: es una auditoría aparte.
+2. Los dos triggers nuevos no fijaban `search_path`. Corregido.
+3. "Volver a la fecha calculada" no recalculaba sobre una fila `backfill`: la dejaba
+   marcada como `derived` con la fecha vieja, o sea que la estimada perdía el "(est.)"
+   sin que nadie la hubiera confirmado. Corregido en el trigger.
+4. El backfill de la v49 le atribuyó un cobro al primer coach de la tabla en un perfil
+   de PRUEBA sin coach. Fila borrada y backfill corregido para saltear perfiles sin
+   coach y de prueba.
+
+**Front**
+
+5. La fila de chips de la lista de Alumnos se renderiza solo si hay alguna alerta, y la
+   condición no incluía los contadores nuevos: con únicamente planes vencidos, los chips
+   y los filtros `plan_expired` / `plan_expiring` eran **inalcanzables**. Corregido.
+6. El evento "Vence" del calendario no filtraba por estado: una asignación reemplazada
+   conserva su `expected_end_date` y pintaba un plan que ya nadie entrena. Ahora solo
+   asignaciones vigentes. Con 4 tests.
+7. `SendToStudentModal` elegía las asignaciones con el booleano legacy `active` y sin
+   filtrar `plan_type`: el disparador "al fin del plan" podía agendar un formulario
+   contra una evaluación. Ahora `status='active'` + `plan_type='training'`.
+8. "Registrar pago" se podía abrir con el historial a medio cargar: la propuesta salía
+   desde hoy y chocaba contra la restricción de solapamiento. Botón deshabilitado
+   mientras carga.
+
+**Sin cambios, a propósito**
+
+- Los textos nuevos del panel del coach están en español hardcodeado, igual que todo lo
+  que los rodea en esos mismos archivos. El panel del coach no usa i18n; el pendiente de
+  traducirlo entero (~1089 literales) es anterior a esta tanda. Lo único de la tanda que
+  ve el alumno es la notificación `plan_expiring`, que sí pasa por `t()` y hoy está
+  apagada.
+
+**Decisión abierta**
+
+- Hay 3 coaches en la base. La política de `payments` es `coach_id = auth.uid()`: el
+  historial lo ve **solo quien cobró**. Si una persona cambia de coach, el nuevo ve el
+  semáforo (que sale del caché en el perfil) pero el historial vacío. Alternativa:
+  permitir la LECTURA al coach actual de esa persona y dejar la escritura como está.
+  Hay que decidirlo con Franco.
