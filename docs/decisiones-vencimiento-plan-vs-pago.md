@@ -373,10 +373,11 @@ Repaso completo de la tanda antes de pushear. Lo que se encontró y se corrigió
   ve el alumno es la notificación `plan_expiring`, que sí pasa por `t()` y hoy está
   apagada.
 
-**Decisión abierta**
+**D10. El historial de pagos lo ve solo quien cobró.** (Franco, 10/09/2026.) La política
+`coach_id = auth.uid()` se queda como está: no se agrega lectura para el coach actual de
+la persona. Hay 3 coaches en la base; si alguien cambia de coach, el nuevo ve el semáforo
+—que sale del caché en el perfil— pero no el historial de cobros del coach anterior.
 
-- Hay 3 coaches en la base. La política de `payments` es `coach_id = auth.uid()`: el
-  historial lo ve **solo quien cobró**. Si una persona cambia de coach, el nuevo ve el
-  semáforo (que sale del caché en el perfil) pero el historial vacío. Alternativa:
-  permitir la LECTURA al coach actual de esa persona y dejar la escritura como está.
-  Hay que decidirlo con Franco.
+*Por qué:* el cobro es un hecho entre esa persona y ese coach. Que un coach nuevo pueda
+leer lo que cobró otro es una decisión de negocio que nadie pidió, y la política actual es
+la más restrictiva de las dos, así que abrirla después es barato y cerrarla, caro.
