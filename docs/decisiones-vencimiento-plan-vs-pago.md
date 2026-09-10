@@ -381,3 +381,46 @@ la persona. Hay 3 coaches en la base; si alguien cambia de coach, el nuevo ve el
 *Por qué:* el cobro es un hecho entre esa persona y ese coach. Que un coach nuevo pueda
 leer lo que cobró otro es una decisión de negocio que nadie pidió, y la política actual es
 la más restrictiva de las dos, así que abrirla después es barato y cerrarla, caro.
+
+---
+
+## 8. Cierre de la tanda y qué falta (10/09/2026)
+
+**Aplicado en producción:** v48 (vigencia del plan), v49 (historial de pagos), v50 (aviso
+al coach), v50b (endurecimiento). Commits `680b4c8`, `45cb24e`, `4f97ec6`, `c1c1d83`,
+`be0befe`.
+
+### Verificación en vivo pendiente (con Anto)
+
+1. **Ficha de una alumna** → bloque *Vigencia del plan*: la fecha tiene que coincidir con
+   la duración del plan, y decir "estimado" en las que vienen del backfill. Confirmar o
+   corregir dos o tres con *Cambiar vencimiento* y ver que el "(est.)" desaparezca.
+2. **Lista de Alumnos**: chips de planes vencidos y por vencer, separados de los de pago.
+   Hoy hay 7 vencidos y 3 por vencer.
+3. **Ficha → Pagos**: registrar un cobro real y ver que el vencimiento se mueva solo.
+   Probar a propósito un período que pise otro: tiene que salir el mensaje de solapado.
+4. **Calendario del coach**: el evento "Vence <plan>" y el de pago en el mismo mes, con
+   marcas distintas.
+5. **Notificación**: el cron corre 10:00 UTC (07:00 de Córdoba). A la mañana siguiente
+   tiene que haber avisos de planes por vencer en la campana **del coach**, y ninguno en
+   el celular de las alumnas.
+
+### v51 — limpieza, recién con lo de arriba verificado
+
+- `alter table plan_assignments drop column end_date;`
+- `drop trigger trg_pa_sync_closed_at` + `drop function plan_assignments_sync_closed_at()`
+- `alter table profiles drop column payment_notes;`
+- renombrar `p_end_date` → `p_closed_at` en `assign_template_to_student` y actualizar
+  `assignmentHelpers.js`
+- ⚠️ Antes de borrar `end_date`: confirmar que en producción está corriendo el bundle
+  nuevo (ver `docs`/memoria sobre la caché del service worker), porque el bundle viejo
+  todavía escribe esa columna.
+
+### Fuera de alcance, anotado
+
+- ~58 funciones `SECURITY DEFINER` ejecutables por `anon` vía RPC, de antes de esta
+  tanda. Merece una auditoría propia.
+- `profiles.payment_cycle_days` existe pero no se carga desde ninguna pantalla.
+- El panel del coach sigue sin i18n (~1089 literales), pendiente viejo.
+- El aviso de plan por vencer al ALUMNO está escrito y apagado
+  (`p_notify_student = false`): encenderlo requiere que Anto revise el texto.
