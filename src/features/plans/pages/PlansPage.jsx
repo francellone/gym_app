@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ClipboardList, Plus, Search, ChevronRight, Copy, BarChart2, Trash2 } from 'lucide-react'
+import {
+  ClipboardList,
+  Plus,
+  Search,
+  ChevronRight,
+  Copy,
+  BarChart2,
+  Trash2,
+  Archive,
+  ArchiveRestore,
+} from 'lucide-react'
 import DuplicatePlanModal from '../components/DuplicatePlanModal'
 import DeletePlanModal from '../components/DeletePlanModal'
+import { setPlanArchived } from '../planLifecycle'
 import { evalTypeColor, evalTypeIcon } from '@/features/evaluations/helpers'
 
 export default function PlansPage() {
@@ -13,7 +24,8 @@ export default function PlansPage() {
   const [search, setSearch] = useState('')
   const [duplicatingPlan, setDuplicatingPlan] = useState(null)
   const [filterType, setFilterType] = useState('all') // 'all' | 'training' | 'evaluation'
-  const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
+  const [deletingPlan, setDeletingPlan] = useState(null) // plan
+  const [showArchived, setShowArchived] = useState(false) // v47
 
   useEffect(() => {
     fetchPlans()
@@ -54,24 +66,28 @@ export default function PlansPage() {
     }
   }
 
-  async function handleOpenDelete(plan) {
-    const activeStudents = plan.plan_assignments?.filter((a) => a.active).length || 0
-    let resultCount = 0
-    if (plan.plan_type === 'evaluation') {
-      const { count } = await supabase
-        .from('evaluation_results')
-        .select('id', { count: 'exact', head: true })
-        .eq('plan_id', plan.id)
-      resultCount = count || 0
-    }
-    setDeletingPlan({ plan, activeStudents, resultCount })
+  // v47 (decisión D4): el modal lee plan_usage() y decide si se archiva o se
+  // elimina; con asignación activa no deja hacer nada.
+  function handleOpenDelete(plan) {
+    setDeletingPlan(plan)
   }
 
-  async function handleDeletePlan(planId) {
-    const { error } = await supabase.from('plans').delete().eq('id', planId)
-    if (error) throw error
+  function handlePlanDone({ mode, plan }) {
     setDeletingPlan(null)
-    setPlans((prev) => prev.filter((p) => p.id !== planId))
+    if (mode === 'deleted') {
+      setPlans((prev) => prev.filter((p) => p.id !== plan.id))
+    } else {
+      fetchPlans()
+    }
+  }
+
+  async function handleUnarchive(plan) {
+    try {
+      await setPlanArchived(plan.id, false)
+      fetchPlans()
+    } catch (err) {
+      alert(err.message || 'No se pudo desarchivar.')
+    }
   }
 
   function handleDuplicateDone(newPlan) {
@@ -94,17 +110,20 @@ export default function PlansPage() {
   // Franco: no migrar data; el coach recrea si necesita).
   const isClone = (p) => p.is_template === false
 
+  const isArchived = (p) => !!p.archived_at
+  const visible = plans.filter((p) => !isClone(p) && !isArchived(p))
+  const archivedCount = plans.filter((p) => !isClone(p) && isArchived(p)).length
+
   const filtered = plans.filter((p) => {
     if (isClone(p)) return false
+    if (showArchived ? !isArchived(p) : isArchived(p)) return false
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = filterType === 'all' || (p.plan_type || 'training') === filterType
     return matchSearch && matchType
   })
 
-  const trainingCount = plans.filter(
-    (p) => (!p.plan_type || p.plan_type === 'training') && !isClone(p)
-  ).length
-  const evalCount = plans.filter((p) => p.plan_type === 'evaluation' && !isClone(p)).length
+  const trainingCount = visible.filter((p) => !p.plan_type || p.plan_type === 'training').length
+  const evalCount = visible.filter((p) => p.plan_type === 'evaluation').length
 
   return (
     <div className="space-y-5">
@@ -113,7 +132,9 @@ export default function PlansPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planes</h1>
           <p className="text-sm text-gray-500">
-            {plans.filter((p) => !isClone(p)).length} planes en total
+            {visible.length} planes en total
+            {archivedCount > 0 &&
+              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
           </p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
@@ -125,7 +146,7 @@ export default function PlansPage() {
       {/* Type filter tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
         {[
-          { key: 'all', label: 'Todos', count: plans.filter((p) => !isClone(p)).length },
+          { key: 'all', label: 'Todos', count: visible.length },
           { key: 'training', label: 'Entrenamiento', count: trainingCount },
           { key: 'evaluation', label: 'Evaluación', count: evalCount },
         ].map((tab) => (
@@ -153,6 +174,21 @@ export default function PlansPage() {
       </div>
 
       {/* Search */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+            showArchived
+              ? 'bg-gray-800 border-gray-800 text-white'
+              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+          title="Ver los planes archivados"
+        >
+          <Archive size={13} />
+          Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
+        </button>
+      </div>
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -201,6 +237,9 @@ export default function PlansPage() {
                       {plan.is_template && (
                         <span className="badge bg-purple-100 text-purple-700">Plantilla</span>
                       )}
+                      {plan.archived_at && (
+                        <span className="badge bg-gray-200 text-gray-700">Archivado</span>
+                      )}
                       {isEval && plan.eval_type && (
                         <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
                           {evalTypeIcon(plan.eval_type)} Evaluación
@@ -234,20 +273,32 @@ export default function PlansPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => setDuplicatingPlan(plan)}
-                      className="btn-ghost p-2 text-gray-500"
-                      title="Duplicar plan"
-                    >
-                      <Copy size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleOpenDelete(plan)}
-                      className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-                      title="Eliminar plan"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {plan.archived_at ? (
+                      <button
+                        onClick={() => handleUnarchive(plan)}
+                        className="btn-ghost p-2 text-gray-500"
+                        title="Desarchivar: vuelve al recetario"
+                      >
+                        <ArchiveRestore size={16} />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setDuplicatingPlan(plan)}
+                          className="btn-ghost p-2 text-gray-500"
+                          title="Duplicar plan"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleOpenDelete(plan)}
+                          className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+                          title="Archivar o eliminar plan"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                     <Link
                       to={isEval ? `/coach/evaluations/${plan.id}` : `/coach/plans/${plan.id}`}
                       className="btn-ghost p-2"
@@ -274,11 +325,9 @@ export default function PlansPage() {
       {/* Delete modal */}
       {deletingPlan && (
         <DeletePlanModal
-          plan={deletingPlan.plan}
-          activeStudents={deletingPlan.activeStudents}
-          resultCount={deletingPlan.resultCount}
+          plan={deletingPlan}
           onClose={() => setDeletingPlan(null)}
-          onConfirm={handleDeletePlan}
+          onDone={handlePlanDone}
         />
       )}
     </div>

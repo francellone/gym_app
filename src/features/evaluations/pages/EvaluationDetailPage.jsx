@@ -22,6 +22,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
+import { setPlanArchived } from '@/features/plans/planLifecycle'
 import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
@@ -658,10 +659,19 @@ export default function EvaluationDetailPage() {
     }
   }
 
-  async function handleDeletePlan(planId) {
-    const { error } = await supabase.from('plans').delete().eq('id', planId)
-    if (error) throw error
+  // v47 (decisión D4): el modal archiva o elimina según plan_usage().
+  function handlePlanDone() {
+    setShowDeleteModal(false)
     navigate('/coach/evaluations')
+  }
+
+  async function handleUnarchive() {
+    try {
+      const row = await setPlanArchived(plan.id, false)
+      setPlan((prev) => ({ ...prev, ...row }))
+    } catch (err) {
+      alert(err.message || 'No se pudo desarchivar.')
+    }
   }
 
   if (loading)
@@ -735,11 +745,24 @@ export default function EvaluationDetailPage() {
       {showDeleteModal && (
         <DeletePlanModal
           plan={plan}
-          activeStudents={assignments.length}
-          resultCount={results.length}
           onClose={() => setShowDeleteModal(false)}
-          onConfirm={handleDeletePlan}
+          onDone={handlePlanDone}
         />
+      )}
+
+      {plan?.archived_at && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-100 border border-gray-200 px-4 py-2.5">
+          <p className="text-xs text-gray-700">
+            <span className="font-semibold">Evaluación archivada.</span> No aparece en el listado ni
+            al asignar; los resultados se conservan.
+          </p>
+          <button
+            onClick={handleUnarchive}
+            className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0"
+          >
+            Desarchivar
+          </button>
+        </div>
       )}
 
       {/* Stats */}

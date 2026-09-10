@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { EVAL_TYPES, evalTypeColor, evalTypeIcon } from '../helpers'
-import { BarChart2, Plus, Users, ChevronRight, Search, Trash2, UserPlus } from 'lucide-react'
+import {
+  BarChart2,
+  Plus,
+  Users,
+  ChevronRight,
+  Search,
+  Trash2,
+  UserPlus,
+  Archive,
+  ArchiveRestore,
+} from 'lucide-react'
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
+import { setPlanArchived } from '@/features/plans/planLifecycle'
 import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 
 export default function EvaluationsPage() {
@@ -11,7 +22,8 @@ export default function EvaluationsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
-  const [deletingPlan, setDeletingPlan] = useState(null) // { plan, activeStudents, resultCount }
+  const [deletingPlan, setDeletingPlan] = useState(null) // plan
+  const [showArchived, setShowArchived] = useState(false) // v47
 
   // Bug 1 doc 32 (2026-05-26): asignar evaluación a un alumno desde
   // la lista. Antes había que ir al perfil del alumno → tab Evaluaciones.
@@ -74,17 +86,28 @@ export default function EvaluationsPage() {
     }
   }
 
+  // v47 (decisión D4): el modal lee plan_usage() y decide si se archiva o se
+  // elimina; con asignación activa no deja hacer nada.
   function handleOpenDelete(plan) {
-    const activeStudents = plan.plan_assignments?.filter((a) => a.active).length || 0
-    const resultCount = plan.evaluation_results?.length || 0
-    setDeletingPlan({ plan, activeStudents, resultCount })
+    setDeletingPlan(plan)
   }
 
-  async function handleDeletePlan(planId) {
-    const { error } = await supabase.from('plans').delete().eq('id', planId)
-    if (error) throw error
+  function handlePlanDone({ mode, plan }) {
     setDeletingPlan(null)
-    setEvalPlans((prev) => prev.filter((p) => p.id !== planId))
+    if (mode === 'deleted') {
+      setEvalPlans((prev) => prev.filter((p) => p.id !== plan.id))
+    } else {
+      fetchEvalPlans()
+    }
+  }
+
+  async function handleUnarchive(plan) {
+    try {
+      await setPlanArchived(plan.id, false)
+      fetchEvalPlans()
+    } catch (err) {
+      alert(err.message || 'No se pudo desarchivar.')
+    }
   }
 
   // C3 doc 34 (2026-05-26 PM): los planes con is_template=false son
@@ -94,9 +117,13 @@ export default function EvaluationsPage() {
   // del 24/05). Las instancias quedan visibles desde el perfil del alumno
   // → tab Evaluaciones, que es donde tienen sentido.
   const isClone = (p) => p.is_template === false
-  const templates = evalPlans.filter((p) => !isClone(p))
+  const isArchived = (p) => !!p.archived_at
+  const allTemplates = evalPlans.filter((p) => !isClone(p))
+  const templates = allTemplates.filter((p) => !isArchived(p))
+  const archivedCount = allTemplates.length - templates.length
 
-  const filtered = templates.filter((p) => {
+  const filtered = allTemplates.filter((p) => {
+    if (showArchived ? !isArchived(p) : isArchived(p)) return false
     const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase())
     const matchType = !filterType || p.eval_type === filterType
     return matchSearch && matchType
@@ -108,7 +135,11 @@ export default function EvaluationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Evaluaciones</h1>
-          <p className="text-sm text-gray-500">{templates.length} planes de evaluación</p>
+          <p className="text-sm text-gray-500">
+            {templates.length} planes de evaluación
+            {archivedCount > 0 &&
+              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
+          </p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
@@ -158,6 +189,21 @@ export default function EvaluationsPage() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
+            showArchived
+              ? 'bg-gray-800 border-gray-800 text-white'
+              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+          title="Ver las evaluaciones archivadas"
+        >
+          <Archive size={15} />
+          <span className="hidden sm:inline">
+            Archivadas{archivedCount > 0 ? ` (${archivedCount})` : ''}
+          </span>
+        </button>
       </div>
 
       {/* Plans list */}
@@ -207,6 +253,9 @@ export default function EvaluationsPage() {
                 <Link to={`/coach/evaluations/${plan.id}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 break-words">{plan.title}</p>
+                    {plan.archived_at && (
+                      <span className="badge bg-gray-200 text-gray-700">Archivada</span>
+                    )}
                     {plan.eval_type && (
                       <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
                         {EVAL_TYPES.find((e) => e.key === plan.eval_type)?.label || plan.eval_type}
@@ -233,7 +282,7 @@ export default function EvaluationsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {plan.is_template !== false && (
+                  {plan.is_template !== false && !plan.archived_at && (
                     <button
                       onClick={() => setAssigningPlan(plan)}
                       className="btn-ghost p-2 text-gray-400 hover:text-purple-600"
@@ -243,13 +292,23 @@ export default function EvaluationsPage() {
                       <UserPlus size={16} />
                     </button>
                   )}
-                  <button
-                    onClick={() => handleOpenDelete(plan)}
-                    className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-                    title="Eliminar evaluación"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {plan.archived_at ? (
+                    <button
+                      onClick={() => handleUnarchive(plan)}
+                      className="btn-ghost p-2 text-gray-500"
+                      title="Desarchivar"
+                    >
+                      <ArchiveRestore size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleOpenDelete(plan)}
+                      className="btn-ghost p-2 text-gray-400 hover:text-red-500"
+                      title="Archivar o eliminar evaluación"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                   <Link to={`/coach/evaluations/${plan.id}`} className="btn-ghost p-2">
                     <ChevronRight size={16} className="text-gray-400" />
                   </Link>
@@ -262,11 +321,9 @@ export default function EvaluationsPage() {
       {/* Delete modal */}
       {deletingPlan && (
         <DeletePlanModal
-          plan={deletingPlan.plan}
-          activeStudents={deletingPlan.activeStudents}
-          resultCount={deletingPlan.resultCount}
+          plan={deletingPlan}
           onClose={() => setDeletingPlan(null)}
-          onConfirm={handleDeletePlan}
+          onDone={handlePlanDone}
         />
       )}
 

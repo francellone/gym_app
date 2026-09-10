@@ -113,6 +113,7 @@ export default function StudentDetailPage() {
         supabase
           .from('plans')
           .select('id, title, plan_type, parent_plan_id, is_template')
+          .is('archived_at', null) // v47: los archivados no se asignan
           .order('title'),
         supabase
           .from('student_edit_history')

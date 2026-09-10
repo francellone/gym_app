@@ -83,11 +83,14 @@ etiqueta cuando quien mira no es el creador.
 
 ## D4. Los planes con hechos se archivan, no se borran
 
-**Decisión.** `plans.archived_at`. Un plan con registros, sesiones, evaluaciones o
-asignaciones se archiva; uno sin nada se elimina. `plan_assignments.plan_id` pasa a
+**Decisión.** `plans.archived_at` (v47, aplicada el 10/09/2026). Un plan con registros,
+sesiones, evaluaciones, asignaciones, copias asignadas o evaluaciones vinculadas se
+archiva; uno sin nada se elimina. `plan_usage()` lo decide y el modal muestra qué se
+conserva. `plan_assignments.plan_id` pasa a
 `ON DELETE RESTRICT` como candado duro. Un plan con una asignación **activa** no se
 puede archivar: primero se reemplaza o se cierra la asignación desde la ficha de la
-alumna, después se archiva.
+alumna, después se archiva. Archivar una plantilla NO afecta a quienes entrenan con su
+copia (las asignaciones y los registros viven en el clon, nunca en la plantilla).
 
 **Por qué.** Borrar un plan era la causa de 113 de los 191 huérfanos irrecuperables
 (una alumna, 27/03 a 04/04/2026) y además se llevaba `plan_assignments`, que es la
@@ -110,7 +113,7 @@ botón de borrar perfil en la app.
 
 ## D6. Cómo se ensaya una migración contra producción sin dejar rastro
 
-Receta usada en v45 y v46: `BEGIN;` + la migración completa + un bloque `DO` que
+Receta usada en v45, v46 y v47: `BEGIN;` + la migración completa + un bloque `DO` que
 ejecuta los borrados que hoy rompen y termina en `RAISE EXCEPTION` con un jsonb de
 resultados. La excepción revierte todo (migración incluida) y el resultado vuelve en
 el mensaje de error. Después se verifica que no quedó nada aplicado y recién ahí se

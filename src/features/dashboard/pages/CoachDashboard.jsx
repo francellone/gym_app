@@ -74,7 +74,7 @@ export default function CoachDashboard() {
             .select('id', { count: 'exact' })
             .eq('role', 'student')
             .eq('active', true),
-          supabase.from('plans').select('id', { count: 'exact' }),
+          supabase.from('plans').select('id', { count: 'exact' }).is('archived_at', null),
           applyCommonLogs(
             supabase.from('workout_logs').select('id, plans!inner(plan_type)', { count: 'exact' })
           ).eq('logged_date', today),

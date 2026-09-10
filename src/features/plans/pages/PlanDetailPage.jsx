@@ -33,6 +33,7 @@ import {
 } from '../helpers'
 import { format } from 'date-fns'
 import DeletePlanModal from '../components/DeletePlanModal'
+import { setPlanArchived } from '../planLifecycle'
 import PlanProgressTab from './PlanProgressTab'
 import PrescriptionHistoryTimeline from '../components/PrescriptionHistoryTimeline'
 import { assignTemplateToStudent } from '../assignmentHelpers'
@@ -774,10 +775,19 @@ export default function PlanDetailPage() {
     fetchPlan()
   }
 
-  async function handleDeletePlan(planId) {
-    const { error } = await supabase.from('plans').delete().eq('id', planId)
-    if (error) throw error
+  // v47 (decisión D4): el modal archiva o elimina según plan_usage().
+  function handlePlanDone() {
+    setShowDeleteModal(false)
     navigate('/coach/plans')
+  }
+
+  async function handleUnarchive() {
+    try {
+      const row = await setPlanArchived(plan.id, false)
+      setPlan((prev) => ({ ...prev, ...row }))
+    } catch (err) {
+      alert(err.message || 'No se pudo desarchivar.')
+    }
   }
 
   // Secciones activas
@@ -864,11 +874,24 @@ export default function PlanDetailPage() {
       {showDeleteModal && (
         <DeletePlanModal
           plan={plan}
-          activeStudents={assignments.length}
-          resultCount={0}
           onClose={() => setShowDeleteModal(false)}
-          onConfirm={handleDeletePlan}
+          onDone={handlePlanDone}
         />
+      )}
+
+      {plan.archived_at && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-100 border border-gray-200 px-4 py-2.5">
+          <p className="text-xs text-gray-700">
+            <span className="font-semibold">Plan archivado.</span> No aparece en el recetario ni al
+            asignar; todo lo registrado se conserva.
+          </p>
+          <button
+            onClick={handleUnarchive}
+            className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0"
+          >
+            Desarchivar
+          </button>
+        </div>
       )}
 
       {/* ── Plan hero ────────────────────────────────────── */}

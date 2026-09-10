@@ -26,6 +26,7 @@ export default function EvaluationParentPlanField({ value, onChange, excludeId }
         .from('plans')
         .select('id, title')
         .or('plan_type.eq.training,plan_type.is.null')
+        .is('archived_at', null) // v47
         .order('title')
       if (cancelled) return
       const filtered = (data || []).filter((p) => p.id !== excludeId)
