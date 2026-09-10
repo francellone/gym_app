@@ -77,7 +77,9 @@ export function resolveNotificationText(notification, t) {
     }
 
     case 'plan_expiring': {
-      const endDate = safeDate(data.end_date, t('dates.shortDate'))
+      // v50: el payload trae expected_end_date (el vencimiento del PLAN).
+      // `end_date` queda como fallback para las notificaciones viejas.
+      const endDate = safeDate(data.expected_end_date || data.end_date, t('dates.shortDate'))
       if (!endDate) return fallback // payload viejo/incompleto
       const planTitle = data.plan_title
       return {

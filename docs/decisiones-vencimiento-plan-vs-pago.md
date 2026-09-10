@@ -105,7 +105,7 @@ Vercel termina el deploy y se renueva el service worker. Entonces:
   y un trigger mantiene las dos columnas sincronizadas en los dos sentidos. El
   bundle viejo escribe `end_date` y funciona; el nuevo escribe `closed_at` y
   funciona. Nadie ve nada raro.
-- **v49 (después de verificar el deploy en vivo)**: se borra `end_date` y se saca
+- **v51 (después de verificar el deploy en vivo)**: se borra `end_date` y se saca
   el trigger de sincronización.
 
 *Por qué en dos pasos:* es el mismo motivo por el que existe esta tanda. Una
@@ -155,7 +155,7 @@ sigue siendo legible por el alumno, que es información sobre su propia cuota.
 | tests de los anteriores | fixtures |
 
 La RPC `assign_template_to_student` conserva el parámetro `p_end_date` (cierre) en
-la v48 y se renombra a `p_closed_at` recién en la v49, junto con el borrado de la
+la v48 y se renombra a `p_closed_at` recién en la v51, junto con el borrado de la
 columna, para no tener que coordinar RPC y bundle a la vez.
 
 ---
@@ -307,8 +307,8 @@ iguales uno al lado del otro se leen como uno solo.
 | A — vigencia del plan | ✅ v48 aplicada en prod, commit `680b4c8` |
 | B — historial de pagos | ✅ v49 aplicada en prod (8 pagos backfilleados, 3 notas mudadas, `profiles.payment_notes` vaciada) |
 | C — extensión opcional del plan al cobrar | ✅ incluida en el modal de la etapa B |
-| D — notificaciones (cron a `expected_end_date`, solo coach) | pendiente |
-| v50 — borrar `end_date` y `profiles.payment_notes` | pendiente, después de verificar el deploy |
+| D — notificaciones (cron a `expected_end_date`, solo coach) | ✅ v50 aplicada en prod. Ventana de 7 días en vez del día exacto + dedupe por (asignación, fecha). Aviso al alumno detrás de `p_notify_student`, apagado |
+| v51 — borrar `end_date` y `profiles.payment_notes` | pendiente, después de verificar el deploy |
 
 Pendiente menor: `profiles.payment_cycle_days` existe pero todavía no se carga desde
 ninguna pantalla. Mientras esté en NULL, el período propuesto repite el largo del

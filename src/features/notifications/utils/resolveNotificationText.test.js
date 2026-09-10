@@ -165,3 +165,25 @@ describe('resolveNotificationText — fallback al texto guardado', () => {
     expect(r.body).toBe('Your coach assigned you a new plan.')
   })
 })
+
+// v50: el cron pasó a mandar expected_end_date. El payload viejo, con
+// end_date, tiene que seguir resolviendo igual.
+describe('plan_expiring — payload v50', () => {
+  it('usa expected_end_date cuando viene', () => {
+    const r = resolveNotificationText(
+      notif('plan_expiring', { plan_title: 'Fuerza', expected_end_date: '2026-09-17' }),
+      t
+    )
+    // el idioma queda en el que dejó el bloque anterior: alcanza con que
+    // la fecha esté resuelta, no importa el formato local.
+    expect(r.body).toMatch(/17.09.2026|09.17.2026/)
+  })
+
+  it('sigue resolviendo el payload viejo con end_date', () => {
+    const r = resolveNotificationText(
+      notif('plan_expiring', { plan_title: 'Fuerza', end_date: '2026-09-17' }),
+      t
+    )
+    expect(r.body).toMatch(/17.09.2026|09.17.2026/)
+  })
+})
