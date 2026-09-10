@@ -17,8 +17,8 @@ Single-page feature. Si crece, conviene partir en `components/` (cards, modales,
 
 ## Quién consume
 
-| Consumidor | Importa |
-|---|---|
+| Consumidor    | Importa                |
+| ------------- | ---------------------- |
 | `src/App.jsx` | `ExercisesLibraryPage` |
 
 Otros consumos de la tabla `exercises` ocurren via `supabase` directo desde `features/plans/` (selector dentro de `PlanExerciseRow`, etc.). No hay API wrapper compartido — si emerge la necesidad, va `api.js` acá.

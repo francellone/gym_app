@@ -51,7 +51,7 @@ export default function ExercisePicker({
   const [tagFilterOverride, setTagFilterOverride] = useState(null)
   const tagFilter = tagFilterOverride === null ? defaultTagId : tagFilterOverride
 
-  const filtered =
+  const unfiltered =
     ownsFilter && tagFilter
       ? exercises.filter((e) =>
           tagAssignments.some((ta) => ta.exercise_id === e.id && ta.tag_id === tagFilter)
@@ -59,6 +59,9 @@ export default function ExercisePicker({
       : ownsFilter
         ? exercises
         : options
+  // v46: los archivados no se ofrecen para planes nuevos. Si el casillero ya
+  // tenía uno elegido, `selectedOutsideFilter` lo sigue mostrando.
+  const filtered = (unfiltered || []).filter((e) => !e.archived_at)
 
   const selected = value ? exercises.find((e) => e.id === value) : null
   // Un ejercicio recién creado (o el ya elegido) puede quedar fuera del filtro

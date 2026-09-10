@@ -1,9 +1,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Dumbbell, Plus, Search, Edit2, Trash2, X, AlertCircle, Tag } from 'lucide-react'
+import {
+  Dumbbell,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  X,
+  AlertCircle,
+  Tag,
+  Archive,
+  ArchiveRestore,
+  GitMerge,
+  Copy,
+} from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES } from '@/features/plans/helpers'
 import ExerciseFormModal from '../components/ExerciseFormModal'
+import MergeExerciseModal from '../components/MergeExerciseModal'
+import { fetchUsage, isReferenced, usageSummary } from '../exerciseUsage'
+import DuplicatesModal from '../components/DuplicatesModal'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
@@ -159,22 +175,32 @@ export default function ExercisesLibraryPage() {
   const [modalExercise, setModalExercise] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
+  // v46 (decisión D2): el catálogo no se borra, se archiva o se fusiona.
+  const [showArchived, setShowArchived] = useState(false)
+  const [mergeFrom, setMergeFrom] = useState(null) // { from, into? }
+  const [showDuplicates, setShowDuplicates] = useState(false)
+  const [coachNames, setCoachNames] = useState({}) // id → nombre (etiqueta de dueño)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     fetchAll()
   }, [])
 
   async function fetchAll() {
-    const [exRes, tagRes, assignRes] = await Promise.all([
+    const [exRes, tagRes, assignRes, coachRes] = await Promise.all([
       supabase.from('exercises').select('*').order('name'),
       supabase.from('exercise_tags').select('*').order('name'),
       supabase
         .from('exercise_tag_assignments')
         .select('exercise_id, tag_id, tag:exercise_tags!tag_id(id, name, color)'),
+      supabase.from('profiles').select('id, name').eq('role', 'coach'),
     ])
 
     setExercises(exRes.data || [])
     setTags(tagRes.data || [])
+    // Etiqueta "de <coach>" cuando el ejercicio lo creó otra cuenta (decisión D3).
+    setCoachNames(Object.fromEntries((coachRes.data || []).map((c) => [c.id, c.name])))
+    setRefreshKey((k) => k + 1)
 
     // Build map exerciseId → tags[]
     const map = {}
@@ -189,56 +215,27 @@ export default function ExercisesLibraryPage() {
   async function deleteExercise(ex) {
     const id = ex.id
 
-    // Un ejercicio referenciado por un hecho NO se borra (v41 + v45): las FKs de
-    // workout_logs, evaluation_test_responses, evaluation_tests y
-    // plan_exercise_prescription_history son ON DELETE RESTRICT. Se chequea acá
-    // con exercise_usage() para dar un mensaje claro en vez del error crudo.
+    // Decisión D2: "Eliminar" solo existe para lo que nadie referencia. Las FKs
+    // de las tablas de hechos son ON DELETE RESTRICT (v41/v45) y las de planes
+    // CASCADE, así que un ejercicio con cualquier uso se archiva, no se borra.
     let usage = null
     try {
-      const { data } = await supabase.rpc('exercise_usage', { p_exercise_id: id })
-      usage = data || null
+      usage = await fetchUsage(id)
     } catch {
       usage = null
     }
-    const logCount = usage?.workout_logs || 0
-    const evalCount = (usage?.eval_responses || 0) + (usage?.eval_tests || 0)
-    const histCount = usage?.prescription_history || 0
-    if (logCount > 0 || evalCount > 0 || histCount > 0) {
-      const partes = []
-      if (logCount > 0) {
-        partes.push(
-          `${logCount} ${logCount === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
-        )
-      }
-      if (evalCount > 0) {
-        partes.push(`${evalCount} ${evalCount === 1 ? 'evaluación' : 'evaluaciones'}`)
-      }
-      if (histCount > 0) {
-        partes.push(
-          `${histCount} ${histCount === 1 ? 'cambio de prescripción' : 'cambios de prescripción'}`
-        )
-      }
-      alert(
-        `No se puede eliminar "${ex.name}": tiene ${partes.join(', ')}. ` +
-          'Borrarlo dejaría ese historial sin ejercicio. ' +
-          'Si ya no lo usás, sacalo de los planes en lugar de eliminarlo.'
+    if (usage && isReferenced(usage)) {
+      const partes = usageSummary(usage)
+      const ok = confirm(
+        `"${ex.name}" está en uso: ${partes.join(', ')}. ` +
+          'No se puede eliminar sin perder ese historial.\n\n' +
+          '¿Querés archivarlo? Deja de aparecer al armar planes pero todo lo registrado se conserva.'
       )
+      if (ok) await setArchived(ex, true)
       return
     }
 
-    // Avisar si el ejercicio está usado en planes: el FK es ON DELETE CASCADE,
-    // así que borrarlo lo quita de esos planes (de las alumnas) sin más aviso.
-    const planCount = usage?.plans || 0
-
-    const msg =
-      planCount > 0
-        ? `"${ex.name}" está usado en ${planCount} ${
-            planCount === 1 ? 'plan' : 'planes'
-          }. Si lo eliminás, se quita de ${
-            planCount === 1 ? 'ese plan' : 'esos planes'
-          }. ¿Continuar?`
-        : `¿Eliminar "${ex.name}"?`
-    if (!confirm(msg)) return
+    if (!confirm(`¿Eliminar "${ex.name}"? No tiene planes ni registros asociados.`)) return
 
     // Chequear el resultado: si RLS lo bloquea, el DELETE afecta 0 filas SIN error.
     // Sin este chequeo el ejercicio "desaparecía" de la lista y reaparecía al recargar.
@@ -248,7 +245,7 @@ export default function ExercisesLibraryPage() {
       if (error.code === '23503') {
         alert(
           `No se puede eliminar "${ex.name}": tiene entrenamientos o evaluaciones registrados. ` +
-            'Borrarlo dejaría ese historial sin ejercicio.'
+            'Archivalo en lugar de eliminarlo.'
         )
       } else {
         alert(`No se pudo eliminar el ejercicio: ${error.message}`)
@@ -265,6 +262,33 @@ export default function ExercisesLibraryPage() {
     setExercises((prev) => prev.filter((e) => e.id !== id))
   }
 
+  async function setArchived(ex, archived) {
+    const { data, error } = await supabase.rpc('set_exercise_archived', {
+      p_exercise_id: ex.id,
+      p_archived: archived,
+    })
+    if (error) {
+      alert(`No se pudo ${archived ? 'archivar' : 'desarchivar'}: ${error.message}`)
+      return
+    }
+    setExercises((prev) => prev.map((e) => (e.id === ex.id ? { ...e, ...data } : e)))
+  }
+
+  function handleMerged({ from, into, counts }) {
+    setMergeFrom(null)
+    const partes = []
+    if (counts?.plan_exercises) partes.push(`${counts.plan_exercises} casilleros de plan`)
+    if (counts?.workout_logs) partes.push(`${counts.workout_logs} entrenamientos`)
+    const evals = (counts?.eval_responses || 0) + (counts?.eval_tests || 0)
+    if (evals) partes.push(`${evals} evaluaciones`)
+    if (counts?.notes) partes.push(`${counts.notes} notas`)
+    alert(
+      `"${from.name}" se fusionó en "${into.name}".` +
+        (partes.length ? ` Pasaron ${partes.join(', ')}.` : '')
+    )
+    fetchAll()
+  }
+
   function handleSaved(exercise) {
     setExercises((prev) => {
       const idx = prev.findIndex((e) => e.id === exercise.id)
@@ -277,7 +301,12 @@ export default function ExercisesLibraryPage() {
   }
 
   // Filtrar ejercicios por texto, etiqueta o modo de peso
+  const exerciseById = Object.fromEntries(exercises.map((e) => [e.id, e]))
+  const activeCount = exercises.filter((e) => !e.archived_at).length
+  const archivedCount = exercises.length - activeCount
+
   const filtered = exercises.filter((e) => {
+    if (showArchived ? !e.archived_at : !!e.archived_at) return false
     const matchSearch =
       !search ||
       e.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -297,9 +326,21 @@ export default function ExercisesLibraryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ejercicios</h1>
-          <p className="text-sm text-gray-500">{exercises.length} en la biblioteca</p>
+          <p className="text-sm text-gray-500">
+            {activeCount} en la biblioteca
+            {archivedCount > 0 &&
+              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
+          </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowDuplicates(true)}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
+            title="Ejercicios con el mismo nombre o el mismo video"
+          >
+            <Copy size={15} />
+            <span className="hidden sm:inline">Duplicados</span>
+          </button>
           <button
             onClick={() => setShowTagManager(true)}
             className="btn-secondary flex items-center gap-1.5 text-sm"
@@ -370,6 +411,21 @@ export default function ExercisesLibraryPage() {
           <AlertCircle size={15} />
           <span className="hidden sm:inline">Solo incompletos</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
+            showArchived
+              ? 'bg-gray-800 border-gray-800 text-white'
+              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+          title="Ver los ejercicios archivados"
+        >
+          <Archive size={15} />
+          <span className="hidden sm:inline">
+            Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
+          </span>
+        </button>
       </div>
 
       {loading ? (
@@ -381,8 +437,11 @@ export default function ExercisesLibraryPage() {
       ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
           <Dumbbell className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500">No hay ejercicios</p>
+          <p className="text-gray-500">
+            {showArchived ? 'No hay ejercicios archivados' : 'No hay ejercicios'}
+          </p>
           <button
+            hidden={showArchived}
             onClick={() => setShowModal(true)}
             className="btn-primary inline-flex items-center gap-2 mt-3"
           >
@@ -443,6 +502,31 @@ export default function ExercisesLibraryPage() {
                         Sin nota
                       </span>
                     )}
+                    {ex.archived_at && (
+                      <span
+                        title={
+                          ex.merged_into_id
+                            ? `Fusionado en "${exerciseById[ex.merged_into_id]?.name || '…'}"`
+                            : 'Archivado: no aparece al armar planes'
+                        }
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700"
+                      >
+                        {ex.merged_into_id
+                          ? `Fusionado en ${exerciseById[ex.merged_into_id]?.name || '…'}`
+                          : 'Archivado'}
+                      </span>
+                    )}
+                    {ex.created_by &&
+                      profile?.id &&
+                      ex.created_by !== profile.id &&
+                      coachNames[ex.created_by] && (
+                        <span
+                          title="Creado por otra coach (decisión D3: un solo catálogo para todas)"
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700"
+                        >
+                          de {coachNames[ex.created_by]}
+                        </span>
+                      )}
                   </div>
                   {exTags.length > 0 ? (
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -461,18 +545,51 @@ export default function ExercisesLibraryPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => {
-                      setModalExercise(ex)
-                      setShowModal(true)
-                    }}
-                    className="btn-ghost p-2"
-                  >
-                    <Edit2 size={15} className="text-gray-500" />
-                  </button>
-                  <button onClick={() => deleteExercise(ex)} className="btn-ghost p-2">
-                    <Trash2 size={15} className="text-red-400" />
-                  </button>
+                  {ex.archived_at ? (
+                    !ex.merged_into_id && (
+                      <button
+                        onClick={() => setArchived(ex, false)}
+                        className="btn-ghost p-2"
+                        title="Desarchivar: vuelve a aparecer al armar planes"
+                      >
+                        <ArchiveRestore size={15} className="text-gray-500" />
+                      </button>
+                    )
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setModalExercise(ex)
+                          setShowModal(true)
+                        }}
+                        className="btn-ghost p-2"
+                        title="Editar"
+                      >
+                        <Edit2 size={15} className="text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => setMergeFrom({ from: ex })}
+                        className="btn-ghost p-2"
+                        title="Fusionar en otro ejercicio (si está repetido)"
+                      >
+                        <GitMerge size={15} className="text-indigo-500" />
+                      </button>
+                      <button
+                        onClick={() => setArchived(ex, true)}
+                        className="btn-ghost p-2"
+                        title="Archivar: deja de aparecer al armar planes, el historial se conserva"
+                      >
+                        <Archive size={15} className="text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => deleteExercise(ex)}
+                        className="btn-ghost p-2"
+                        title="Eliminar (solo si nadie lo usa)"
+                      >
+                        <Trash2 size={15} className="text-red-400" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )
@@ -484,9 +601,29 @@ export default function ExercisesLibraryPage() {
         <ExerciseFormModal
           exercise={modalExercise}
           tags={tags}
-          existingExercises={exercises}
+          existingExercises={exercises.filter((e) => !e.archived_at)}
           onSave={handleSaved}
           onClose={() => setShowModal(false)}
+        />
+      )}
+
+      {showDuplicates && (
+        <DuplicatesModal
+          exercises={exercises}
+          refreshKey={refreshKey}
+          onClose={() => setShowDuplicates(false)}
+          onMergeRequest={(from, into) => setMergeFrom({ from, into })}
+        />
+      )}
+
+      {/* Va después del panel de duplicados para quedar por encima cuando se abre desde ahí */}
+      {mergeFrom && (
+        <MergeExerciseModal
+          from={mergeFrom.from}
+          into={mergeFrom.into || null}
+          exercises={exercises}
+          onClose={() => setMergeFrom(null)}
+          onMerged={handleMerged}
         />
       )}
 

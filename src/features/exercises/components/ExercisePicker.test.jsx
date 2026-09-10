@@ -66,6 +66,15 @@ describe('ExercisePicker', () => {
 
   // Regresión: con un filtro activo, el ejercicio ya elegido (o el recién
   // creado) quedaba fuera de las opciones y el select se veía vacío.
+  it('v46: no ofrece los archivados, pero sigue mostrando el que ya estaba elegido', () => {
+    const ARCHIVED = { id: 'ex-3', name: 'Remo viejo', archived_at: '2026-09-10T00:00:00Z' }
+    renderPicker({ catalog: { exercises: [...EXERCISES, ARCHIVED] } })
+    expect(screen.queryByRole('option', { name: 'Remo viejo' })).not.toBeInTheDocument()
+
+    renderPicker({ value: 'ex-3', catalog: { exercises: [...EXERCISES, ARCHIVED] } })
+    expect(screen.getByRole('option', { name: 'Remo viejo' })).toBeInTheDocument()
+  })
+
   it('mantiene visible el ejercicio elegido aunque quede fuera del filtro', async () => {
     const user = userEvent.setup()
     renderPicker({ value: 'ex-1' })
