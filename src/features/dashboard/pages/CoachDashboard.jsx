@@ -576,7 +576,12 @@ function buildAlertSubtitle(kind, items) {
 
   if (kind === 'planExpiringSoon') {
     const detail = top
-      .map((s) => `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`})`)
+      .map(
+        (s) =>
+          `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`}${
+            s.isEstimated ? ' · est.' : ''
+          })`
+      )
       .join(', ')
     return rest > 0 ? `${detail} y ${rest} más` : detail
   }

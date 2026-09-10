@@ -94,7 +94,7 @@ export async function fetchReportData(supabase, studentId) {
         supabase
           .from('plan_assignments')
           .select(
-            'start_date, end_date, status, plan_type, plan:plans!plan_id(sessions_per_week, plan_type)'
+            'start_date, closed_at, status, plan_type, plan:plans!plan_id(sessions_per_week, plan_type)'
           )
           .eq('student_id', studentId)
           .order('start_date')
@@ -114,7 +114,8 @@ export async function fetchReportData(supabase, studentId) {
 
   const assignments = rawAssignments.map((a) => ({
     start_date: a.start_date,
-    end_date: a.end_date,
+    // D2: el informe mide con el CIERRE real, no con el vencimiento previsto.
+    closed_at: a.closed_at,
     status: a.status,
     plan_type: a.plan_type || a.plan?.plan_type || null,
     sessions_per_week: a.plan?.sessions_per_week ?? null,

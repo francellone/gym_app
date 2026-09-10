@@ -85,7 +85,7 @@ export default function SendToStudentModal({
         const ids = studs.map((s) => s.id)
         const { data: pas } = await supabase
           .from('plan_assignments')
-          .select('id, plan_id, student_id, start_date, end_date, active, plans:plan_id(id, title)')
+          .select('id, plan_id, student_id, start_date, expected_end_date, active, plans:plan_id(id, title)')
           .in('student_id', ids)
           .eq('active', true)
 
@@ -158,8 +158,11 @@ export default function SendToStudentModal({
       return d.toISOString()
     }
     if (triggerType === 'on_plan_end') {
-      if (!planAssignment.end_date) return null
-      return new Date(planAssignment.end_date).toISOString()
+      // v48: el disparador es el VENCIMIENTO previsto. Antes miraba
+      // end_date (cierre real), que en un plan vivo siempre es null, así
+      // que este trigger nunca programó nada.
+      if (!planAssignment.expected_end_date) return null
+      return new Date(planAssignment.expected_end_date).toISOString()
     }
     return null
   }

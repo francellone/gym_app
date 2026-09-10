@@ -203,7 +203,11 @@ export function computeNoActivePlan(students) {
 // 3. Planes que vencen dentro de N días
 // ------------------------------------------------------------
 // Considera la asignación de TRAINING activa de cada alumno y mira su
-// end_date. Si end_date IS NULL → no aplica (plan abierto).
+// expected_end_date (v48): el vencimiento derivado de duration_weeks.
+// Si es NULL → plan abierto, no aplica.
+//
+// ⚠️ Hasta la v48 esto miraba `end_date`, que es la fecha de CIERRE y en
+// una asignación viva siempre es NULL: por eso esta alerta nunca disparó.
 // ============================================================
 export function computePlanExpiringSoon(students, today = new Date()) {
   const todayD = startOfDay(today)
@@ -212,14 +216,15 @@ export function computePlanExpiringSoon(students, today = new Date()) {
   for (const s of students || []) {
     const a = getActiveTrainingAssignment(s)
     if (!a) continue
-    const ed = parseYMD(a.end_date)
+    const ed = parseYMD(a.expected_end_date)
     if (!ed) continue
     if (ed >= todayD && ed <= soonLimit) {
       out.push({
         studentId: s.id,
         name: s.name,
         planTitle: a.plan?.title || 'Plan activo',
-        endDate: a.end_date,
+        endDate: a.expected_end_date,
+        isEstimated: a.expected_end_source === 'backfill',
         daysUntilEnd: daysBetween(ed, todayD),
       })
     }

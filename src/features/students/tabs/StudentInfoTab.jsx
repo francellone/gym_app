@@ -28,7 +28,7 @@ import {
   validateLesionesConsistency,
   lesionesCheckErrorMessage,
 } from '../helpers'
-import { getPaymentStatus, PAYMENT_STATUS } from '../status'
+import { getPaymentStatus, getPlanExpiryInfo, PAYMENT_STATUS, PLAN_EXPIRY_STATUS } from '../status'
 import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '@/utils/errorHelpers'
 
 // ─────────────────────────────────────────────────────────────
@@ -39,6 +39,7 @@ import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '@/uti
 //   coachId        - UUID del coach (para historizar cambios)
 //   formAssignment - asignación de intake form (puede ser null)
 //   formSubmission - respuesta del intake form (puede ser null)
+//   assignments    - asignaciones del alumno (para la vigencia del plan)
 //   onRefresh      - callback para que el padre recargue datos
 // ─────────────────────────────────────────────────────────────
 // Campos del FIELD_LABELS que NO se editan más desde este formulario
@@ -53,8 +54,10 @@ export default function StudentInfoTab({
   coachId,
   formAssignment,
   formSubmission,
+  assignments,
   onRefresh,
   onOpenNotesTab,
+  onOpenPlansTab,
 }) {
   // ── Edición de perfil ────────────────────────────────────
   const [editMode, setEditMode] = useState(false)
@@ -311,6 +314,9 @@ export default function StudentInfoTab({
 
   const paymentStatus = getPaymentStatus(student)
   const paymentConfig = PAYMENT_STATUS[paymentStatus]
+  // v48: la vigencia del plan es OTRO vencimiento, con su propio bloque.
+  const planExpiry = getPlanExpiryInfo(assignments)
+  const planExpiryConfig = PLAN_EXPIRY_STATUS[planExpiry.status]
 
   const formModules =
     formSubmission?.form_snapshot?.modules
@@ -722,6 +728,68 @@ export default function StudentInfoTab({
           Las observaciones y notas privadas viven en el panel de Notas. Desde ahí podés escribir,
           responder, filtrar, editar y borrar.
         </p>
+      </div>
+
+      {/* ── Vigencia del plan (v48) ── */}
+      <div className="card">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 text-sm">Vigencia del plan</h3>
+            <span className={`badge text-xs ${planExpiryConfig.badgeClass}`}>
+              {planExpiryConfig.icon} {planExpiryConfig.label}
+            </span>
+          </div>
+          {onOpenPlansTab && (
+            <button
+              onClick={onOpenPlansTab}
+              className="text-xs text-primary-600 hover:underline"
+              title="Ver y editar los planes de esta persona"
+            >
+              Ver planes
+            </button>
+          )}
+        </div>
+
+        {planExpiry.assignment ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <Calendar size={11} /> Plan
+              </p>
+              <p className="text-sm text-gray-900 break-words">
+                {planExpiry.assignment.plan?.title || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <Calendar size={11} /> Vence
+              </p>
+              <p
+                className={`text-sm font-medium ${
+                  planExpiry.status === 'expired'
+                    ? 'text-red-600'
+                    : planExpiry.status === 'expiring_soon'
+                      ? 'text-yellow-700'
+                      : 'text-gray-900'
+                }`}
+              >
+                {planExpiry.expectedEndDate
+                  ? format(parseISO(planExpiry.expectedEndDate), 'dd/MM/yyyy')
+                  : 'Sin vencimiento'}
+              </p>
+              {planExpiry.isEstimated && (
+                <p className="text-[11px] text-gray-400">
+                  Estimado con la duración del plan
+                </p>
+              )}
+              {planExpiry.isManual && (
+                <p className="text-[11px] text-gray-400">Fecha fijada a mano</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Esta persona no tiene un plan activo.</p>
+        )}
       </div>
 
       {/* ── Gestión de pagos ── */}

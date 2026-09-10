@@ -69,6 +69,8 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
   const [assigningPlan, setAssigningPlan] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('')
   // Horario para la asignación NUEVA (default flexible, ver Fase 1).
+  // v48: edición del vencimiento del plan (expected_end_date).
+  const [editingExpiry, setEditingExpiry] = useState(null)
   const [newSchedule, setNewSchedule] = useState({
     schedule_mode: 'flexible',
     preferred_days: [],
@@ -253,7 +255,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
         status_reason: reason,
       }
       if (outgoingTransition === 'replaced') {
-        closePayload.end_date = format(new Date(), 'yyyy-MM-dd')
+        closePayload.closed_at = format(new Date(), 'yyyy-MM-dd')
         // replaced_by_assignment_id se completa en el paso 3.
       }
       const { error: closeErr } = await supabase
@@ -300,7 +302,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
             .update({
               status: 'active',
               status_reason: null,
-              end_date: null,
+              closed_at: null,
               replaced_by_assignment_id: null,
             })
             .eq('id', outgoingId)
@@ -324,12 +326,12 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
         status_reason: reason ?? null,
       }
       if (toStatus === 'completed') {
-        payload.end_date = format(new Date(), 'yyyy-MM-dd')
+        payload.closed_at = format(new Date(), 'yyyy-MM-dd')
       }
-      // Reactivar limpia replaced_by, end_date y reason.
+      // Reactivar limpia replaced_by, closed_at y reason.
       if (toStatus === 'active') {
         payload.replaced_by_assignment_id = null
-        payload.end_date = null
+        payload.closed_at = null
         payload.status_reason = null
       }
       const { error } = await supabase
@@ -344,6 +346,35 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
     } finally {
       setSavingAssignment(null)
       setOpenMenu(null)
+    }
+  }
+
+  // ============================================================
+  // Vencimiento del plan (v48)
+  // ------------------------------------------------------------
+  // `expected_end_date` la deriva un trigger de plans.duration_weeks.
+  // Escribir una fecha distinta la marca como 'manual' y el trigger deja
+  // de tocarla; mandar expected_end_source='derived' sin cambiar la fecha
+  // es la señal de "volver a la fecha calculada".
+  // ============================================================
+  async function saveExpiry(assignment, { date, reset = false }) {
+    setSavingAssignment(assignment.id)
+    try {
+      const payload = reset
+        ? { expected_end_source: 'derived' }
+        : { expected_end_date: date || null }
+      const { error } = await supabase
+        .from('plan_assignments')
+        .update(payload)
+        .eq('id', assignment.id)
+      if (error) throw error
+      setEditingExpiry(null)
+      onRefresh()
+    } catch (err) {
+      console.error('[StudentPlansTab] saveExpiry', err)
+      alert(err.message || 'Error al guardar el vencimiento')
+    } finally {
+      setSavingAssignment(null)
     }
   }
 
@@ -380,7 +411,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
             status: 'active',
             status_reason: null,
             replaced_by_assignment_id: null,
-            end_date: null,
+            closed_at: null,
           })
           .eq('id', target.id)
         if (actErr) throw actErr
@@ -571,10 +602,25 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                     setEditingSchedule(a)
                     setOpenMenu(null)
                   }}
+                  onEditExpiry={() => {
+                    setEditingExpiry(a)
+                    setOpenMenu(null)
+                  }}
                 />
               )
             })}
         </div>
+      )}
+
+      {/* Modal: vencimiento del plan (v48) */}
+      {editingExpiry && (
+        <ExpiryModal
+          assignment={editingExpiry}
+          saving={savingAssignment === editingExpiry.id}
+          onCancel={() => setEditingExpiry(null)}
+          onSave={(date) => saveExpiry(editingExpiry, { date })}
+          onReset={() => saveExpiry(editingExpiry, { reset: true })}
+        />
       )}
 
       {/* Modal: ya hay activo, qué hacemos con el saliente */}
@@ -745,6 +791,7 @@ function AssignmentRow({
   onReactivate,
   onDelete,
   onEditSchedule,
+  onEditExpiry,
 }) {
   const status = getAssignmentStatus(assignment)
   const cfg = statusConfig(status)
@@ -752,9 +799,16 @@ function AssignmentRow({
   const startDate = assignment.start_date
     ? format(parseISO(assignment.start_date), 'dd/MM/yy', { locale: es })
     : null
-  const endDate = assignment.end_date
-    ? format(parseISO(assignment.end_date), 'dd/MM/yy', { locale: es })
+  const closedAt = assignment.closed_at
+    ? format(parseISO(assignment.closed_at), 'dd/MM/yy', { locale: es })
     : null
+  // v48: vencimiento previsto. Distinto del cierre: uno mira adelante,
+  // el otro dice cuándo la asignación dejó de estar vigente.
+  const expectedEnd = assignment.expected_end_date
+    ? format(parseISO(assignment.expected_end_date), 'dd/MM/yy', { locale: es })
+    : null
+  const expectedIsEstimated = assignment.expected_end_source === 'backfill'
+  const expectedIsManual = assignment.expected_end_source === 'manual'
 
   const replacedBy =
     status === 'replaced' && assignment.replaced_by_assignment_id
@@ -791,7 +845,22 @@ function AssignmentRow({
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
             {startDate ? `Desde ${startDate}` : 'Sin fecha de inicio'}
-            {endDate ? ` · Hasta ${endDate}` : ''}
+            {closedAt ? ` · Cerrado ${closedAt}` : ''}
+            {isLive &&
+              (expectedEnd ? (
+                <span className="ml-1">
+                  {` · Vence ${expectedEnd}`}
+                  {expectedIsEstimated && (
+                    <span className="text-gray-400" title="Estimado con la duración del plan">
+                      {' '}
+                      (est.)
+                    </span>
+                  )}
+                  {expectedIsManual && <span className="text-gray-400"> (fijado)</span>}
+                </span>
+              ) : (
+                <span className="ml-1 text-gray-400"> · Sin vencimiento</span>
+              ))}
             {linkedEvalCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-0.5 text-purple-600">
                 · 📊 {linkedEvalCount} {linkedEvalCount === 1 ? 'evaluación' : 'evaluaciones'}
@@ -854,6 +923,14 @@ function AssignmentRow({
                   >
                     Editar horario
                   </button>
+                  {onEditExpiry && (
+                    <button
+                      onClick={onEditExpiry}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Cambiar vencimiento
+                    </button>
+                  )}
                   {actions.length > 0 && <div className="my-1 border-t border-gray-100" />}
                 </>
               )}
@@ -882,6 +959,79 @@ function AssignmentRow({
             </div>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// ExpiryModal (v48)
+// ------------------------------------------------------------
+// El vencimiento del plan sale de la duración del plan. Este modal
+// existe para la excepción: fijarlo a mano, y poder volver atrás.
+// Ver docs/decisiones-vencimiento-plan-vs-pago.md (D1).
+// ─────────────────────────────────────────────────────────────
+function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
+  const [value, setValue] = useState(assignment.expected_end_date || '')
+  const source = assignment.expected_end_source
+  const weeks = assignment.plan?.duration_weeks || null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel()
+      }}
+    >
+      <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
+        <div>
+          <h3 className="font-semibold text-gray-900">Vencimiento del plan</h3>
+          <p className="text-xs text-gray-500 mt-1">
+            {weeks
+              ? `Se calcula solo: ${weeks} semanas desde el inicio.`
+              : 'Este plan no declara duración, así que no tiene vencimiento calculado.'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            No tiene relación con el vencimiento del pago.
+          </p>
+        </div>
+
+        <div>
+          <label className="label text-xs">Vence el</label>
+          <input
+            type="date"
+            className="input"
+            value={value || ''}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          {source === 'manual' && (
+            <p className="text-[11px] text-gray-500 mt-1">Fecha fijada a mano.</p>
+          )}
+          {source === 'backfill' && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              Fecha estimada con la duración del plan. Confirmala o corregila.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            className="btn-primary w-full"
+            disabled={saving}
+            onClick={() => onSave(value || null)}
+          >
+            Guardar
+          </button>
+          {weeks && (
+            <button className="btn-secondary w-full" disabled={saving} onClick={onReset}>
+              Volver a la fecha calculada
+            </button>
+          )}
+          <button className="btn-ghost w-full" disabled={saving} onClick={onCancel}>
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
   )

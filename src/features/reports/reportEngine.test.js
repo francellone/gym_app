@@ -283,7 +283,7 @@ describe('cumplimiento vs plan vigente (expectedTrainingDays)', () => {
   const TO = '2026-08-30' // domingo
   const asg = (over = {}) => ({
     start_date: '2026-01-01',
-    end_date: null,
+    closed_at: null,
     status: 'active',
     plan_type: 'training',
     sessions_per_week: 2,
@@ -294,7 +294,7 @@ describe('cumplimiento vs plan vigente (expectedTrainingDays)', () => {
     const { expectedTrainingDays } = await import('./reportEngine')
     const { total, byWeek } = expectedTrainingDays(
       [
-        asg({ start_date: '2026-01-01', end_date: '2026-08-16', sessions_per_week: 2 }),
+        asg({ start_date: '2026-01-01', closed_at: '2026-08-16', sessions_per_week: 2 }),
         asg({ start_date: '2026-08-17', sessions_per_week: 3 }),
       ],
       FROM,
@@ -334,7 +334,7 @@ describe('cumplimiento vs plan vigente (expectedTrainingDays)', () => {
     // Las dos vigentes el 2026-08-17: cuenta la de 3 días
     const { byWeek } = expectedTrainingDays(
       [
-        asg({ start_date: '2026-01-01', end_date: '2026-08-17', sessions_per_week: 2 }),
+        asg({ start_date: '2026-01-01', closed_at: '2026-08-17', sessions_per_week: 2 }),
         asg({ start_date: '2026-08-17', sessions_per_week: 3 }),
       ],
       '2026-08-17',

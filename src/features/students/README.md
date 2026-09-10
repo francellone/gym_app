@@ -58,7 +58,8 @@ Tabla principal: **`profiles`** (14 filas al 2026-05-20). Sin policy `DELETE` po
 
 Tablas secundarias del módulo:
 - **`student_edit_history`** (21 filas) — auditoría automática vía trigger `audit_profile_changes`.
-- **`profiles.last_payment_date`, `next_payment_due`, `payment_notes`** (3 columnas agregadas por la migración `add_payment_tracking.sql` el 04/2026) — alimentan `getPaymentStatus`.
+- **`profiles.last_payment_date`, `next_payment_due`, `payment_notes`** (3 columnas agregadas por la migración `add_payment_tracking.sql` el 04/2026) — alimentan `getPaymentStatus`. Vencimiento del PAGO.
+- **`plan_assignments.expected_end_date` / `expected_end_source`** (v48) — alimentan `getPlanExpiryStatus`. Vencimiento del PLAN, derivado de `plans.duration_weeks`. ⚠️ No confundir con `closed_at` (antes `end_date`), que es la fecha de CIERRE de la asignación y siempre está en el pasado. Ver `docs/decisiones-vencimiento-plan-vs-pago.md`.
 - **`intake_form_assignments`** + **`intake_form_submissions`** — el detalle del alumno trae el último submission para mostrar las respuestas del intake.
 
 Edge function relacionada:

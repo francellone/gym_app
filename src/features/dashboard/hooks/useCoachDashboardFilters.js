@@ -113,7 +113,7 @@ export default function useCoachDashboardFilters() {
           supabase
             .from('plan_assignments')
             .select(
-              'id, plan_id, student_id, status, plan_type, start_date, end_date, schedule_mode, preferred_days, plan:plans!plan_id(title, plan_type, sessions_per_week)'
+              'id, plan_id, student_id, status, plan_type, start_date, closed_at, expected_end_date, expected_end_source, schedule_mode, preferred_days, plan:plans!plan_id(title, plan_type, sessions_per_week)'
             )
             .neq('status', 'archived')
             .order('created_at', { ascending: false }),

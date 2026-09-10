@@ -272,7 +272,7 @@ describe('getExpectedSessionDates (modo fixed)', () => {
     schedule_mode: 'fixed',
     preferred_days: [1, 3, 5],
     start_date: '2026-05-01',
-    end_date: '2026-06-30',
+    closed_at: '2026-06-30',
   }
 
   it('devuelve lun, mié y vie de la semana solicitada', () => {
@@ -282,8 +282,8 @@ describe('getExpectedSessionDates (modo fixed)', () => {
     expect(dates).toEqual(['2026-05-18', '2026-05-20', '2026-05-22'])
   })
 
-  it('respeta end_date de la asignación', () => {
-    const early = { ...fixed, end_date: '2026-05-20' }
+  it('respeta closed_at (cierre) de la asignación', () => {
+    const early = { ...fixed, closed_at: '2026-05-20' }
     const dates = getExpectedSessionDates(early, new Date(2026, 4, 18), new Date(2026, 4, 24))
     expect(dates).toEqual(['2026-05-18', '2026-05-20'])
   })
@@ -307,7 +307,7 @@ describe('computeWeekAdherence', () => {
       schedule_mode: 'fixed',
       preferred_days: [1, 3, 5],
       start_date: '2026-08-01',
-      end_date: '2026-09-01',
+      closed_at: '2026-09-01',
     }
     const result = computeWeekAdherence(future, [], monday, monday)
     expect(result.status).toBe('inactive')
@@ -319,7 +319,7 @@ describe('computeWeekAdherence', () => {
       schedule_mode: 'fixed',
       preferred_days: [1, 3, 5], // lun-mié-vie
       start_date: '2026-05-01',
-      end_date: '2026-12-31',
+      closed_at: '2026-12-31',
     }
 
     it('good cuando cumple las 3', () => {
@@ -365,7 +365,7 @@ describe('computeWeekAdherence', () => {
       schedule_mode: 'flexible',
       plan: { sessions_per_week: 3 },
       start_date: '2026-05-01',
-      end_date: '2026-12-31',
+      closed_at: '2026-12-31',
     }
 
     it('good cuando cumple las 3 esperadas', () => {
@@ -393,8 +393,8 @@ describe('computeWeekAdherence', () => {
     })
 
     it('no cuenta sesiones fuera del rango de la asignación', () => {
-      const earlyEnd = { ...flex, end_date: '2026-05-19' }
-      const sessions = ['2026-05-18', '2026-05-22'] // la del 22 cae fuera de end_date
+      const earlyEnd = { ...flex, closed_at: '2026-05-19' }
+      const sessions = ['2026-05-18', '2026-05-22'] // la del 22 cae fuera del cierre
       const today = new Date(2026, 4, 25)
       const result = computeWeekAdherence(earlyEnd, sessions, monday, today)
       expect(result.completedCount).toBe(1)
@@ -438,7 +438,7 @@ describe('fetchTemplateAssignees (doc 40)', () => {
                 plan_type: 'evaluation',
                 status: 'active',
                 start_date: '2026-05-01',
-                end_date: null,
+                closed_at: null,
                 schedule_mode: 'flexible',
                 preferred_days: null,
                 linked_assignment_id: null,
@@ -451,7 +451,7 @@ describe('fetchTemplateAssignees (doc 40)', () => {
                 plan_type: 'evaluation',
                 status: 'paused',
                 start_date: null,
-                end_date: null,
+                closed_at: null,
                 schedule_mode: 'flexible',
                 preferred_days: null,
                 linked_assignment_id: 'link',
@@ -464,7 +464,7 @@ describe('fetchTemplateAssignees (doc 40)', () => {
                 plan_type: 'evaluation',
                 status: 'active',
                 start_date: null,
-                end_date: null,
+                closed_at: null,
                 schedule_mode: 'flexible',
                 preferred_days: null,
                 linked_assignment_id: null,

@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Users, Plus, Search, ChevronRight, AlertCircle, UserX, UserCheck } from 'lucide-react'
-import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
+import {
+  getPaymentStatus,
+  getPlanStatus,
+  getPlanExpiryStatus,
+  getPlanExpiryInfo,
+  PAYMENT_STATUS,
+  PLAN_STATUS,
+} from '../status'
 import { isProfileActive, filterByActiveStatus } from '../helpers'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
@@ -55,7 +62,7 @@ export default function StudentsPage() {
       const { data: assignmentsData } = await supabase
         .from('plan_assignments')
         .select(
-          'student_id, id, active, status, plan_type, created_at, plan:plans(title, plan_type)'
+          'student_id, id, active, status, plan_type, created_at, expected_end_date, expected_end_source, plan:plans(title, plan_type)'
         )
         .in('student_id', studentIds)
         .order('created_at', { ascending: false })
@@ -128,6 +135,9 @@ export default function StudentsPage() {
     if (filterStatus === 'overdue') return getPaymentStatus(s) === 'overdue'
     if (filterStatus === 'due_soon') return getPaymentStatus(s) === 'due_soon'
     if (filterStatus === 'no_plan') return getPlanStatus(s.plan_assignments) === 'no_plan'
+    if (filterStatus === 'plan_expired') return getPlanExpiryStatus(s.plan_assignments) === 'expired'
+    if (filterStatus === 'plan_expiring')
+      return getPlanExpiryStatus(s.plan_assignments) === 'expiring_soon'
     if (filterStatus === 'wellbeing') return wellbeingByStudent.get(s.id)?.status === 'bad'
     return true
   })
@@ -142,6 +152,13 @@ export default function StudentsPage() {
   ).length
   const wellbeingAlertCount = activeStudents.filter(
     (s) => wellbeingByStudent.get(s.id)?.status === 'bad'
+  ).length
+  // v48: vigencia del plan, distinta del vencimiento de pago.
+  const planExpiredCount = activeStudents.filter(
+    (s) => getPlanExpiryStatus(s.plan_assignments) === 'expired'
+  ).length
+  const planExpiringCount = activeStudents.filter(
+    (s) => getPlanExpiryStatus(s.plan_assignments) === 'expiring_soon'
   ).length
 
   // v40: activar/desactivar sin entrar a la ficha. Mismo par
@@ -244,7 +261,7 @@ export default function StudentsPage() {
                     : 'bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100'
                 }`}
               >
-                🟡 {dueSoonCount} vence{dueSoonCount !== 1 ? 'n' : ''} pronto
+                🟡 {dueSoonCount} pago{dueSoonCount !== 1 ? 's' : ''} por vencer
               </button>
             )}
             {noPlanCount > 0 && (
@@ -257,6 +274,35 @@ export default function StudentsPage() {
                 }`}
               >
                 ⚪ {noPlanCount} sin plan
+              </button>
+            )}
+            {planExpiredCount > 0 && (
+              <button
+                onClick={() =>
+                  setFilterStatus(filterStatus === 'plan_expired' ? 'all' : 'plan_expired')
+                }
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'plan_expired'
+                    ? 'bg-red-100 text-red-700 border-red-300'
+                    : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                }`}
+              >
+                📅 {planExpiredCount} plan{planExpiredCount !== 1 ? 'es' : ''} vencido
+                {planExpiredCount !== 1 ? 's' : ''}
+              </button>
+            )}
+            {planExpiringCount > 0 && (
+              <button
+                onClick={() =>
+                  setFilterStatus(filterStatus === 'plan_expiring' ? 'all' : 'plan_expiring')
+                }
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                  filterStatus === 'plan_expiring'
+                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                    : 'bg-yellow-50 text-yellow-600 border-yellow-100 hover:bg-yellow-100'
+                }`}
+              >
+                📅 {planExpiringCount} plan{planExpiringCount !== 1 ? 'es' : ''} por vencer
               </button>
             )}
             {wellbeingAlertCount > 0 && (
@@ -359,6 +405,8 @@ export default function StudentsPage() {
             const payConfig = PAYMENT_STATUS[payStatus]
             const planStatus = getPlanStatus(student.plan_assignments)
             const planConfig = PLAN_STATUS[planStatus]
+            // v48: vigencia del plan (expected_end_date), independiente del pago.
+            const expiry = getPlanExpiryInfo(student.plan_assignments)
             const studentActive = isProfileActive(student)
 
             return (
@@ -413,6 +461,25 @@ export default function StudentsPage() {
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
                         {planConfig.label}
+                      </span>
+                    )}
+                    {(expiry.status === 'expired' || expiry.status === 'expiring_soon') && (
+                      <span
+                        className={`badge text-xs ${
+                          expiry.status === 'expired'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}
+                        title={
+                          expiry.isEstimated
+                            ? 'Fecha estimada a partir de la duración del plan'
+                            : undefined
+                        }
+                      >
+                        📅{' '}
+                        {expiry.status === 'expired'
+                          ? `Plan vencido${expiry.isEstimated ? ' (est.)' : ''}`
+                          : `Plan vence en ${expiry.daysLeft}d`}
                       </span>
                     )}
                     {payStatus !== 'no_data' && payStatus !== 'up_to_date' && (

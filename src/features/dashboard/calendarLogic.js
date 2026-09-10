@@ -151,7 +151,7 @@ export function getCalendarWindow(monthAnchor) {
 // ------------------------------------------------------------
 // Inputs:
 //   students     [{ id, name, birth_date, next_payment_due }]
-//   assignments  [{ id, student_id, start_date, end_date,
+//   assignments  [{ id, student_id, start_date, expected_end_date,
 //                   plan: { title } }]
 //   window       { start: Date, end: Date }
 //
@@ -186,12 +186,14 @@ export function computeCalendarEvents(students, assignments, window) {
         planTitle,
       })
     }
-    const ed = parseYMD(a.end_date)
+    // Vencimiento previsto (v48), no el cierre real: al coach le sirve
+    // ver lo que viene, y el cierre siempre está en el pasado.
+    const ed = parseYMD(a.expected_end_date)
     if (ed && inWindow(ed)) {
       push(toYMD(ed), {
         type: 'plan_end',
         date: toYMD(ed),
-        title: `Fin de ${planTitle}`,
+        title: `Vence ${planTitle}`,
         studentId: a.student_id,
         studentName,
         planTitle,

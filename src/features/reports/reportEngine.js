@@ -109,19 +109,19 @@ function weeklyAverages(points) {
 // Pedido de Franco (2026-08-29): "2.5 días/semana" no dice nada sin saber
 // cuántos pedía el plan, y el plan cambia (2 días, después 3). Regla:
 //   - por cada DÍA del rango, el previsto es sessions_per_week/7 del plan
-//     de ENTRENAMIENTO vigente ese día (start_date <= día <= end_date;
-//     end_date null = sigue vigente);
+//     de ENTRENAMIENTO vigente ese día (start_date <= día <= closed_at;
+//     closed_at null = sigue vigente);
 //   - si dos asignaciones se pisan (semana de transición), gana la de
 //     start_date más nuevo;
 //   - sin plan vigente ese día → 0 previsto: los días anteriores a arrancar
 //     o los huecos entre planes NO cuentan como incumplimiento;
 //   - evaluaciones y asignaciones `archived` no suman (archived puede tener
-//     end_date null y reclamaría previstos hasta hoy).
+//     closed_at null y reclamaría previstos hasta hoy).
 // ============================================================
 
 /**
  * Días de entrenamiento previstos por el plan vigente en un rango.
- * @param {Array<{start_date, end_date, sessions_per_week, plan_type, status}>} assignments
+ * @param {Array<{start_date, closed_at, sessions_per_week, plan_type, status}>} assignments
  * @param {string} from - 'yyyy-MM-dd' inclusive
  * @param {string} to - 'yyyy-MM-dd' inclusive
  * @returns {{total:number, byWeek:Map<string,number>}} total con decimales
@@ -145,7 +145,7 @@ export function expectedTrainingDays(assignments, from, to) {
     const ds = format(d, 'yyyy-MM-dd')
     let best = null
     for (const a of usable) {
-      if (a.start_date <= ds && (!a.end_date || ds <= a.end_date)) {
+      if (a.start_date <= ds && (!a.closed_at || ds <= a.closed_at)) {
         if (!best || a.start_date > best.start_date) best = a
       }
     }

@@ -5,6 +5,7 @@ import {
   computeInactiveStudents,
   computeFatigueStudents,
   computeStagnationByExercise,
+  computePlanExpiringSoon,
   ALERT_THRESHOLDS,
 } from './alerts'
 
@@ -178,5 +179,68 @@ describe('ALERT_THRESHOLDS', () => {
     expect(ALERT_THRESHOLDS.ADHERENCE_LOW_PCT).toBe(100)
     expect(ALERT_THRESHOLDS.ADHERENCE_DECLINE_WEEKS).toBe(3)
     expect(ALERT_THRESHOLDS.INACTIVE_DAYS).toBe(3)
+  })
+})
+
+// ============================================================
+// Planes que vencen (v48)
+// ------------------------------------------------------------
+// Esta alerta existía desde el principio y NUNCA disparó: leía
+// `end_date`, que es el cierre de la asignación y en un plan vivo
+// siempre es null. Ahora lee `expected_end_date`.
+// ============================================================
+describe('computePlanExpiringSoon', () => {
+  const TODAY = new Date(2026, 8, 10) // 2026-09-10
+  const conPlan = (id, name, props) => ({
+    id,
+    name,
+    plan_assignments: [
+      {
+        status: 'active',
+        plan_type: 'training',
+        expected_end_source: 'derived',
+        plan: { title: 'Hipertrofia' },
+        ...props,
+      },
+    ],
+  })
+
+  it('avisa por el vencimiento previsto, no por el cierre', () => {
+    const out = computePlanExpiringSoon([conPlan('1', 'Ana', { expected_end_date: '2026-09-14' })], TODAY)
+    expect(out).toHaveLength(1)
+    expect(out[0].daysUntilEnd).toBe(4)
+    expect(out[0].planTitle).toBe('Hipertrofia')
+  })
+
+  it('no avisa por una asignación sin vencimiento (plan abierto)', () => {
+    const out = computePlanExpiringSoon(
+      [conPlan('1', 'Ana', { expected_end_date: null, closed_at: '2026-09-12' })],
+      TODAY
+    )
+    expect(out).toHaveLength(0)
+  })
+
+  it('no avisa por planes ya vencidos ni por los lejanos', () => {
+    const out = computePlanExpiringSoon(
+      [
+        conPlan('1', 'Ana', { expected_end_date: '2026-09-01' }),
+        conPlan('2', 'Bea', { expected_end_date: '2026-10-30' }),
+      ],
+      TODAY
+    )
+    expect(out).toHaveLength(0)
+  })
+
+  it('ordena por urgencia y marca las fechas estimadas', () => {
+    const out = computePlanExpiringSoon(
+      [
+        conPlan('1', 'Ana', { expected_end_date: '2026-09-16' }),
+        conPlan('2', 'Bea', { expected_end_date: '2026-09-11', expected_end_source: 'backfill' }),
+      ],
+      TODAY
+    )
+    expect(out.map((o) => o.name)).toEqual(['Bea', 'Ana'])
+    expect(out[0].isEstimated).toBe(true)
+    expect(out[1].isEstimated).toBe(false)
   })
 })

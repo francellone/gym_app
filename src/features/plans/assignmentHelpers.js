@@ -38,7 +38,7 @@ export async function assignTemplateToStudent(
     templateId,
     studentId,
     startDate, // 'YYYY-MM-DD' o null para hoy
-    endDate = null, // 'YYYY-MM-DD' o null
+    closedAt = null, // 'YYYY-MM-DD' o null. CIERRE de la asignación, no vencimiento.
     scheduleMode = 'flexible',
     preferredDays = null, // array de ints 0-6 o null
     linkedAssignmentId = null,
@@ -53,7 +53,7 @@ export async function assignTemplateToStudent(
     p_template_id: templateId,
     p_student_id: studentId,
     p_start_date: startDate || null, // null deja que el back use CURRENT_DATE
-    p_end_date: endDate,
+    p_end_date: closedAt, // la RPC conserva el nombre viejo hasta la v49
     p_schedule_mode: isFixed ? 'fixed' : 'flexible',
     p_preferred_days: isFixed && preferredDays?.length ? preferredDays : null,
     p_linked_assignment_id: linkedAssignmentId,
@@ -114,7 +114,7 @@ export async function fetchTemplateAssignees(supabase, templateId) {
   const { data: asgs, error: asgErr } = await supabase
     .from('plan_assignments')
     .select(
-      'id, student_id, plan_id, plan_type, status, start_date, end_date, schedule_mode, preferred_days, linked_assignment_id, student:profiles!student_id(id, name, active)'
+      'id, student_id, plan_id, plan_type, status, start_date, closed_at, expected_end_date, expected_end_source, schedule_mode, preferred_days, linked_assignment_id, student:profiles!student_id(id, name, active)'
     )
     .in('plan_id', cloneIds)
     .in('status', ['active', 'paused'])
@@ -144,7 +144,8 @@ export async function fetchTemplateAssignees(supabase, templateId) {
       planType: a.plan_type,
       status: a.status,
       startDate: a.start_date,
-      endDate: a.end_date,
+      closedAt: a.closed_at,
+      expectedEndDate: a.expected_end_date,
       scheduleMode: a.schedule_mode,
       preferredDays: a.preferred_days,
       linkedAssignmentId: a.linked_assignment_id,
@@ -184,7 +185,7 @@ export async function reassignTemplate(supabase, { templateId, assignee }) {
       templateId,
       studentId: assignee.studentId,
       startDate: assignee.startDate || null,
-      endDate: assignee.endDate || null,
+      closedAt: assignee.closedAt || null,
       scheduleMode: assignee.scheduleMode || 'flexible',
       preferredDays: assignee.preferredDays || null,
       linkedAssignmentId: assignee.linkedAssignmentId || null,
@@ -518,12 +519,12 @@ function parseYMD(s) {
 }
 
 // ── Rango efectivo de la asignación dentro de [from, to] ──
-// Recorta start_date / end_date contra la ventana solicitada.
+// Recorta start_date / closed_at (cierre real) contra la ventana solicitada.
 function clampAssignmentRange(assignment, from, to) {
   const fromD = startOfDay(from)
   const toD = startOfDay(to)
   const startD = parseYMD(assignment?.start_date)
-  const endD = parseYMD(assignment?.end_date)
+  const endD = parseYMD(assignment?.closed_at)
 
   const effStart = startD && startD > fromD ? startD : fromD
   const effEnd = endD && endD < toD ? endD : toD
@@ -571,7 +572,7 @@ export function getExpectedSessionDates(assignment, from, to) {
 //
 // Parámetros:
 //   assignment       — fila de plan_assignments (con preferred_days,
-//                      schedule_mode, start_date, end_date,
+//                      schedule_mode, start_date, closed_at,
 //                      plan.sessions_per_week)
 //   sessionDates     — array de YMD strings con las fechas en que
 //                      el alumno tiene sesión registrada en esta

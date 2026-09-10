@@ -20,7 +20,7 @@ import { computeAllAlerts, ALERT_THRESHOLDS } from '../alerts'
 // Diseño de fetches:
 //   - profiles activos con plan_assignments embebidos (igual al
 //     fetch original del dashboard, pero ampliado para incluir
-//       end_date de la asignación y el title del plan).
+//       expected_end_date de la asignación y el title del plan).
 //   - workout_logs en una ventana suficiente para alimentar a
 //     ambas alertas que dependen de logs:
 //       * inactividad: necesitamos last log per student → 30 días
@@ -74,7 +74,8 @@ export default function useCoachAlerts() {
               `
               id, name, next_payment_due,
               plan_assignments:plan_assignments!student_id(
-                id, active, status, plan_type, start_date, end_date,
+                id, active, status, plan_type, start_date, closed_at,
+                expected_end_date, expected_end_source,
                 plan:plans!plan_id(plan_type, title, sessions_per_week)
               )
             `

@@ -342,8 +342,10 @@ export default function StudentDetailPage() {
           coachId={profile.id}
           formAssignment={formAssignment}
           formSubmission={formSubmission}
+          assignments={assignments}
           onRefresh={fetchStudentData}
           onOpenNotesTab={() => setActiveTab('notas')}
+          onOpenPlansTab={() => setActiveTab('plans')}
         />
       )}
 

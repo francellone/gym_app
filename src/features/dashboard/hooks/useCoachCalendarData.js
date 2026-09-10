@@ -39,9 +39,9 @@ const SCHED_FLEXIBLE = 'flexible'
 //       * profiles activos (id, name, avatar_url, birth_date,
 //           next_payment_due) → para el filtro de alumnos
 //           Y para los eventos del coach (cumpleaños, pagos).
-//       * plan_assignments cuyo rango (start_date..end_date)
+//       * plan_assignments cuyo rango (start_date..closed_at)
 //           interseca con la ventana visible del calendario,
-//           más las 'active' (que no tengan end_date pueden
+//           más las 'active' (que no tengan closed_at pueden
 //           extenderse indefinidamente). Necesarios para
 //           inicios/vencimientos de plan.
 //   - SOLO si hay alumnos seleccionados:
@@ -132,21 +132,21 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
             .order('name', { ascending: true }),
           // Asignaciones que tocan la ventana visible de alguna forma.
           // Consulta amplia: cualquier asignación cuyo rango intersecte
-          // la ventana, o sin end_date (todavía vigente).
+          // la ventana, o sin closed_at (todavía vigente).
           // Filtramos por coach via RLS — ya está cubierto.
           supabase
             .from('plan_assignments')
             .select(
               `
               id, student_id, plan_id, status, plan_type,
-              start_date, end_date,
+              start_date, closed_at, expected_end_date, expected_end_source,
               schedule_mode, preferred_days,
               plan:plans!plan_id(title, sessions_per_week)
             `
             )
             .or(
-              `and(start_date.lte.${windowEndYMD},end_date.gte.${windowStartYMD}),` +
-                `and(start_date.lte.${windowEndYMD},end_date.is.null)`
+              `and(start_date.lte.${windowEndYMD},closed_at.gte.${windowStartYMD}),` +
+                `and(start_date.lte.${windowEndYMD},closed_at.is.null)`
             ),
         ])
 

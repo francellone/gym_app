@@ -333,7 +333,7 @@ describe('isWeekComplete + computeWeekAdherence (flexible, 3 sesiones/semana)', 
   const assignment = {
     schedule_mode: 'flexible',
     start_date: '2026-07-27',
-    end_date: null,
+    closed_at: null,
     plan: { sessions_per_week: 3 },
   }
   // Jueves 2026-08-27 → semana lunes 24/08 a domingo 30/08.

@@ -42,7 +42,7 @@ export default function UpcomingEvaluations({
         let q = supabase
           .from('plan_assignments')
           .select(
-            'id, student_id, plan_id, start_date, end_date, status, plan_type, plan:plans!plan_id(title, eval_type, plan_type), student:profiles!student_id(id, name, active)'
+            'id, student_id, plan_id, start_date, closed_at, expected_end_date, status, plan_type, plan:plans!plan_id(title, eval_type, plan_type), student:profiles!student_id(id, name, active)'
           )
           .eq('plan_type', 'evaluation')
           .not('status', 'in', '("archived","completed","replaced")')
