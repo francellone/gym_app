@@ -58,6 +58,7 @@ export default function StudentDetailPage() {
   const [student, setStudent] = useState(null)
   const [assignments, setAssignments] = useState([])
   const [logs, setLogs] = useState([])
+  const [blockLogs, setBlockLogs] = useState([])
   const [allPlans, setAllPlans] = useState([])
   const [editHistory, setEditHistory] = useState([])
   const [formAssignment, setFormAssignment] = useState(null)
@@ -78,6 +79,7 @@ export default function StudentDetailPage() {
         studentRes,
         assignmentsRes,
         logsRes,
+        blockLogsRes,
         plansRes,
         historyRes,
         formAssignmentRes,
@@ -101,6 +103,20 @@ export default function StudentDetailPage() {
               block_label, section,
               exercise:exercises!exercise_id(name, muscle_group)
             )
+          `
+          )
+          .eq('student_id', id)
+          .order('logged_date', { ascending: false })
+          .limit(50),
+        // v53 — los bloques aeróbicos / circuito registran en workout_block_logs;
+        // la pestaña Registros los intercala por fecha con los de fuerza.
+        supabase
+          .from('workout_block_logs')
+          .select(
+            `
+            *,
+            exercise:exercises!exercise_id(name),
+            block:plan_blocks!plan_block_id(title, block_type, aerobic_zone, aerobic_total_minutes, circuit_type, circuit_rounds, circuit_total_minutes)
           `
           )
           .eq('student_id', id)
@@ -155,6 +171,14 @@ export default function StudentDetailPage() {
         notes: bodiesMap.get(l.id) ?? l.notes ?? null,
       }))
       setLogs(logsWithMirror)
+
+      if (blockLogsRes.error) console.error('[StudentDetailPage] block logs', blockLogsRes.error)
+      const rawBlockLogs = blockLogsRes.data || []
+      const blockBodies = await fetchSingleMirrorBodies({
+        contextType: 'workout_block_log',
+        contextIds: rawBlockLogs.map((b) => b.id),
+      })
+      setBlockLogs(rawBlockLogs.map((b) => ({ ...b, notes: blockBodies.get(b.id) ?? null })))
       setAllPlans(plansRes.data || [])
       setEditHistory(historyRes.data || [])
       setFormAssignment(formAssignmentRes.data || null)
@@ -377,7 +401,7 @@ export default function StudentDetailPage() {
 
       {activeTab === 'progress' && <StudentProgressTab studentId={id} />}
 
-      {activeTab === 'logs' && <StudentLogsTab logs={logs} />}
+      {activeTab === 'logs' && <StudentLogsTab logs={logs} blockLogs={blockLogs} />}
 
       {activeTab === 'history' && <StudentHistoryTab editHistory={editHistory} />}
     </div>

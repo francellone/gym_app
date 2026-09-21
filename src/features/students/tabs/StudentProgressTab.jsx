@@ -140,6 +140,12 @@ export default function StudentProgressTab({ studentId }) {
   const [blockDatesInPeriod, setBlockDatesInPeriod] = useState(() => new Set())
   const [attendanceDates, setAttendanceDates] = useState(() => new Set())
 
+  // v53 — los registros de bloque (aeróbico / circuito) del período, con el
+  // bloque prescripto y el ejercicio embebidos. Antes solo se traía la fecha
+  // para asistencia y el coach nunca veía minutos, rondas ni PSE de estos
+  // bloques en ningún lado ("no puedo visualizar los datos de los aeróbicos").
+  const [progressBlockLogs, setProgressBlockLogs] = useState([])
+
   useEffect(() => {
     fetchProgressData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -221,9 +227,23 @@ export default function StudentProgressTab({ studentId }) {
       supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
       supabase
         .from('workout_block_logs')
-        .select('logged_date, plan:plans!plan_id(plan_type)')
+        .select(
+          `
+          *,
+          plan:plans!plan_id(plan_type, title),
+          exercise:exercises!exercise_id(id, name, muscle_group),
+          block:plan_blocks!plan_block_id(
+            id, plan_id, section, block_type, order_index, title,
+            aerobic_format, aerobic_total_minutes, aerobic_zone, aerobic_intensity,
+            aerobic_work_seconds, aerobic_rest_seconds, aerobic_rounds,
+            circuit_type, circuit_total_minutes, circuit_rounds, circuit_intensity,
+            circuit_work_seconds, circuit_rest_seconds
+          )
+        `
+        )
         .eq('student_id', studentId)
-        .gte('logged_date', blocksFrom),
+        .gte('logged_date', blocksFrom)
+        .order('logged_date'),
       supabase
         .from('workout_logs')
         .select('logged_date, plan:plans!plan_id(plan_type)')
@@ -259,13 +279,20 @@ export default function StudentProgressTab({ studentId }) {
 
     // Las evaluaciones no cuentan como entrenamiento, misma regla que en los
     // gráficos (ver filterTrainingLogs).
+    if (blockLogsRes.error)
+      console.error('StudentProgressTab: workout_block_logs', blockLogsRes.error)
     const blockRows = filterTrainingLogs(blockLogsRes.data || [])
-    setBlockDatesInPeriod(
-      new Set(
-        blockRows
-          .filter((b) => b.logged_date >= since && (!until || b.logged_date <= until))
-          .map((b) => b.logged_date)
-      )
+    const blockRowsInPeriod = blockRows.filter(
+      (b) => b.logged_date >= since && (!until || b.logged_date <= until)
+    )
+    setBlockDatesInPeriod(new Set(blockRowsInPeriod.map((b) => b.logged_date)))
+    // La nota del bloque vive en el panel (mirror), igual que la del ejercicio.
+    const blockBodies = await fetchSingleMirrorBodies({
+      contextType: 'workout_block_log',
+      contextIds: blockRowsInPeriod.map((b) => b.id),
+    })
+    setProgressBlockLogs(
+      blockRowsInPeriod.map((b) => ({ ...b, notes: blockBodies.get(b.id) ?? null }))
     )
     setAttendanceDates(
       new Set([
@@ -315,6 +342,23 @@ export default function StudentProgressTab({ studentId }) {
           })
         : progressLogs,
     [progressLogs, selectedTag, tagAssignments]
+  )
+
+  // v53 — mismo filtro por etiqueta para los registros de bloque: un aeróbico
+  // sabe su ejercicio (exercise_id); un circuito no, así que con etiqueta
+  // seleccionada queda afuera.
+  const blockLogsForTag = useMemo(
+    () =>
+      selectedTag
+        ? progressBlockLogs.filter(
+            (b) =>
+              b.exercise_id &&
+              tagAssignments.some(
+                (ta) => ta.exercise_id === b.exercise_id && ta.tag_id === selectedTag
+              )
+          )
+        : progressBlockLogs,
+    [progressBlockLogs, selectedTag, tagAssignments]
   )
 
   // Etiquetas que tienen ejercicios en los logs del período
@@ -471,21 +515,31 @@ export default function StudentProgressTab({ studentId }) {
     return { tagsWithVolume: withVol, volumeGroupedData: grouped }
   }, [progressLogs, exerciseTags, tagAssignments, studentWeightKg])
 
-  // PSE (filtrado por etiqueta)
+  // PSE (filtrado por etiqueta). v53: la PSE de los bloques aeróbicos y de
+  // circuito entra en el promedio del día junto con la de los ejercicios;
+  // antes una persona con mucho aeróbico figuraba con menos esfuerzo del real.
   const pseData = useMemo(() => {
+    // Agrupado por fecha ISO y ordenado al final: un día de solo aeróbico
+    // llega por el segundo array y no puede quedar al final del gráfico.
     const byDate = {}
-    logsForTag.forEach((l) => {
+    const push = (l) => {
       if (l.perceived_difficulty) {
-        const date = format(parseISO(l.logged_date), 'dd/MM')
-        if (!byDate[date]) byDate[date] = []
-        byDate[date].push(l.perceived_difficulty)
+        if (!byDate[l.logged_date]) byDate[l.logged_date] = []
+        byDate[l.logged_date].push(l.perceived_difficulty)
       }
-    })
-    return Object.entries(byDate).map(([date, vals]) => ({
-      date,
-      'PSE promedio': Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10,
-    }))
-  }, [logsForTag])
+    }
+    logsForTag.forEach(push)
+    blockLogsForTag.forEach(push)
+    return Object.keys(byDate)
+      .sort()
+      .map((iso) => {
+        const vals = byDate[iso]
+        return {
+          date: format(parseISO(iso), 'dd/MM'),
+          'PSE promedio': Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10,
+        }
+      })
+  }, [logsForTag, blockLogsForTag])
 
   const borgData = useMemo(
     () =>
@@ -534,7 +588,8 @@ export default function StudentProgressTab({ studentId }) {
 
   const stats = useMemo(() => {
     const sessionDates = new Set([...progressLogs.map((l) => l.logged_date), ...blockDatesInPeriod])
-    const withPSE = progressLogs.filter((l) => l.perceived_difficulty)
+    // v53: la PSE de los bloques (aeróbico / circuito) cuenta en el promedio
+    const withPSE = [...progressLogs, ...progressBlockLogs].filter((l) => l.perceived_difficulty)
     const avgPSE =
       withPSE.length > 0
         ? Math.round(
@@ -550,13 +605,15 @@ export default function StudentProgressTab({ studentId }) {
     const maxReps = selLogs.reduce((mx, l) => Math.max(mx, repsMaxOfLog(l)), 0)
     return {
       totalSessions: sessionDates.size,
-      totalCompleted: progressLogs.filter((l) => l.completed).length,
+      totalCompleted:
+        progressLogs.filter((l) => l.completed).length +
+        progressBlockLogs.filter((b) => b.completed).length,
       avgPSE,
       avgBorg,
       maxWeight,
       maxReps,
     }
-  }, [progressLogs, borgData, selectedExercise, blockDatesInPeriod])
+  }, [progressLogs, progressBlockLogs, borgData, selectedExercise, blockDatesInPeriod])
 
   const weeks = useMemo(() => attendanceWeeks(), [])
 
@@ -722,6 +779,7 @@ export default function StudentProgressTab({ studentId }) {
             <StudentProgressTableView
               studentId={studentId}
               logs={progressLogs}
+              blockLogs={progressBlockLogs}
               exerciseTags={exerciseTags}
               tagAssignments={tagAssignments}
               selectedTag={selectedTag}

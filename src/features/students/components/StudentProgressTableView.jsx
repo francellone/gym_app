@@ -22,6 +22,16 @@ import {
   hasMultiplePlans,
   markIndexes,
 } from '../planWindows'
+import {
+  buildBlockRow,
+  blockMetricOf,
+  blockLogRounds,
+  displayBlockLogMain,
+  sortRowsInSection,
+  rowMatchesType,
+  ROW_TYPE_FILTERS,
+} from '../blockRowsLogic'
+import { blockTypeLabel, blockTypeIcon } from '@/features/plans/helpers'
 
 // ─────────────────────────────────────────────────────────────
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
@@ -179,11 +189,15 @@ const defaultSessionFields = () => new Set(['date', 'weight', 'pse'])
 export default function StudentProgressTableView({
   studentId,
   logs,
+  // v53 — workout_block_logs del período (aeróbico / circuito), con `block`
+  // (plan_blocks) y `exercise` embebidos. Se intercalan como filas de bloque.
+  blockLogs = [],
   exerciseTags = [],
   tagAssignments = [],
   selectedTag = '',
 }) {
   const [planExercises, setPlanExercises] = useState([])
+  const [planBlocks, setPlanBlocks] = useState([])
   const [plansInPeriod, setPlansInPeriod] = useState([])
   const [loadingPlan, setLoadingPlan] = useState(false)
 
@@ -198,6 +212,12 @@ export default function StudentProgressTableView({
   const [showOnlyWithLogs, setShowOnlyWithLogs] = useState(false)
   const [groupBySection, setGroupBySection] = useState(true)
   const [collapsedSections, setCollapsedSections] = useState(new Set())
+  // v53 — Todos / Fuerza / Aeróbico / Circuito
+  const [typeFilter, setTypeFilter] = useState('all')
+
+  // Ejercicios + bloques juntos, para todo lo que es "por fecha" (columnas de
+  // sesión, ventanas de plan): un día de solo aeróbico también es una sesión.
+  const allLogs = useMemo(() => [...logs, ...blockLogs], [logs, blockLogs])
 
   // Sesiones dinámicas
   const [sessionsCount, setSessionsCount] = useState(3)
@@ -215,9 +235,9 @@ export default function StudentProgressTableView({
   // llegaban y se descartaban en silencio.
   const planIdsInLogs = useMemo(() => {
     const set = new Set()
-    for (const l of logs) if (l.plan_id) set.add(l.plan_id)
+    for (const l of allLogs) if (l.plan_id) set.add(l.plan_id)
     return [...set].sort()
-  }, [logs])
+  }, [allLogs])
   const planIdsKey = planIdsInLogs.join(',')
 
   useEffect(() => {
@@ -239,6 +259,7 @@ export default function StudentProgressTableView({
         if (planIds.length === 0) {
           setPlansInPeriod([])
           setPlanExercises([])
+          setPlanBlocks([])
           return
         }
 
@@ -255,7 +276,7 @@ export default function StudentProgressTableView({
           .from('plan_exercises')
           .select(
             `
-            id, plan_id, section, block_label, order_index,
+            id, plan_id, section, block_label, order_index, block_id,
             suggested_sets, suggested_reps, suggested_weight, suggested_weights,
             suggested_pse, rest_time, extra_notes,
             weight_mode, unilateral,
@@ -266,11 +287,33 @@ export default function StudentProgressTableView({
           .order('order_index', { ascending: true })
         if (cancelled) return
         setPlanExercises(pex || [])
+
+        // v53 — los bloques del plan: los de fuerza dan el orden de sus
+        // ejercicios dentro de la sección; los aeróbicos y circuitos son
+        // filas propias (aunque todavía no tengan registros, para ver lo
+        // prescripto, igual que los ejercicios).
+        const { data: pbs, error: pbErr } = await supabase
+          .from('plan_blocks')
+          .select(
+            `
+            id, plan_id, section, block_type, order_index, title,
+            aerobic_format, aerobic_total_minutes, aerobic_zone, aerobic_intensity,
+            aerobic_work_seconds, aerobic_rest_seconds, aerobic_rounds,
+            circuit_type, circuit_total_minutes, circuit_rounds, circuit_intensity,
+            circuit_work_seconds, circuit_rest_seconds
+          `
+          )
+          .in('plan_id', planIds)
+          .order('order_index', { ascending: true })
+        if (pbErr) throw pbErr
+        if (cancelled) return
+        setPlanBlocks(pbs || [])
       } catch (err) {
         console.error('[StudentProgressTableView]', err)
         if (!cancelled) {
           setPlansInPeriod([])
           setPlanExercises([])
+          setPlanBlocks([])
         }
       } finally {
         if (!cancelled) setLoadingPlan(false)
@@ -292,6 +335,55 @@ export default function StudentProgressTableView({
     for (const pex of planExercises) map.set(pex.id, pex)
     return map
   }, [planExercises])
+
+  // v53 — plan_block_id → plan_block
+  const blockById = useMemo(() => {
+    const map = new Map()
+    for (const b of planBlocks) map.set(b.id, b)
+    return map
+  }, [planBlocks])
+
+  // v53 — nombre del ejercicio de cada bloque aeróbico (0 o 1 por bloque)
+  const exerciseNameByBlock = useMemo(() => {
+    const map = new Map()
+    for (const pex of planExercises) {
+      if (!pex.block_id || map.has(pex.block_id)) continue
+      if (pex.exercise?.name)
+        map.set(pex.block_id, { id: pex.exercise.id, name: pex.exercise.name })
+    }
+    return map
+  }, [planExercises])
+
+  // v53 — plan_block_id → block logs[]  y  plan_block_id → date → log
+  const blockLogsByBlock = useMemo(() => {
+    const map = new Map()
+    for (const bl of blockLogs) {
+      if (!bl.plan_block_id) continue
+      if (!map.has(bl.plan_block_id)) map.set(bl.plan_block_id, [])
+      map.get(bl.plan_block_id).push(bl)
+    }
+    return map
+  }, [blockLogs])
+  const blockLogsByBlockAndDate = useMemo(() => {
+    const map = new Map()
+    for (const bl of blockLogs) {
+      if (!bl.plan_block_id || !bl.logged_date) continue
+      if (!map.has(bl.plan_block_id)) map.set(bl.plan_block_id, new Map())
+      map.get(bl.plan_block_id).set(bl.logged_date, bl)
+    }
+    return map
+  }, [blockLogs])
+  // exercise_id → date → block log (modo por ejercicio; solo aeróbicos, que
+  // saben su ejercicio)
+  const blockLogsByExerciseAndDate = useMemo(() => {
+    const map = new Map()
+    for (const bl of blockLogs) {
+      if (!bl.exercise_id || !bl.logged_date) continue
+      if (!map.has(bl.exercise_id)) map.set(bl.exercise_id, new Map())
+      map.get(bl.exercise_id).set(bl.logged_date, bl)
+    }
+    return map
+  }, [blockLogs])
 
   // plan_exercise_id → logs[] ordenados por fecha asc
   const logsByPlanExercise = useMemo(() => {
@@ -359,7 +451,7 @@ export default function StudentProgressTableView({
   }, [logs, pexById])
 
   // ── Ventanas de plan dentro del período (para agrupar y para el corte) ──
-  const planWindows = useMemo(() => planWindowsFromLogs(logs), [logs])
+  const planWindows = useMemo(() => planWindowsFromLogs(allLogs), [allLogs])
   const multiPlan = useMemo(() => hasMultiplePlans(planWindows), [planWindows])
   const startMarks = useMemo(() => planStartMarks(planWindows), [planWindows])
   const windowByPlan = useMemo(() => {
@@ -370,7 +462,7 @@ export default function StudentProgressTableView({
 
   // ── Fechas de sesión únicas, ordenadas asc, limitadas a N ──
   const allSessionDates = useMemo(() => {
-    const dates = new Set(logs.map((l) => l.logged_date).filter(Boolean))
+    const dates = new Set(allLogs.map((l) => l.logged_date).filter(Boolean))
     const sorted = [...dates].sort() // ascendente: más viejo primero → izquierda
     // Con varios planes en el período, mostrar solo las últimas 3 sesiones
     // esconde el cambio de plan (y buena parte del plan anterior): salvo que
@@ -378,7 +470,7 @@ export default function StudentProgressTableView({
     const effective = !sessionsCountTouched && multiPlan ? 'all' : sessionsCount
     if (effective === 'all') return sorted
     return sorted.slice(-Number(effective)) // N más recientes
-  }, [logs, sessionsCount, sessionsCountTouched, multiPlan])
+  }, [allLogs, sessionsCount, sessionsCountTouched, multiPlan])
 
   // ── Filas: una por plan_exercise ───────────────────────────
   const activePlanIds = useMemo(
@@ -388,9 +480,12 @@ export default function StudentProgressTableView({
 
   // Métricas de una fila. La usan los dos modos: por plan recibe los registros
   // de ese ejercicio del plan, por ejercicio recibe todo su historial del período.
-  const buildRow = useCallback((pex, exLogs, overrides = {}) => {
-    {
+  const buildRow = useCallback(
+    (pex, exLogs, overrides = {}) => {
       const exerciseId = pex.exercise?.id
+      // v53 — bloque de fuerza al que pertenece: da el orden dentro de la
+      // sección y el tipo para el filtro.
+      const ownBlock = pex.block_id ? blockById.get(pex.block_id) : null
 
       const lastLog = exLogs.length > 0 ? exLogs[exLogs.length - 1] : null
       const prevLog = exLogs.length > 1 ? exLogs[exLogs.length - 2] : null
@@ -473,6 +568,9 @@ export default function StudentProgressTableView({
       const recentLogs = [...exLogs].reverse() // más reciente primero
 
       return {
+        kind: 'exercise',
+        blockType: ownBlock?.block_type || 'strength',
+        blockOrder: ownBlock?.order_index ?? -1,
         id: pex.id,
         exerciseId,
         planId: pex.plan_id,
@@ -497,17 +595,59 @@ export default function StudentProgressTableView({
         hasLogs: exLogs.length > 0,
         ...overrides,
       }
-    }
-  }, [])
+    },
+    [blockById]
+  )
 
   // Modo "por plan": una fila por ejercicio de cada plan del período.
   // Solo los registros de ESE ejercicio de ESE plan. Antes, si el ejercicio del
   // plan vigente no tenía registros, la fila se rellenaba con los del mismo
   // ejercicio de otro plan sin avisar (y desaparecían apenas había uno propio).
-  const rows = useMemo(
-    () => planExercises.map((pex) => buildRow(pex, logsByPlanExercise.get(pex.id) || [])),
-    [planExercises, logsByPlanExercise, buildRow]
-  )
+  const rows = useMemo(() => {
+    const exRows = planExercises.map((pex) => buildRow(pex, logsByPlanExercise.get(pex.id) || []))
+    // v53 — una fila por bloque aeróbico / circuito del plan, en su sección.
+    const blkRows = planBlocks
+      .filter((b) => b.block_type && b.block_type !== 'strength')
+      .map((b) => {
+        const ex = exerciseNameByBlock.get(b.id)
+        return buildBlockRow(
+          { ...b, exerciseId: ex?.id || null, exerciseName: ex?.name || null },
+          blockLogsByBlock.get(b.id) || []
+        )
+      })
+    // Registros de bloques que ya no están en el plan (bloque borrado): la
+    // fila sale de la foto que guarda el registro (v45), para no perderlos.
+    const known = new Set(planBlocks.map((b) => b.id))
+    const orphanBlocks = new Map()
+    for (const bl of blockLogs) {
+      if (bl.plan_block_id && known.has(bl.plan_block_id)) continue
+      const key = bl.plan_block_id || `sin-bloque-${bl.block_type}-${bl.plan_id}`
+      if (!orphanBlocks.has(key)) {
+        orphanBlocks.set(key, {
+          id: key,
+          plan_id: bl.plan_id,
+          section: bl.section,
+          block_type: bl.block_type,
+          order_index: 9999,
+          title: bl.block_title ? `${bl.block_title} (bloque eliminado)` : null,
+          exerciseName: bl.exercise?.name || null,
+          exerciseId: bl.exercise_id || null,
+          logs: [],
+        })
+      }
+      orphanBlocks.get(key).logs.push(bl)
+    }
+    const orphanRows = [...orphanBlocks.values()].map((b) => buildBlockRow(b, b.logs))
+    return [...exRows, ...blkRows, ...orphanRows]
+  }, [
+    planExercises,
+    planBlocks,
+    blockLogs,
+    logsByPlanExercise,
+    blockLogsByBlock,
+    exerciseNameByBlock,
+    buildRow,
+  ])
 
   // Modo "por ejercicio": una fila por ejercicio del catálogo, con todo su
   // historial del período aunque venga de planes distintos. Se apoya en
@@ -573,8 +713,42 @@ export default function StudentProgressTableView({
         })
       )
     }
+    // v53 — aeróbicos por ejercicio (bici, cinta...), cruzando planes. Los
+    // circuitos no tienen un ejercicio, así que no entran en este modo.
+    const blocksByExercise = new Map()
+    for (const bl of blockLogs) {
+      if (!bl.exercise_id) continue
+      if (!blocksByExercise.has(bl.exercise_id)) blocksByExercise.set(bl.exercise_id, [])
+      blocksByExercise.get(bl.exercise_id).push(bl)
+    }
+    for (const [exId, bls] of blocksByExercise) {
+      const sorted = [...bls].sort((a, b) =>
+        (a.logged_date || '').localeCompare(b.logged_date || '')
+      )
+      const last = sorted[sorted.length - 1]
+      const ref = last.block || {
+        id: `ex-${exId}`,
+        plan_id: last.plan_id,
+        block_type: last.block_type || 'aerobic',
+        title: last.block_title || null,
+      }
+      const planIds = [...new Set(sorted.map((l) => l.plan_id).filter(Boolean))]
+      const name = sorted.find((l) => l.exercise?.name)?.exercise?.name || 'Ejercicio'
+      out.push(
+        buildBlockRow({ ...ref, exerciseId: exId, exerciseName: name, title: null }, sorted, {
+          id: `exblk-${exId}`,
+          exerciseId: exId,
+          planId: null,
+          section: null,
+          planIds,
+          inCurrentPlan: ref.plan_id ? activePlanIds.has(ref.plan_id) : false,
+          prescriptionPlanId: ref.plan_id || null,
+          prescriptionIsCurrent: ref.plan_id ? activePlanIds.has(ref.plan_id) : false,
+        })
+      )
+    }
     return out.sort((a, b) => a.exerciseName.localeCompare(b.exerciseName, 'es'))
-  }, [logs, planExercises, activePlanIds, planWindows, buildRow])
+  }, [logs, blockLogs, planExercises, activePlanIds, planWindows, buildRow])
 
   // Si los ejercicios del plan fueron borrados pero los registros conservan su
   // ejercicio (v41), la vista por plan no tiene nada que mostrar: se usa la
@@ -586,6 +760,7 @@ export default function StudentProgressTableView({
   const filteredRows = useMemo(() => {
     let result = effectiveRowMode === 'exercise' ? exerciseRows : rows
     if (showOnlyWithLogs) result = result.filter((r) => r.hasLogs)
+    if (typeFilter !== 'all') result = result.filter((r) => rowMatchesType(r, typeFilter))
     if (selectedTag) {
       result = result.filter(
         (r) =>
@@ -594,7 +769,15 @@ export default function StudentProgressTableView({
       )
     }
     return result
-  }, [rows, exerciseRows, effectiveRowMode, showOnlyWithLogs, selectedTag, tagAssignments])
+  }, [
+    rows,
+    exerciseRows,
+    effectiveRowMode,
+    showOnlyWithLogs,
+    typeFilter,
+    selectedTag,
+    tagAssignments,
+  ])
 
   // Planes ordenados como se leen: primero el más viejo del período, y el
   // vigente sin registros al final.
@@ -616,7 +799,9 @@ export default function StudentProgressTableView({
       const sections = getDynamicSections(plan.sessions_per_week, plan.has_activation)
       const win = windowByPlan.get(plan.id)
       for (const s of sections) {
-        const rowsInSection = filteredRows.filter((r) => r.planId === plan.id && r.section === s.id)
+        const rowsInSection = sortRowsInSection(
+          filteredRows.filter((r) => r.planId === plan.id && r.section === s.id)
+        )
         if (rowsInSection.length === 0) continue
         groups.push({
           key: `${plan.id}:${s.id}`,
@@ -681,11 +866,26 @@ export default function StudentProgressTableView({
   // ese plan. El cruce entre planes vive en el modo por ejercicio, donde la
   // fila lo dice.
   const getLogForDate = useCallback(
-    (row, date) =>
-      effectiveRowMode === 'exercise'
+    (row, date) => {
+      if (row.kind === 'block') {
+        return effectiveRowMode === 'exercise'
+          ? (blockLogsByExerciseAndDate.get(row.exerciseId)?.get(date) ?? null)
+          : (blockLogsByBlockAndDate.get(row.blockId)?.get(date) ??
+              // bloque borrado: los registros llegan sin fila en planBlocks
+              row.recentLogs.find((l) => l.logged_date === date) ??
+              null)
+      }
+      return effectiveRowMode === 'exercise'
         ? (logsByExerciseAndDate.get(row.exerciseId)?.get(date) ?? null)
-        : (logsByExAndDate.get(row.id)?.get(date) ?? null),
-    [logsByExAndDate, logsByExerciseAndDate, effectiveRowMode]
+        : (logsByExAndDate.get(row.id)?.get(date) ?? null)
+    },
+    [
+      logsByExAndDate,
+      logsByExerciseAndDate,
+      blockLogsByBlockAndDate,
+      blockLogsByExerciseAndDate,
+      effectiveRowMode,
+    ]
   )
 
   // Abrir/cerrar modal de nota
@@ -695,8 +895,16 @@ export default function StudentProgressTableView({
   }
 
   // Emoji de estado comparando log actual con el anterior
-  const getStatusEmoji = (log, prevLog) => {
+  const getStatusEmoji = (log, prevLog, isBlock = false) => {
     if (!log || !prevLog) return null
+    if (isBlock) {
+      const c = blockMetricOf(log)
+      const p = blockMetricOf(prevLog)
+      if (!(c > 0 && p > 0)) return null
+      if (c > p) return { emoji: '⬆️', color: 'text-green-600' }
+      if (c < p) return { emoji: '⬇️', color: 'text-red-500' }
+      return { emoji: '😊', color: 'text-gray-400' }
+    }
     const curr = maxWeightOf(log)
     const prev = maxWeightOf(prevLog)
     if (curr > 0 && prev > 0) {
@@ -818,7 +1026,8 @@ export default function StudentProgressTableView({
     highlight,
     noteKey,
     extraClass = '',
-    sameDayCount = 0
+    sameDayCount = 0,
+    isBlock = false
   ) => {
     const bg = highlight ? 'bg-primary-50/40' : ''
     if (!log) {
@@ -831,7 +1040,7 @@ export default function StudentProgressTableView({
       )
     }
     const hasNotes = !!(log.notes && log.notes.trim())
-    const status = isField('status') ? getStatusEmoji(log, prevLog) : null
+    const status = isField('status') ? getStatusEmoji(log, prevLog, isBlock) : null
 
     return (
       <td className={`px-2 py-2 text-center border-l border-gray-100 ${bg} ${extraClass}`}>
@@ -849,10 +1058,14 @@ export default function StudentProgressTableView({
               {log.logged_date ? format(parseISO(log.logged_date), 'dd/MM') : ''}
             </span>
           )}
+          {/* v53 — en una fila de bloque, el lugar del peso lo ocupan los
+              minutos y el de series×reps las rondas */}
           {isField('weight') && (
-            <span className="text-sm font-semibold text-gray-900">{displayActualWeight(log)}</span>
+            <span className="text-sm font-semibold text-gray-900">
+              {isBlock ? displayBlockLogMain(log) : displayActualWeight(log)}
+            </span>
           )}
-          {isField('sets_reps') && (
+          {isField('sets_reps') && !isBlock && (
             <span className="text-[11px] text-gray-600">
               {log.actual_sets ?? '—'}×{displayActualReps(log)}
             </span>
@@ -896,11 +1109,26 @@ export default function StudentProgressTableView({
             ? 'text-gray-500'
             : 'text-gray-400'
 
+    const isBlock = r.kind === 'block'
+    const last = r.recentLogs[0]
+
     return (
-      <tr key={r.id} className="border-t border-gray-100 text-sm hover:bg-gray-50">
+      <tr
+        key={r.id}
+        className={`border-t border-gray-100 text-sm hover:bg-gray-50 ${
+          isBlock ? 'bg-sky-50/30' : ''
+        }`}
+      >
         {/* Ejercicio (sticky) */}
-        <td className="px-2 py-2 sticky left-0 bg-white z-[1] min-w-[140px]">
+        <td
+          className={`px-2 py-2 sticky left-0 z-[1] min-w-[140px] ${isBlock ? 'bg-sky-50/60' : 'bg-white'}`}
+        >
           <div className="font-medium text-gray-900 truncate max-w-[200px]" title={r.exerciseName}>
+            {isBlock && (
+              <span className="mr-1" aria-hidden>
+                {blockTypeIcon(r.blockType)}
+              </span>
+            )}
             {r.exerciseName}
           </div>
           {r.muscleGroup && <div className="text-[10px] text-gray-400">{r.muscleGroup}</div>}
@@ -927,7 +1155,17 @@ export default function StudentProgressTableView({
         {/* Columnas estáticas del plan */}
         {isCol('block') && effectiveRowMode !== 'exercise' && (
           <td className="px-2 py-2">
-            {r.block_label ? (
+            {isBlock ? (
+              <span
+                className={`badge ${
+                  r.blockType === 'aerobic'
+                    ? 'bg-sky-100 text-sky-700'
+                    : 'bg-orange-100 text-orange-700'
+                }`}
+              >
+                {blockTypeLabel(r.blockType)}
+              </span>
+            ) : r.block_label ? (
               <span className="badge bg-primary-100 text-primary-700">{r.block_label}</span>
             ) : (
               <span className="text-gray-300">—</span>
@@ -935,7 +1173,15 @@ export default function StudentProgressTableView({
           </td>
         )}
         {isCol('plan_sets') && (
-          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_sets ?? '—'}</td>
+          <td
+            className="px-2 py-2 text-right text-gray-700"
+            title={isBlock ? 'Rondas prescriptas' : undefined}
+          >
+            {r.suggested_sets ?? '—'}
+            {isBlock && r.suggested_sets != null && (
+              <span className="text-[9px] text-gray-400 ml-0.5">rondas</span>
+            )}
+          </td>
         )}
         {isCol('plan_reps') && (
           <td className="px-2 py-2 text-right text-gray-700">
@@ -962,7 +1208,12 @@ export default function StudentProgressTableView({
           </td>
         )}
         {isCol('plan_pse') && (
-          <td className="px-2 py-2 text-right text-gray-700">{r.suggested_pse || '—'}</td>
+          <td
+            className="px-2 py-2 text-right text-gray-700"
+            title={isBlock ? 'Zona / intensidad prescripta' : undefined}
+          >
+            {r.suggested_pse || '—'}
+          </td>
         )}
 
         {/* Último registro */}
@@ -977,22 +1228,24 @@ export default function StudentProgressTableView({
         )}
         {isCol('last_sets') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0]?.actual_sets ?? <span className="text-gray-300">—</span>}
+            {isBlock
+              ? (blockLogRounds(last) ?? <span className="text-gray-300">—</span>)
+              : (last?.actual_sets ?? <span className="text-gray-300">—</span>)}
           </td>
         )}
         {isCol('last_reps') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0] ? (
-              displayActualReps(r.recentLogs[0])
-            ) : (
-              <span className="text-gray-300">—</span>
-            )}
+            {last && !isBlock ? displayActualReps(last) : <span className="text-gray-300">—</span>}
           </td>
         )}
         {isCol('last_weight') && (
           <td className="px-2 py-2 text-right text-gray-700">
-            {r.recentLogs[0] ? (
-              displayActualWeight(r.recentLogs[0])
+            {last ? (
+              isBlock ? (
+                displayBlockLogMain(last)
+              ) : (
+                displayActualWeight(last)
+              )
             ) : (
               <span className="text-gray-300">—</span>
             )}
@@ -1044,9 +1297,10 @@ export default function StudentProgressTableView({
                 isLatest,
                 noteKey,
                 cutClass(i),
-                effectiveRowMode === 'exercise'
+                effectiveRowMode === 'exercise' && !isBlock
                   ? logCountByExerciseAndDate.get(`${r.exerciseId}|${date}`) || 0
-                  : 0
+                  : 0,
+                isBlock
               )}
             </Fragment>
           )
@@ -1055,7 +1309,13 @@ export default function StudentProgressTableView({
         {/* Peso máx */}
         {isCol('max_weight') && (
           <td className="px-2 py-2 text-right text-primary-600 font-semibold">
-            {r.maxWeight != null ? (
+            {isBlock ? (
+              r.maxMinutes != null ? (
+                `${r.maxMinutes} min`
+              ) : (
+                <span className="text-gray-300 font-normal">—</span>
+              )
+            ) : r.maxWeight != null ? (
               `${r.maxWeight}kg`
             ) : (
               <span className="text-gray-300 font-normal">—</span>
@@ -1091,8 +1351,11 @@ export default function StudentProgressTableView({
         )}
         {isCol('count') && <td className="px-2 py-2 text-right text-gray-700">{r.count}</td>}
         {isCol('volume') && (
-          <td className="px-2 py-2 text-right text-gray-700">
-            {r.volume > 0 ? r.volume.toLocaleString('es-AR') : '—'}
+          <td
+            className="px-2 py-2 text-right text-gray-700"
+            title={isBlock ? 'Minutos totales del período' : undefined}
+          >
+            {r.volume > 0 ? `${r.volume.toLocaleString('es-AR')}${isBlock ? ' min' : ''}` : '—'}
           </td>
         )}
         {isCol('avg_pse') && <td className="px-2 py-2 text-right">{pseBadge(r.avgPse) || '—'}</td>}
@@ -1109,7 +1372,7 @@ export default function StudentProgressTableView({
     )
   }
 
-  if (planExercises.length === 0 && exerciseRows.length === 0) {
+  if (planExercises.length === 0 && exerciseRows.length === 0 && rows.length === 0) {
     return (
       <div className="card text-center py-8 text-gray-400">
         <TableIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -1303,9 +1566,23 @@ export default function StudentProgressTableView({
             </label>
           </>
         )}
+        {/* v53 — filtro por tipo de bloque */}
+        <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg" role="group" aria-label="Tipo">
+          {ROW_TYPE_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setTypeFilter(f.id)}
+              className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all ${
+                typeFilter === f.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+              }`}
+            >
+              {f.id === 'all' ? f.label : `${blockTypeIcon(f.id)} ${f.label}`}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-1 text-xs text-gray-400 ml-auto">
           <Filter size={12} />
-          {filteredRows.length} ejercicio{filteredRows.length !== 1 ? 's' : ''}
+          {filteredRows.length} fila{filteredRows.length !== 1 ? 's' : ''}
           {selectedTag && (
             <span className="ml-1 text-primary-500 font-medium">
               · {exerciseTags.find((t) => t.id === selectedTag)?.name}

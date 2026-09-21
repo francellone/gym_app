@@ -18,6 +18,7 @@ export function isReferenced(u) {
   if (!u) return false
   return (
     (u.workout_logs || 0) +
+      (u.workout_block_logs || 0) +
       (u.eval_responses || 0) +
       (u.eval_tests || 0) +
       (u.prescription_history || 0) +
@@ -32,9 +33,11 @@ export function usageSummary(u) {
   const partes = []
   if (u.plans > 0) partes.push(`${u.plans} ${u.plans === 1 ? 'plan' : 'planes'}`)
   if (u.students > 0) partes.push(`${u.students} ${u.students === 1 ? 'alumna' : 'alumnas'}`)
-  if (u.workout_logs > 0) {
+  // v53: los aeróbicos registran en workout_block_logs con su exercise_id
+  const entrenos = (u.workout_logs || 0) + (u.workout_block_logs || 0)
+  if (entrenos > 0) {
     partes.push(
-      `${u.workout_logs} ${u.workout_logs === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
+      `${entrenos} ${entrenos === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
     )
   }
   const evals = (u.eval_responses || 0) + (u.eval_tests || 0)
