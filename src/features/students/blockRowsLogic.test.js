@@ -120,6 +120,14 @@ describe('sortRowsInSection', () => {
     ]
     expect(sortRowsInSection(rows).map((r) => r.id)).toEqual(['old', 'blk', 'x1', 'x2'])
   })
+  it('la fila del bloque encabeza a sus ejercicios (circuito)', () => {
+    const rows = [
+      { id: 'c1', blockOrder: 2, kind: 'exercise' },
+      { id: 'c2', blockOrder: 2, kind: 'exercise' },
+      { id: 'circ', blockOrder: 2, kind: 'block' },
+    ]
+    expect(sortRowsInSection(rows).map((r) => r.id)).toEqual(['circ', 'c1', 'c2'])
+  })
 })
 
 describe('rowMatchesType', () => {

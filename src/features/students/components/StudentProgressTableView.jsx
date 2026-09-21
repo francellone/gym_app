@@ -604,7 +604,12 @@ export default function StudentProgressTableView({
   // plan vigente no tenía registros, la fila se rellenaba con los del mismo
   // ejercicio de otro plan sin avisar (y desaparecían apenas había uno propio).
   const rows = useMemo(() => {
-    const exRows = planExercises.map((pex) => buildRow(pex, logsByPlanExercise.get(pex.id) || []))
+    // El ejercicio de un bloque aeróbico (bici, cinta) nunca registra en
+    // workout_logs: su dato vive en el block log y ya sale en la fila del
+    // bloque, con su nombre. Como fila propia era ruido (siempre vacía).
+    const exRows = planExercises
+      .filter((pex) => blockById.get(pex.block_id)?.block_type !== 'aerobic')
+      .map((pex) => buildRow(pex, logsByPlanExercise.get(pex.id) || []))
     // v53 — una fila por bloque aeróbico / circuito del plan, en su sección.
     const blkRows = planBlocks
       .filter((b) => b.block_type && b.block_type !== 'strength')
@@ -643,6 +648,7 @@ export default function StudentProgressTableView({
     planExercises,
     planBlocks,
     blockLogs,
+    blockById,
     logsByPlanExercise,
     blockLogsByBlock,
     exerciseNameByBlock,

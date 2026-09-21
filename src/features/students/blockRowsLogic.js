@@ -202,9 +202,9 @@ export function buildBlockRow(block, blockLogs = [], overrides = {}) {
 // ── Orden dentro de una sección ──────────────────────────────
 // Las filas de ejercicio traen blockOrder del bloque de fuerza al que
 // pertenecen (plan_exercises.block_id → plan_blocks.order_index); las de
-// bloque traen el suyo. Se ordena por bloque y, dentro, se respeta el orden
-// de llegada (order_index del ejercicio). Sin block_id (planes viejos) → -1,
-// quedan primero como hasta ahora.
+// bloque traen el suyo. Se ordena por bloque; dentro del bloque, primero la
+// fila del bloque y después sus ejercicios en orden de llegada (order_index).
+// Sin block_id (planes viejos) → -1, quedan primero como hasta ahora.
 export function sortRowsInSection(rows) {
   return rows
     .map((r, i) => ({ r, i }))
@@ -212,6 +212,11 @@ export function sortRowsInSection(rows) {
       const oa = a.r.blockOrder ?? -1
       const ob = b.r.blockOrder ?? -1
       if (oa !== ob) return oa - ob
+      // Dentro del mismo bloque, la fila del bloque va primero (encabeza a
+      // sus ejercicios, caso circuito); después los ejercicios en su orden.
+      const ka = a.r.kind === 'block' ? 0 : 1
+      const kb = b.r.kind === 'block' ? 0 : 1
+      if (ka !== kb) return ka - kb
       return a.i - b.i
     })
     .map((x) => x.r)
