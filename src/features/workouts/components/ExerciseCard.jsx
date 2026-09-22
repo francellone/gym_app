@@ -37,8 +37,20 @@ import ValidationWarning from './ValidationWarning'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
-import { buildDraftKey } from '../draftStorage'
+import { buildDraftKey, removeDraft } from '../draftStorage'
 import { formatRelativeDate } from '../exerciseHistoryLogic'
+
+// Campos que hacen que un borrador local sea "algo que la persona tocó".
+const DRAFT_FIELDS = [
+  'actual_sets',
+  'actual_reps_arr',
+  'actual_weights_arr',
+  'perceived_difficulty',
+  'notes',
+  'weight_mode',
+  'unilateral',
+  'reps_unit',
+]
 
 // Parsear el peso sugerido del coach a número (ej: "20kg" → "20", "BW" → "")
 // Helper privado de este componente.
@@ -235,20 +247,27 @@ export default function ExerciseCard({
       : [suggestedWeightsArr[0] || '']
   }
 
-  const [logData, setLogData] = useState({
-    // Series: pre-rellenado con el valor sugerido por el coach
-    actual_sets: log?.actual_sets?.toString() || (setsCount > 0 ? setsCount.toString() : ''),
-    actual_reps_arr: initRepsArr(),
-    // Pesos por serie: pre-rellenados con sugeridos del coach
-    actual_weights_arr: initWeightsArr(),
-    perceived_difficulty: log?.perceived_difficulty || null,
-    notes: log?.notes || '',
-    completed: isLogDone(log),
-    // Modo de peso del log (override sobre el efectivo si el alumno lo cambia)
-    weight_mode: log?.weight_mode || initialWeightMode,
-    unilateral: log?.unilateral != null ? !!log.unilateral : initialUnilateral,
-    reps_unit: log?.reps_unit || null,
-  })
+  // Estado "prístino" de la tarjeta: lo prescripto (o el log, si hay).
+  // Se usa al montar, al desmarcar, al descartar un borrador y para saber
+  // si un borrador restaurado tiene algo que valga la pena.
+  function buildPristineLogData() {
+    return {
+      // Series: pre-rellenado con el valor sugerido por el coach
+      actual_sets: log?.actual_sets?.toString() || (setsCount > 0 ? setsCount.toString() : ''),
+      actual_reps_arr: initRepsArr(),
+      // Pesos por serie: pre-rellenados con sugeridos del coach
+      actual_weights_arr: initWeightsArr(),
+      perceived_difficulty: log?.perceived_difficulty || null,
+      notes: log?.notes || '',
+      completed: isLogDone(log),
+      // Modo de peso del log (override sobre el efectivo si el alumno lo cambia)
+      weight_mode: log?.weight_mode || initialWeightMode,
+      unilateral: log?.unilateral != null ? !!log.unilateral : initialUnilateral,
+      reps_unit: log?.reps_unit || null,
+    }
+  }
+
+  const [logData, setLogData] = useState(buildPristineLogData)
 
   // Sincronizar state local con el prop `log` cuando cambia (p.ej. tras un
   // save: el padre actualiza logs[exId] y nosotros re-renderizamos con un
@@ -291,18 +310,42 @@ export default function ExerciseCard({
     value: logData,
     enabled: draftEnabled,
     onRestore: (payload) => {
+      // v54: el autosave escribe un borrador de cada ejercicio aunque la
+      // persona no toque nada. Si lo que vuelve es igual a lo prescripto,
+      // no es un borrador: se descarta en silencio y la tarjeta arranca en
+      // la vista de confirmación. Antes esto mandaba TODOS los ejercicios
+      // ya abiertos al modo ajustar y la confirmación nunca aparecía.
+      //
+      // Un hueco en reps/pesos nunca es intencional (un input vacío guarda
+      // NULL y la persona no lo ve): se rellena con la prescripción ANTES de
+      // comparar. Cubre los borradores escritos con la lectura vieja
+      // ("5" solo en la serie 1).
+      const pristine = buildPristineLogData()
+      const fillHoles = (arr, base) =>
+        Array.from({ length: Math.max(arr?.length || 0, base.length) }, (_, i) => {
+          const v = arr?.[i]
+          return v === '' || v == null ? base[i] || '' : v
+        })
+      const merged = {
+        ...pristine,
+        ...payload,
+        actual_reps_arr: fillHoles(payload?.actual_reps_arr, pristine.actual_reps_arr),
+        actual_weights_arr: fillHoles(payload?.actual_weights_arr, pristine.actual_weights_arr),
+        completed: false,
+      }
+      const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+      const untouched = DRAFT_FIELDS.every((k) => same(merged[k], pristine[k]))
+      if (untouched) {
+        // Se borra directo (el clearDraft del hook todavía no está en mano
+        // durante el restore del primer mount).
+        if (draftKey) removeDraft(draftKey)
+        return
+      }
       // Merge defensivo: nunca aceptamos `completed: true` desde un draft
       // (drafts son siempre parciales), ni pisamos IDs / metadata server.
-      setLogData((p) => ({
-        ...p,
-        ...payload,
-        completed: false,
-      }))
-      // Dejamos el form listo para editar, pero NO auto-expandimos la tarjeta:
-      // el autosave escribe un draft de cada ejercicio aunque el alumno no
-      // toque nada, y auto-abrir hacía que al volver al día salieran TODOS
-      // los ejercicios abiertos (confuso). El alumno abre el que quiere; al
-      // abrirlo ve sus datos restaurados + el hint de recuperación.
+      setLogData(merged)
+      // Dejamos el form listo para editar, pero NO auto-expandimos la
+      // tarjeta: la persona abre el que quiere y ahí ve sus datos + el hint.
       setEditing(true)
     },
   })
@@ -586,17 +629,15 @@ export default function ExerciseCard({
       // F4: delete server exitoso → barrer también el draft local.
       clearDraft()
       setDraftHintDismissed(true)
-      // Resetear estado local al estado inicial (sin log)
+      // Resetear estado local al estado inicial (sin log). El prop `log`
+      // todavía puede estar en mano hasta que el padre refresque, así que
+      // se arma desde la prescripción y no desde buildPristineLogData.
       setLogData({
         actual_sets: setsCount > 0 ? setsCount.toString() : '',
         actual_reps_arr:
-          setsCount > 0
-            ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
-            : [suggestedRepsArr[0] || ''],
+          setsCount > 0 ? suggestedRepsArr.slice(0, setsCount) : [suggestedRepsArr[0] || ''],
         actual_weights_arr:
-          setsCount > 0
-            ? Array.from({ length: setsCount }, (_, i) => suggestedWeightsArr[i] || '')
-            : [suggestedWeightsArr[0] || ''],
+          setsCount > 0 ? suggestedWeightsArr.slice(0, setsCount) : [suggestedWeightsArr[0] || ''],
         perceived_difficulty: null,
         notes: '',
         completed: false,
@@ -623,23 +664,8 @@ export default function ExerciseCard({
   function discardDraft() {
     clearDraft()
     setDraftHintDismissed(true)
-    setLogData((p) => ({
-      ...p,
-      actual_sets: setsCount > 0 ? setsCount.toString() : '',
-      actual_reps_arr:
-        setsCount > 0
-          ? Array.from({ length: setsCount }, (_, i) => suggestedRepsArr[i] || '')
-          : [suggestedRepsArr[0] || ''],
-      actual_weights_arr:
-        setsCount > 0
-          ? Array.from({ length: setsCount }, (_, i) => suggestedWeightsArr[i] || '')
-          : [suggestedWeightsArr[0] || ''],
-      perceived_difficulty: null,
-      notes: '',
-      weight_mode: initialWeightMode,
-      unilateral: initialUnilateral,
-      reps_unit: null,
-    }))
+    setLogData((p) => ({ ...p, ...buildPristineLogData(), completed: p.completed }))
+    setEditing(false)
   }
 
   return (
@@ -1315,7 +1341,7 @@ export default function ExerciseCard({
                       <div className="text-xs text-center text-gray-400 font-medium">{i + 1}</div>
                       <input
                         className="input text-sm text-center"
-                        placeholder={suggestedRepsArr[i] || '—'}
+                        placeholder="—"
                         value={logData.actual_reps_arr[i] || ''}
                         onChange={(e) => handleRepsChange(i, e.target.value)}
                       />
@@ -1325,7 +1351,7 @@ export default function ExerciseCard({
                           step="0.5"
                           min="0"
                           className="input text-sm text-center"
-                          placeholder={suggestedWeightsArr[i] || '0'}
+                          placeholder="kg"
                           value={logData.actual_weights_arr[i] || ''}
                           onChange={(e) => handleWeightChange(i, e.target.value)}
                         />
