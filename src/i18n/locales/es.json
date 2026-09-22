@@ -522,7 +522,12 @@
     "skippedCount_one": "{{count}} omitido",
     "skippedCount_other": "{{count}} omitidos",
     "dayPartialDot": "Día cerrado con un ejercicio sin hacer",
-    "dayPartialBanner": "Día {{day}} cerrado, {{done}} de {{total}}"
+    "dayPartialBanner": "Día {{day}} cerrado, {{done}} de {{total}}",
+    "setsLabel": "Series",
+    "repsPerSetLabel": "Reps por serie",
+    "repsPerSidePerSetLabel": "Reps por lado, por serie",
+    "unitPerSetLabel": "{{unit}} por serie",
+    "weightPerSetLabel": "Peso por serie"
   },
   "progress": {
     "title": "Mi progreso",

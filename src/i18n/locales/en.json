@@ -522,7 +522,12 @@
     "skippedCount_one": "{{count}} skipped",
     "skippedCount_other": "{{count}} skipped",
     "dayPartialDot": "Day closed with one exercise skipped",
-    "dayPartialBanner": "Day {{day}} closed, {{done}} of {{total}}"
+    "dayPartialBanner": "Day {{day}} closed, {{done}} of {{total}}",
+    "setsLabel": "Sets",
+    "repsPerSetLabel": "Reps per set",
+    "repsPerSidePerSetLabel": "Reps per side, per set",
+    "unitPerSetLabel": "{{unit}} per set",
+    "weightPerSetLabel": "Weight per set"
   },
   "progress": {
     "title": "My progress",

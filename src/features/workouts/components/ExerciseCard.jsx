@@ -16,10 +16,10 @@ import {
   History,
 } from 'lucide-react'
 import { cascadeSetValue } from '@/features/plans/seriesCascade'
+import { expandPerSet, isUniformPerSet } from '@/features/plans/prescriptionRead'
 import { isLogDone, isLogSkipped, isLogResolved, SKIP_REASONS } from '../completionRules'
 import { PRESCRIPTION_FIELD_KEYS } from '@/features/plans/prescriptionHistory'
 import {
-  parseReps,
   displayReps,
   WEIGHT_MODES_LOGGABLE,
   REPS_UNITS,
@@ -116,12 +116,15 @@ export default function ExerciseCard({
   //   | 'reopen' (un omitido volvió a la vista de confirmación para cambiar)
   const [pendingAction, setPendingAction] = useState(null)
 
-  // Parsear reps sugeridas
-  const suggestedRepsRaw = planEx.suggested_reps
-  const suggestedRepsArr = parseReps(suggestedRepsRaw)
-
   // setsCount: cantidad sugerida por el coach (para inicialización y display)
   const setsCount = parseInt(suggestedSets || planEx.suggested_sets) || 0
+
+  // Reps prescriptas POR SERIE, leídas como las lee el armador del coach:
+  // un valor suelto ("10") es "10 en todas las series", no "10 en la serie 1"
+  // (v54, ver prescriptionRead.js). `suggestedRepsRaw` sigue siendo el crudo
+  // para la línea "Sugerido: 3 series × 10".
+  const suggestedRepsRaw = planEx.suggested_reps
+  const suggestedRepsArr = expandPerSet(suggestedRepsRaw, setsCount)
   // maxSets: tope duro (99 = sin tope cuando el coach no lo definió)
   const maxSets = setsCount || 99
 
@@ -162,26 +165,15 @@ export default function ExerciseCard({
     ? exerciseDisplay(planEx.rm_reference || {}, i18n.language).name
     : null
 
-  // Pesos sugeridos por serie: prioridad suggested_weights (array), fallback a suggested_weight (legacy)
+  // Pesos del coach por serie. Prioridad: %RM derivado → suggested_weights
+  // (misma lectura que las reps: suelto = todas; array = serie a serie con
+  // huecos heredando) → suggested_weight (legacy, un valor para todas).
   const coachWeightsArr = (() => {
-    const count = setsCount
-    // %RM: el sugerido son los kilos derivados del máximo de esta persona.
-    if (derivedKg != null) return Array.from({ length: count || 1 }, () => String(derivedKg))
+    if (derivedKg != null) return Array.from({ length: setsCount || 1 }, () => String(derivedKg))
+    const fromArray = expandPerSet(planEx.suggested_weights, setsCount)
+    if (fromArray.some((w) => w !== '')) return fromArray.map(parseSuggestedWeight)
     const legacy = parseSuggestedWeight(planEx.suggested_weight)
-    if (planEx.suggested_weights) {
-      try {
-        const parsed = JSON.parse(planEx.suggested_weights)
-        if (Array.isArray(parsed)) {
-          return Array.from({ length: count || parsed.length }, (_, i) =>
-            parsed[i] != null ? String(parsed[i]) : ''
-          )
-        }
-      } catch {}
-      // valor único (no array)
-      const val = parseSuggestedWeight(planEx.suggested_weights)
-      return Array.from({ length: count || 1 }, () => val)
-    }
-    return Array.from({ length: count || 1 }, () => legacy)
+    return Array.from({ length: setsCount || 1 }, () => legacy)
   })()
 
   // v54 — si el coach NO prescribió kilos, el peso se prellena con lo último
@@ -352,6 +344,12 @@ export default function ExerciseCard({
       (w) => w !== '' && w != null
     )
   const canConfirm = repsReady && weightsReady
+  // Vista compacta si reps (y peso, si lleva) son iguales en todas las series.
+  const confirmIsUniform =
+    isUniformPerSet(logData.actual_reps_arr.slice(0, setsForConfirm)) &&
+    (!showWeightInputs ||
+      isUniformPerSet(logData.actual_weights_arr.slice(0, setsForConfirm)) ||
+      logData.actual_weights_arr.slice(0, setsForConfirm).every((w) => w === '' || w == null))
 
   // v54: la serie 1 autocompleta a las series sincronizadas con ella (la
   // misma regla que el armador del coach, ver seriesCascade.js).
@@ -946,7 +944,41 @@ export default function ExerciseCard({
                   {t('workout.prescribedTitle')}
                 </p>
 
-                {setsForConfirm > 0 ? (
+                {setsForConfirm > 0 && confirmIsUniform ? (
+                  /* Compacto: el coach puso lo mismo en todas las series (18 de
+                     21 ejercicios del plan de Franco). La tabla por serie
+                     queda para cuando diferenció. */
+                  <dl className="rounded-xl bg-white border border-gray-200 divide-y divide-gray-100 text-sm">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <dt className="text-gray-500">{t('workout.setsLabel')}</dt>
+                      <dd className="font-semibold text-gray-900">{setsForConfirm}</dd>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <dt className="text-gray-500">
+                        {logData.unilateral
+                          ? t('workout.repsPerSidePerSetLabel')
+                          : logData.reps_unit && logData.reps_unit !== 'reps'
+                            ? t('workout.unitPerSetLabel', {
+                                unit: t(`workout.repsUnitShort.${logData.reps_unit}`, {
+                                  defaultValue: logData.reps_unit,
+                                }),
+                              })
+                            : t('workout.repsPerSetLabel')}
+                      </dt>
+                      <dd className="font-semibold text-gray-900">{logData.actual_reps_arr[0]}</dd>
+                    </div>
+                    {showWeightInputs && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.weightPerSetLabel')}</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {logData.actual_weights_arr[0]
+                            ? `${logData.actual_weights_arr[0]} kg`
+                            : '—'}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                ) : setsForConfirm > 0 ? (
                   <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
                     <div
                       className={`grid px-2.5 py-1.5 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500 font-semibold ${

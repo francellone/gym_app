@@ -54,11 +54,62 @@ describe('vista de confirmación', () => {
     renderCard()
     await expand(user)
     expect(screen.getByText(/lo que te dejó tu coach/i)).toBeInTheDocument()
-    expect(screen.getAllByText('40 kg')).toHaveLength(3)
+    // Prescripción uniforme → vista compacta: Series / Reps por serie / Peso por serie
+    expect(screen.getByText(/reps por serie/i)).toBeInTheDocument()
+    expect(screen.getByText('40 kg')).toBeInTheDocument()
     expect(screen.queryByDisplayValue('40')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /lo hice tal cual/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /lo hice distinto/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /no lo hice/i })).toBeInTheDocument()
+  })
+})
+
+describe('lectura de la prescripción como la guarda el armador', () => {
+  it('un valor suelto ("5" con 2 series, el caso Molino) va a las dos series y se puede confirmar', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({
+      planEx: planEx({
+        suggested_sets: 2,
+        suggested_reps: '5',
+        suggested_weights: '["",""]',
+        weight_mode: 'bodyweight',
+        exercise: { id: EXERCISE_ID, name: 'Remo Con Barra', weight_mode: 'bodyweight' },
+      }),
+      suggestedSets: 2,
+    })
+    await expand(user)
+    expect(screen.getByText(/reps por serie/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /PSE 4/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({
+      p_reps: [5, 5],
+      p_weights: null,
+      p_actual_sets: 2,
+      p_entry_mode: 'confirmed',
+    })
+  })
+
+  it('un array con hueco hereda de la serie anterior', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({ planEx: planEx({ suggested_reps: '["10","","12"]' }) })
+    await expand(user)
+    // 10 / 10 / 12 → diferenciado → tabla por serie, no compacto
+    expect(screen.queryByText(/reps por serie/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /PSE 5/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({ p_reps: [10, 10, 12] })
+  })
+
+  it('diferenciado por el coach → tabla por serie, no compacto', async () => {
+    const user = userEvent.setup()
+    renderCard({
+      planEx: planEx({ suggested_reps: '["8","8","6"]', suggested_weights: '["40","45","50"]' }),
+    })
+    await expand(user)
+    expect(screen.queryByText(/reps por serie/i)).not.toBeInTheDocument()
+    expect(screen.getByText('40 kg')).toBeInTheDocument()
+    expect(screen.getByText('45 kg')).toBeInTheDocument()
+    expect(screen.getByText('50 kg')).toBeInTheDocument()
   })
 })
 
@@ -113,7 +164,7 @@ describe('prellenado del peso con el último registro', () => {
     const user = userEvent.setup()
     const { onSaveLog } = renderCard({ planEx: planEx({ suggested_weights: null }), lastLog })
     await expand(user)
-    expect(screen.getAllByText('42 kg')).toHaveLength(3)
+    expect(screen.getByText('42 kg')).toBeInTheDocument()
     expect(screen.getByText(/lo último que cargaste/i)).toBeInTheDocument()
     // Y se puede confirmar de un toque con esos kilos.
     await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
@@ -125,7 +176,7 @@ describe('prellenado del peso con el último registro', () => {
     const user = userEvent.setup()
     renderCard({ lastLog })
     await expand(user)
-    expect(screen.getAllByText('40 kg')).toHaveLength(3)
+    expect(screen.getByText('40 kg')).toBeInTheDocument()
     expect(screen.queryByText(/lo último que cargaste/i)).not.toBeInTheDocument()
   })
 

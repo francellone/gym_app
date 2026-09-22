@@ -67,8 +67,8 @@ describe('ExerciseCard — peso prescripto por % del máximo', () => {
     const user = userEvent.setup()
     renderCard({ oneRmMap: oneRmMap() })
     await user.click(screen.getByText('Sentadilla Con Barra'))
-    // v54: al expandir se ve lo prescripto en lectura, con los 42 kg por serie…
-    expect(screen.getAllByText('42 kg').length).toBe(3)
+    // v54: al expandir se ve lo prescripto en lectura (compacto: 42 kg por serie)…
+    expect(screen.getByText('42 kg')).toBeInTheDocument()
     // …y al pasar a "lo hice distinto" los mismos 42 prellenan los inputs.
     await user.click(screen.getByRole('button', { name: /lo hice distinto/i }))
     expect(screen.getAllByDisplayValue('42').length).toBeGreaterThan(0)
