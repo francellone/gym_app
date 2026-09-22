@@ -10,7 +10,8 @@
     "edit": "Edit",
     "yes": "Yes",
     "no": "No",
-    "initializing": "Starting…"
+    "initializing": "Starting…",
+    "back": "Back"
   },
   "iosInstall": {
     "title": "Install GymCoach on your iPhone",
@@ -495,7 +496,33 @@
     },
     "showDescription": "More about this exercise",
     "hideDescription": "Hide",
-    "exerciseInfo": "What this exercise is"
+    "exerciseInfo": "What this exercise is",
+    "prescribedTitle": "What your coach set",
+    "setHeader": "Set",
+    "noPrescriptionToConfirm": "This exercise has no prescribed sets. Log it manually.",
+    "weightFromLastTime": "The weight is the last one you logged, on {{date}}. Your coach didn't set kg.",
+    "needWeightToConfirm": "Weight missing. Enter it once and we'll suggest it next time.",
+    "confirmPsePrompt": "How did it feel? Tap the effort and it's saved.",
+    "skipReasonPrompt": "Why did you skip it?",
+    "skipReason": {
+      "choice": "Chose to skip it",
+      "time": "Ran out of time",
+      "discomfort": "Something bothered me"
+    },
+    "confirmAsPrescribed": "Did it as set",
+    "adjust": "Did it differently",
+    "adjustTitle": "Adjust what you did",
+    "didNotDo": "Didn't do it",
+    "skippedCheck": "Skipped",
+    "change": "Change",
+    "entryMode": {
+      "confirmed": "as set",
+      "edited": "adjusted"
+    },
+    "skippedCount_one": "{{count}} skipped",
+    "skippedCount_other": "{{count}} skipped",
+    "dayPartialDot": "Day closed with one exercise skipped",
+    "dayPartialBanner": "Day {{day}} closed, {{done}} of {{total}}"
   },
   "progress": {
     "title": "My progress",

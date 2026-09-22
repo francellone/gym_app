@@ -1,3 +1,4 @@
+import { cascadeSetValue } from '../seriesCascade'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Trash2, Info } from 'lucide-react'
@@ -135,38 +136,18 @@ export default function PlanExerciseRow({
   // que estén "sincronizadas" con ella — es decir, vacías o con el valor previo
   // de la serie 1. Series ya modificadas a mano no se pisan.
   // (Esto soporta el tipeo carácter por carácter: '1' → '10' → '100'.)
+  // v54: la regla vive en seriesCascade.js y la comparte el registro de la
+  // persona (ExerciseCard, modo ajustar). Mismo comportamiento que antes.
   function handleRepChange(serieIdx, val) {
-    const current = ex.suggested_reps_array || []
-    const newReps = [...current]
-    if (serieIdx === 0) {
-      const prevFirst = current[0]
-      newReps[0] = val
-      for (let i = 1; i < newReps.length; i++) {
-        const isEmpty = newReps[i] === '' || newReps[i] == null
-        const matchesPrev = newReps[i] === prevFirst
-        if (isEmpty || matchesPrev) newReps[i] = val
-      }
-    } else {
-      newReps[serieIdx] = val
-    }
-    onUpdate(index, 'suggested_reps_array', newReps)
+    onUpdate(index, 'suggested_reps_array', cascadeSetValue(ex.suggested_reps_array, serieIdx, val))
   }
 
   function handleWeightChange(serieIdx, val) {
-    const current = ex.suggested_weights_array || []
-    const newWeights = [...current]
-    if (serieIdx === 0) {
-      const prevFirst = current[0]
-      newWeights[0] = val
-      for (let i = 1; i < newWeights.length; i++) {
-        const isEmpty = newWeights[i] === '' || newWeights[i] == null
-        const matchesPrev = newWeights[i] === prevFirst
-        if (isEmpty || matchesPrev) newWeights[i] = val
-      }
-    } else {
-      newWeights[serieIdx] = val
-    }
-    onUpdate(index, 'suggested_weights_array', newWeights)
+    onUpdate(
+      index,
+      'suggested_weights_array',
+      cascadeSetValue(ex.suggested_weights_array, serieIdx, val)
+    )
   }
 
   // Modo simple: un solo valor de reps que se replica a todas las series.

@@ -11,7 +11,12 @@ import {
   AlertTriangle,
   RotateCcw,
   TrendingUp,
+  MinusCircle,
+  Pencil,
+  History,
 } from 'lucide-react'
+import { cascadeSetValue } from '@/features/plans/seriesCascade'
+import { isLogDone, isLogSkipped, isLogResolved, SKIP_REASONS } from '../completionRules'
 import { PRESCRIPTION_FIELD_KEYS } from '@/features/plans/prescriptionHistory'
 import {
   parseReps,
@@ -47,6 +52,18 @@ function parseSuggestedWeight(val) {
 // Tarjeta de ejercicio individual (bloques de fuerza)
 // ============================================================
 // Renderiza un ejercicio dentro de un StrengthBlockRunCard. Maneja:
+//   - v54 (2026-09-22) REGISTRO POR CONFIRMACIÓN: al expandir se muestra lo
+//     prescripto en modo lectura (Serie / reps / peso) con tres salidas:
+//       CONFIRMAR  "lo hice tal cual" → se despliega el PSE en la misma
+//                  fila y el toque sobre el número guarda (entry_mode=confirmed)
+//       AJUSTAR    "lo hice distinto" → recién ahí se abren los campos
+//                  (entry_mode=edited). Adentro vive la cascada desde la
+//                  serie 1 (seriesCascade.js, la misma del armador del coach)
+//       NO LO HICE → motivo (choice/time/discomfort) y se guarda un log
+//                  status=skipped, completed=false, sin datos de ejecución
+//     Si el coach no prescribió kilos, el peso se prellena con lo último
+//     que cargó la persona y la tarjeta lo dice (procedencia a la vista).
+//     Ese prellenado ignora pesos no positivos: hay 31 logs viejos en cero.
 //   - inputs de series/reps/peso por serie (con sugeridos del coach
 //     pre-cargados y herencia de modo: log > plan_exercise > exercise)
 //   - PSE 1-10, notas, modo unilateral, unidad de reps
@@ -94,6 +111,10 @@ export default function ExerciseCard({
   const [warning, setWarning] = useState(null)
   const [pendingData, setPendingData] = useState(null)
   const [setsLimitHit, setSetsLimitHit] = useState(false)
+  // v54 — acción en curso dentro de la vista de confirmación:
+  //   null | 'confirm' (PSE desplegado) | 'skip' (motivos desplegados)
+  //   | 'reopen' (un omitido volvió a la vista de confirmación para cambiar)
+  const [pendingAction, setPendingAction] = useState(null)
 
   // Parsear reps sugeridas
   const suggestedRepsRaw = planEx.suggested_reps
@@ -142,7 +163,7 @@ export default function ExerciseCard({
     : null
 
   // Pesos sugeridos por serie: prioridad suggested_weights (array), fallback a suggested_weight (legacy)
-  const suggestedWeightsArr = (() => {
+  const coachWeightsArr = (() => {
     const count = setsCount
     // %RM: el sugerido son los kilos derivados del máximo de esta persona.
     if (derivedKg != null) return Array.from({ length: count || 1 }, () => String(derivedKg))
@@ -162,6 +183,30 @@ export default function ExerciseCard({
     }
     return Array.from({ length: count || 1 }, () => legacy)
   })()
+
+  // v54 — si el coach NO prescribió kilos, el peso se prellena con lo último
+  // que cargó la persona. Solo pesos POSITIVOS: los 31 logs viejos "en cero"
+  // (el workaround de "no lo hice" antes de v54) no pueden volver como
+  // sugerencia. Si el último registro tiene otra cantidad de series, se
+  // usa el máximo para todas.
+  const lastWeightsArr = (() => {
+    if (!lastLog || !isLogDone(lastLog)) return null
+    const nums = readLogWeights(lastLog)
+      .map((w) => parseFloat(w))
+      .filter((n) => Number.isFinite(n) && n > 0)
+    if (nums.length === 0) return null
+    const count = setsCount || 1
+    if (nums.length === count) return nums.map((n) => String(n))
+    const max = Math.max(...nums)
+    return Array.from({ length: count }, () => String(max))
+  })()
+
+  const coachHasWeights = coachWeightsArr.some((w) => w !== '' && w != null)
+  // De dónde sale el peso que ve la persona (para decirlo en la tarjeta).
+  //   'pct1rm' | 'plan' | 'last' | null
+  const weightSource =
+    derivedKg != null ? 'pct1rm' : coachHasWeights ? 'plan' : lastWeightsArr ? 'last' : null
+  const suggestedWeightsArr = weightSource === 'last' ? lastWeightsArr : coachWeightsArr
 
   // Inicializar reps con valores sugeridos si no hay log previo.
   // Prioridad: actual_reps_jsonb (nuevo) > actual_reps (legacy) > sugeridas.
@@ -206,7 +251,7 @@ export default function ExerciseCard({
     actual_weights_arr: initWeightsArr(),
     perceived_difficulty: log?.perceived_difficulty || null,
     notes: log?.notes || '',
-    completed: log?.completed || false,
+    completed: isLogDone(log),
     // Modo de peso del log (override sobre el efectivo si el alumno lo cambia)
     weight_mode: log?.weight_mode || initialWeightMode,
     unilateral: log?.unilateral != null ? !!log.unilateral : initialUnilateral,
@@ -224,12 +269,12 @@ export default function ExerciseCard({
       actual_sets: log.actual_sets?.toString() || p.actual_sets,
       perceived_difficulty: log.perceived_difficulty ?? p.perceived_difficulty,
       notes: log.notes ?? p.notes,
-      completed: !!log.completed,
+      completed: isLogDone(log),
       weight_mode: log.weight_mode || p.weight_mode,
       unilateral: log.unilateral != null ? !!log.unilateral : p.unilateral,
       reps_unit: log.reps_unit || p.reps_unit,
     }))
-  }, [log?.id, log?.completed, log?.updated_at])
+  }, [log?.id, log?.completed, log?.status, log?.updated_at])
 
   // ── F4 (doc 23) — draft local en localStorage ────────────────────────
   // Construimos la key con (studentId, planExerciseId, loggedDate). Si
@@ -246,7 +291,8 @@ export default function ExerciseCard({
     [studentId, planEx.id, loggedDate]
   )
 
-  const draftEnabled = !!draftKey && !log?.completed
+  // v54: tampoco para un omitido (resuelto). Antes: !log?.completed.
+  const draftEnabled = !!draftKey && !isLogResolved(log)
 
   const { restoredAt, clearDraft } = useLocalStorageDraft({
     key: draftKey,
@@ -272,29 +318,52 @@ export default function ExerciseCard({
   // Si en algún momento el log llega completed=true (el server confirmó
   // el save), borramos el draft local para no dejar basura silenciosa.
   useEffect(() => {
-    if (log?.completed) clearDraft()
+    if (isLogResolved(log)) clearDraft()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log?.completed, log?.id])
+  }, [log?.completed, log?.status, log?.id])
 
   // Estado del hint "Recuperamos lo que estabas cargando". Se oculta
   // cuando el alumno hace cualquier cambio o lo descarta manualmente.
   const [draftHintDismissed, setDraftHintDismissed] = useState(false)
-  const showDraftHint = !!restoredAt && !draftHintDismissed && !log?.completed
+  const showDraftHint = !!restoredAt && !draftHintDismissed && !isLogResolved(log)
 
   const completed = logData.completed
   const isBodyweight = logData.weight_mode === 'bodyweight'
   const showWeightInputs = !isBodyweight
 
+  // v54 — estado de la tarjeta
+  const isSkipped = isLogSkipped(log) && !logData.completed
+  // Vista de confirmación: no hay nada hecho, no se está ajustando, y o no
+  // hay omisión o la persona pidió cambiarla.
+  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  // Se puede confirmar de un toque solo si TODO lo que se guardaría está
+  // a la vista: reps en todas las series y, si el ejercicio lleva peso,
+  // peso en todas. Si falta el peso (primera vez sin prescripción ni
+  // historial), hay que pasar por ajustar y cargarlo una vez.
+  const setsForConfirm = parseInt(logData.actual_sets) || setsCount || 0
+  const repsReady =
+    setsForConfirm > 0 &&
+    Array.from({ length: setsForConfirm }, (_, i) => logData.actual_reps_arr[i]).every(
+      (r) => r !== '' && r != null
+    )
+  const weightsReady =
+    !showWeightInputs ||
+    Array.from({ length: setsForConfirm }, (_, i) => logData.actual_weights_arr[i]).every(
+      (w) => w !== '' && w != null
+    )
+  const canConfirm = repsReady && weightsReady
+
+  // v54: la serie 1 autocompleta a las series sincronizadas con ella (la
+  // misma regla que el armador del coach, ver seriesCascade.js).
   function handleRepsChange(idx, val) {
-    const newArr = [...logData.actual_reps_arr]
-    newArr[idx] = val
-    setLogData((p) => ({ ...p, actual_reps_arr: newArr }))
+    setLogData((p) => ({ ...p, actual_reps_arr: cascadeSetValue(p.actual_reps_arr, idx, val) }))
   }
 
   function handleWeightChange(idx, val) {
-    const newArr = [...logData.actual_weights_arr]
-    newArr[idx] = val
-    setLogData((p) => ({ ...p, actual_weights_arr: newArr }))
+    setLogData((p) => ({
+      ...p,
+      actual_weights_arr: cascadeSetValue(p.actual_weights_arr, idx, val),
+    }))
   }
 
   function handleSetsChange(val) {
@@ -349,7 +418,11 @@ export default function ExerciseCard({
   //   - p_weights: jsonb array de números (null si bodyweight)
   //   - p_weight_mode, p_unilateral, p_reps_unit
   //   - El back hace doble escritura interna a actual_reps / actual_weights / actual_weight
-  function buildSaveData() {
+  // `entryMode`: 'confirmed' (lo hice tal cual) | 'edited' (ajusté).
+  // `pseOverride`: el PSE elegido en el confirmar inline (setLogData es
+  // asíncrono, así que se pasa explícito en vez de leerlo del estado).
+  function buildSaveData({ entryMode = 'edited', pseOverride } = {}) {
+    const pse = pseOverride !== undefined ? pseOverride : logData.perceived_difficulty
     const repsArrRaw = logData.actual_reps_arr || []
     const repsNumeric = repsArrRaw.map((r) => parseFloat(r)).map((n) => (isNaN(n) ? null : n))
 
@@ -376,19 +449,43 @@ export default function ExerciseCard({
       p_actual_sets: logData.actual_sets
         ? parseInt(logData.actual_sets)
         : repsNumeric.length || null,
-      p_perceived_difficulty: logData.perceived_difficulty || null,
-      p_perceived_difficulty_label: logData.perceived_difficulty
-        ? PSE_OPTIONS.find((p) => p.value === logData.perceived_difficulty)?.label
-        : null,
+      p_perceived_difficulty: pse || null,
+      p_perceived_difficulty_label: pse ? PSE_OPTIONS.find((p) => p.value === pse)?.label : null,
       // Round 2b: el RPC ya no escribe a workout_logs.notes (la columna
       // se dropeó en v26d). Pasamos null y después del save llamamos
       // a postWorkoutLogNote() con el body para que aterrice en el panel.
       p_notes: null,
       p_completed: true,
+      // v54
+      p_status: 'done',
+      p_skip_reason: null,
+      p_entry_mode: entryMode,
       // Body del alumno para postWorkoutLogNote(). Underscore-prefijado
       // para distinguir de los p_* que van a la RPC; saveLog del padre
       // lo extrae antes de hacer rpcArgs.
       _noteBody: logData.notes || '',
+    }
+  }
+
+  // v54 — payload de "no lo hice": sin datos de ejecución (NULL, nunca 0),
+  // completed=false, motivo obligatorio. La RPC rechaza cualquier dato de
+  // ejecución con status=skipped, así que acá no se manda nada de eso.
+  function buildSkipData(reason) {
+    return {
+      p_reps: null,
+      p_weights: null,
+      p_weight_mode: logData.weight_mode || 'with_weight',
+      p_unilateral: !!logData.unilateral,
+      p_reps_unit: null,
+      p_actual_sets: null,
+      p_perceived_difficulty: null,
+      p_perceived_difficulty_label: null,
+      p_notes: null,
+      p_completed: false,
+      p_status: 'skipped',
+      p_skip_reason: reason,
+      p_entry_mode: null,
+      _noteBody: '',
     }
   }
 
@@ -422,8 +519,8 @@ export default function ExerciseCard({
     return null
   }
 
-  async function attemptSave() {
-    const data = buildSaveData()
+  async function attemptSave(entryMode = 'edited') {
+    const data = buildSaveData({ entryMode })
     const warn = validate(data)
     if (warn) {
       setPendingData(data)
@@ -441,7 +538,40 @@ export default function ExerciseCard({
       await onSaveLog(planEx.id, data)
       setLogData((p) => ({ ...p, completed: true }))
       setEditing(false)
+      setPendingAction(null)
       // F4: save server exitoso → el draft local ya no tiene razón de ser.
+      clearDraft()
+      setDraftHintDismissed(true)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // v54 — CONFIRMAR: el toque sobre el número de PSE guarda. Las validaciones
+  // de peso siguen corriendo (un prescripto de 600 kg también es un error).
+  async function confirmWithPse(pse) {
+    setLogData((p) => ({ ...p, perceived_difficulty: pse }))
+    const data = buildSaveData({ entryMode: 'confirmed', pseOverride: pse })
+    const warn = validate(data)
+    if (warn) {
+      setPendingData(data)
+      setWarning(warn.message)
+      return
+    }
+    await doSave(data)
+  }
+
+  // v54 — NO LO HICE: el toque sobre el motivo guarda.
+  async function skipWith(reason) {
+    if (!SKIP_REASONS.includes(reason)) return
+    setSaving(true)
+    try {
+      await onSaveLog(planEx.id, buildSkipData(reason))
+      setLogData((p) => ({ ...p, completed: false, perceived_difficulty: null }))
+      setEditing(false)
+      setPendingAction(null)
       clearDraft()
       setDraftHintDismissed(true)
     } catch (err) {
@@ -479,6 +609,7 @@ export default function ExerciseCard({
       })
       setConfirmDelete(false)
       setEditing(false)
+      setPendingAction(null)
       setExpanded(false)
     } catch (err) {
       console.error(err)
@@ -570,7 +701,11 @@ export default function ExerciseCard({
 
       <div
         className={`rounded-2xl border-2 transition-all overflow-hidden ${
-          completed ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-white'
+          completed
+            ? 'border-green-200 bg-green-50'
+            : isSkipped
+              ? 'border-amber-200 bg-amber-50/60'
+              : 'border-gray-100 bg-white'
         }`}
       >
         {/* Header */}
@@ -581,12 +716,25 @@ export default function ExerciseCard({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              if (!completed) setEditing(true)
+              if (completed) return
+              // v54: el círculo es el atajo a la vista de confirmación.
+              setExpanded(true)
+              setEditing(false)
+              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
             }}
             className="flex-shrink-0"
+            aria-label={
+              completed
+                ? t('workout.completedCheck')
+                : isSkipped
+                  ? t('workout.skippedCheck')
+                  : t('workout.logWorkout')
+            }
           >
             {completed ? (
               <CheckCircle2 size={24} className="text-green-500" />
+            ) : isSkipped ? (
+              <MinusCircle size={24} className="text-amber-500" />
             ) : (
               <Circle size={24} className="text-gray-300" />
             )}
@@ -681,7 +829,13 @@ export default function ExerciseCard({
               noteCount={noteCount}
               onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
             />
-            {log &&
+            {isSkipped && !expanded && (
+              <p className="text-xs text-amber-700 mt-0.5 font-medium">
+                {t('workout.skippedCheck')}
+                {log?.skip_reason && ` · ${t(`workout.skipReason.${log.skip_reason}`)}`}
+              </p>
+            )}
+            {isLogDone(log) &&
               !expanded &&
               (() => {
                 const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
@@ -785,10 +939,179 @@ export default function ExerciseCard({
               </div>
             )}
 
-            {/* Log form */}
-            {!completed || editing ? (
+            {/* v54 — vista de confirmación: lo prescripto en lectura + 3 salidas */}
+            {showConfirmView ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-700">{t('workout.logWorkout')}</p>
+                <p className="text-xs font-semibold text-gray-700">
+                  {t('workout.prescribedTitle')}
+                </p>
+
+                {setsForConfirm > 0 ? (
+                  <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
+                    <div
+                      className={`grid px-2.5 py-1.5 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500 font-semibold ${
+                        showWeightInputs ? 'grid-cols-[2.5rem_1fr_1fr]' : 'grid-cols-[2.5rem_1fr]'
+                      }`}
+                    >
+                      <div>{t('workout.setHeader')}</div>
+                      <div className="text-center">
+                        {logData.unilateral
+                          ? t('workout.repsPerSideHeader')
+                          : logData.reps_unit && logData.reps_unit !== 'reps'
+                            ? t(`workout.repsUnitShort.${logData.reps_unit}`, {
+                                defaultValue:
+                                  REPS_UNITS.find((u) => u.key === logData.reps_unit)?.short ||
+                                  t('workout.repsHeader'),
+                              })
+                            : t('workout.repsHeader')}
+                      </div>
+                      {showWeightInputs && (
+                        <div className="text-center">{t('workout.weightKgHeader')}</div>
+                      )}
+                    </div>
+                    {Array.from({ length: setsForConfirm }, (_, i) => (
+                      <div
+                        key={i}
+                        className={`grid px-2.5 py-1.5 border-t border-gray-100 text-sm items-center ${
+                          showWeightInputs ? 'grid-cols-[2.5rem_1fr_1fr]' : 'grid-cols-[2.5rem_1fr]'
+                        }`}
+                      >
+                        <div className="text-xs text-gray-400">{i + 1}</div>
+                        <div className="text-center font-semibold text-gray-900">
+                          {logData.actual_reps_arr[i] || '—'}
+                        </div>
+                        {showWeightInputs && (
+                          <div className="text-center font-semibold text-gray-900">
+                            {logData.actual_weights_arr[i]
+                              ? `${logData.actual_weights_arr[i]} kg`
+                              : '—'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">{t('workout.noPrescriptionToConfirm')}</p>
+                )}
+
+                {/* Procedencia del peso: si no lo puso el coach, hay que decirlo */}
+                {showWeightInputs && weightSource === 'last' && lastLog?.logged_date && (
+                  <p className="text-[11px] text-indigo-600 flex items-center gap-1">
+                    <History size={11} className="flex-shrink-0" />
+                    {t('workout.weightFromLastTime', {
+                      date: formatShortDate(lastLog.logged_date, i18n.language),
+                    })}
+                  </p>
+                )}
+                {setsForConfirm > 0 && showWeightInputs && !weightsReady && (
+                  <p className="text-[11px] text-amber-700">{t('workout.needWeightToConfirm')}</p>
+                )}
+
+                {pendingAction === 'confirm' ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-700 font-medium">
+                      {t('workout.confirmPsePrompt')}
+                    </p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          disabled={saving}
+                          onClick={() => confirmWithPse(n)}
+                          className="w-8 h-8 rounded-lg text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50"
+                          aria-label={t('workout.pseValue', { value: n })}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPendingAction(null)}
+                      className="text-xs text-gray-500 underline underline-offset-2"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                ) : pendingAction === 'skip' ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-700 font-medium">
+                      {t('workout.skipReasonPrompt')}
+                    </p>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {SKIP_REASONS.map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          disabled={saving}
+                          onClick={() => skipWith(r)}
+                          className="btn-secondary text-sm text-left disabled:opacity-50"
+                        >
+                          {t(`workout.skipReason.${r}`)}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPendingAction(null)}
+                      className="text-xs text-gray-500 underline underline-offset-2"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {canConfirm && (
+                      <button
+                        type="button"
+                        onClick={() => setPendingAction('confirm')}
+                        className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
+                      >
+                        <CheckCircle2 size={16} />
+                        {t('workout.confirmAsPrescribed')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingAction(null)
+                        setEditing(true)
+                      }}
+                      className={`w-full flex items-center justify-center gap-2 text-sm ${
+                        canConfirm ? 'btn-secondary' : 'btn-primary'
+                      }`}
+                    >
+                      <Pencil size={15} />
+                      {canConfirm ? t('workout.adjust') : t('workout.logWorkout')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingAction('skip')}
+                      className="w-full flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1.5"
+                    >
+                      <MinusCircle size={15} />
+                      {t('workout.didNotDo')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : editing ? (
+              <div className="space-y-3 bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">
+                    {completed ? t('workout.logWorkout') : t('workout.adjustTitle')}
+                  </p>
+                  {!completed && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="text-[11px] text-gray-500 underline underline-offset-2"
+                    >
+                      {t('common.back')}
+                    </button>
+                  )}
+                </div>
 
                 {/* F4 (doc 23) — hint de restauración del draft local.
                     Aparece cuando el hook restaura datos desde localStorage
@@ -1038,7 +1361,7 @@ export default function ExerciseCard({
                 </div>
 
                 <button
-                  onClick={attemptSave}
+                  onClick={() => attemptSave('edited')}
                   disabled={saving}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                 >
@@ -1052,10 +1375,45 @@ export default function ExerciseCard({
                   )}
                 </button>
               </div>
+            ) : isSkipped ? (
+              <div className="bg-amber-50 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                  <MinusCircle size={13} />
+                  {t('workout.skippedCheck')}
+                </p>
+                {log?.skip_reason && (
+                  <p className="text-xs text-amber-700">
+                    {t(`workout.skipReason.${log.skip_reason}`)}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction('reopen')}
+                    className="text-xs text-amber-800 underline"
+                  >
+                    {t('workout.change')}
+                  </button>
+                  <span className="text-amber-300 text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={11} />
+                    {t('workout.unmark')}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="bg-green-50 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-green-700">
+                <p className="text-xs font-semibold text-green-700 flex items-center gap-2">
                   {t('workout.completedCheck')}
+                  {log?.entry_mode && (
+                    <span className="badge bg-green-100 text-green-700 text-[10px] font-medium">
+                      {t(`workout.entryMode.${log.entry_mode}`)}
+                    </span>
+                  )}
                 </p>
                 {(() => {
                   const repsArr = readLogReps(log).filter((r) => r != null && r !== '')

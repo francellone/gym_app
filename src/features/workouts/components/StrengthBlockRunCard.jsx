@@ -3,7 +3,7 @@ import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
-import { groupStrengthExercises } from '../helpers'
+import { groupStrengthExercises, blockResolution } from '../helpers'
 
 // ============================================================
 // Bloque STRENGTH colapsable (wrapper con header rico)
@@ -32,9 +32,7 @@ export default function StrengthBlockRunCard({
   oneRmMap = null,
 }) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(() =>
-    readExpanded({ blockId: block.id, loggedDate })
-  )
+  const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -47,7 +45,10 @@ export default function StrengthBlockRunCard({
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
 
   const total = exercises.length
-  const done = exercises.filter((ex) => logs[ex.id]?.completed).length
+  // v54: hechos / omitidos con la regla única (un omitido no es un hecho).
+  const resolution = blockResolution(block, logs, {})
+  const done = resolution.done
+  const skipped = resolution.skipped
   const completed = total > 0 && done === total
 
   // Título del bloque:
@@ -132,6 +133,11 @@ export default function StrengthBlockRunCard({
             {t('workout.doneOfTotal', { done, total })}
             {total > 0 && (
               <span className="ml-2 text-gray-400">· {Math.round((done / total) * 100)}%</span>
+            )}
+            {skipped > 0 && (
+              <span className="ml-2 text-amber-600">
+                · {t('workout.skippedCount', { count: skipped })}
+              </span>
             )}
           </p>
         </div>

@@ -38,6 +38,7 @@ import { computeWeekAdherence } from '@/features/plans/assignmentHelpers'
 import {
   computeSessionProgress,
   computeDayDoneMap,
+  computeDayStateMap,
   isSessionBanner,
   dayDotState,
   daysPendingPSE,
@@ -429,7 +430,7 @@ export default function TodayWorkoutPage() {
         // para que las tildes cubran todo el plan (límite alto para evitar paginado).
         supabase
           .from('workout_logs')
-          .select('logged_date, plan_exercise_id, completed')
+          .select('logged_date, plan_exercise_id, completed, status')
           .eq('student_id', studentId)
           .eq('plan_id', assignData.plan_id)
           .order('logged_date', { ascending: false })
@@ -447,7 +448,7 @@ export default function TodayWorkoutPage() {
         supabase
           .from('workout_logs')
           .select(
-            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, created_at, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
+            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, status, created_at, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
           )
           .eq('student_id', studentId)
           .eq('completed', true)
@@ -713,11 +714,16 @@ export default function TodayWorkoutPage() {
 
   async function saveLog(planExerciseId, data) {
     const existingLog = logs[planExerciseId]
+    // v54: declarar "no lo hice" NO es entrenar. No abre workout_session
+    // (el calendario y el dashboard del coach la usan como "entrenó ese
+    // día") ni dispara el aviso de wellbeing. Si después la persona
+    // entrena, la sesión se crea con el primer registro hecho.
+    const isSkip = data?.p_status === 'skipped'
 
     // Garantizar workout_session antes de la escritura (idem que antes,
     // ver comentario original). started_at representa "el alumno está
     // cargando ahora", coherente con el backfill del back.
-    if (assignment && !session?.started_at) {
+    if (!isSkip && assignment && !session?.started_at) {
       try {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
@@ -728,7 +734,7 @@ export default function TodayWorkoutPage() {
     }
 
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
-    maybeFireWellbeingStartAviso()
+    if (!isSkip) maybeFireWellbeingStartAviso()
 
     // El armado de los rpcArgs vive en `../api.js` desde el Tier 3.2 (21/05 PM):
     // - Documenta la firma de la RPC (16 params) en un solo lugar
@@ -1143,6 +1149,12 @@ export default function TodayWorkoutPage() {
     () => computeDayDoneMap({ activeDays, blocksBySection, logs, blockLogs }),
     [activeDays, blocksBySection, logs, blockLogs]
   )
+  // v54: estado fino del día (none / open / partial / complete). Un día
+  // cerrado con una omisión es 'partial' y se muestra distinto.
+  const dayStateMap = useMemo(
+    () => computeDayStateMap({ activeDays, blocksBySection, logs, blockLogs }),
+    [activeDays, blocksBySection, logs, blockLogs]
+  )
 
   // PSE guardados en la sesión
   // useMemo: sin esto el objeto se recrea en cada render y hace churn en
@@ -1173,7 +1185,7 @@ export default function TodayWorkoutPage() {
   // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito).
   // 2026-08-27: cuenta SOLO la sesión de hoy (activación + día activo). Antes
   // sumaba todos los días del plan y una sesión perfecta topeaba en 75%.
-  const { completedCount, totalCount } = useMemo(
+  const { completedCount, totalCount, skippedCount } = useMemo(
     () => computeSessionProgress({ blocksBySection, activeDay, logs, blockLogs }),
     [blocksBySection, activeDay, logs, blockLogs]
   )
@@ -1369,6 +1381,11 @@ export default function TodayWorkoutPage() {
             <div className="flex items-center justify-between mb-1">
               <span className="text-primary-200 text-xs">
                 {t('workout.unitsProgress', { completed: completedCount, total: totalCount })}
+                {skippedCount > 0 && (
+                  <span className="ml-1.5 text-amber-200">
+                    · {t('workout.skippedCount', { count: skippedCount })}
+                  </span>
+                )}
               </span>
               <span className="text-primary-200 text-xs">
                 {Math.round((completedCount / Math.max(totalCount, 1)) * 100)}%
@@ -1434,7 +1451,14 @@ export default function TodayWorkoutPage() {
                 const isDone = dayDoneMap[id]
                 const hasPSE = borgPerDay[id] !== undefined
                 // El PSE no decide el color (verde = entrenaste), decide la forma.
-                const dotState = dayDotState({ isDone, hasPSE })
+                // v54: cerrado con una omisión → ámbar (misma forma).
+                const dotState = dayDotState({
+                  isDone,
+                  hasPSE,
+                  isPartial: dayStateMap[id] === 'partial',
+                })
+                const dotIsPartial = dotState.startsWith('partial')
+                const dotFilled = !dotState.endsWith('_no_pse')
                 const tally = dayTallies[id]
                 const tallyDisplay = formatTallyForDisplay(tally)
                 const hasParcial = tally && tally.parcial > 0
@@ -1451,14 +1475,20 @@ export default function TodayWorkoutPage() {
                       {dotState !== 'none' && (
                         <span
                           className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            dotState === 'done'
-                              ? 'bg-green-500'
-                              : 'border-2 border-green-500 bg-transparent'
+                            dotIsPartial
+                              ? dotFilled
+                                ? 'bg-amber-500'
+                                : 'border-2 border-amber-500 bg-transparent'
+                              : dotFilled
+                                ? 'bg-green-500'
+                                : 'border-2 border-green-500 bg-transparent'
                           }`}
                           title={
-                            dotState === 'done'
-                              ? t('workout.dayDoneWithPse')
-                              : t('workout.dayDoneNoPse')
+                            dotIsPartial
+                              ? t('workout.dayPartialDot')
+                              : dotFilled
+                                ? t('workout.dayDoneWithPse')
+                                : t('workout.dayDoneNoPse')
                           }
                         />
                       )}
@@ -1611,17 +1641,31 @@ export default function TodayWorkoutPage() {
             // Antes exigía TODOS los días del plan completos en la misma
             // fecha (showAll), así que en un plan de 2+ días nunca salía.
             const isFinalBanner = isSessionBanner(id, activeDay)
+            // v54: cerrado con una omisión → banner ámbar con el conteo.
+            const isPartialDay = dayStateMap[id] === 'partial'
+            // El conteo es del día del banner, que puede no ser el activo.
+            const dayProgress = isPartialDay
+              ? computeSessionProgress({ blocksBySection, activeDay: id, logs, blockLogs })
+              : null
             return (
               <div
                 key={id}
                 className={`card text-center py-4 ${
-                  isFinalBanner
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                    : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                  isPartialDay
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                    : isFinalBanner
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
                 }`}
               >
                 <p className="text-white font-bold">
-                  {t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
+                  {isPartialDay
+                    ? t('workout.dayPartialBanner', {
+                        day: dayShortLabel(id),
+                        done: dayProgress.completedCount,
+                        total: dayProgress.totalCount,
+                      })
+                    : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
                 </p>
                 {isFinalBanner && weekComplete && (
                   <p className="text-white font-bold text-sm mt-1">{t('workout.weekComplete')}</p>

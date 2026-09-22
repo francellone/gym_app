@@ -10,7 +10,8 @@
     "edit": "Editar",
     "yes": "Sí",
     "no": "No",
-    "initializing": "Iniciando…"
+    "initializing": "Iniciando…",
+    "back": "Volver"
   },
   "iosInstall": {
     "title": "Instalá GymCoach en tu iPhone",
@@ -495,7 +496,33 @@
     },
     "showDescription": "Ver más sobre este ejercicio",
     "hideDescription": "Ocultar",
-    "exerciseInfo": "Qué es este ejercicio"
+    "exerciseInfo": "Qué es este ejercicio",
+    "prescribedTitle": "Lo que te dejó tu coach",
+    "setHeader": "Serie",
+    "noPrescriptionToConfirm": "Este ejercicio no tiene series prescriptas. Registralo a mano.",
+    "weightFromLastTime": "El peso es lo último que cargaste, el {{date}}. Tu coach no puso kilos.",
+    "needWeightToConfirm": "Falta el peso. Cargalo una vez y la próxima te lo proponemos.",
+    "confirmPsePrompt": "¿Cómo te resultó? Tocá el esfuerzo y queda guardado.",
+    "skipReasonPrompt": "¿Por qué no lo hiciste?",
+    "skipReason": {
+      "choice": "Elegí no hacerlo",
+      "time": "No llegué con el tiempo",
+      "discomfort": "Me molestaba algo"
+    },
+    "confirmAsPrescribed": "Lo hice tal cual",
+    "adjust": "Lo hice distinto",
+    "adjustTitle": "Ajustar lo que hiciste",
+    "didNotDo": "No lo hice",
+    "skippedCheck": "No lo hiciste",
+    "change": "Cambiar",
+    "entryMode": {
+      "confirmed": "tal cual",
+      "edited": "con ajustes"
+    },
+    "skippedCount_one": "{{count}} omitido",
+    "skippedCount_other": "{{count}} omitidos",
+    "dayPartialDot": "Día cerrado con un ejercicio sin hacer",
+    "dayPartialBanner": "Día {{day}} cerrado, {{done}} de {{total}}"
   },
   "progress": {
     "title": "Mi progreso",
