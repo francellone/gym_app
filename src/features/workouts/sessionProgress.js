@@ -26,7 +26,13 @@
 // Funciones puras (sin React ni Supabase) para poder testearlas.
 // ============================================================
 
-import { isSectionCompleted } from './helpers'
+import { sectionResolution } from './helpers'
+import {
+  dayStateFromTally,
+  isDayStateClosed,
+  isTrainingActivity,
+  mergeTallies,
+} from './completionRules'
 
 export const ACTIVATION_SECTION = 'activation'
 
@@ -48,27 +54,25 @@ export function sessionSections(activeDay) {
 // workout_logs.completed); cada bloque aeróbico/circuito cuenta 1
 // (vía workout_block_logs.completed). Mismo criterio que dayTalliesLogic.
 //
-// @returns {{completedCount: number, totalCount: number}}
+// v54: suma `skippedCount` (ítems que la persona declaró no hechos). La
+// barra sigue mostrando hechos/total; el texto "4 de 5" sale de acá.
+//
+// @returns {{completedCount: number, totalCount: number, skippedCount: number}}
 // ============================================================
 export function computeSessionProgress({ blocksBySection, activeDay, logs, blockLogs } = {}) {
+  const t = sessionTally({ blocksBySection, activeDay, logs, blockLogs })
+  return { completedCount: t.done, totalCount: t.total, skippedCount: t.skipped }
+}
+
+// Tally {total, done, skipped, resolved} de la sesión de hoy
+// (activación + día). Compartido por el progreso y el estado del día.
+function sessionTally({ blocksBySection, activeDay, logs, blockLogs } = {}) {
   const bySection = blocksBySection || {}
-  const logMap = logs || {}
-  const blockLogMap = blockLogs || {}
-  let done = 0
-  let total = 0
-  for (const section of sessionSections(activeDay)) {
-    for (const block of bySection[section] || []) {
-      if (block.block_type === 'strength') {
-        const exs = block.plan_exercises || []
-        total += exs.length
-        done += exs.filter((ex) => logMap[ex.id]?.completed).length
-      } else {
-        total += 1
-        if (blockLogMap[block.id]?.completed) done += 1
-      }
-    }
-  }
-  return { completedCount: done, totalCount: total }
+  return mergeTallies(
+    ...sessionSections(activeDay).map((section) =>
+      sectionResolution(bySection[section] || [], logs || {}, blockLogs || {})
+    )
+  )
 }
 
 // ============================================================
@@ -86,14 +90,17 @@ export function isSessionBanner(dayId, activeDay) {
 // dayDotState
 // ------------------------------------------------------------
 // Estado del puntito al lado del tab del día:
-//   'none'        → el día no está completo (no se dibuja)
-//   'done'        → completo y con PSE del día → verde relleno
-//   'done_no_pse' → completo, falta el PSE → verde HUECO (sigue verde:
-//                   el logro es haber entrenado, el PSE es un dato aparte)
+//   'none'           → el día no cerró (no se dibuja)
+//   'done'           → completo y con PSE del día → verde relleno
+//   'done_no_pse'    → completo, falta el PSE → verde HUECO (sigue verde:
+//                      el logro es haber entrenado, el PSE es un dato aparte)
+//   'partial'        → v54: cerró con una omisión, con PSE
+//   'partial_no_pse' → v54: cerró con una omisión, falta el PSE
 // ============================================================
-export function dayDotState({ isDone, hasPSE } = {}) {
+export function dayDotState({ isDone, hasPSE, isPartial } = {}) {
   if (!isDone) return 'none'
-  return hasPSE ? 'done' : 'done_no_pse'
+  const base = isPartial ? 'partial' : 'done'
+  return hasPSE ? base : `${base}_no_pse`
 }
 
 // ============================================================
@@ -112,10 +119,12 @@ export function daysPendingPSE({ activeDays, dayDoneMap, borgPerDay } = {}) {
 }
 
 // ============================================================
-// computeDayDoneMap
+// computeDayStateMap (v54)
 // ------------------------------------------------------------
-// Mapa día → completado. Un día está cerrado cuando están completos
-// TODOS sus bloques Y la activación.
+// Mapa día → 'none' | 'open' | 'partial' | 'complete' (ver completionRules).
+// El tally del día suma la activación (si el plan la tiene) y el día:
+// las omisiones de la activación cuentan en el mismo conteo, y la
+// activación sigue siendo requisito porque sus ítems entran en el total.
 //
 // 2026-08-27: antes el gate de activación era `id === activeDays[0]`,
 // o sea solo el primer día del plan. Con el verde inalcanzable eso no se
@@ -126,16 +135,36 @@ export function daysPendingPSE({ activeDays, dayDoneMap, borgPerDay } = {}) {
 //
 // Si el plan no tiene activación, no hay gate (se considera cumplida).
 // ============================================================
-export function computeDayDoneMap({ activeDays, blocksBySection, logs, blockLogs } = {}) {
+export function computeDayStateMap({ activeDays, blocksBySection, logs, blockLogs } = {}) {
   const bySection = blocksBySection || {}
-  const activationBlocks = bySection[ACTIVATION_SECTION] || []
-  const activationDone =
-    activationBlocks.length === 0 || isSectionCompleted(activationBlocks, logs, blockLogs)
+  const activation = sectionResolution(bySection[ACTIVATION_SECTION] || [], logs, blockLogs)
 
   const map = {}
   for (const id of activeDays || []) {
-    map[id] = isSectionCompleted(bySection[id] || [], logs, blockLogs) && activationDone
+    const day = sectionResolution(bySection[id] || [], logs, blockLogs)
+    // Sin bloques en el día no hay nada que cerrar (mismo comportamiento
+    // que antes: isSectionCompleted([]) era false). Y si no se tocó ningún
+    // ítem PROPIO del día, es 'none' aunque la activación esté hecha: la
+    // activación es compartida por todos los días y no dice nada de este.
+    if (day.total === 0 || day.resolved === 0) {
+      map[id] = 'none'
+      continue
+    }
+    map[id] = dayStateFromTally(mergeTallies(activation, day))
   }
+  return map
+}
+
+// ============================================================
+// computeDayDoneMap
+// ------------------------------------------------------------
+// Mapa día → cerrado (boolean). Compatibilidad con los consumidores de
+// antes de v54: cerrado = 'complete' o 'partial'.
+// ============================================================
+export function computeDayDoneMap(args = {}) {
+  const states = computeDayStateMap(args)
+  const map = {}
+  for (const id of Object.keys(states)) map[id] = isDayStateClosed(states[id])
   return map
 }
 
@@ -153,6 +182,9 @@ export function computeDayDoneMap({ activeDays, blocksBySection, logs, blockLogs
 export function sessionDatesFromLogs({ logs, extraDate } = {}) {
   const set = new Set()
   for (const l of logs || []) {
+    // v54: una omisión declarada no es actividad; un día con solo
+    // omisiones no es una sesión.
+    if (!isTrainingActivity(l)) continue
     if (l?.logged_date) set.add(String(l.logged_date).slice(0, 10))
   }
   if (extraDate) set.add(String(extraDate).slice(0, 10))

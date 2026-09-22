@@ -32,6 +32,7 @@ import { parseISO, differenceInCalendarDays, addDays, startOfWeek, format } from
 import { readLogReps, maxWeightOfLog } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
+import { isTrainingActivity } from '@/features/workouts/completionRules'
 
 // Un ejercicio se considera estancado si su progresión por semanas quedó
 // dentro de ±STALL_THRESHOLD_PCT con al menos MIN_POINTS_FOR_STALL registros.
@@ -292,8 +293,11 @@ export function buildReport({
 } = {}) {
   const prev = previousPeriod(from, to)
 
-  const trainingLogs = filterTrainingLogs(logs)
-  const trainingBlockLogs = filterTrainingLogs(blockLogs)
+  // v54: un registro omitido (status='skipped') no es entrenamiento. Sale de
+  // asistencia, volumen, progresión y PSE. La métrica de omisiones (Etapa 5)
+  // se calcula aparte, sobre `logs` sin filtrar.
+  const trainingLogs = filterTrainingLogs(logs).filter(isTrainingActivity)
+  const trainingBlockLogs = filterTrainingLogs(blockLogs).filter(isTrainingActivity)
 
   const periodLogs = sliceByPeriod(trainingLogs, from, to)
   const prevLogs = sliceByPeriod(trainingLogs, prev.from, prev.to)

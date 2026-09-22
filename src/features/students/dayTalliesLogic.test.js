@@ -33,6 +33,33 @@ describe('computeDayTallies', () => {
     expect(computeDayTallies()).toEqual({})
   })
 
+  it('v54: un ejercicio omitido no es un hecho → el día queda parcial, no entero', () => {
+    const logs = [
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe1', completed: true, status: 'done' },
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe2', completed: true, status: 'done' },
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe3', completed: false, status: 'skipped' },
+    ]
+    const out = computeDayTallies({ logs, planExercises: plan })
+    expect(out.day_a).toMatchObject({ entero: 0, parcial: 1, total: 1 })
+  })
+
+  it('v54: una fecha con SOLO omisiones no genera tilde alguna', () => {
+    const logs = [
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe1', completed: false, status: 'skipped' },
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe2', completed: false, status: 'skipped' },
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe3', completed: false, status: 'skipped' },
+    ]
+    expect(computeDayTallies({ logs, planExercises: plan })).toEqual({})
+  })
+
+  it('v54 (defensa): completed=true con status=skipped tampoco cuenta', () => {
+    // La base lo prohíbe por CHECK; si llegara, no debe sumar como hecho.
+    const logs = [
+      { logged_date: '2026-09-22', plan_exercise_id: 'pe1', completed: true, status: 'skipped' },
+    ]
+    expect(computeDayTallies({ logs, planExercises: plan })).toEqual({})
+  })
+
   it('día A 100% completado en 1 fecha → 1 entero', () => {
     const logs = [
       { logged_date: '2026-05-13', plan_exercise_id: 'pe1', completed: true },
@@ -390,9 +417,7 @@ describe('computeDateCompleteness', () => {
     expect(
       computeDateCompleteness({
         ...base,
-        blockLogs: [
-          { logged_date: '2026-08-24', plan_block_id: 'blk-tabata', completed: true },
-        ],
+        blockLogs: [{ logged_date: '2026-08-24', plan_block_id: 'blk-tabata', completed: true }],
       }).get('2026-08-24')
     ).toBe('complete')
   })

@@ -132,7 +132,8 @@ export default function StudentPanel({
               .eq('student_id', studentId)
               .eq('plans.plan_type', 'training')
               .gte('logged_date', periodStart)
-              .lte('logged_date', periodEnd),
+              .lte('logged_date', periodEnd)
+              .neq('status', 'skipped'), // v54: una omisión declarada no es un día entrenado
             supabase.from('plans').select('sessions_per_week').eq('id', planId).maybeSingle(),
           ])
         if (cancelled) return

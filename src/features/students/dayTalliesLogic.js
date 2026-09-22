@@ -17,6 +17,8 @@
 // la cuenta de fechas distintas con entero vs parcial.
 // ============================================================
 
+import { isLogDone } from '@/features/workouts/completionRules'
+
 /**
  * @typedef {Object} WorkoutLog
  * @property {string} logged_date     YMD ('2026-05-23' o timestamp ISO)
@@ -83,6 +85,12 @@
 // ============================================================
 export const ACTIVATION_SECTION = 'activation'
 
+// v54 (2026-09-22): un registro puede ser OMITIDO (status='skipped',
+// completed=false). Para las tildes y el calendario del coach no cambia la
+// regla — un omitido no es un hecho — pero se usa isLogDone en vez de
+// `completed` a secas para que la definición viva en un solo lugar
+// (completionRules) y sea la misma que la pantalla de la persona.
+
 // ------------------------------------------------------------
 // buildPlanIndex (interno)
 // ------------------------------------------------------------
@@ -143,7 +151,7 @@ function countCompletedByDateSection({ logs, blockLogs, exerciseToSection, block
   const out = new Map()
 
   for (const log of logs || []) {
-    if (!log || !log.completed) continue
+    if (!isLogDone(log)) continue
     const section = exerciseToSection.get(log.plan_exercise_id)
     if (!section) continue
     const date = String(log.logged_date || '').slice(0, 10)
@@ -153,7 +161,7 @@ function countCompletedByDateSection({ logs, blockLogs, exerciseToSection, block
   }
 
   for (const bl of blockLogs || []) {
-    if (!bl || !bl.completed) continue
+    if (!isLogDone(bl)) continue
     const section = blockToSection.get(bl.plan_block_id)
     if (!section) continue
     const date = String(bl.logged_date || '').slice(0, 10)

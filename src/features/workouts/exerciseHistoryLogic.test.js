@@ -27,6 +27,42 @@ const PE = [
 ]
 
 describe('pickLastLogPerExercise', () => {
+  it('v54: un registro omitido nunca es "última vez", aunque sea el más reciente', () => {
+    // Esto alimenta el prellenado del peso: si la última vez fue una
+    // omisión, el prellenado tiene que ir a buscar la anterior de verdad.
+    const logs = [
+      {
+        id: 'l1',
+        plan_exercise_id: 'pe-b',
+        logged_date: '2026-09-15',
+        completed: true,
+        status: 'done',
+      },
+      {
+        id: 'l2',
+        plan_exercise_id: 'pe-b',
+        logged_date: '2026-09-22',
+        completed: false,
+        status: 'skipped',
+      },
+    ]
+    const map = pickLastLogPerExercise(logs, PE)
+    expect(map.get('ex-squat').id).toBe('l1')
+  })
+
+  it('v54: si solo hay omisiones, no hay "última vez"', () => {
+    const logs = [
+      {
+        id: 'l2',
+        plan_exercise_id: 'pe-b',
+        logged_date: '2026-09-22',
+        completed: false,
+        status: 'skipped',
+      },
+    ]
+    expect(pickLastLogPerExercise(logs, PE).size).toBe(0)
+  })
+
   it('agrupa por exercise_id global, no por plan_exercise_id', () => {
     const logs = [
       // Mismo ejercicio (Press), dos plan_exercise_id distintos, distintas fechas

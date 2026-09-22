@@ -23,6 +23,7 @@
 //     un exercise_id asociable).
 // ============================================================
 
+import { isLogDone } from './completionRules'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 // i18n (doc 46): instancia global. Con lng 'es' (default y tests) los outputs
 // son idénticos a los strings históricos, así los tests existentes no cambian.
@@ -63,7 +64,7 @@ export function pickLastLogPerExercise(logs, planExercises, options = {}) {
 
   for (const log of logs || []) {
     if (!log) continue
-    if (completedOnly && !log.completed) continue
+    if (completedOnly && !isLogDone(log)) continue // v54: un omitido nunca es 'última vez'
     if (excludeDate && log.logged_date === excludeDate) continue
 
     // doc 49: resolvemos exercise_id desde el join embebido (cross-plan)
@@ -120,7 +121,7 @@ export function pickLastBlockLogPerBlock(blockLogs, options = {}) {
 
   for (const bl of blockLogs || []) {
     if (!bl?.plan_block_id) continue
-    if (completedOnly && !bl.completed) continue
+    if (completedOnly && !isLogDone(bl)) continue // v54: idem para bloques
     if (excludeDate && bl.logged_date === excludeDate) continue
 
     const prev = byBlock.get(bl.plan_block_id)

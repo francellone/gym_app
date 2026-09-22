@@ -155,6 +155,68 @@ describe('trampa: source=coach ES dato del alumno', () => {
   })
 })
 
+describe('v54: los registros omitidos no son entrenamiento', () => {
+  it('un día con solo omisiones no cuenta como asistencia ni como trabajo principal', () => {
+    const r = buildReport({
+      ...PERIOD,
+      logs: [
+        {
+          ...log({ date: '2026-08-04', reps: null }),
+          completed: false,
+          status: 'skipped',
+          skip_reason: 'time',
+        },
+        {
+          ...log({ date: '2026-08-05', reps: null }),
+          completed: false,
+          status: 'skipped',
+          skip_reason: 'choice',
+        },
+      ],
+    })
+    expect(r.attendance.daysTrained).toBe(0)
+  })
+
+  it('en un día mixto, el omitido no suma series ni volumen; el hecho sí', () => {
+    const r = buildReport({
+      ...PERIOD,
+      logs: [
+        log({ date: '2026-08-04', exercise: EX_PRESS, weights: [40, 40, 40] }),
+        {
+          ...log({ date: '2026-08-04', reps: null }),
+          completed: false,
+          status: 'skipped',
+          skip_reason: 'time',
+        },
+      ],
+      tagsByExercise: TAGS,
+    })
+    expect(r.attendance.daysTrained).toBe(1)
+    // 3 series del press; el omitido no aporta ninguna
+    const press = r.exercises.find((e) => e.exerciseId === 'ex-press')
+    expect(press).toBeTruthy()
+  })
+
+  it('un bloque omitido tampoco suma minutos ni cuenta como día de bloque', () => {
+    const r = buildReport({
+      ...PERIOD,
+      logs: [],
+      blockLogs: [
+        {
+          logged_date: '2026-08-04',
+          actual_minutes: null,
+          completed: false,
+          status: 'skipped',
+          plan: { plan_type: 'training' },
+          plan_block: { block_type: 'aerobic', title: 'Cinta' },
+        },
+      ],
+    })
+    expect(r.attendance.daysTrained).toBe(0)
+    expect(r.blocks).toEqual([])
+  })
+})
+
 describe('trampa: días de solo bloque (aeróbico/circuito) no son ausencia', () => {
   it('un workout_block_log suma al heatmap/asistencia y al módulo de bloques', () => {
     const r = buildReport({

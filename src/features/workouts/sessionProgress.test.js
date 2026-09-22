@@ -18,6 +18,7 @@ import {
   daysPendingPSE,
   sessionDatesFromLogs,
   isWeekComplete,
+  computeDayStateMap,
 } from './sessionProgress'
 import { computeWeekAdherence } from '@/features/plans/assignmentHelpers'
 
@@ -34,6 +35,12 @@ function circuitBlock(id) {
 }
 function completedMap(ids) {
   return Object.fromEntries(ids.map((id) => [id, { completed: true }]))
+}
+// v54: un registro omitido va con completed=false y status='skipped'.
+function skippedMap(ids) {
+  return Object.fromEntries(
+    ids.map((id) => [id, { completed: false, status: 'skipped', skip_reason: 'time' }])
+  )
 }
 
 // Plan de Andrea: 8 de activación, 4 en Día A, 4 en Día B.
@@ -112,7 +119,7 @@ describe('computeSessionProgress', () => {
       logs: completedMap(['a1', 'a2', 'pa1']),
       blockLogs: {},
     })
-    expect(parcial).toEqual({ completedCount: 3, totalCount: 4 })
+    expect(parcial).toEqual({ completedCount: 3, totalCount: 4, skippedCount: 0 })
 
     const entero = computeSessionProgress({
       blocksBySection: plan,
@@ -120,21 +127,47 @@ describe('computeSessionProgress', () => {
       logs: completedMap(['a1', 'a2', 'pa1']),
       blockLogs: { 'blk-tabata': { completed: true } },
     })
-    expect(entero).toEqual({ completedCount: 4, totalCount: 4 })
+    expect(entero).toEqual({ completedCount: 4, totalCount: 4, skippedCount: 0 })
   })
 
   it('plan sin activación: solo cuenta el día activo', () => {
     const plan = { day_a: [strengthBlock('blk-a', DAY_A_EX)] }
     expect(
       computeSessionProgress({ blocksBySection: plan, activeDay: 'day_a', logs: {}, blockLogs: {} })
-    ).toEqual({ completedCount: 0, totalCount: 4 })
+    ).toEqual({ completedCount: 0, totalCount: 4, skippedCount: 0 })
+  })
+
+  it('v54: un omitido no suma a completados pero sí a skippedCount', () => {
+    const r = computeSessionProgress({
+      blocksBySection: PLAN_ANDREA,
+      activeDay: 'day_a',
+      logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2', 'pa3']), ...skippedMap(['pa4']) },
+      blockLogs: {},
+    })
+    expect(r).toEqual({ completedCount: 11, totalCount: 12, skippedCount: 1 })
+  })
+
+  it('v54: un bloque de circuito omitido cuenta como omisión, no como hecho', () => {
+    const plan = { day_a: [strengthBlock('blk-a', ['pa1']), circuitBlock('blk-tabata')] }
+    const r = computeSessionProgress({
+      blocksBySection: plan,
+      activeDay: 'day_a',
+      logs: completedMap(['pa1']),
+      blockLogs: { 'blk-tabata': { completed: false, status: 'skipped' } },
+    })
+    expect(r).toEqual({ completedCount: 1, totalCount: 2, skippedCount: 1 })
   })
 
   it('tolera inputs vacíos', () => {
-    expect(computeSessionProgress()).toEqual({ completedCount: 0, totalCount: 0 })
+    expect(computeSessionProgress()).toEqual({
+      completedCount: 0,
+      totalCount: 0,
+      skippedCount: 0,
+    })
     expect(computeSessionProgress({ blocksBySection: PLAN_ANDREA, activeDay: null })).toEqual({
       completedCount: 0,
       totalCount: 8,
+      skippedCount: 0,
     })
   })
 })
@@ -173,6 +206,13 @@ describe('dayDotState', () => {
     expect(dayDotState({ isDone: true, hasPSE: false })).toBe('done_no_pse')
   })
 
+  it('v54: cerrado con una omisión → partial / partial_no_pse', () => {
+    expect(dayDotState({ isDone: true, hasPSE: true, isPartial: true })).toBe('partial')
+    expect(dayDotState({ isDone: true, hasPSE: false, isPartial: true })).toBe('partial_no_pse')
+    // isPartial sin isDone no dibuja nada
+    expect(dayDotState({ isDone: false, hasPSE: true, isPartial: true })).toBe('none')
+  })
+
   it('tolera inputs vacíos', () => {
     expect(dayDotState()).toBe('none')
   })
@@ -202,9 +242,7 @@ describe('daysPendingPSE', () => {
   })
 
   it('no lista días incompletos', () => {
-    expect(
-      daysPendingPSE({ activeDays, dayDoneMap: {}, borgPerDay: {} })
-    ).toEqual([])
+    expect(daysPendingPSE({ activeDays, dayDoneMap: {}, borgPerDay: {} })).toEqual([])
   })
 
   it('tolera inputs vacíos', () => {
@@ -266,13 +304,90 @@ describe('computeDayDoneMap', () => {
     }
     const base = { activeDays: ['day_a'], blocksBySection: plan, logs: completedMap(['a1']) }
     expect(computeDayDoneMap({ ...base, blockLogs: {} })).toEqual({ day_a: false })
-    expect(computeDayDoneMap({ ...base, blockLogs: { 'blk-tabata': { completed: true } } })).toEqual(
-      { day_a: true }
-    )
+    expect(
+      computeDayDoneMap({ ...base, blockLogs: { 'blk-tabata': { completed: true } } })
+    ).toEqual({ day_a: true })
   })
 
   it('tolera inputs vacíos', () => {
     expect(computeDayDoneMap()).toEqual({})
+  })
+
+  // ── v54: cierre por conteo de omisiones ──────────────────────
+  it('v54: una omisión en el día cierra como parcial (y cuenta como cerrado)', () => {
+    const args = {
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2', 'pa3']), ...skippedMap(['pa4']) },
+      blockLogs: {},
+    }
+    expect(computeDayStateMap(args)).toEqual({ day_a: 'partial', day_b: 'none' })
+    expect(computeDayDoneMap(args)).toEqual({ day_a: true, day_b: false })
+  })
+
+  it('v54: dos omisiones dejan el día abierto aunque todo esté resuelto', () => {
+    const args = {
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2']), ...skippedMap(['pa3', 'pa4']) },
+      blockLogs: {},
+    }
+    expect(computeDayStateMap(args)).toEqual({ day_a: 'open', day_b: 'none' })
+    expect(computeDayDoneMap(args)).toEqual({ day_a: false, day_b: false })
+  })
+
+  it('v54: la omisión en la activación entra en el mismo conteo del día', () => {
+    // 1 omitido en activación + 1 omitido en el día = 2 → abierto.
+    const dos = computeDayStateMap({
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: {
+        ...completedMap([...ACT_EX.slice(1), 'pa1', 'pa2', 'pa3']),
+        ...skippedMap(['a1', 'pa4']),
+      },
+      blockLogs: {},
+    })
+    expect(dos.day_a).toBe('open')
+    // Solo el de la activación omitido → parcial.
+    const uno = computeDayStateMap({
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: { ...completedMap([...ACT_EX.slice(1), ...DAY_A_EX]), ...skippedMap(['a1']) },
+      blockLogs: {},
+    })
+    expect(uno.day_a).toBe('partial')
+  })
+
+  it('v54: un ítem sin resolver deja el día abierto, con o sin omisión', () => {
+    const state = computeDayStateMap({
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2']), ...skippedMap(['pa3']) }, // pa4 sin tocar
+      blockLogs: {},
+    })
+    expect(state.day_a).toBe('open')
+  })
+
+  it('v54: todo hecho sigue siendo complete, y nada tocado es none', () => {
+    const state = computeDayStateMap({
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: completedMap([...ACT_EX, ...DAY_A_EX]),
+      blockLogs: {},
+    })
+    expect(state).toEqual({ day_a: 'complete', day_b: 'none' })
+  })
+
+  it('v54: un día de un solo bloque de circuito omitido no cierra', () => {
+    const plan = { day_a: [circuitBlock('blk-tabata')] }
+    expect(
+      computeDayStateMap({
+        activeDays: ['day_a'],
+        blocksBySection: plan,
+        logs: {},
+        blockLogs: { 'blk-tabata': { completed: false, status: 'skipped' } },
+      })
+    ).toEqual({ day_a: 'open' })
   })
 })
 
@@ -290,7 +405,10 @@ describe('sessionDatesFromLogs', () => {
 
   it('suma extraDate (el día en curso, que aún no está en recentLogs)', () => {
     expect(
-      sessionDatesFromLogs({ logs: [{ logged_date: '2026-08-24' }], extraDate: '2026-08-27' }).sort()
+      sessionDatesFromLogs({
+        logs: [{ logged_date: '2026-08-24' }],
+        extraDate: '2026-08-27',
+      }).sort()
     ).toEqual(['2026-08-24', '2026-08-27'])
   })
 
@@ -303,6 +421,17 @@ describe('sessionDatesFromLogs', () => {
   it('ignora filas sin fecha y tolera inputs vacíos', () => {
     expect(sessionDatesFromLogs({ logs: [{}, { logged_date: null }] })).toEqual([])
     expect(sessionDatesFromLogs()).toEqual([])
+  })
+
+  it('v54: un día con solo omisiones no es una sesión; con un hecho sí', () => {
+    const dates = sessionDatesFromLogs({
+      logs: [
+        { logged_date: '2026-09-21', status: 'skipped', completed: false },
+        { logged_date: '2026-09-22', status: 'skipped', completed: false },
+        { logged_date: '2026-09-22', status: 'done', completed: true },
+      ],
+    })
+    expect(dates).toEqual(['2026-09-22'])
   })
 })
 

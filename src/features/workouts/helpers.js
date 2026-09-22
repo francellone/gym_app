@@ -5,6 +5,8 @@
 // sub-componentes (ExerciseCard, DailyPSEModal, run cards, etc.).
 // Extraídos del monolito original 2026-05-21 como parte del Tier 2.3.
 
+import { tallyResolution, mergeTallies } from './completionRules'
+
 // Etiquetas largas PSE — usadas en ExerciseCard para el dropdown completo.
 export const PSE_OPTIONS = [
   { value: 1, label: '1 - Muy fácil' },
@@ -44,17 +46,39 @@ export function pseColor(n) {
 // ============================================================
 // Helpers de completado de bloques y secciones
 // ============================================================
-// Strength: todos los ejercicios marcados como completados en `logs`.
-// Aerobic / circuit: existe un workout_block_log con `completed=true`.
-export function isBlockCompleted(block, logs, blockLogs) {
+// Desde v54 (2026-09-22) un registro puede estar HECHO u OMITIDO (la
+// persona declaró "no lo hice"). La regla de qué cuenta vive en
+// completionRules.js; acá solo se recorre la estructura del plan.
+//
+// Unidades: cada ejercicio de un bloque strength es 1 ítem (vía
+// workout_logs); cada bloque aerobic/circuit es 1 ítem (vía
+// workout_block_logs). Mismo criterio que dayTalliesLogic del coach.
+
+// Tally {total, done, skipped, resolved} de un bloque.
+export function blockResolution(block, logs, blockLogs) {
+  if (!block) return { total: 0, done: 0, skipped: 0, resolved: 0 }
   if (block.block_type === 'strength') {
     const exs = block.plan_exercises || []
-    if (exs.length === 0) return false
-    return exs.every((ex) => logs[ex.id]?.completed)
+    return tallyResolution(
+      exs.map((ex) => (logs || {})[ex.id]),
+      exs.length
+    )
   }
-  // aerobic / circuit: el estado de completado vive en workout_block_logs
-  if (block.__virtual) return false // no debería caer aquí, pero por seguridad
-  return !!blockLogs[block.id]?.completed
+  // aerobic / circuit: el estado vive en workout_block_logs
+  if (block.__virtual) return { total: 0, done: 0, skipped: 0, resolved: 0 }
+  return tallyResolution([(blockLogs || {})[block.id]], 1)
+}
+
+// Tally acumulado de una sección (lista de bloques).
+export function sectionResolution(sectionBlocks, logs, blockLogs) {
+  return mergeTallies(...(sectionBlocks || []).map((b) => blockResolution(b, logs, blockLogs)))
+}
+
+// Strength: todos los ejercicios HECHOS (un omitido no completa).
+// Aerobic / circuit: existe un workout_block_log hecho.
+export function isBlockCompleted(block, logs, blockLogs) {
+  const t = blockResolution(block, logs, blockLogs)
+  return t.total > 0 && t.done === t.total
 }
 
 // Una sección está completa cuando todos sus bloques lo están.
