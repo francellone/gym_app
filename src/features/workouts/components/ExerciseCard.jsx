@@ -112,8 +112,15 @@ export default function ExerciseCard({
   // %RM (v39) — Map<exercise_id, {oneRm, date}> de esta persona. Sin él, un
   // ejercicio prescripto por % muestra el porcentaje en vez de los kilos.
   oneRmMap = null,
+  // v54 — la coach registra por la persona. Misma tarjeta, mismos payloads
+  // (la RPC deriva source='coach' del usuario logueado); solo cambia la voz
+  // de los textos: "Lo hice tal cual" → "Lo hizo tal cual".
+  coachMode = false,
 }) {
   const { t, i18n } = useTranslation()
+  // Clave de texto según la voz. Las claves *.coach existen para los seis
+  // textos que hablan en primera persona de la alumna.
+  const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
   const [expanded, setExpanded] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -751,7 +758,7 @@ export default function ExerciseCard({
               completed
                 ? t('workout.completedCheck')
                 : isSkipped
-                  ? t('workout.skippedCheck')
+                  ? tv('workout.skippedCheck')
                   : t('workout.logWorkout')
             }
           >
@@ -855,8 +862,9 @@ export default function ExerciseCard({
             />
             {isSkipped && !expanded && (
               <p className="text-xs text-amber-700 mt-0.5 font-medium">
-                {t('workout.skippedCheck')}
-                {log?.skip_reason && ` · ${t(`workout.skipReason.${log.skip_reason}`)}`}
+                {tv('workout.skippedCheck')}
+                {log?.skip_reason &&
+                  ` · ${t(coachMode ? `workout.skipReasonCoach.${log.skip_reason}` : `workout.skipReason.${log.skip_reason}`)}`}
               </p>
             )}
             {isLogDone(log) &&
@@ -967,7 +975,7 @@ export default function ExerciseCard({
             {showConfirmView ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-700">
-                  {t('workout.prescribedTitle')}
+                  {tv('workout.prescribedTitle')}
                 </p>
 
                 {setsForConfirm > 0 && confirmIsUniform ? (
@@ -1056,19 +1064,19 @@ export default function ExerciseCard({
                 {showWeightInputs && weightSource === 'last' && lastLog?.logged_date && (
                   <p className="text-[11px] text-indigo-600 flex items-center gap-1">
                     <History size={11} className="flex-shrink-0" />
-                    {t('workout.weightFromLastTime', {
+                    {tv('workout.weightFromLastTime', {
                       date: formatShortDate(lastLog.logged_date, i18n.language),
                     })}
                   </p>
                 )}
                 {setsForConfirm > 0 && showWeightInputs && !weightsReady && (
-                  <p className="text-[11px] text-amber-700">{t('workout.needWeightToConfirm')}</p>
+                  <p className="text-[11px] text-amber-700">{tv('workout.needWeightToConfirm')}</p>
                 )}
 
                 {pendingAction === 'confirm' ? (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-700 font-medium">
-                      {t('workout.confirmPsePrompt')}
+                      {tv('workout.confirmPsePrompt')}
                     </p>
                     <div className="flex gap-1.5 flex-wrap">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -1095,7 +1103,7 @@ export default function ExerciseCard({
                 ) : pendingAction === 'skip' ? (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-700 font-medium">
-                      {t('workout.skipReasonPrompt')}
+                      {tv('workout.skipReasonPrompt')}
                     </p>
                     <div className="grid grid-cols-1 gap-1.5">
                       {SKIP_REASONS.map((r) => (
@@ -1106,7 +1114,9 @@ export default function ExerciseCard({
                           onClick={() => skipWith(r)}
                           className="btn-secondary text-sm text-left disabled:opacity-50"
                         >
-                          {t(`workout.skipReason.${r}`)}
+                          {t(
+                            coachMode ? `workout.skipReasonCoach.${r}` : `workout.skipReason.${r}`
+                          )}
                         </button>
                       ))}
                     </div>
@@ -1127,7 +1137,7 @@ export default function ExerciseCard({
                         className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                       >
                         <CheckCircle2 size={16} />
-                        {t('workout.confirmAsPrescribed')}
+                        {tv('workout.confirmAsPrescribed')}
                       </button>
                     )}
                     <button
@@ -1141,7 +1151,7 @@ export default function ExerciseCard({
                       }`}
                     >
                       <Pencil size={15} />
-                      {canConfirm ? t('workout.adjust') : t('workout.logWorkout')}
+                      {canConfirm ? tv('workout.adjust') : t('workout.logWorkout')}
                     </button>
                     <button
                       type="button"
@@ -1149,7 +1159,7 @@ export default function ExerciseCard({
                       className="w-full flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 py-1.5"
                     >
                       <MinusCircle size={15} />
-                      {t('workout.didNotDo')}
+                      {tv('workout.didNotDo')}
                     </button>
                   </div>
                 )}
@@ -1437,11 +1447,15 @@ export default function ExerciseCard({
               <div className="bg-amber-50 rounded-xl p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
                   <MinusCircle size={13} />
-                  {t('workout.skippedCheck')}
+                  {tv('workout.skippedCheck')}
                 </p>
                 {log?.skip_reason && (
                   <p className="text-xs text-amber-700">
-                    {t(`workout.skipReason.${log.skip_reason}`)}
+                    {t(
+                      coachMode
+                        ? `workout.skipReasonCoach.${log.skip_reason}`
+                        : `workout.skipReason.${log.skip_reason}`
+                    )}
                   </p>
                 )}
                 <div className="flex items-center gap-3 pt-0.5">

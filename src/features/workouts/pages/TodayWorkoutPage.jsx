@@ -1595,6 +1595,7 @@ export default function TodayWorkoutPage() {
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
                     oneRmMap={oneRmMap}
+                    coachMode={coachMode}
                   />
                 ))}
               </div>
@@ -1628,6 +1629,7 @@ export default function TodayWorkoutPage() {
                     loggedDate={selectedDate}
                     prescriptionByEx={prescriptionByEx}
                     oneRmMap={oneRmMap}
+                    coachMode={coachMode}
                   />
                 ))}
               </div>

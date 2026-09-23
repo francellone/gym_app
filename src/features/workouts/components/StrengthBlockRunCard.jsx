@@ -30,6 +30,7 @@ export default function StrengthBlockRunCard({
   prescriptionByEx = {},
   // %RM (v39) — mapa de 1RM de la persona, para derivar los kilos
   oneRmMap = null,
+  coachMode = false,
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
@@ -97,6 +98,7 @@ export default function StrengthBlockRunCard({
         prescriptionChange={prescriptionByEx?.[ex.id] || null}
         // %RM — kilos derivados del máximo de la persona
         oneRmMap={oneRmMap}
+        coachMode={coachMode}
       />
     )
   }

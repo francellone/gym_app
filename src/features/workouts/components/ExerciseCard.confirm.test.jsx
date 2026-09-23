@@ -279,6 +279,57 @@ describe('NO LO HICE: el motivo guarda un omitido sin datos de ejecución', () =
   })
 })
 
+describe('modo coach: misma tarjeta, tercera persona', () => {
+  it('los tres botones y el título hablan de la persona, y el payload es idéntico', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({ coachMode: true })
+    await expand(user)
+    expect(screen.getByText(/lo que le dejaste/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /lo hizo distinto/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^no lo hizo$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /lo hice tal cual/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /lo hizo tal cual/i }))
+    expect(screen.getByText(/cómo le resultó/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /PSE 6/i }))
+    // El payload no sabe de la voz: source lo deriva la RPC del usuario logueado.
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({
+      p_reps: [10, 10, 10],
+      p_entry_mode: 'confirmed',
+      p_status: 'done',
+    })
+    expect(onSaveLog.mock.calls[0][1]).not.toHaveProperty('p_source')
+  })
+
+  it('los motivos de omisión también van en tercera persona', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({ coachMode: true })
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /^no lo hizo$/i }))
+    expect(screen.getByText(/por qué no lo hizo/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /no llegó con el tiempo/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({ p_status: 'skipped', p_skip_reason: 'time' })
+  })
+
+  it('la procedencia del peso se lee desde la coach', async () => {
+    const user = userEvent.setup()
+    renderCard({
+      coachMode: true,
+      planEx: planEx({ suggested_weights: null }),
+      lastLog: {
+        id: 'l-old',
+        logged_date: '2026-09-18',
+        completed: true,
+        status: 'done',
+        actual_weights_jsonb: [42, 42, 42],
+        actual_reps_jsonb: [10, 10, 10],
+      },
+    })
+    await expand(user)
+    expect(screen.getByText(/lo último que cargó/i)).toBeInTheDocument()
+    expect(screen.getByText(/no le pusiste kilos/i)).toBeInTheDocument()
+  })
+})
+
 describe('un log hecho muestra si fue confirmado o ajustado', () => {
   it('badge "tal cual" para entry_mode=confirmed', async () => {
     const user = userEvent.setup()

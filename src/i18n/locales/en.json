@@ -527,7 +527,21 @@
     "repsPerSetLabel": "Reps per set",
     "repsPerSidePerSetLabel": "Reps per side, per set",
     "unitPerSetLabel": "{{unit}} per set",
-    "weightPerSetLabel": "Weight per set"
+    "weightPerSetLabel": "Weight per set",
+    "prescribedTitleCoach": "What you set",
+    "weightFromLastTimeCoach": "The weight is the last one they logged, on {{date}}. You didn't set kg.",
+    "needWeightToConfirmCoach": "Weight missing. Enter it once and we'll suggest it next time.",
+    "confirmPsePromptCoach": "How did it feel for them? Tap the effort and it's saved.",
+    "skipReasonPromptCoach": "Why did they skip it?",
+    "skipReasonCoach": {
+      "choice": "Chose to skip it",
+      "time": "Ran out of time",
+      "discomfort": "Something bothered them"
+    },
+    "confirmAsPrescribedCoach": "Did it as set",
+    "adjustCoach": "Did it differently",
+    "didNotDoCoach": "Didn't do it",
+    "skippedCheckCoach": "Skipped"
   },
   "progress": {
     "title": "My progress",

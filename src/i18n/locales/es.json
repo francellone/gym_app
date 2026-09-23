@@ -527,7 +527,21 @@
     "repsPerSetLabel": "Reps por serie",
     "repsPerSidePerSetLabel": "Reps por lado, por serie",
     "unitPerSetLabel": "{{unit}} por serie",
-    "weightPerSetLabel": "Peso por serie"
+    "weightPerSetLabel": "Peso por serie",
+    "prescribedTitleCoach": "Lo que le dejaste",
+    "weightFromLastTimeCoach": "El peso es lo último que cargó, el {{date}}. No le pusiste kilos.",
+    "needWeightToConfirmCoach": "Falta el peso. Cargalo una vez y la próxima se lo proponemos.",
+    "confirmPsePromptCoach": "¿Cómo le resultó? Tocá el esfuerzo y queda guardado.",
+    "skipReasonPromptCoach": "¿Por qué no lo hizo?",
+    "skipReasonCoach": {
+      "choice": "Eligió no hacerlo",
+      "time": "No llegó con el tiempo",
+      "discomfort": "Le molestaba algo"
+    },
+    "confirmAsPrescribedCoach": "Lo hizo tal cual",
+    "adjustCoach": "Lo hizo distinto",
+    "didNotDoCoach": "No lo hizo",
+    "skippedCheckCoach": "No lo hizo"
   },
   "progress": {
     "title": "Mi progreso",

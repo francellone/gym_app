@@ -38,6 +38,8 @@ export default function BlockRenderer({
   prescriptionByEx = {},
   // %RM (v39) — mapa de 1RM de la persona (deriva los kilos del %)
   oneRmMap = null,
+  // v54: la coach registra por la persona → los textos van en tercera persona
+  coachMode = false,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -51,6 +53,7 @@ export default function BlockRenderer({
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
+        coachMode={coachMode}
       />
     )
   }
@@ -75,6 +78,7 @@ export default function BlockRenderer({
         noteCountByExercise={noteCountByExercise}
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
+        coachMode={coachMode}
         oneRmMap={oneRmMap}
       />
     )
@@ -95,6 +99,7 @@ export default function BlockRenderer({
       // F4 — draft local en ExerciseCard
       studentId={studentId}
       loggedDate={loggedDate}
+      coachMode={coachMode}
       // doc 48 — cambios de objetivo del coach
       prescriptionByEx={prescriptionByEx}
       // %RM — kilos derivados del máximo de la persona
