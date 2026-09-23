@@ -541,7 +541,18 @@
     "confirmAsPrescribedCoach": "Lo hizo tal cual",
     "adjustCoach": "Lo hizo distinto",
     "didNotDoCoach": "No lo hizo",
-    "skippedCheckCoach": "No lo hizo"
+    "skippedCheckCoach": "No lo hizo",
+    "roundsLabel": "Rondas",
+    "minutesLabel": "Minutos",
+    "formatLabel": "Formato",
+    "workRestShort": "{{work}}'' x {{rest}}''",
+    "zoneReferenceLabel": "Zona de referencia",
+    "noBlockPrescriptionToConfirm": "Este bloque no tiene nada prescripto para confirmar. Registralo a mano.",
+    "noWeightLoaded": "sin peso",
+    "noWeightForExercises": "Sin peso cargado: {{names}}. Si usaste, ponelo desde Lo hice distinto.",
+    "noWeightForExercisesCoach": "Sin peso cargado: {{names}}. Si usó, ponelo desde Lo hizo distinto.",
+    "weightsFromLastTime": "El peso de {{names}} es lo último que cargaste. Tu coach no puso kilos.",
+    "weightsFromLastTimeCoach": "El peso de {{names}} es lo último que cargó. No le pusiste kilos."
   },
   "progress": {
     "title": "Mi progreso",

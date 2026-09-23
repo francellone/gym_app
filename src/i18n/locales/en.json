@@ -541,7 +541,18 @@
     "confirmAsPrescribedCoach": "Did it as set",
     "adjustCoach": "Did it differently",
     "didNotDoCoach": "Didn't do it",
-    "skippedCheckCoach": "Skipped"
+    "skippedCheckCoach": "Skipped",
+    "roundsLabel": "Rounds",
+    "minutesLabel": "Minutes",
+    "formatLabel": "Format",
+    "workRestShort": "{{work}}'' x {{rest}}''",
+    "zoneReferenceLabel": "Reference zone",
+    "noBlockPrescriptionToConfirm": "This block has nothing set to confirm. Log it manually.",
+    "noWeightLoaded": "no weight",
+    "noWeightForExercises": "No weight set: {{names}}. If you used any, add it from Did it differently.",
+    "noWeightForExercisesCoach": "No weight set: {{names}}. If they used any, add it from Did it differently.",
+    "weightsFromLastTime": "The weight for {{names}} is the last one you logged. Your coach didn't set kg.",
+    "weightsFromLastTimeCoach": "The weight for {{names}} is the last one they logged. You didn't set kg."
   },
   "progress": {
     "title": "My progress",

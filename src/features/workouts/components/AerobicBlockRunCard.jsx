@@ -11,7 +11,10 @@ import {
   Activity,
   Trash2,
   PlayCircle,
+  MinusCircle,
 } from 'lucide-react'
+import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
+import BlockConfirmActions from './BlockConfirmActions'
 import {
   AEROBIC_FORMATS,
   AEROBIC_INTERVAL_FORMATS,
@@ -49,11 +52,12 @@ export default function AerobicBlockRunCard({
   onOpenChat,
   // viewstate — persistir bloque desplegado por día
   loggedDate = null,
+  // v54 — la coach registra por la persona: textos en tercera persona
+  coachMode = false,
 }) {
   const { t, i18n } = useTranslation()
-  const [expanded, setExpanded] = useState(() =>
-    readExpanded({ blockId: block.id, loggedDate })
-  )
+  const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
+  const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -64,23 +68,68 @@ export default function AerobicBlockRunCard({
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // v54: null | 'confirm' | 'skip' | 'reopen'
+  const [pendingAction, setPendingAction] = useState(null)
 
-  const completed = !!blockLog?.completed
-  const [form, setForm] = useState({
-    actual_minutes:
-      blockLog?.actual_minutes != null
-        ? String(blockLog.actual_minutes)
-        : block.aerobic_total_minutes
-          ? String(block.aerobic_total_minutes)
-          : '',
-    perceived_difficulty: blockLog?.perceived_difficulty ?? null,
-    notes: blockLog?.notes || '',
-  })
+  // v54: un bloque omitido tiene completed=false y status='skipped'.
+  const completed = isLogDone(blockLog)
+  const isSkipped = isLogSkipped(blockLog)
 
   const format = AEROBIC_FORMATS.find((f) => f.key === block.aerobic_format)
   const intensity = INTENSITY_LEVELS.find((i) => i.key === block.aerobic_intensity)
   const zone = AEROBIC_ZONES.find((z) => z.key === block.aerobic_zone)
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
+
+  // v54 — rondas prescriptas (solo intervalos). Hasta ahora la tarjeta no
+  // tenía dónde registrar rondas reales aunque el coach las prescribiera
+  // (caso real: AEROBICO BICI, 6 rondas de 60x60, 4 registros con rondas NULL).
+  const prescribedRounds =
+    showIntervals && block.aerobic_rounds ? Number(block.aerobic_rounds) : null
+  const secondsPerRound =
+    showIntervals && block.aerobic_work_seconds
+      ? Number(block.aerobic_work_seconds) + Number(block.aerobic_rest_seconds || 0)
+      : null
+  // Minutos prescriptos: los del plan; si faltan pero hay rondas y trabajo,
+  // se derivan (2 de los 6 aeróbicos por intervalos no tienen minutos).
+  const minutesFromRounds = (rounds) =>
+    rounds && secondsPerRound ? Math.round((rounds * secondsPerRound) / 60) : null
+  const suggestedMinutes =
+    block.aerobic_total_minutes || minutesFromRounds(prescribedRounds) || null
+
+  function buildPristineForm() {
+    return {
+      actual_minutes:
+        blockLog?.actual_minutes != null
+          ? String(blockLog.actual_minutes)
+          : suggestedMinutes
+            ? String(suggestedMinutes)
+            : '',
+      actual_rounds:
+        blockLog?.actual_rounds != null
+          ? String(blockLog.actual_rounds)
+          : prescribedRounds
+            ? String(prescribedRounds)
+            : '',
+      perceived_difficulty: blockLog?.perceived_difficulty ?? null,
+      notes: blockLog?.notes || '',
+    }
+  }
+  const [form, setForm] = useState(buildPristineForm)
+
+  // v54 — al cambiar las rondas, los minutos se recalculan con el trabajo y
+  // la pausa del plan (pisables después): 6→4 rondas de 60x60 lleva 12 a 8.
+  function handleRoundsChange(val) {
+    const n = parseInt(val)
+    const derived = Number.isFinite(n) ? minutesFromRounds(n) : null
+    setForm((p) => ({
+      ...p,
+      actual_rounds: val,
+      actual_minutes: derived != null ? String(derived) : p.actual_minutes,
+    }))
+  }
+
+  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  const canConfirm = !!suggestedMinutes
 
   const title = blockDisplayTitle(block)
   const firstPlanEx = block.plan_exercises?.[0]
@@ -98,16 +147,55 @@ export default function AerobicBlockRunCard({
     onOpenChat?.(exerciseId, exerciseName)
   }
 
-  async function save() {
+  // `entryMode`: 'confirmed' | 'edited'. `pseOverride`: el PSE del confirmar
+  // inline (setForm es asíncrono).
+  async function save({ entryMode = 'edited', pseOverride } = {}) {
+    const pse = pseOverride !== undefined ? pseOverride : form.perceived_difficulty
     setSaving(true)
     try {
       await onSaveLog({
         actual_minutes: form.actual_minutes ? parseFloat(form.actual_minutes) : null,
-        perceived_difficulty: form.perceived_difficulty || null,
+        actual_rounds: form.actual_rounds ? parseInt(form.actual_rounds) : null,
+        perceived_difficulty: pse || null,
         notes: form.notes || null,
         completed: true,
+        // v54
+        status: 'done',
+        skip_reason: null,
+        entry_mode: entryMode,
       })
       setEditing(false)
+      setPendingAction(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // v54 — CONFIRMAR: el toque sobre el PSE guarda minutos y rondas prescriptas.
+  async function confirmWithPse(pse) {
+    setForm((p) => ({ ...p, perceived_difficulty: pse }))
+    await save({ entryMode: 'confirmed', pseOverride: pse })
+  }
+
+  // v54 — NO LO HICE: datos en NULL, nunca en 0.
+  async function skipWith(reason) {
+    if (!SKIP_REASONS.includes(reason)) return
+    setSaving(true)
+    try {
+      await onSaveLog({
+        actual_minutes: null,
+        actual_rounds: null,
+        perceived_difficulty: null,
+        notes: null,
+        completed: false,
+        status: 'skipped',
+        skip_reason: reason,
+        entry_mode: null,
+      })
+      setEditing(false)
+      setPendingAction(null)
     } catch (err) {
       console.error(err)
     } finally {
@@ -118,12 +206,14 @@ export default function AerobicBlockRunCard({
   async function handleDelete() {
     await onDeleteLog()
     setForm({
-      actual_minutes: block.aerobic_total_minutes ? String(block.aerobic_total_minutes) : '',
+      actual_minutes: suggestedMinutes ? String(suggestedMinutes) : '',
+      actual_rounds: prescribedRounds ? String(prescribedRounds) : '',
       perceived_difficulty: null,
       notes: '',
     })
     setConfirmDelete(false)
     setEditing(false)
+    setPendingAction(null)
     setExpanded(false)
   }
 
@@ -154,7 +244,11 @@ export default function AerobicBlockRunCard({
 
       <div
         className={`rounded-2xl border-2 transition-all overflow-hidden ${
-          completed ? 'border-sky-200 bg-sky-50' : 'border-gray-100 bg-white'
+          completed
+            ? 'border-sky-200 bg-sky-50'
+            : isSkipped
+              ? 'border-amber-200 bg-amber-50/60'
+              : 'border-gray-100 bg-white'
         }`}
       >
         <div
@@ -164,12 +258,25 @@ export default function AerobicBlockRunCard({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              if (!completed) setEditing(true)
+              if (completed) return
+              // v54: el círculo es el atajo a la vista de confirmación
+              setExpanded(true)
+              setEditing(false)
+              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
             }}
             className="flex-shrink-0"
+            aria-label={
+              completed
+                ? t('workout.completedCheck')
+                : isSkipped
+                  ? tv('workout.skippedCheck')
+                  : t('workout.logBlock')
+            }
           >
             {completed ? (
               <CheckCircle2 size={24} className="text-sky-500" />
+            ) : isSkipped ? (
+              <MinusCircle size={24} className="text-amber-500" />
             ) : (
               <Circle size={24} className="text-gray-300" />
             )}
@@ -202,12 +309,21 @@ export default function AerobicBlockRunCard({
               noteCount={noteCount}
               onOpenChat={handleOpenChat}
             />
-            {blockLog && !expanded && (
+            {isSkipped && !expanded && (
+              <p className="text-xs text-amber-700 mt-0.5 font-medium">
+                {tv('workout.skippedCheck')}
+                {blockLog?.skip_reason &&
+                  ` · ${t(coachMode ? `workout.skipReasonCoach.${blockLog.skip_reason}` : `workout.skipReason.${blockLog.skip_reason}`)}`}
+              </p>
+            )}
+            {completed && !expanded && (
               <p className="text-xs text-sky-600 mt-0.5 font-medium">
                 ✓{' '}
                 {[
                   blockLog.actual_minutes &&
                     t('workout.minutesShort', { value: blockLog.actual_minutes }),
+                  blockLog.actual_rounds != null &&
+                    t('workout.rounds', { count: blockLog.actual_rounds }),
                   blockLog.perceived_difficulty &&
                     t('workout.pseValue', { value: blockLog.perceived_difficulty }),
                 ]
@@ -340,24 +456,122 @@ export default function AerobicBlockRunCard({
               </div>
             )}
 
-            {/* Formulario */}
-            {!completed || editing ? (
+            {/* v54 — vista de confirmación del bloque */}
+            {showConfirmView ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-700">{t('workout.logBlock')}</p>
+                <p className="text-xs font-semibold text-gray-700">
+                  {tv('workout.prescribedTitle')}
+                </p>
+                {canConfirm ? (
+                  <dl className="rounded-xl bg-white border border-gray-200 divide-y divide-gray-100 text-sm">
+                    {format && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.formatLabel')}</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {t(`workout.aerobicFormats.${format.key}`, {
+                            defaultValue: format.label,
+                          })}
+                        </dd>
+                      </div>
+                    )}
+                    {prescribedRounds && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.roundsLabel')}</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {form.actual_rounds || '—'}
+                          {secondsPerRound && (
+                            <span className="ml-1.5 font-normal text-gray-500 text-xs">
+                              {t('workout.workRestShort', {
+                                work: block.aerobic_work_seconds,
+                                rest: block.aerobic_rest_seconds || 0,
+                              })}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <dt className="text-gray-500">{t('workout.minutesLabel')}</dt>
+                      <dd className="font-semibold text-gray-900">{form.actual_minutes || '—'}</dd>
+                    </div>
+                    {zone && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.zoneReferenceLabel')}</dt>
+                        <dd
+                          className={`inline-block px-2 py-0.5 rounded-full text-[11px] border ${zone.color} font-semibold`}
+                        >
+                          {zone.label}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    {t('workout.noBlockPrescriptionToConfirm')}
+                  </p>
+                )}
+                <BlockConfirmActions
+                  pendingAction={pendingAction === 'reopen' ? null : pendingAction}
+                  onPendingChange={setPendingAction}
+                  canConfirm={canConfirm}
+                  onConfirm={confirmWithPse}
+                  onAdjust={() => {
+                    setPendingAction(null)
+                    setEditing(true)
+                  }}
+                  onSkip={skipWith}
+                  saving={saving}
+                  coachMode={coachMode}
+                  pseVariant="cardio"
+                />
+              </div>
+            ) : editing ? (
+              <div className="space-y-3 bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">{t('workout.logBlock')}</p>
+                  {!completed && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="text-[11px] text-gray-500 underline underline-offset-2"
+                    >
+                      {t('common.back')}
+                    </button>
+                  )}
+                </div>
 
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">
-                    {t('workout.actualDurationMin')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    className="input text-sm"
-                    placeholder={block.aerobic_total_minutes || '20'}
-                    value={form.actual_minutes}
-                    onChange={(e) => setForm((p) => ({ ...p, actual_minutes: e.target.value }))}
-                  />
+                <div className={`grid gap-2 ${prescribedRounds ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {prescribedRounds && (
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">
+                        {t('workout.roundsCompleted')}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input text-sm"
+                        placeholder="—"
+                        value={form.actual_rounds}
+                        onChange={(e) => handleRoundsChange(e.target.value)}
+                        aria-label={t('workout.roundsCompleted')}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      {t('workout.actualDurationMin')}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className="input text-sm"
+                      placeholder="min"
+                      value={form.actual_minutes}
+                      onChange={(e) => setForm((p) => ({ ...p, actual_minutes: e.target.value }))}
+                      aria-label={t('workout.actualDurationMin')}
+                    />
+                  </div>
                 </div>
 
                 <RPEScale
@@ -381,7 +595,7 @@ export default function AerobicBlockRunCard({
                 </div>
 
                 <button
-                  onClick={save}
+                  onClick={() => save({ entryMode: 'edited' })}
                   disabled={saving}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                 >
@@ -394,13 +608,56 @@ export default function AerobicBlockRunCard({
                   )}
                 </button>
               </div>
+            ) : isSkipped ? (
+              <div className="bg-amber-50 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                  <MinusCircle size={13} />
+                  {tv('workout.skippedCheck')}
+                </p>
+                {blockLog?.skip_reason && (
+                  <p className="text-xs text-amber-700">
+                    {t(
+                      coachMode
+                        ? `workout.skipReasonCoach.${blockLog.skip_reason}`
+                        : `workout.skipReason.${blockLog.skip_reason}`
+                    )}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction('reopen')}
+                    className="text-xs text-amber-800 underline"
+                  >
+                    {t('workout.change')}
+                  </button>
+                  <span className="text-amber-300 text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
+                  >
+                    <Trash2 size={11} />
+                    {t('workout.unmark')}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="bg-sky-100 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-sky-700">{t('workout.completedCheck')}</p>
+                <p className="text-xs font-semibold text-sky-700 flex items-center gap-2">
+                  {t('workout.completedCheck')}
+                  {blockLog?.entry_mode && (
+                    <span className="badge bg-sky-200 text-sky-800 text-[10px] font-medium">
+                      {t(`workout.entryMode.${blockLog.entry_mode}`)}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-sky-700">
                   {[
                     blockLog?.actual_minutes &&
                       t('workout.minutesShort', { value: blockLog.actual_minutes }),
+                    blockLog?.actual_rounds != null &&
+                      t('workout.rounds', { count: blockLog.actual_rounds }),
                     blockLog?.perceived_difficulty &&
                       t('workout.pseValue', { value: blockLog.perceived_difficulty }),
                   ]

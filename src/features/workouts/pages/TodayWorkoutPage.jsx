@@ -838,11 +838,14 @@ export default function TodayWorkoutPage() {
       return
     }
 
+    // v54: declarar "no lo hice" NO es entrenar (idem saveLog).
+    const isSkip = data?.status === 'skipped'
+
     // Garantizar workout_session también para bloques retroactivos (idem
     // saveLog). Ver comentario allí: el back exige started_at antes que
     // cualquier finished_at, y dejar workout_block_logs huérfanos rompe
     // las mismas métricas que workout_logs huérfanos.
-    if (assignment && !session?.started_at) {
+    if (!isSkip && assignment && !session?.started_at) {
       try {
         await upsertSession({ started_at: new Date().toISOString() })
       } catch (err) {
@@ -853,7 +856,7 @@ export default function TodayWorkoutPage() {
     }
 
     // Aviso de wellbeing pendiente al primer registro del día (no bloqueante)
-    maybeFireWellbeingStartAviso()
+    if (!isSkip) maybeFireWellbeingStartAviso()
 
     // La columna workout_block_logs.notes se dropeó en v26d.
     // Extraemos `notes` del data y la persistimos como mirror en el panel

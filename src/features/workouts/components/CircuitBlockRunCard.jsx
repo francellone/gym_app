@@ -11,7 +11,12 @@ import {
   Flame,
   Trash2,
   PlayCircle,
+  MinusCircle,
+  History,
 } from 'lucide-react'
+import { expandPerSet } from '@/features/plans/prescriptionRead'
+import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
+import BlockConfirmActions from './BlockConfirmActions'
 import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
@@ -64,11 +69,12 @@ export default function CircuitBlockRunCard({
   loggedDate = null,
   // %RM (v39) — mapa de 1RM de la persona, para derivar los kilos del %
   oneRmMap = null,
+  // v54 — la coach registra por la persona: textos en tercera persona
+  coachMode = false,
 }) {
   const { t, i18n } = useTranslation()
-  const [expanded, setExpanded] = useState(() =>
-    readExpanded({ blockId: block.id, loggedDate })
-  )
+  const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
+  const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -80,8 +86,12 @@ export default function CircuitBlockRunCard({
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // v54: null | 'confirm' | 'skip' | 'reopen' (un omitido vuelve a la vista)
+  const [pendingAction, setPendingAction] = useState(null)
 
-  const completed = !!blockLog?.completed
+  // v54: un bloque omitido tiene completed=false y status='skipped'.
+  const completed = isLogDone(blockLog)
+  const isSkipped = isLogSkipped(blockLog)
   const circuitType = CIRCUIT_TYPES.find((t) => t.key === block.circuit_type)
   const intensity = INTENSITY_LEVELS.find((i) => i.key === block.circuit_intensity)
 
@@ -113,36 +123,94 @@ export default function CircuitBlockRunCard({
     notes: blockLog?.notes || '',
   })
 
+  // v54 — lo prescripto para un ejercicio del circuito, leído como lo guarda
+  // el armador (un valor por ejercicio). Peso: %RM derivado → del coach →
+  // lo último que cargó la persona (solo positivo; los logs viejos "en cero"
+  // no vuelven) → vacío. `weightSource` dice de dónde salió, para decirlo.
+  function prescribedFor(ex) {
+    const exWeightMode = getEffectiveWeightMode({ planExercise: ex, exercise: ex.exercise })
+    const showWeight = exWeightMode !== 'bodyweight'
+    const isTime = ex.exercise_mode === 'time'
+    const reps = isTime ? '' : expandPerSet(ex.suggested_reps, 1)[0] || ''
+    const time = isTime && ex.duration_seconds ? String(ex.duration_seconds) : ''
+    let weight = ''
+    let weightSource = null
+    if (showWeight) {
+      const pct = resolvePrescribedWeight({
+        planExercise: ex,
+        block,
+        oneRmMap,
+        weightMode: exWeightMode,
+        today: loggedDate,
+      })
+      const legacy =
+        ex.suggested_weight && ex.suggested_weight !== 'None'
+          ? String(ex.suggested_weight).replace(/[^0-9.]/g, '')
+          : ''
+      const coach = expandPerSet(ex.suggested_weights, 1)[0] || legacy
+      if (pct.kg != null) {
+        weight = String(pct.kg)
+        weightSource = 'pct1rm'
+      } else if (coach) {
+        weight = coach
+        weightSource = 'plan'
+      } else {
+        const last = lastLogByExercise?.get?.(ex.exercise_id) || null
+        if (isLogDone(last)) {
+          const nums = readLogWeights(last)
+            .map((w) => parseFloat(w))
+            .filter((n) => Number.isFinite(n) && n > 0)
+          if (nums.length > 0) {
+            weight = String(Math.max(...nums))
+            weightSource = 'last'
+          }
+        }
+      }
+    }
+    return { reps, time, weight, weightSource, showWeight, isTime }
+  }
+
   // Estado por ejercicio del circuito: { [planExerciseId]: { actual_reps, actual_weight, actual_time } }
   // Los inputs son simples (1 valor por ejercicio en circuito, no por serie),
   // pero al guardar lo convertimos a jsonb array [n] para la RPC.
-  const [exForm, setExForm] = useState(() => {
+  // v54: sin log, arranca con lo PRESCRIPTO (antes arrancaba vacío), así la
+  // vista de confirmación muestra qué se va a guardar y ajustar viene lleno.
+  function buildExFormPristine() {
     const init = {}
     for (const ex of block.plan_exercises || []) {
       const log = exerciseLogs[ex.id]
+      const pre = prescribedFor(ex)
       // Leer del jsonb si está, sino del legacy
       const repsArr = log ? readLogReps(log) : []
       const wArr = log ? readLogWeights(log) : []
       init[ex.id] = {
-        actual_reps: repsArr.length > 0 ? String(repsArr[0]) : '',
-        actual_weight: wArr.length > 0 && wArr[0] != null ? String(wArr[0]) : '',
-        actual_time: log?.notes_runtime ?? '', // placeholder
+        actual_reps: repsArr.length > 0 ? String(repsArr[0]) : pre.reps,
+        actual_weight: wArr.length > 0 && wArr[0] != null ? String(wArr[0]) : pre.weight,
+        actual_time: log?.notes_runtime ?? pre.time, // el tiempo no se lee del log (va en la nota)
       }
     }
     return init
-  })
+  }
+  const [exForm, setExForm] = useState(buildExFormPristine)
 
   const title = blockDisplayTitle(block)
 
-  async function saveBlock() {
+  // `entryMode`: 'confirmed' (lo hizo tal cual) | 'edited' (ajustó).
+  // `pseOverride`: el PSE del confirmar inline (setForm es asíncrono).
+  async function saveBlock({ entryMode = 'edited', pseOverride } = {}) {
+    const pse = pseOverride !== undefined ? pseOverride : form.perceived_difficulty
     setSaving(true)
     try {
       await onSaveBlockLog({
         actual_minutes: form.actual_minutes ? parseFloat(form.actual_minutes) : null,
         actual_rounds: form.actual_rounds ? parseInt(form.actual_rounds) : null,
-        perceived_difficulty: form.perceived_difficulty || null,
+        perceived_difficulty: pse || null,
         notes: form.notes || null,
         completed: true,
+        // v54
+        status: 'done',
+        skip_reason: null,
+        entry_mode: entryMode,
       })
       // Guardar logs de ejercicios del circuito (si hay detalle cargado).
       // Construimos el payload con el formato de la RPC save_workout_log:
@@ -185,10 +253,15 @@ export default function CircuitBlockRunCard({
           p_perceived_difficulty_label: null,
           p_notes: null,
           p_completed: true,
+          // v54: el ejercicio hereda el modo del bloque
+          p_status: 'done',
+          p_skip_reason: null,
+          p_entry_mode: entryMode,
           _noteBody: data.actual_time ? `Tiempo: ${data.actual_time}s` : '',
         })
       }
       setEditing(false)
+      setPendingAction(null)
     } catch (err) {
       console.error(err)
     } finally {
@@ -196,10 +269,62 @@ export default function CircuitBlockRunCard({
     }
   }
 
+  // v54 — CONFIRMAR: el toque sobre el PSE del bloque guarda todo.
+  async function confirmWithPse(pse) {
+    setForm((p) => ({ ...p, perceived_difficulty: pse }))
+    await saveBlock({ entryMode: 'confirmed', pseOverride: pse })
+  }
+
+  // v54 — NO LO HICE: solo el registro del bloque, como omitido. Ningún
+  // registro por ejercicio (no se omitieron burpees, se omitió el circuito;
+  // decisión Franco 2026-09-23). Datos en NULL, nunca en 0.
+  async function skipWith(reason) {
+    if (!SKIP_REASONS.includes(reason)) return
+    setSaving(true)
+    try {
+      await onSaveBlockLog({
+        actual_minutes: null,
+        actual_rounds: null,
+        perceived_difficulty: null,
+        notes: null,
+        completed: false,
+        status: 'skipped',
+        skip_reason: reason,
+        entry_mode: null,
+      })
+      setEditing(false)
+      setPendingAction(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // v54 — vista de confirmación y qué se puede confirmar
+  const exercisesForView = (block.plan_exercises || []).map((ex) => ({
+    ex,
+    pre: prescribedFor(ex),
+    data: exForm[ex.id] || {},
+  }))
+  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  const blockHasPrescription = !!(suggestedMinutes || block.circuit_rounds)
+  const anyExercisePrescribed = exercisesForView.some(
+    ({ pre, data }) => (pre.isTime ? data.actual_time : data.actual_reps) !== ''
+  )
+  const canConfirm = blockHasPrescription || anyExercisePrescribed
+  // Ejercicios con peso que no tienen kilos a la vista: se confirma igual,
+  // avisando (decisión Franco 2026-09-23).
+  const missingWeightNames = exercisesForView
+    .filter(({ pre, data }) => pre.showWeight && !pre.isTime && !data.actual_weight)
+    .map(({ ex }) => exerciseDisplay(ex.exercise, i18n.language).name || '—')
+  const lastWeightSources = exercisesForView.filter(({ pre }) => pre.weightSource === 'last')
+
   async function handleDelete() {
     await onDeleteBlockLog()
     setConfirmDelete(false)
     setEditing(false)
+    setPendingAction(null)
     setExpanded(false)
   }
 
@@ -230,7 +355,11 @@ export default function CircuitBlockRunCard({
 
       <div
         className={`rounded-2xl border-2 transition-all overflow-hidden ${
-          completed ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'
+          completed
+            ? 'border-orange-200 bg-orange-50'
+            : isSkipped
+              ? 'border-amber-200 bg-amber-50/60'
+              : 'border-gray-100 bg-white'
         }`}
       >
         {/* Header */}
@@ -241,12 +370,25 @@ export default function CircuitBlockRunCard({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              if (!completed) setEditing(true)
+              if (completed) return
+              // v54: el círculo es el atajo a la vista de confirmación
+              setExpanded(true)
+              setEditing(false)
+              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
             }}
             className="flex-shrink-0"
+            aria-label={
+              completed
+                ? t('workout.blockCompletedCheck')
+                : isSkipped
+                  ? tv('workout.skippedCheck')
+                  : t('workout.logBlock')
+            }
           >
             {completed ? (
               <CheckCircle2 size={24} className="text-orange-500" />
+            ) : isSkipped ? (
+              <MinusCircle size={24} className="text-amber-500" />
             ) : (
               <Circle size={24} className="text-gray-300" />
             )}
@@ -281,7 +423,14 @@ export default function CircuitBlockRunCard({
             </p>
             {/* Q1 — "Última vez" del bloque circuito (block-level) */}
             <ExerciseHistoryHeaderLine lastBlockLog={lastBlockLog} noteCount={0} />
-            {blockLog && !expanded && (
+            {isSkipped && !expanded && (
+              <p className="text-xs text-amber-700 mt-0.5 font-medium">
+                {tv('workout.skippedCheck')}
+                {blockLog?.skip_reason &&
+                  ` · ${t(coachMode ? `workout.skipReasonCoach.${blockLog.skip_reason}` : `workout.skipReason.${blockLog.skip_reason}`)}`}
+              </p>
+            )}
+            {completed && !expanded && (
               <p className="text-xs text-orange-600 mt-0.5 font-medium">
                 ✓{' '}
                 {[
@@ -445,8 +594,29 @@ export default function CircuitBlockRunCard({
                         </div>
                       )}
 
+                      {/* v54 — lectura: lo que se va a confirmar */}
+                      {showConfirmView && (
+                        <p className="mt-1.5 text-sm font-semibold text-gray-900">
+                          {ex.exercise_mode === 'time'
+                            ? exForm[ex.id]?.actual_time
+                              ? t('workout.secondsShort', { value: exForm[ex.id].actual_time })
+                              : '—'
+                            : [
+                                exForm[ex.id]?.actual_reps
+                                  ? `${exForm[ex.id].actual_reps} ${exUnilateral ? t('workout.repsPerSideLower') : t('workout.repsLower')}`
+                                  : '—',
+                                showWeight &&
+                                  (exForm[ex.id]?.actual_weight
+                                    ? `${exForm[ex.id].actual_weight} kg`
+                                    : t('workout.noWeightLoaded')),
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        </p>
+                      )}
+
                       {/* Detalle editable */}
-                      {(!completed || editing) && (
+                      {editing && (
                         <div
                           className={`grid gap-2 mt-2 ${showWeight && ex.exercise_mode !== 'time' ? 'grid-cols-2' : 'grid-cols-1'}`}
                         >
@@ -459,7 +629,7 @@ export default function CircuitBlockRunCard({
                                 type="number"
                                 min="0"
                                 className="input text-sm"
-                                placeholder={String(ex.duration_seconds || '')}
+                                placeholder="s"
                                 value={exForm[ex.id]?.actual_time || ''}
                                 onChange={(e) =>
                                   setExForm((p) => ({
@@ -477,7 +647,7 @@ export default function CircuitBlockRunCard({
                                 </label>
                                 <input
                                   className="input text-sm"
-                                  placeholder={ex.suggested_reps || ''}
+                                  placeholder="—"
                                   value={exForm[ex.id]?.actual_reps || ''}
                                   onChange={(e) =>
                                     setExForm((p) => ({
@@ -497,7 +667,7 @@ export default function CircuitBlockRunCard({
                                     step="0.5"
                                     min="0"
                                     className="input text-sm"
-                                    placeholder={ex.suggested_weight || ''}
+                                    placeholder="kg"
                                     value={exForm[ex.id]?.actual_weight || ''}
                                     onChange={(e) =>
                                       setExForm((p) => ({
@@ -521,10 +691,82 @@ export default function CircuitBlockRunCard({
               </div>
             )}
 
-            {/* Form del bloque */}
-            {!completed || editing ? (
+            {/* v54 — vista de confirmación del bloque */}
+            {showConfirmView ? (
               <div className="space-y-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-700">{t('workout.blockClosure')}</p>
+                <p className="text-xs font-semibold text-gray-700">
+                  {tv('workout.prescribedTitle')}
+                </p>
+                {blockHasPrescription ? (
+                  <dl className="rounded-xl bg-white border border-gray-200 divide-y divide-gray-100 text-sm">
+                    {block.circuit_rounds && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.roundsLabel')}</dt>
+                        <dd className="font-semibold text-gray-900">{form.actual_rounds || '—'}</dd>
+                      </div>
+                    )}
+                    {suggestedMinutes && (
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <dt className="text-gray-500">{t('workout.minutesLabel')}</dt>
+                        <dd className="font-semibold text-gray-900">
+                          {form.actual_minutes || '—'}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                ) : (
+                  !anyExercisePrescribed && (
+                    <p className="text-xs text-gray-500">
+                      {t('workout.noBlockPrescriptionToConfirm')}
+                    </p>
+                  )
+                )}
+                {lastWeightSources.length > 0 && (
+                  <p className="text-[11px] text-indigo-600 flex items-start gap-1">
+                    <History size={11} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      {tv('workout.weightsFromLastTime', {
+                        names: lastWeightSources
+                          .map(({ ex }) => exerciseDisplay(ex.exercise, i18n.language).name)
+                          .join(', '),
+                      })}
+                    </span>
+                  </p>
+                )}
+                <BlockConfirmActions
+                  pendingAction={pendingAction === 'reopen' ? null : pendingAction}
+                  onPendingChange={setPendingAction}
+                  canConfirm={canConfirm}
+                  confirmHint={
+                    missingWeightNames.length > 0
+                      ? tv('workout.noWeightForExercises', { names: missingWeightNames.join(', ') })
+                      : null
+                  }
+                  onConfirm={confirmWithPse}
+                  onAdjust={() => {
+                    setPendingAction(null)
+                    setEditing(true)
+                  }}
+                  onSkip={skipWith}
+                  saving={saving}
+                  coachMode={coachMode}
+                  pseVariant="circuit"
+                />
+              </div>
+            ) : editing ? (
+              <div className="space-y-3 bg-gray-50 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">{t('workout.blockClosure')}</p>
+                  {!completed && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="text-[11px] text-gray-500 underline underline-offset-2"
+                    >
+                      {t('common.back')}
+                    </button>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -577,7 +819,7 @@ export default function CircuitBlockRunCard({
                 </div>
 
                 <button
-                  onClick={saveBlock}
+                  onClick={() => saveBlock({ entryMode: 'edited' })}
                   disabled={saving}
                   className="btn-primary w-full flex items-center justify-center gap-2 text-sm"
                 >
@@ -590,10 +832,49 @@ export default function CircuitBlockRunCard({
                   )}
                 </button>
               </div>
+            ) : isSkipped ? (
+              <div className="bg-amber-50 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                  <MinusCircle size={13} />
+                  {tv('workout.skippedCheck')}
+                </p>
+                {blockLog?.skip_reason && (
+                  <p className="text-xs text-amber-700">
+                    {t(
+                      coachMode
+                        ? `workout.skipReasonCoach.${blockLog.skip_reason}`
+                        : `workout.skipReason.${blockLog.skip_reason}`
+                    )}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction('reopen')}
+                    className="text-xs text-amber-800 underline"
+                  >
+                    {t('workout.change')}
+                  </button>
+                  <span className="text-amber-300 text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
+                  >
+                    <Trash2 size={11} />
+                    {t('workout.unmark')}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="bg-orange-100 rounded-xl p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-orange-700">
+                <p className="text-xs font-semibold text-orange-700 flex items-center gap-2">
                   {t('workout.blockCompletedCheck')}
+                  {blockLog?.entry_mode && (
+                    <span className="badge bg-orange-200 text-orange-800 text-[10px] font-medium">
+                      {t(`workout.entryMode.${blockLog.entry_mode}`)}
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-orange-700">
                   {[
