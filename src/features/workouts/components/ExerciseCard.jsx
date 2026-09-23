@@ -14,6 +14,7 @@ import {
   MinusCircle,
   Pencil,
   History,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { cascadeSetValue } from '@/features/plans/seriesCascade'
 import { expandPerSet, isUniformPerSet } from '@/features/plans/prescriptionRead'
@@ -134,6 +135,9 @@ export default function ExerciseCard({
   //   null | 'confirm' (PSE desplegado) | 'skip' (motivos desplegados)
   //   | 'reopen' (un omitido volvió a la vista de confirmación para cambiar)
   const [pendingAction, setPendingAction] = useState(null)
+  // v54: el campo de comentario dentro de la vista de confirmación (antes
+  // solo existía al pie del formulario, que ahora vive en "ajustar").
+  const [showQuickNote, setShowQuickNote] = useState(false)
 
   // setsCount: cantidad sugerida por el coach (para inicialización y display)
   const setsCount = parseInt(suggestedSets || planEx.suggested_sets) || 0
@@ -578,20 +582,28 @@ export default function ExerciseCard({
     await doSave(data)
   }
 
+  // v54: la tarjeta pasa a "hecho" ANTES de que el servidor responda (el
+  // padre también proyecta el registro en `logs`). Si el guardado falla,
+  // vuelve al estado anterior; el padre ya mostró el aviso de error.
   async function doSave(data) {
     setWarning(null)
     setPendingData(null)
+    const wasEditing = editing
+    const prevAction = pendingAction
+    setLogData((p) => ({ ...p, completed: true }))
+    setEditing(false)
+    setPendingAction(null)
     setSaving(true)
     try {
       await onSaveLog(planEx.id, data)
-      setLogData((p) => ({ ...p, completed: true }))
-      setEditing(false)
-      setPendingAction(null)
       // F4: save server exitoso → el draft local ya no tiene razón de ser.
       clearDraft()
       setDraftHintDismissed(true)
     } catch (err) {
       console.error(err)
+      setLogData((p) => ({ ...p, completed: false }))
+      setEditing(wasEditing)
+      setPendingAction(prevAction)
     } finally {
       setSaving(false)
     }
@@ -614,16 +626,20 @@ export default function ExerciseCard({
   // v54 — NO LO HICE: el toque sobre el motivo guarda.
   async function skipWith(reason) {
     if (!SKIP_REASONS.includes(reason)) return
+    const prevAction = pendingAction
+    // Optimista: el padre proyecta el log omitido en `logs` al instante y
+    // la tarjeta lo lee de ahí (isSkipped). Acá solo cerramos los paneles.
+    setLogData((p) => ({ ...p, completed: false, perceived_difficulty: null }))
+    setEditing(false)
+    setPendingAction(null)
     setSaving(true)
     try {
       await onSaveLog(planEx.id, buildSkipData(reason))
-      setLogData((p) => ({ ...p, completed: false, perceived_difficulty: null }))
-      setEditing(false)
-      setPendingAction(null)
       clearDraft()
       setDraftHintDismissed(true)
     } catch (err) {
       console.error(err)
+      setPendingAction(prevAction)
     } finally {
       setSaving(false)
     }
@@ -1071,6 +1087,32 @@ export default function ExerciseCard({
                 )}
                 {setsForConfirm > 0 && showWeightInputs && !weightsReady && (
                   <p className="text-[11px] text-amber-700">{tv('workout.needWeightToConfirm')}</p>
+                )}
+
+                {/* v54 — comentario a mano en el camino rápido */}
+                {showQuickNote || logData.notes ? (
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">
+                      {t('workout.observations')}
+                    </label>
+                    <textarea
+                      className="input text-sm resize-none"
+                      rows={2}
+                      autoFocus={showQuickNote && !logData.notes}
+                      placeholder={t('workout.howDidItGoPlaceholder')}
+                      value={logData.notes}
+                      onChange={(e) => setLogData((p) => ({ ...p, notes: e.target.value }))}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickNote(true)}
+                    className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 underline underline-offset-2"
+                  >
+                    <MessageSquarePlus size={13} />
+                    {t('workout.addComment')}
+                  </button>
                 )}
 
                 {pendingAction === 'confirm' ? (

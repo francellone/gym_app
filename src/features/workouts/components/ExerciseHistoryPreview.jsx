@@ -50,7 +50,9 @@ export function ExerciseHistoryHeaderLine({
   const { t } = useTranslation()
   const log = lastLog || lastBlockLog
   const hasLog = !!log
-  const hasChat = noteCount > 0
+  // v54: el chat siempre tiene puerta (antes solo con mensajes; en un
+  // ejercicio nuevo no había forma visible de comentar).
+  const hasChat = typeof onOpenChat === 'function'
   if (!hasLog && !hasChat) return null
 
   const summary = lastLog
@@ -84,8 +86,10 @@ export function ExerciseHistoryHeaderLine({
             e.stopPropagation()
             onOpenChat?.()
           }}
-          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 hover:bg-primary-200 font-semibold transition-colors flex-shrink-0 ${
-            isCompact ? 'text-[10px]' : 'text-[10px]'
+          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-semibold transition-colors flex-shrink-0 text-[10px] ${
+            noteCount > 0
+              ? 'bg-primary-100 text-primary-700 hover:bg-primary-200'
+              : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
           }`}
           aria-label={t('workout.seeExerciseChatAria', { count: noteCount })}
         >

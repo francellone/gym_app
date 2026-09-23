@@ -106,6 +106,50 @@ const SECTION_EMOJIS = {
 // ============================================================
 // Página principal
 // ============================================================
+// ============================================================
+// projectWorkoutLog — la fila de workout_logs que la RPC va a producir
+// ------------------------------------------------------------
+// v54, guardado optimista. Replica lo que hace save_workout_log con los
+// p_* (doble escritura a las columnas legacy incluida) para que la tarjeta
+// pinte el resultado antes de que el servidor responda. Sin id cuando es un
+// INSERT: se completa al volver la RPC.
+// ============================================================
+function projectWorkoutLog({ existingLog, rpcArgs, noteBody, source, loggedBy }) {
+  const reps = rpcArgs.p_reps ?? null
+  const weights = rpcArgs.p_weights ?? null
+  const skipped = rpcArgs.p_status === 'skipped'
+  const firstWeight = Array.isArray(weights)
+    ? (weights.find((w) => typeof w === 'number') ?? null)
+    : null
+  return {
+    ...(existingLog || {}),
+    student_id: rpcArgs.p_student_id,
+    plan_id: rpcArgs.p_plan_id,
+    plan_exercise_id: rpcArgs.p_plan_exercise_id,
+    logged_date: rpcArgs.p_logged_date,
+    logged_late: !!rpcArgs.p_logged_late,
+    actual_sets: skipped ? 0 : (rpcArgs.p_actual_sets ?? (reps ? reps.length : null)),
+    actual_reps_jsonb: skipped ? null : reps,
+    actual_weights_jsonb: skipped ? null : weights,
+    actual_reps: skipped || !reps ? null : JSON.stringify(reps),
+    actual_weights: skipped || !weights ? null : JSON.stringify(weights),
+    actual_weight: skipped ? null : firstWeight,
+    weight_mode: rpcArgs.p_weight_mode,
+    unilateral: !!rpcArgs.p_unilateral,
+    reps_unit: rpcArgs.p_reps_unit ?? null,
+    perceived_difficulty: rpcArgs.p_perceived_difficulty ?? null,
+    perceived_difficulty_label: rpcArgs.p_perceived_difficulty_label ?? null,
+    completed: skipped ? false : rpcArgs.p_completed !== false,
+    status: rpcArgs.p_status ?? 'done',
+    skip_reason: rpcArgs.p_skip_reason ?? null,
+    entry_mode: rpcArgs.p_entry_mode ?? null,
+    source,
+    logged_by: loggedBy ?? existingLog?.logged_by ?? null,
+    notes: noteBody || '',
+    updated_at: new Date().toISOString(),
+  }
+}
+
 export default function TodayWorkoutPage() {
   // `i18n` del contexto, NO la instancia global: en modo coach esta pantalla
   // corre en una instancia clonada con el idioma de la alumna.
@@ -753,9 +797,34 @@ export default function TodayWorkoutPage() {
       existingLog,
     })
 
+    // ── v54: PINTAR PRIMERO, CONFIRMAR POR DETRÁS ─────────────────────────
+    // Con el registro por confirmación el guardado son dos toques, y una
+    // cadena de viajes al servidor (RPC + nota + refresco de notas +
+    // relectura) dejaba el botón muerto uno o dos segundos. Proyectamos el
+    // registro con lo que ya tenemos en mano, la tarjeta pasa a "hecho" en
+    // el acto, y si el servidor rechaza se restaura el anterior con el aviso
+    // de error de siempre. El registro proyectado tiene la misma forma que
+    // una fila de workout_logs, que es lo único que leen las tarjetas.
+    const previousLog = existingLog ?? null
+    const projected = projectWorkoutLog({
+      existingLog,
+      rpcArgs,
+      noteBody: _noteBody,
+      source: coachMode ? 'coach' : 'student',
+      loggedBy: profile?.id,
+    })
+    setLogs((prev) => ({ ...prev, [planExerciseId]: projected }))
+
     const { data: returnedId, error } = await supabase.rpc('save_workout_log', rpcArgs)
     if (error) {
       console.error('saveLog: rpc save_workout_log error:', error)
+      // Deshacer la proyección: vuelve el registro anterior (o ninguno).
+      setLogs((prev) => {
+        const next = { ...prev }
+        if (previousLog) next[planExerciseId] = previousLog
+        else delete next[planExerciseId]
+        return next
+      })
       // El helper clasifica por código (23514 / 23503 / 42501 / etc.) y
       // arma mensaje + persistencia. CHECK violations quedan visibles
       // hasta que el alumno las lea (handoff 9.1).
@@ -763,9 +832,21 @@ export default function TodayWorkoutPage() {
       throw error
     }
 
-    // Refetch del log completo (la RPC devuelve solo el uuid)
     const logId = existingLog?.id ?? returnedId
-    if (logId) {
+    if (!logId) return
+    // Con el id real, la proyección pasa a ser un registro "de verdad" para
+    // los updates siguientes (el id decide INSERT vs UPDATE en la RPC).
+    if (!existingLog) {
+      setLogs((prev) =>
+        prev[planExerciseId] === projected
+          ? { ...prev, [planExerciseId]: { ...projected, id: logId } }
+          : prev
+      )
+    }
+
+    // Lo que sigue no cambia lo que la persona ve en la tarjeta: corre
+    // después de responder y no bloquea. Errores → aviso, sin deshacer.
+    ;(async () => {
       // Round 2b (handoff m26→m27): la columna workout_logs.notes se dropeó.
       // Persistimos el body del alumno como mirror en public.notes via
       // postWorkoutLogNote. Si _noteBody viene vacío y existía mirror,
@@ -783,26 +864,9 @@ export default function TodayWorkoutPage() {
         console.warn('[saveLog] no se pudo guardar la nota del log en el panel:', noteErr)
         showSaveError(t('errors.noteSaveFailed'), noteErr)
       }
-
       // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
       await refetchExerciseNotes()
-
-      const { data: fullLog } = await supabase
-        .from('workout_logs')
-        .select('*')
-        .eq('id', logId)
-        .single()
-      if (fullLog) {
-        // Leemos el body desde el mirror del panel (fuente única post v26d).
-        const bodiesMap = await fetchSingleMirrorBodies({
-          contextType: 'workout_log',
-          contextIds: [logId],
-          authorRole: noteAuthorRole,
-        })
-        fullLog.notes = bodiesMap.get(logId) ?? ''
-        setLogs((prev) => ({ ...prev, [planExerciseId]: fullLog }))
-      }
-    }
+    })().catch((err) => console.warn('[saveLog] post-guardado:', err))
   }
 
   async function deleteLog(planExerciseId) {
@@ -864,6 +928,24 @@ export default function TodayWorkoutPage() {
     const { notes: bodyForPanel, ...dataForDb } = data || {}
 
     const existing = blockLogs[planBlockId]
+
+    // v54: pintar primero, confirmar por detrás (idem saveLog). La fila
+    // proyectada tiene la forma de workout_block_logs.
+    const projected = {
+      ...(existing || {}),
+      ...dataForDb,
+      student_id: studentId,
+      plan_id: assignment?.plan_id ?? existing?.plan_id ?? null,
+      plan_block_id: planBlockId,
+      logged_date: existing?.logged_date ?? selectedDate,
+      logged_late: existing?.logged_late ?? !isToday,
+      logged_by: existing?.logged_by ?? profile?.id ?? null,
+      source: existing?.source ?? (coachMode ? 'coach' : 'student'),
+      notes: bodyForPanel || '',
+      updated_at: new Date().toISOString(),
+    }
+    setBlockLogs((prev) => ({ ...prev, [planBlockId]: projected }))
+
     let result
     if (existing) {
       result = await supabase
@@ -891,35 +973,43 @@ export default function TodayWorkoutPage() {
     }
     if (result.error) {
       console.error('saveBlockLog: workout_block_logs error:', result.error)
+      // Deshacer la proyección.
+      setBlockLogs((prev) => {
+        const next = { ...prev }
+        if (existing) next[planBlockId] = existing
+        else delete next[planBlockId]
+        return next
+      })
       // El helper decide si persiste o auto-cierra según el código.
       showSaveError(result.error)
       throw result.error
     }
 
-    // Persistir la nota del bloque al panel (round 2b: fuente única tras
-    // dropear workout_block_logs.notes). Si bodyForPanel viene vacío y
-    // existía mirror, la función hace soft-delete.
-    const blockLogId = result.data?.id
-    if (blockLogId) {
-      const { error: noteErr } = await postWorkoutBlockLogNote({
-        studentId,
-        blockLogId,
-        body: bodyForPanel || '',
-        authorId: noteAuthorId,
-        authorRole: noteAuthorRole,
-      })
-      if (noteErr) {
-        console.warn('[saveBlockLog] no se pudo guardar la nota del bloque en el panel:', noteErr)
-        showSaveError(t('errors.noteSaveFailed'), noteErr)
-      }
-    }
-
-    // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
-    await refetchExerciseNotes()
-
-    // Enriquecer el blockLog con el body para que el componente lo muestre sin reload
+    // Fila real del servidor (con id) + el body, sin esperar a las notas.
     const enrichedBlockLog = { ...result.data, notes: bodyForPanel || '' }
     setBlockLogs((prev) => ({ ...prev, [planBlockId]: enrichedBlockLog }))
+
+    // Persistir la nota del bloque al panel (round 2b: fuente única tras
+    // dropear workout_block_logs.notes). Si bodyForPanel viene vacío y
+    // existía mirror, la función hace soft-delete. Corre por detrás.
+    const blockLogId = result.data?.id
+    ;(async () => {
+      if (blockLogId) {
+        const { error: noteErr } = await postWorkoutBlockLogNote({
+          studentId,
+          blockLogId,
+          body: bodyForPanel || '',
+          authorId: noteAuthorId,
+          authorRole: noteAuthorRole,
+        })
+        if (noteErr) {
+          console.warn('[saveBlockLog] no se pudo guardar la nota del bloque en el panel:', noteErr)
+          showSaveError(t('errors.noteSaveFailed'), noteErr)
+        }
+      }
+      // Refrescar badge 💬 + preview del ejercicio sin recargar (2026-07-24).
+      await refetchExerciseNotes()
+    })().catch((err) => console.warn('[saveBlockLog] post-guardado:', err))
   }
 
   async function deleteBlockLog(planBlockId) {

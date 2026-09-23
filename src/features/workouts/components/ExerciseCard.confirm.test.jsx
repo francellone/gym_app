@@ -330,6 +330,75 @@ describe('modo coach: misma tarjeta, tercera persona', () => {
   })
 })
 
+describe('v54: pintar primero, confirmar por detrás', () => {
+  it('la tarjeta pasa a hecho ANTES de que el guardado responda', async () => {
+    const user = userEvent.setup()
+    let resolveSave
+    const onSaveLog = vi.fn(() => new Promise((res) => (resolveSave = res)))
+    render(
+      <ExerciseCard
+        planEx={planEx()}
+        log={null}
+        onSaveLog={onSaveLog}
+        onDeleteLog={vi.fn()}
+        suggestedSets={3}
+        loggedDate="2026-09-22"
+      />
+    )
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /PSE 7/i }))
+    // Todavía no respondió el servidor y ya se ve completado.
+    expect(onSaveLog).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/✓ completado/i)).toBeInTheDocument()
+    resolveSave()
+  })
+
+  it('si el guardado falla, la tarjeta vuelve a la vista de confirmación', async () => {
+    const user = userEvent.setup()
+    const onSaveLog = vi.fn().mockRejectedValue(new Error('RLS'))
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(
+      <ExerciseCard
+        planEx={planEx()}
+        log={null}
+        onSaveLog={onSaveLog}
+        onDeleteLog={vi.fn()}
+        suggestedSets={3}
+        loggedDate="2026-09-22"
+      />
+    )
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /PSE 7/i }))
+    // Vuelve al estado justo anterior al toque: la escala de PSE desplegada,
+    // lista para reintentar con un toque.
+    expect(await screen.findByText(/tocá el esfuerzo/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /PSE 7/i })).toBeInTheDocument()
+    expect(screen.queryByText(/✓ completado/i)).not.toBeInTheDocument()
+    errSpy.mockRestore()
+  })
+})
+
+describe('v54: el comentario en el camino rápido', () => {
+  it('"Agregar comentario" abre el campo y el texto viaja con la confirmación', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard()
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /agregar comentario/i }))
+    await user.type(screen.getByPlaceholderText(/cómo te salió/i), 'Me costó la última')
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /PSE 8/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({ _noteBody: 'Me costó la última' })
+  })
+
+  it('el globito del chat aparece aunque no haya mensajes', () => {
+    const onOpenChat = vi.fn()
+    renderCard({ onOpenChat, noteCount: 0 })
+    expect(screen.getByRole('button', { name: /chat/i })).toBeInTheDocument()
+  })
+})
+
 describe('un log hecho muestra si fue confirmado o ajustado', () => {
   it('badge "tal cual" para entry_mode=confirmed', async () => {
     const user = userEvent.setup()

@@ -215,6 +215,9 @@ export default function CircuitBlockRunCard({
       // Guardar logs de ejercicios del circuito (si hay detalle cargado).
       // Construimos el payload con el formato de la RPC save_workout_log:
       // p_reps / p_weights como jsonb array, p_weight_mode resuelto efectivo.
+      // v54: en PARALELO, no en fila (un TABATA de 4 ejercicios eran 4
+      // esperas encadenadas); cada saveLog del padre pinta el suyo al toque.
+      const exerciseSaves = []
       for (const ex of block.plan_exercises || []) {
         const data = exForm[ex.id]
         if (!data) continue
@@ -242,24 +245,28 @@ export default function CircuitBlockRunCard({
         // No mandar `p_notes` a la RPC: el body del alumno (acá "Tiempo: 45s"
         // como anotación implícita para ejercicios time-based) va por
         // _noteBody y saveLog del padre lo redirige a postWorkoutLogNote.
-        await onSaveExerciseLog(ex.id, {
-          p_reps: repsNum != null ? [repsNum] : [],
-          p_weights: weightMode === 'bodyweight' ? null : weightNum != null ? [weightNum] : [null],
-          p_weight_mode: weightMode,
-          p_unilateral: unilateral,
-          p_reps_unit: null,
-          p_actual_sets: 1,
-          p_perceived_difficulty: null,
-          p_perceived_difficulty_label: null,
-          p_notes: null,
-          p_completed: true,
-          // v54: el ejercicio hereda el modo del bloque
-          p_status: 'done',
-          p_skip_reason: null,
-          p_entry_mode: entryMode,
-          _noteBody: data.actual_time ? `Tiempo: ${data.actual_time}s` : '',
-        })
+        exerciseSaves.push(
+          onSaveExerciseLog(ex.id, {
+            p_reps: repsNum != null ? [repsNum] : [],
+            p_weights:
+              weightMode === 'bodyweight' ? null : weightNum != null ? [weightNum] : [null],
+            p_weight_mode: weightMode,
+            p_unilateral: unilateral,
+            p_reps_unit: null,
+            p_actual_sets: 1,
+            p_perceived_difficulty: null,
+            p_perceived_difficulty_label: null,
+            p_notes: null,
+            p_completed: true,
+            // v54: el ejercicio hereda el modo del bloque
+            p_status: 'done',
+            p_skip_reason: null,
+            p_entry_mode: entryMode,
+            _noteBody: data.actual_time ? `Tiempo: ${data.actual_time}s` : '',
+          })
+        )
       }
+      await Promise.all(exerciseSaves)
       setEditing(false)
       setPendingAction(null)
     } catch (err) {

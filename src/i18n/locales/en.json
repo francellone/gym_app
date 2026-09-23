@@ -552,7 +552,8 @@
     "noWeightForExercises": "No weight set: {{names}}. If you used any, add it from Did it differently.",
     "noWeightForExercisesCoach": "No weight set: {{names}}. If they used any, add it from Did it differently.",
     "weightsFromLastTime": "The weight for {{names}} is the last one you logged. Your coach didn't set kg.",
-    "weightsFromLastTimeCoach": "The weight for {{names}} is the last one they logged. You didn't set kg."
+    "weightsFromLastTimeCoach": "The weight for {{names}} is the last one they logged. You didn't set kg.",
+    "addComment": "Add a comment"
   },
   "progress": {
     "title": "My progress",

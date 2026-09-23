@@ -552,7 +552,8 @@
     "noWeightForExercises": "Sin peso cargado: {{names}}. Si usaste, ponelo desde Lo hice distinto.",
     "noWeightForExercisesCoach": "Sin peso cargado: {{names}}. Si usó, ponelo desde Lo hizo distinto.",
     "weightsFromLastTime": "El peso de {{names}} es lo último que cargaste. Tu coach no puso kilos.",
-    "weightsFromLastTimeCoach": "El peso de {{names}} es lo último que cargó. No le pusiste kilos."
+    "weightsFromLastTimeCoach": "El peso de {{names}} es lo último que cargó. No le pusiste kilos.",
+    "addComment": "Agregar comentario"
   },
   "progress": {
     "title": "Mi progreso",
