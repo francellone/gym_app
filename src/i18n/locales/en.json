@@ -1106,5 +1106,42 @@
     "commentFromStudent": "Comment from the athlete",
     "yourCommentCoach": "Your comment (they can see it)",
     "yourCommentCoachPlaceholder": "Note about this test..."
+  },
+  "celebrations": {
+    "continue": "Continue",
+    "close": "Close",
+    "day": {
+      "title": "Day {{letter}} complete!",
+      "body": "You did everything planned. Nice work.",
+      "bodyFromCoach": "Your coach logged your workout from {{date}}."
+    },
+    "week": {
+      "eyebrow": "Week of {{from}} to {{to}}",
+      "title": "Week complete!",
+      "body_one": "You did the planned session.",
+      "body_other": "You did all {{count}} planned sessions.",
+      "statSessions": "sessions"
+    },
+    "plan": {
+      "title": {
+        "strong": "You finished your plan!",
+        "good": "You closed out your plan",
+        "gentle": "Your plan has come to an end"
+      },
+      "body": {
+        "strong": "You trained {{n}} out of every 10 planned sessions.",
+        "good": "You trained {{n}} out of every 10 planned sessions. Every one of them counted.",
+        "gentle": "You did {{closed}} of the {{expected}} planned sessions. You and your coach can figure out the next step."
+      },
+      "bodyNoData": "You reached the end of your plan.",
+      "statSessions": "sessions",
+      "statWeeks": "full weeks",
+      "messageLabel": "Message from your coach",
+      "autoMessage": {
+        "default": "You finished a stage. I'm putting together your next plan based on what we learned from this one.",
+        "gentle": "These weeks were hard, and that's okay. Let's talk and build a plan that works for you."
+      },
+      "seeProgress": "See my progress"
+    }
   }
 }

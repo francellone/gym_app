@@ -1106,5 +1106,42 @@
     "commentFromStudent": "Comentario de la persona",
     "yourCommentCoach": "Tu comentario (lo ve la persona)",
     "yourCommentCoachPlaceholder": "Observación sobre esta prueba..."
+  },
+  "celebrations": {
+    "continue": "Seguir",
+    "close": "Cerrar",
+    "day": {
+      "title": "¡Día {{letter}} completo!",
+      "body": "Hiciste todo lo previsto. Buen trabajo.",
+      "bodyFromCoach": "Tu coach registró tu entrenamiento del {{date}}."
+    },
+    "week": {
+      "eyebrow": "Semana del {{from}} al {{to}}",
+      "title": "¡Semana completa!",
+      "body_one": "Hiciste la sesión prevista.",
+      "body_other": "Hiciste las {{count}} sesiones previstas.",
+      "statSessions": "sesiones"
+    },
+    "plan": {
+      "title": {
+        "strong": "¡Terminaste tu plan!",
+        "good": "Cerraste tu plan",
+        "gentle": "Tu plan llegó a su fin"
+      },
+      "body": {
+        "strong": "Entrenaste {{n}} de cada 10 sesiones previstas.",
+        "good": "Entrenaste {{n}} de cada 10 sesiones previstas. Cada una sumó.",
+        "gentle": "Hiciste {{closed}} de las {{expected}} sesiones previstas. Con tu coach pueden ver cómo seguir."
+      },
+      "bodyNoData": "Llegaste al final de tu plan.",
+      "statSessions": "sesiones",
+      "statWeeks": "semanas completas",
+      "messageLabel": "Mensaje de tu coach",
+      "autoMessage": {
+        "default": "Terminaste una etapa. Estoy armando el próximo plan con lo que aprendimos de este.",
+        "gentle": "Estas semanas fueron difíciles y está bien. Hablemos para armar un plan que te quede cómodo."
+      },
+      "seeProgress": "Ver mi progreso"
+    }
   }
 }

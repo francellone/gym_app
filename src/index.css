@@ -494,3 +494,35 @@
     transform: translateY(0);
   }
 }
+
+/* Celebraciones (hitos v55): entrada corta, sin movimiento si la persona lo pidió */
+@keyframes celebrate-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes celebrate-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.celebrate-up {
+  animation: celebrate-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.celebrate-fade {
+  animation: celebrate-fade 0.3s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-up,
+  .celebrate-fade {
+    animation: none;
+  }
+}

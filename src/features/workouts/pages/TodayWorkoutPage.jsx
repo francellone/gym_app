@@ -42,7 +42,6 @@ import {
   isSessionBanner,
   dayDotState,
   daysPendingPSE,
-  sessionDatesFromLogs,
   isWeekComplete,
 } from '../sessionProgress'
 import { readWorkoutSnapshot, writeWorkoutSnapshot } from '../workoutSnapshot'
@@ -56,6 +55,9 @@ import DailyPSEModal from '../components/DailyPSEModal'
 import WellbeingCard from '../components/WellbeingCard'
 import DayActivitiesCard from '@/features/activities/components/DayActivitiesCard'
 import SaveErrorBanner from '../components/SaveErrorBanner'
+import { useLiveMilestones } from '@/features/milestones/useLiveMilestones'
+import { useCelebrations } from '@/features/milestones/celebrationContextValue'
+import { closedSessionDates } from '@/features/milestones/milestoneRules'
 import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor } from '../helpers'
@@ -757,6 +759,7 @@ export default function TodayWorkoutPage() {
   }, [threadId])
 
   async function saveLog(planExerciseId, data) {
+    markUserAction()
     const existingLog = logs[planExerciseId]
     // v54: declarar "no lo hice" NO es entrenar. No abre workout_session
     // (el calendario y el dashboard del coach la usan como "entrenó ese
@@ -896,6 +899,7 @@ export default function TodayWorkoutPage() {
   }
 
   async function saveBlockLog(planBlockId, data) {
+    markUserAction()
     // Bloques virtuales (legacy sin block_id en DB) no se persisten
     if (typeof planBlockId === 'string' && planBlockId.startsWith('virtual-')) {
       console.warn('Intento de guardar log de bloque virtual, ignorado:', planBlockId)
@@ -1265,15 +1269,48 @@ export default function TodayWorkoutPage() {
   // dice "✅ Día X completado".
   // recentLogs viene del fetch inicial y no tiene lo que el alumno acaba de
   // cargar hoy: por eso sumamos selectedDate cuando el día ya está cerrado.
+  // v55 (celebraciones): la semana cuenta días CERRADOS (completos o con
+  // una omisión), la misma regla que los hitos. Antes contaba cualquier
+  // fecha con algún registro y podía festejar a mitad de una sesión.
+  // Los registros de hoy (logs / blockLogs, siempre al día) van al final
+  // para pisar lo que trajo el fetch inicial de esa fecha.
   const weekComplete = useMemo(() => {
     if (!assignment) return false
-    const dates = sessionDatesFromLogs({
-      logs: recentLogs,
-      extraDate: activeDay && dayDoneMap[activeDay] ? selectedDate : null,
+    const dates = closedSessionDates({
+      activeDays,
+      blocksBySection,
+      logs: [...(recentLogs || []), ...Object.values(logs || {})],
+      blockLogs: [...(recentBlockLogs || []), ...Object.values(blockLogs || {})],
     })
     const anchor = parseISO(selectedDate)
     return isWeekComplete(computeWeekAdherence(assignment, dates, anchor))
-  }, [assignment, recentLogs, dayDoneMap, activeDay, selectedDate])
+  }, [
+    assignment,
+    activeDays,
+    blocksBySection,
+    recentLogs,
+    logs,
+    recentBlockLogs,
+    blockLogs,
+    selectedDate,
+  ])
+
+  // v55 — hitos en vivo (día / semana / plan). En modo coach se otorgan
+  // igual y la persona los ve la próxima vez que abre la app.
+  const { markUserAction } = useLiveMilestones({
+    studentId,
+    assignment,
+    blocksBySection,
+    dayStateMap,
+    selectedDate,
+    loading,
+  })
+  // La celebración espera a que se cierre el modal de esfuerzo del día.
+  const { setHold: setCelebrationHold } = useCelebrations()
+  useEffect(() => {
+    setCelebrationHold(showPSEForDay !== null)
+  }, [showPSEForDay, setCelebrationHold])
+  useEffect(() => () => setCelebrationHold(false), [setCelebrationHold])
 
   // Totales para progress bar (cuenta unidades: ejercicios de fuerza + bloques aero/circuito).
   // 2026-08-27: cuenta SOLO la sesión de hoy (activación + día activo). Antes
