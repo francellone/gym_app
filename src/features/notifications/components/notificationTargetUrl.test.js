@@ -72,6 +72,20 @@ describe('getNotificationTargetUrl', () => {
     ).toBe(`/coach/students/${STUDENT}`)
   })
 
+  it('week_completed y plan_completed → perfil del alumno (coach, v55)', () => {
+    for (const type of ['week_completed', 'plan_completed']) {
+      expect(getNotificationTargetUrl({ type, data: { student_id: STUDENT } })).toBe(
+        `/coach/students/${STUDENT}`
+      )
+    }
+  })
+
+  it('personal_best_voided → perfil del alumno tab progreso (coach, v55)', () => {
+    expect(
+      getNotificationTargetUrl({ type: 'personal_best_voided', data: { student_id: STUDENT } })
+    ).toBe(`/coach/students/${STUDENT}?tab=progress`)
+  })
+
   it('evaluation_completed → perfil del alumno tab evaluaciones (coach)', () => {
     expect(
       getNotificationTargetUrl({ type: 'evaluation_completed', data: { student_id: STUDENT } })

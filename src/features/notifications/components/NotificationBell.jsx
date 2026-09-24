@@ -34,6 +34,9 @@ import {
   ClipboardCheck,
   RefreshCw,
   UserCog,
+  CalendarCheck,
+  Trophy,
+  Undo2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
@@ -99,6 +102,21 @@ const TYPE_CONFIG = {
     Icon: UserCog,
     color: 'text-cyan-600',
     bg: 'bg-cyan-50',
+  }, // v55: avisos informativos de hitos (la celebración es de la persona)
+  week_completed: {
+    Icon: CalendarCheck,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+  },
+  plan_completed: {
+    Icon: Trophy,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+  },
+  personal_best_voided: {
+    Icon: Undo2,
+    color: 'text-gray-500',
+    bg: 'bg-gray-100',
   },
 }
 
@@ -121,7 +139,8 @@ const TYPE_CONFIG = {
  *   COACH:
  *     - student_note             → perfil del alumno, tab Notas (Q3)
  *     - profile_change           → perfil del alumno, tab Historial (Q6)
- *     - activity_update/session_completed → perfil del alumno
+ *     - activity_update/session_completed/week_completed/plan_completed → perfil del alumno
+ *     - personal_best_voided     → perfil del alumno, tab Progreso (v55)
  *     - stagnation_alert         → perfil del alumno, tab Progreso (Anto 13a)
  *     - plan_expiring/form_submitted → perfil del alumno
  *   Sin destino (alerta interna): schema_health_alert.
@@ -152,7 +171,11 @@ export function getNotificationTargetUrl(notification) {
       return data.student_id ? `/coach/students/${data.student_id}?tab=history` : null
     case 'activity_update':
     case 'session_completed':
+    case 'week_completed':
+    case 'plan_completed':
       return data.student_id ? `/coach/students/${data.student_id}` : null
+    case 'personal_best_voided':
+      return data.student_id ? `/coach/students/${data.student_id}?tab=progress` : null
     case 'evaluation_completed':
       // F1: el alumno cumplió una evaluación → perfil del alumno, tab
       // Evaluaciones (donde el coach ve el resultado cargado).

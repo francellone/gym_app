@@ -31,6 +31,8 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
       const newPlanData = {
         title: title.trim() || `${plan.title} (copia)`,
         description: plan.description ?? null,
+        // v55: el mensaje de cierre viaja con el duplicado
+        completion_message: plan.completion_message ?? null,
         goal: plan.goal ?? null,
         sessions_per_week: plan.sessions_per_week,
         duration_weeks: plan.duration_weeks ?? null,
