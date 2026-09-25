@@ -40,6 +40,8 @@ export default function BlockRenderer({
   oneRmMap = null,
   // v54: la coach registra por la persona → los textos van en tercera persona
   coachMode = false,
+  // Etapa 4 celebraciones — máximo previo por exercise_id (aviso al cargar)
+  bestRefByExercise = null,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -80,6 +82,7 @@ export default function BlockRenderer({
         loggedDate={loggedDate}
         coachMode={coachMode}
         oneRmMap={oneRmMap}
+        bestRefByExercise={bestRefByExercise}
       />
     )
   }
@@ -104,6 +107,7 @@ export default function BlockRenderer({
       prescriptionByEx={prescriptionByEx}
       // %RM — kilos derivados del máximo de la persona
       oneRmMap={oneRmMap}
+      bestRefByExercise={bestRefByExercise}
     />
   )
 }

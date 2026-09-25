@@ -553,7 +553,12 @@
     "noWeightForExercisesCoach": "Sin peso cargado: {{names}}. Si usó, ponelo desde Lo hizo distinto.",
     "weightsFromLastTime": "El peso de {{names}} es lo último que cargaste. Tu coach no puso kilos.",
     "weightsFromLastTimeCoach": "El peso de {{names}} es lo último que cargó. No le pusiste kilos.",
-    "addComment": "Agregar comentario"
+    "addComment": "Agregar comentario",
+    "warnOutlier": {
+      "kg": "¿Son {{value}} kg? Tu máximo en este ejercicio es {{max}} kg. Si fue un error de tipeo, corregilo ahora.",
+      "reps": "¿Son {{value}} repeticiones? Tu máximo en este ejercicio es {{max}}. Si fue un error de tipeo, corregilo ahora.",
+      "seconds": "¿Son {{value}} segundos? Tu máximo en este ejercicio es {{max}} s. Si fue un error de tipeo, corregilo ahora."
+    }
   },
   "progress": {
     "title": "Mi progreso",
@@ -1142,6 +1147,21 @@
         "gentle": "Estas semanas fueron difíciles y está bien. Hablemos para armar un plan que te quede cómodo."
       },
       "seeProgress": "Ver mi progreso"
+    },
+    "best": {
+      "title": "Mejor marca en {{exercise}}",
+      "titleNoName": "¡Mejor marca!",
+      "body": {
+        "kg": "{{value}} kg. Tu máximo anterior era {{previous}} kg.",
+        "reps": "{{value}} reps. Tu máximo anterior era {{previous}}.",
+        "seconds": "{{value}} s. Tu máximo anterior era {{previous}} s."
+      },
+      "ok": "Listo",
+      "isError": "¿Es un error?",
+      "fixTitle": "¿Qué pasó?",
+      "fixBody": "Registraste {{value}} y tu máximo anterior era {{previous}}. Si fue un error de tipeo, corregilo y la marca se ajusta sola.",
+      "fixEdit": "Corregir el registro",
+      "fixVoid": "Anular la marca sin cambiar el registro"
     }
   }
 }

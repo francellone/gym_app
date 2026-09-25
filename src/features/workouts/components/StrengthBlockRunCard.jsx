@@ -3,6 +3,7 @@ import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
+import { onLogEditRequest, requestLogEdit } from '@/features/milestones/editRequest'
 import { groupStrengthExercises, blockResolution } from '../helpers'
 
 // ============================================================
@@ -31,9 +32,23 @@ export default function StrengthBlockRunCard({
   // %RM (v39) — mapa de 1RM de la persona, para derivar los kilos
   oneRmMap = null,
   coachMode = false,
+  // Etapa 4 celebraciones — máximo previo por exercise_id (aviso al cargar)
+  bestRefByExercise = null,
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
+  // Etapa 4: si piden corregir un ejercicio de este bloque y está cerrado,
+  // se abre y se re-emite el pedido para que la tarjeta (recién montada) lo
+  // tome. Si ya está abierto, la tarjeta lo atiende sola.
+  useEffect(
+    () =>
+      onLogEditRequest((id) => {
+        if (expanded || !(block.plan_exercises || []).some((ex) => ex.id === id)) return
+        setExpanded(true)
+        setTimeout(() => requestLogEdit(id), 60)
+      }),
+    [expanded, block.plan_exercises]
+  )
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -99,6 +114,7 @@ export default function StrengthBlockRunCard({
         // %RM — kilos derivados del máximo de la persona
         oneRmMap={oneRmMap}
         coachMode={coachMode}
+        bestReference={bestRefByExercise?.get?.(ex.exercise_id) ?? null}
       />
     )
   }

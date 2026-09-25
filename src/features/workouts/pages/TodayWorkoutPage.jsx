@@ -57,7 +57,10 @@ import DayActivitiesCard from '@/features/activities/components/DayActivitiesCar
 import SaveErrorBanner from '../components/SaveErrorBanner'
 import { useLiveMilestones } from '@/features/milestones/useLiveMilestones'
 import { useCelebrations } from '@/features/milestones/celebrationContextValue'
-import { closedSessionDates } from '@/features/milestones/milestoneRules'
+import { closedSessionDates, buildBestReferences } from '@/features/milestones/milestoneRules'
+import { usePersonalBests } from '@/features/milestones/usePersonalBests'
+import { fetchVoidedBestLogIds } from '@/features/milestones/api'
+import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor } from '../helpers'
@@ -494,7 +497,7 @@ export default function TodayWorkoutPage() {
         supabase
           .from('workout_logs')
           .select(
-            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, status, created_at, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
+            'id, plan_exercise_id, logged_date, actual_sets, actual_weight, actual_weights, actual_weights_jsonb, actual_reps, actual_reps_jsonb, perceived_difficulty, completed, status, created_at, reps_unit, exercise_id, plan_exercise:plan_exercises!plan_exercise_id(exercise_id)'
           )
           .eq('student_id', studentId)
           .eq('completed', true)
@@ -847,6 +850,17 @@ export default function TodayWorkoutPage() {
       )
     }
 
+    // Etapa 4 celebraciones: ¿es mejor marca? (o dejó de serlo al corregir).
+    // Por detrás, con el id real; nunca bloquea el guardado.
+    if (rpcArgs.p_status !== 'skipped') {
+      const pe = planExercises.find((x) => x.id === planExerciseId)
+      checkBest({
+        log: { ...projected, id: logId },
+        planEx: pe,
+        exerciseName: pe?.exercise ? exerciseDisplay(pe.exercise, i18n.language).name : null,
+      })
+    }
+
     // Lo que sigue no cambia lo que la persona ve en la tarjeta: corre
     // después de responder y no bloquea. Errores → aviso, sin deshacer.
     ;(async () => {
@@ -1089,6 +1103,28 @@ export default function TodayWorkoutPage() {
       }),
     [recentExerciseLogs, planExercises, selectedDate]
   )
+  // Etapa 4 celebraciones — máximo previo por ejercicio (cross-plan, sin la
+  // fecha que se carga ni las marcas anuladas) para el aviso al cargar un
+  // valor que duplica lo mejor de la persona.
+  const [voidedBestIds, setVoidedBestIds] = useState([])
+  useEffect(() => {
+    if (!studentId) return undefined
+    let cancelled = false
+    fetchVoidedBestLogIds(supabase, { studentId })
+      .then((ids) => {
+        if (!cancelled) setVoidedBestIds(ids)
+      })
+      .catch((err) => console.warn('[celebrations] marcas anuladas:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [studentId])
+  const bestRefByExercise = useMemo(
+    () => buildBestReferences(recentExerciseLogs, { voidedLogIds: voidedBestIds }),
+    [recentExerciseLogs, voidedBestIds]
+  )
+  const { checkBest } = usePersonalBests({ studentId })
+
   const lastBlockLogByBlock = useMemo(
     () =>
       pickLastBlockLogPerBlock(recentBlockLogs, {
@@ -1726,6 +1762,7 @@ export default function TodayWorkoutPage() {
                     prescriptionByEx={prescriptionByEx}
                     oneRmMap={oneRmMap}
                     coachMode={coachMode}
+                    bestRefByExercise={bestRefByExercise}
                   />
                 ))}
               </div>
@@ -1760,6 +1797,7 @@ export default function TodayWorkoutPage() {
                     prescriptionByEx={prescriptionByEx}
                     oneRmMap={oneRmMap}
                     coachMode={coachMode}
+                    bestRefByExercise={bestRefByExercise}
                   />
                 ))}
               </div>

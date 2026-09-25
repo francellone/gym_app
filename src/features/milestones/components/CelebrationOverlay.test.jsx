@@ -2,7 +2,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import i18n from '@/i18n'
+vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+// jsdom no tiene canvas: el confeti se prueba a mano en el teléfono.
+vi.mock('../confetti', () => ({ fireConfetti: () => () => {} }))
+const api = vi.hoisted(() => ({ voidPersonalBest: vi.fn().mockResolvedValue({ voided: true }) }))
+vi.mock('../api', () => api)
 import CelebrationOverlay from './CelebrationOverlay'
+import { EDIT_LOG_EVENT } from '../editRequest'
 import { toCelebration, TOAST_MS } from '../celebrationModel'
 
 const renderItem = (item, onDismiss = vi.fn()) =>
@@ -96,6 +102,51 @@ describe('CelebrationOverlay', () => {
         'Hiciste 3 de las 12 sesiones previstas. Con tu coach pueden ver cómo seguir.'
       )
     ).toBeInTheDocument()
+  })
+
+  it('marca: toast con valores y "¿Es un error?" abre las dos opciones', async () => {
+    const best = toCelebration({
+      id: 'b1',
+      kind: 'personal_best',
+      payload: {
+        metric: 'weight',
+        value: 42.5,
+        previous_max: 40,
+        exercise_name: 'Sentadilla',
+        plan_exercise_id: 'pe1',
+      },
+    })
+    const onDismiss = vi.fn()
+    renderItem(best, onDismiss)
+    expect(screen.getByText('Mejor marca en Sentadilla')).toBeInTheDocument()
+    expect(screen.getByText('42,5 kg. Tu máximo anterior era 40 kg.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '¿Es un error?' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    const heard = vi.fn()
+    window.addEventListener(EDIT_LOG_EVENT, heard)
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir el registro' }))
+    window.removeEventListener(EDIT_LOG_EVENT, heard)
+    expect(onDismiss).toHaveBeenCalled()
+    expect(heard.mock.calls[0][0].detail).toEqual({ planExerciseId: 'pe1' })
+    expect(api.voidPersonalBest).not.toHaveBeenCalled()
+  })
+
+  it('marca: anular sin cambiar el registro llama a la RPC', async () => {
+    const best = toCelebration({
+      id: 'b1',
+      kind: 'personal_best',
+      payload: { metric: 'weight', value: 42.5, previous_max: 40 },
+    })
+    const onDismiss = vi.fn()
+    renderItem(best, onDismiss)
+    fireEvent.click(screen.getByRole('button', { name: '¿Es un error?' }))
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Anular la marca sin cambiar el registro' })
+      )
+    })
+    expect(api.voidPersonalBest).toHaveBeenCalledWith({}, 'b1', 'student_void')
+    expect(onDismiss).toHaveBeenCalled()
   })
 
   it('en inglés no se filtra español', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
@@ -35,6 +35,8 @@ import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
 import { formatShortDate } from '@/i18n/dateLocale'
 import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
+import { outlierFromReference } from '@/features/milestones/milestoneRules'
+import { onLogEditRequest } from '@/features/milestones/editRequest'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
@@ -117,8 +119,13 @@ export default function ExerciseCard({
   // (la RPC deriva source='coach' del usuario logueado); solo cambia la voz
   // de los textos: "Lo hice tal cual" → "Lo hizo tal cual".
   coachMode = false,
+  // Etapa 4 celebraciones — referencia de mejor marca de la persona en este
+  // ejercicio ({ weight: {count,max}, reps: {count,max} }) para avisar antes
+  // de guardar un valor que se aleja más del 100% de su máximo.
+  bestReference = null,
 }) {
   const { t, i18n } = useTranslation()
+  const cardRef = useRef(null)
   // Clave de texto según la voz. Las claves *.coach existen para los seis
   // textos que hablan en primera persona de la alumna.
   const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
@@ -544,6 +551,31 @@ export default function ExerciseCard({
   // Validación cliente — devuelve un objeto { type, message } o null.
   //   type='warning' → modal de "Verificá este dato" (deja guardar igual)
   function validate(data) {
+    // Etapa 4: valor que duplica el máximo previo (con ≥3 registros). Va
+    // primero: es el error de tipeo que después se vuelve una marca falsa.
+    const entered =
+      !isBodyweight && Array.isArray(data.p_weights)
+        ? Math.max(0, ...data.p_weights.map((w) => parseFloat(w)).filter((n) => !isNaN(n)))
+        : 0
+    const repsMax = Array.isArray(data.p_reps)
+      ? Math.max(0, ...data.p_reps.map((r) => parseFloat(r)).filter((n) => !isNaN(n)))
+      : 0
+    const unit = data.p_reps_unit || 'reps'
+    const metric =
+      entered > 0 ? 'weight' : unit === 'segundos' ? 'seconds' : unit === 'reps' ? 'reps' : null
+    const value = entered > 0 ? entered : repsMax
+    const out = metric
+      ? outlierFromReference({ value, reference: bestReference?.[metric] })
+      : { warn: false }
+    if (out.warn) {
+      return {
+        type: 'warning',
+        message: t(`workout.warnOutlier.${metric === 'weight' ? 'kg' : metric}`, {
+          value: value.toLocaleString(i18n.language),
+          max: out.previousMax.toLocaleString(i18n.language),
+        }),
+      }
+    }
     // Falta PSE
     if (!data.p_perceived_difficulty) {
       return {
@@ -581,6 +613,23 @@ export default function ExerciseCard({
     }
     await doSave(data)
   }
+
+  // Etapa 4: "¿Es un error? Corregir" desde la celebración de una marca
+  // abre esta tarjeta en modo ajustar y la trae a la vista.
+  useEffect(
+    () =>
+      onLogEditRequest((id) => {
+        if (id !== planEx.id) return
+        setExpanded(true)
+        setPendingAction(null)
+        setEditing(true)
+        setTimeout(
+          () => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+          50
+        )
+      }),
+    [planEx.id]
+  )
 
   // v54: la tarjeta pasa a "hecho" ANTES de que el servidor responda (el
   // padre también proyecta el registro en `logs`). Si el guardado falla,
@@ -747,6 +796,7 @@ export default function ExerciseCard({
       )}
 
       <div
+        ref={cardRef}
         className={`rounded-2xl border-2 transition-all overflow-hidden ${
           completed
             ? 'border-green-200 bg-green-50'

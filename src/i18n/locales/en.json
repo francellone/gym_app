@@ -553,7 +553,12 @@
     "noWeightForExercisesCoach": "No weight set: {{names}}. If they used any, add it from Did it differently.",
     "weightsFromLastTime": "The weight for {{names}} is the last one you logged. Your coach didn't set kg.",
     "weightsFromLastTimeCoach": "The weight for {{names}} is the last one they logged. You didn't set kg.",
-    "addComment": "Add a comment"
+    "addComment": "Add a comment",
+    "warnOutlier": {
+      "kg": "Is it {{value}} kg? Your best in this exercise is {{max}} kg. If it was a typo, fix it now.",
+      "reps": "Is it {{value}} reps? Your best in this exercise is {{max}}. If it was a typo, fix it now.",
+      "seconds": "Is it {{value}} seconds? Your best in this exercise is {{max}} s. If it was a typo, fix it now."
+    }
   },
   "progress": {
     "title": "My progress",
@@ -1142,6 +1147,21 @@
         "gentle": "These weeks were hard, and that's okay. Let's talk and build a plan that works for you."
       },
       "seeProgress": "See my progress"
+    },
+    "best": {
+      "title": "Personal best in {{exercise}}",
+      "titleNoName": "Personal best!",
+      "body": {
+        "kg": "{{value}} kg. Your previous best was {{previous}} kg.",
+        "reps": "{{value}} reps. Your previous best was {{previous}}.",
+        "seconds": "{{value}} s. Your previous best was {{previous}} s."
+      },
+      "ok": "Got it",
+      "isError": "Was it a mistake?",
+      "fixTitle": "What happened?",
+      "fixBody": "You logged {{value}} and your previous best was {{previous}}. If it was a typo, fix it and the record adjusts itself.",
+      "fixEdit": "Fix the entry",
+      "fixVoid": "Remove the record, keep the entry"
     }
   }
 }

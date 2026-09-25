@@ -236,12 +236,17 @@ export function detectPlanMilestone({ assignment, closedDates, today, weekMilest
 // Mejores marcas
 // ============================================================
 
-// Métrica de un registro: peso si lleva peso, si no reps.
+// Métrica de un registro: peso si lleva peso; si no, reps o segundos según
+// la unidad. Pasos y respiraciones no compiten por marca (no es un logro
+// hacer más respiraciones que la vez pasada).
 export function bestMetricOf(log) {
   const w = maxWeightOfLog(log)
   if (w > 0) return { metric: 'weight', value: w }
+  const unit = log?.reps_unit || 'reps'
+  const metric = unit === 'segundos' ? 'seconds' : unit === 'reps' ? 'reps' : null
+  if (!metric) return null
   const r = repsMaxOfLog(log)
-  if (r > 0) return { metric: 'reps', value: r }
+  if (r > 0) return { metric, value: r }
   return null
 }
 
@@ -279,8 +284,8 @@ export function detectPersonalBest({
   const current = bestMetricOf(log)
   if (!current) return null
   const ref = previousBestReference({ log, history, voidedLogIds, metric: current.metric })
-  // Reps sin peso contra una historia con peso: no comparable.
-  if (current.metric === 'reps' && ref.sawOtherMetric) return null
+  // Sin peso contra una historia con peso (u otra unidad): no comparable.
+  if (current.metric !== 'weight' && ref.sawOtherMetric) return null
   if (ref.count < minPrevious || ref.max == null || !(current.value > ref.max)) return null
   return {
     kind: 'personal_best',
@@ -435,4 +440,51 @@ export function toAwardArgs(studentId, candidate) {
     p_assignment_id: candidate.assignmentId ?? null,
     p_workout_log_id: candidate.workoutLogId ?? null,
   }
+}
+
+// ============================================================
+// Referencias de marca por ejercicio (Etapa 4)
+// ------------------------------------------------------------
+// Para el aviso al cargar: la pantalla ya tiene los registros recientes
+// de la persona (cross-plan). Arma por exercise_id el máximo y la cantidad
+// de registros previos en cada métrica. Excluye omitidos y logs de marcas
+// anuladas. `exerciseIdOf` permite leer el id de catálogo según la forma
+// de la fila (embebido o columna).
+// ============================================================
+export function buildBestReferences(logs, { voidedLogIds, exerciseIdOf } = {}) {
+  const voided = new Set(voidedLogIds || [])
+  const getEx = exerciseIdOf || ((l) => l?.exercise_id ?? l?.plan_exercise?.exercise_id ?? null)
+  const refs = new Map()
+  for (const l of logs || []) {
+    if (!l || voided.has(l.id) || !isLogDone(l)) continue
+    const exId = getEx(l)
+    if (!exId) continue
+    const m = bestMetricOf(l)
+    if (!m) continue
+    if (!refs.has(exId)) {
+      refs.set(exId, {
+        weight: { count: 0, max: null },
+        reps: { count: 0, max: null },
+        seconds: { count: 0, max: null },
+      })
+    }
+    const r = refs.get(exId)[m.metric]
+    r.count += 1
+    r.max = r.max == null ? m.value : Math.max(r.max, m.value)
+  }
+  return refs
+}
+
+// Aviso al cargar contra una referencia ya armada ({count, max}).
+export function outlierFromReference({
+  value,
+  reference,
+  minPrevious = MIN_PREVIOUS_FOR_BEST,
+  ratio = OUTLIER_RATIO,
+} = {}) {
+  const v = parseFloat(value)
+  if (!(v > 0) || !reference || reference.count < minPrevious || reference.max == null) {
+    return { warn: false }
+  }
+  return v > reference.max * ratio ? { warn: true, previousMax: reference.max } : { warn: false }
 }

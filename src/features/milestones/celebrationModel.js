@@ -7,7 +7,7 @@
 // solo pintan esto.
 //
 // Niveles (decisión Franco 2026-09-24, maqueta "Celebraciones de la app"):
-//   toast  → día completo (se va solo)
+//   toast  → día completo o mejor marca (se va solo)
 //   sheet  → semana completa (hoja desde abajo, se cierra a mano)
 //   full   → plan terminado (pantalla completa)
 // El día parcial no pasa por acá: ya tiene su banner ámbar en Entrenar.
@@ -24,7 +24,13 @@ import {
 import { isDayStateClosed } from '@/features/workouts/completionRules'
 
 export const LEVEL_RANK = { toast: 1, sheet: 2, full: 3 }
-export const CONFETTI = { toast: 60, sheet: 140, full: { strong: 220, good: 120, gentle: 0 } }
+export const CONFETTI = {
+  toast: 60,
+  best: 30,
+  sheet: 140,
+  full: { strong: 220, good: 120, gentle: 0 },
+}
+export const BEST_TOAST_MS = 7000
 export const TOAST_MS = 4200
 
 // Plan en bloques por sección (mismo armado que TodayWorkoutPage).
@@ -214,6 +220,21 @@ export function toCelebration(milestone, { studentId } = {}) {
       message: p.message ?? null,
       autoMessageKey: `celebrations.plan.autoMessage.${tone === 'gentle' ? 'gentle' : 'default'}`,
       stats,
+      fromCoach,
+    }
+  }
+  if (milestone.kind === 'personal_best') {
+    const unit = p.metric === 'reps' ? 'reps' : p.metric === 'seconds' ? 'seconds' : 'kg'
+    return {
+      ...base,
+      level: 'toast',
+      variant: 'best',
+      confetti: CONFETTI.best,
+      titleKey: p.exercise_name ? 'celebrations.best.title' : 'celebrations.best.titleNoName',
+      titleVars: { exercise: p.exercise_name ?? '' },
+      bodyKey: `celebrations.best.body.${unit}`,
+      bodyVars: { value: p.value, previous: p.previous_max },
+      planExerciseId: p.plan_exercise_id ?? null,
       fromCoach,
     }
   }

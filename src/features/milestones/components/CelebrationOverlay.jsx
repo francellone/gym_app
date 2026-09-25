@@ -4,14 +4,17 @@
 // Recibe el modelo de celebrationModel.toCelebration y un onDismiss.
 // Diseño según la maqueta aprobada por Franco (2026-09-24).
 // ============================================================
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { addDays, format, parseISO } from 'date-fns'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Medal } from 'lucide-react'
 import { dateLocale } from '@/i18n/dateLocale'
 import { fireConfetti } from '../confetti'
-import { TOAST_MS } from '../celebrationModel'
+import { TOAST_MS, BEST_TOAST_MS } from '../celebrationModel'
+import { supabase } from '@/lib/supabase'
+import { voidPersonalBest } from '../api'
+import { requestLogEdit } from '../editRequest'
 
 function useConfetti(item) {
   useEffect(() => {
@@ -87,6 +90,109 @@ function DayToast({ item, onDismiss }) {
         <span className="font-bold text-gray-900">{t(item.titleKey, item.titleVars)}</span>
         <span className="text-[13px] text-gray-600">{t(item.bodyKey, { date })}</span>
       </button>
+    </div>
+  )
+}
+
+// Mejor marca: toast con "¿Es un error?". Primero se ofrece corregir el
+// registro (decisión Franco); anular sin tocar el registro queda como
+// segunda opción. Al abrir la hoja el toast deja de irse solo.
+function BestToast({ item, onDismiss }) {
+  const { t, i18n } = useTranslation()
+  const [fixing, setFixing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (fixing) return undefined
+    const id = setTimeout(onDismiss, BEST_TOAST_MS)
+    return () => clearTimeout(id)
+  }, [onDismiss, fixing])
+  useEscape(onDismiss, fixing)
+  const fmt = (n) =>
+    Number.isFinite(Number(n)) ? Number(n).toLocaleString(i18n.language) : String(n ?? '')
+  const bodyVars = { value: fmt(item.bodyVars?.value), previous: fmt(item.bodyVars?.previous) }
+
+  async function voidBest(reason) {
+    if (!item.id) return
+    setBusy(true)
+    try {
+      await voidPersonalBest(supabase, item.id, reason)
+    } catch (err) {
+      console.warn('[celebrations] no se pudo anular la marca:', err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (fixing) {
+    return (
+      <div
+        className="celebrate-fade fixed inset-0 z-[60] flex items-end bg-gray-900/45"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="celebration-title"
+        onClick={onDismiss}
+      >
+        <div
+          className="celebrate-up mx-auto w-full max-w-lg rounded-t-3xl bg-white px-5 pt-6"
+          style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 id="celebration-title" className="text-xl font-extrabold text-gray-900">
+            {t('celebrations.best.fixTitle')}
+          </h2>
+          <p className="mt-1 text-gray-600">{t('celebrations.best.fixBody', bodyVars)}</p>
+          <div className="mt-5 grid gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                onDismiss()
+                requestLogEdit(item.planExerciseId)
+              }}
+              className="w-full rounded-xl bg-primary-500 py-3 font-bold text-white hover:bg-primary-600 disabled:opacity-60"
+            >
+              {t('celebrations.best.fixEdit')}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                await voidBest('student_void')
+                onDismiss()
+              }}
+              className="w-full rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 disabled:opacity-60"
+            >
+              {t('celebrations.best.fixVoid')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-md"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="celebrate-up grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 shadow-xl ring-1 ring-black/5">
+        <span className="row-span-3 grid h-10 w-10 place-items-center rounded-xl bg-primary-50 text-primary-700">
+          <Medal size={22} />
+        </span>
+        <span className="font-bold text-gray-900">{t(item.titleKey, item.titleVars)}</span>
+        <span className="text-[13px] text-gray-600">{t(item.bodyKey, bodyVars)}</span>
+        <span className="mt-1 flex gap-4 text-[13px] font-semibold">
+          <button type="button" onClick={onDismiss} className="text-primary-700">
+            {t('celebrations.best.ok')}
+          </button>
+          {item.id && (
+            <button type="button" onClick={() => setFixing(true)} className="text-gray-500">
+              {t('celebrations.best.isError')}
+            </button>
+          )}
+        </span>
+      </div>
     </div>
   )
 }
@@ -208,6 +314,9 @@ function PlanScreen({ item, onDismiss }) {
 export default function CelebrationOverlay({ item, onDismiss }) {
   useConfetti(item)
   if (!item) return null
+  if (item.level === 'toast' && item.variant === 'best') {
+    return <BestToast item={item} onDismiss={onDismiss} />
+  }
   if (item.level === 'toast') return <DayToast item={item} onDismiss={onDismiss} />
   if (item.level === 'sheet') return <WeekSheet item={item} onDismiss={onDismiss} />
   if (item.level === 'full') return <PlanScreen item={item} onDismiss={onDismiss} />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import {
@@ -29,6 +29,9 @@ import {
 } from '@/features/plans/helpers'
 import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
 import RPEScale from './RPEScale'
+import ValidationWarning from './ValidationWarning'
+import { outlierFromReference } from '@/features/milestones/milestoneRules'
+import { onLogEditRequest } from '@/features/milestones/editRequest'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
@@ -71,6 +74,9 @@ export default function CircuitBlockRunCard({
   oneRmMap = null,
   // v54 — la coach registra por la persona: textos en tercera persona
   coachMode = false,
+  // Etapa 4 celebraciones — Map<exercise_id, {weight, reps}> con el máximo
+  // previo de la persona, para avisar un valor que lo duplica.
+  bestRefByExercise = null,
 }) {
   const { t, i18n } = useTranslation()
   const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
@@ -84,6 +90,9 @@ export default function CircuitBlockRunCard({
   // Qué ejercicios tienen su descripción abierta (por id de plan_exercise)
   const [openDesc, setOpenDesc] = useState({})
   const [editing, setEditing] = useState(false)
+  // Etapa 4 — aviso de valor raro antes de guardar: { message, args }
+  const [outlierWarn, setOutlierWarn] = useState(null)
+  const cardRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   // v54: null | 'confirm' | 'skip' | 'reopen' (un omitido vuelve a la vista)
@@ -197,8 +206,36 @@ export default function CircuitBlockRunCard({
 
   // `entryMode`: 'confirmed' (lo hizo tal cual) | 'edited' (ajustó).
   // `pseOverride`: el PSE del confirmar inline (setForm es asíncrono).
-  async function saveBlock({ entryMode = 'edited', pseOverride } = {}) {
+  // Etapa 4: ¿algún ejercicio duplica el máximo previo de la persona?
+  function findOutlier() {
+    for (const ex of block.plan_exercises || []) {
+      const data = exForm[ex.id]
+      const ref = bestRefByExercise?.get?.(ex.exercise_id)
+      if (!data || !ref) continue
+      const w = parseFloat(data.actual_weight)
+      const r = parseFloat(data.actual_reps)
+      const metric = w > 0 ? 'weight' : 'reps'
+      const value = w > 0 ? w : r
+      const out = outlierFromReference({ value, reference: ref[metric] })
+      if (out.warn) {
+        return t(`workout.warnOutlier.${metric === 'weight' ? 'kg' : 'reps'}`, {
+          value: value.toLocaleString(i18n.language),
+          max: out.previousMax.toLocaleString(i18n.language),
+        })
+      }
+    }
+    return null
+  }
+
+  async function saveBlock({ entryMode = 'edited', pseOverride, skipOutlier = false } = {}) {
     const pse = pseOverride !== undefined ? pseOverride : form.perceived_difficulty
+    if (!skipOutlier) {
+      const message = findOutlier()
+      if (message) {
+        setOutlierWarn({ message, args: { entryMode, pseOverride } })
+        return
+      }
+    }
     setSaving(true)
     try {
       await onSaveBlockLog({
@@ -276,6 +313,23 @@ export default function CircuitBlockRunCard({
     }
   }
 
+  // Etapa 4: "¿Es un error? Corregir" de una marca de un ejercicio de este
+  // circuito abre el bloque en modo ajustar.
+  useEffect(
+    () =>
+      onLogEditRequest((id) => {
+        if (!(block.plan_exercises || []).some((ex) => ex.id === id)) return
+        setExpanded(true)
+        setPendingAction(null)
+        setEditing(true)
+        setTimeout(
+          () => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+          50
+        )
+      }),
+    [block.plan_exercises]
+  )
+
   // v54 — CONFIRMAR: el toque sobre el PSE del bloque guarda todo.
   async function confirmWithPse(pse) {
     setForm((p) => ({ ...p, perceived_difficulty: pse }))
@@ -337,6 +391,17 @@ export default function CircuitBlockRunCard({
 
   return (
     <>
+      {outlierWarn && (
+        <ValidationWarning
+          message={outlierWarn.message}
+          onConfirm={() => {
+            const args = outlierWarn.args
+            setOutlierWarn(null)
+            saveBlock({ ...args, skipOutlier: true })
+          }}
+          onCancel={() => setOutlierWarn(null)}
+        />
+      )}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4">
@@ -361,6 +426,7 @@ export default function CircuitBlockRunCard({
       )}
 
       <div
+        ref={cardRef}
         className={`rounded-2xl border-2 transition-all overflow-hidden ${
           completed
             ? 'border-orange-200 bg-orange-50'

@@ -79,3 +79,74 @@ export async function fetchPlanActivity(supabase, { studentId, planId, fromDate 
   ])
   return { logs, blockLogs }
 }
+
+// ── Mejores marcas (Etapa 4) ────────────────────────────────
+
+// Registros hechos de la persona en un ejercicio de catálogo, ANTES de una
+// fecha (cross-plan: la marca es de la persona, no del plan).
+export async function fetchExerciseHistory(supabase, { studentId, exerciseId, beforeDate }) {
+  return fetchAllRows((from, to) =>
+    supabase
+      .from('workout_logs')
+      .select(
+        'id, logged_date, completed, status, reps_unit, actual_weights_jsonb, actual_reps_jsonb, actual_weights, actual_reps, actual_weight, actual_sets'
+      )
+      .eq('student_id', studentId)
+      .eq('exercise_id', exerciseId)
+      .eq('completed', true)
+      .lt('logged_date', beforeDate)
+      .order('logged_date')
+      .order('id')
+      .range(from, to)
+  )
+}
+
+// Logs cuyas marcas se anularon: no sirven de referencia.
+export async function fetchVoidedBestLogIds(supabase, { studentId, exerciseId }) {
+  let q = supabase
+    .from('student_milestones')
+    .select('workout_log_id')
+    .eq('student_id', studentId)
+    .eq('kind', 'personal_best')
+    .not('voided_at', 'is', null)
+  if (exerciseId) q = q.eq('exercise_id', exerciseId)
+  const { data, error } = await q
+  if (error) throw error
+  return (data || []).map((r) => r.workout_log_id).filter(Boolean)
+}
+
+export async function fetchBestForLog(supabase, { studentId, logId }) {
+  const { data, error } = await supabase
+    .from('student_milestones')
+    .select('id, voided_at, payload')
+    .eq('student_id', studentId)
+    .eq('kind', 'personal_best')
+    .eq('period_key', String(logId))
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// Marcas vigentes otorgadas desde `sinceIso` (para "una por día").
+export async function countBestsSince(supabase, { studentId, sinceIso, excludeId }) {
+  let q = supabase
+    .from('student_milestones')
+    .select('id', { count: 'exact', head: true })
+    .eq('student_id', studentId)
+    .eq('kind', 'personal_best')
+    .is('voided_at', null)
+    .gte('created_at', sinceIso)
+  if (excludeId) q = q.neq('id', excludeId)
+  const { count, error } = await q
+  if (error) throw error
+  return count || 0
+}
+
+export async function voidPersonalBest(supabase, milestoneId, reason) {
+  const { data, error } = await supabase.rpc('void_personal_best', {
+    p_milestone_id: milestoneId,
+    p_reason: reason ?? null,
+  })
+  if (error) throw error
+  return data
+}

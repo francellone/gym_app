@@ -19,6 +19,8 @@ import {
   isStreakCelebration,
   detectStreakMilestones,
   toAwardArgs,
+  buildBestReferences,
+  outlierFromReference,
 } from './milestoneRules'
 
 // ── fixtures ────────────────────────────────────────────────
@@ -515,5 +517,73 @@ describe('toAwardArgs', () => {
       p_assignment_id: null,
       p_workout_log_id: 'l1',
     })
+  })
+})
+
+describe('unidades de la marca', () => {
+  const slog = (id, secs, unit = 'segundos') => ({
+    id,
+    completed: true,
+    status: 'done',
+    actual_reps_jsonb: [secs],
+    reps_unit: unit,
+  })
+  it('segundos compiten entre sí', () => {
+    const h = [slog('a', 30), slog('b', 40), slog('c', 35)]
+    expect(detectPersonalBest({ log: slog('n', 45), history: h })?.payload).toMatchObject({
+      metric: 'seconds',
+      value: 45,
+    })
+  })
+  it('pasos y respiraciones no son marca', () => {
+    const h = [slog('a', 30, 'pasos'), slog('b', 40, 'pasos'), slog('c', 35, 'pasos')]
+    expect(detectPersonalBest({ log: slog('n', 90, 'pasos'), history: h })).toBeNull()
+  })
+  it('segundos contra historia en reps: no comparable', () => {
+    const h = [slog('a', 10, 'reps'), slog('b', 12, 'reps'), slog('c', 11, 'reps')]
+    expect(detectPersonalBest({ log: slog('n', 60), history: h })).toBeNull()
+  })
+})
+
+describe('buildBestReferences + outlierFromReference', () => {
+  const row = (id, ex, w, extra = {}) => ({
+    id,
+    exercise_id: ex,
+    completed: true,
+    status: 'done',
+    actual_weights_jsonb: [w],
+    actual_reps_jsonb: [10],
+    ...extra,
+  })
+  it('máximo y cantidad por ejercicio y métrica; sin omitidos ni anuladas; lee el id embebido', () => {
+    const refs = buildBestReferences(
+      [
+        row('a', 'ex1', 10),
+        row('b', 'ex1', 12),
+        row('c', 'ex1', 11),
+        row('d', 'ex1', 99),
+        { ...row('e', 'ex1', 80), completed: false, status: 'skipped' },
+        {
+          id: 'f',
+          plan_exercise: { exercise_id: 'ex2' },
+          completed: true,
+          status: 'done',
+          actual_weights_jsonb: [5],
+          actual_reps_jsonb: [8],
+        },
+      ],
+      { voidedLogIds: ['d'] }
+    )
+    expect(refs.get('ex1').weight).toEqual({ count: 3, max: 12 })
+    expect(refs.get('ex2').weight).toEqual({ count: 1, max: 5 })
+  })
+  it('avisa por encima del doble con 3 previos', () => {
+    expect(outlierFromReference({ value: 28, reference: { count: 3, max: 12 } })).toEqual({
+      warn: true,
+      previousMax: 12,
+    })
+    expect(outlierFromReference({ value: 24, reference: { count: 3, max: 12 } }).warn).toBe(false)
+    expect(outlierFromReference({ value: 50, reference: { count: 2, max: 12 } }).warn).toBe(false)
+    expect(outlierFromReference({ value: 50, reference: null }).warn).toBe(false)
   })
 })

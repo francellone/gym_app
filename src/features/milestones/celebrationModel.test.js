@@ -245,7 +245,43 @@ describe('toCelebration', () => {
   })
 
   it('tipos sin pantalla devuelven null', () => {
-    expect(toCelebration({ kind: 'personal_best', payload: {} })).toBeNull()
+    expect(toCelebration({ kind: 'streak', payload: {} })).toBeNull()
+  })
+})
+
+describe('toCelebration: mejor marca', () => {
+  it('toast con nombre, valor, máximo anterior y el ejercicio del plan para corregir', () => {
+    const c = toCelebration({
+      id: 'b1',
+      kind: 'personal_best',
+      payload: {
+        metric: 'weight',
+        value: 42.5,
+        previous_max: 40,
+        exercise_name: 'Sentadilla',
+        plan_exercise_id: 'pe1',
+      },
+    })
+    expect(c).toMatchObject({
+      level: 'toast',
+      variant: 'best',
+      confetti: 30,
+      titleKey: 'celebrations.best.title',
+      titleVars: { exercise: 'Sentadilla' },
+      bodyKey: 'celebrations.best.body.kg',
+      bodyVars: { value: 42.5, previous: 40 },
+      planExerciseId: 'pe1',
+    })
+  })
+  it('por reps, y sin nombre', () => {
+    const c = toCelebration({
+      kind: 'personal_best',
+      payload: { metric: 'reps', value: 12, previous_max: 10 },
+    })
+    expect(c).toMatchObject({
+      bodyKey: 'celebrations.best.body.reps',
+      titleKey: 'celebrations.best.titleNoName',
+    })
   })
 })
 
