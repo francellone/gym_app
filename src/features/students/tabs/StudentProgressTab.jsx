@@ -31,6 +31,7 @@ import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../atte
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 import { planWindowsFromLogs, previousPlanStart, NO_PLAN } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
+import PersonalBestsCard from '@/features/milestones/components/PersonalBestsCard'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 
 // ─────────────────────────────────────────────────────────────
@@ -622,6 +623,9 @@ export default function StudentProgressTab({ studentId }) {
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Etapa 6 celebraciones: marcas de la persona, con anular */}
+      <PersonalBestsCard studentId={studentId} />
+
       {/* Sub-nav: Gráficos / Tabla */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
         {VIEW_MODES.map((m) => {

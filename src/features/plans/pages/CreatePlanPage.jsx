@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import CompletionMessageField from '../components/CompletionMessageField'
+import { normalizeCompletionMessage } from '../completionMessage'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
@@ -51,6 +53,8 @@ function CreatePlanPageInner() {
   const [plan, setPlan] = useState({
     title: '',
     description: '',
+    // Etapa 6 celebraciones: null = mensaje automático
+    completion_message: null,
     goal: '',
     sessions_per_week: 3,
     has_activation: false,
@@ -233,6 +237,10 @@ function CreatePlanPageInner() {
         .insert({
           title: plan.title,
           description: plan.description,
+          completion_message:
+            plan.plan_type === 'evaluation'
+              ? null
+              : normalizeCompletionMessage(plan.completion_message),
           goal: plan.goal,
           // Para evaluaciones exercise-based los "días" se guardan en
           // sessions_per_week (lo usa getDynamicSections al leer/editar).
@@ -496,6 +504,13 @@ function CreatePlanPageInner() {
               onChange={(e) => setPlan((p) => ({ ...p, description: e.target.value }))}
             />
           </div>
+
+          {!isEval && (
+            <CompletionMessageField
+              value={plan.completion_message}
+              onChange={(v) => setPlan((p) => ({ ...p, completion_message: v }))}
+            />
+          )}
 
           {!isEval && (
             <>

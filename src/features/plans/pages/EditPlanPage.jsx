@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import CompletionMessageField from '../components/CompletionMessageField'
+import { normalizeCompletionMessage } from '../completionMessage'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
@@ -132,6 +134,7 @@ function EditPlanPageInner() {
         const loadedPlan = {
           title: p.title || '',
           description: p.description || '',
+          completion_message: p.completion_message ?? null,
           goal: p.goal || '',
           sessions_per_week: p.sessions_per_week || 3,
           has_activation: p.has_activation || false,
@@ -485,6 +488,10 @@ function EditPlanPageInner() {
         .update({
           title: plan.title,
           description: plan.description,
+          completion_message:
+            plan.plan_type === 'evaluation'
+              ? null
+              : normalizeCompletionMessage(plan.completion_message),
           goal: plan.goal,
           sessions_per_week:
             plan.plan_type === 'evaluation'
@@ -839,6 +846,13 @@ function EditPlanPageInner() {
               onChange={(e) => setPlan((p) => ({ ...p, description: e.target.value }))}
             />
           </div>
+
+          {!isEval && (
+            <CompletionMessageField
+              value={plan.completion_message}
+              onChange={(v) => setPlan((p) => ({ ...p, completion_message: v }))}
+            />
+          )}
 
           {!isEval && (
             <>

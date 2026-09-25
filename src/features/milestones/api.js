@@ -162,3 +162,18 @@ export async function voidPersonalBest(supabase, milestoneId, reason) {
   if (error) throw error
   return data
 }
+
+// Marcas de una persona para la vista de la coach (vigentes y anuladas).
+export async function fetchPersonalBests(supabase, studentId, { limit = 20 } = {}) {
+  const { data, error } = await supabase
+    .from('student_milestones')
+    .select(
+      'id, created_at, payload, voided_at, void_reason, exercise:exercises!exercise_id(id, name)'
+    )
+    .eq('student_id', studentId)
+    .eq('kind', 'personal_best')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
