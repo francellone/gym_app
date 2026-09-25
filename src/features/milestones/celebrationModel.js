@@ -20,7 +20,10 @@ import {
   detectWeekMilestone,
   detectPlanMilestone,
   buildWeekStatuses,
+  isoWeekKey,
 } from './milestoneRules'
+import { computeWeekAdherence } from '@/features/plans/assignmentHelpers'
+import { isWeekComplete } from '@/features/workouts/sessionProgress'
 import { isDayStateClosed } from '@/features/workouts/completionRules'
 
 export const LEVEL_RANK = { toast: 1, sheet: 2, full: 3 }
@@ -112,6 +115,64 @@ export function computeLiveCandidates({
     weekMilestone: weekM,
   })
   if (planM) out.push(enrichPlanCandidate(planM, { assignment, closedDates: nextClosed, today }))
+  return out
+}
+
+// ============================================================
+// Al DESMARCAR (decisión Franco 2026-09-25): "si se desmarca, que la coach
+// no reciba el aviso". Qué hitos dejan de ser ciertos para la fecha:
+//   - día: antes había un día completo en la fecha y ya no;
+//   - semana: la fecha dejó de contar como sesión cerrada y, sin ella, la
+//     semana ya no llega a lo previsto;
+//   - plan: la semana revocada es la última del plan y el plan todavía no
+//     venció (vencido, el cierre por fecha vale igual).
+// ============================================================
+export function hasLostClosure(prevStates, nextStates) {
+  const prev = Object.values(prevStates || {})
+  const next = Object.values(nextStates || {})
+  const hadComplete = prev.includes('complete')
+  const hasComplete = next.includes('complete')
+  const hadClosed = prev.some(isDayStateClosed)
+  const hasClosed = next.some(isDayStateClosed)
+  return (hadComplete && !hasComplete) || (hadClosed && !hasClosed)
+}
+
+export function computeLiveRevocations({
+  date,
+  prevStates,
+  nextStates,
+  assignment,
+  blocksBySection,
+  activity,
+  today,
+} = {}) {
+  const out = []
+  const prev = Object.values(prevStates || {})
+  const next = Object.values(nextStates || {})
+  if (prev.includes('complete') && !next.includes('complete')) {
+    out.push({ kind: 'day_complete', periodKey: date })
+  }
+  const lostSession = prev.some(isDayStateClosed) && !next.some(isDayStateClosed)
+  if (!lostSession || !assignment) return out
+
+  const closed = closedSessionDates({
+    activeDays: activeDaysOf(blocksBySection),
+    blocksBySection,
+    logs: activity?.logs,
+    blockLogs: activity?.blockLogs,
+  }).filter((d) => d !== date)
+  const anchor = new Date(`${date}T12:00:00`)
+  const now = today || new Date()
+  const withDate = computeWeekAdherence(assignment, [...closed, date], anchor, now)
+  const withoutDate = computeWeekAdherence(assignment, closed, anchor, now)
+  if (!isWeekComplete(withDate) || isWeekComplete(withoutDate)) return out
+
+  const weekKey = isoWeekKey(date)
+  out.push({ kind: 'week_complete', periodKey: weekKey })
+  const end = assignment.expected_end_date
+  if (end && isoWeekKey(end) === weekKey && new Date(`${end}T23:59:59`) >= now) {
+    out.push({ kind: 'plan_complete', periodKey: String(assignment.id) })
+  }
   return out
 }
 

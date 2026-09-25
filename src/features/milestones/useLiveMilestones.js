@@ -18,9 +18,11 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { isDayStateClosed } from '@/features/workouts/completionRules'
-import { awardMilestone, fetchPlanActivity } from './api'
+import { awardMilestone, fetchPlanActivity, revokeMilestone } from './api'
 import {
   computeLiveCandidates,
+  computeLiveRevocations,
+  hasLostClosure,
   pickTopCelebration,
   toCelebration,
   withStreak,
@@ -69,6 +71,45 @@ export function useLiveMilestones({
     prevRef.current = { date: selectedDate, states: dayStateMap }
     if (prev.date !== selectedDate || !prev.states) return
     if (Date.now() - actionAtRef.current > ACTION_WINDOW_MS) return
+
+    // Desmarcar (decisión Franco 2026-09-25): si el día / la semana / el
+    // plan dejan de estar cumplidos, se deshacen sus hitos y la coach deja
+    // de tener esos avisos. Misma espera y re-chequeo que al otorgar.
+    if (hasLostClosure(prev.states, dayStateMap)) {
+      const prevStatesR = prev.states
+      const dateR = selectedDate
+      const timerR = setTimeout(async () => {
+        const latest = latestRef.current
+        // Sigue sin estar cumplido (un re-guardado rápido lo habría repuesto)
+        if (latest.date !== dateR || !hasLostClosure(prevStatesR, latest.states)) return
+        const { studentId: sid, assignment: a, blocksBySection: bbs } = ctxRef.current
+        if (!sid || !a?.plan_id) return
+        try {
+          const activity = await fetchPlanActivity(supabase, {
+            studentId: sid,
+            planId: a.plan_id,
+            fromDate: a.start_date,
+          })
+          const revs = computeLiveRevocations({
+            date: dateR,
+            prevStates: prevStatesR,
+            nextStates: latest.states,
+            assignment: a,
+            blocksBySection: bbs,
+            activity,
+            today: new Date(),
+          })
+          for (const r of revs) await revokeMilestone(supabase, sid, r)
+          if (revs.some((r) => r.kind === 'week_complete')) {
+            ctxRef.current.setStreak?.(await loadStreakState(supabase, sid))
+          }
+        } catch (err) {
+          console.warn('[celebrations] no se pudieron deshacer los hitos:', err)
+        }
+      }, SETTLE_MS)
+      timersRef.current.push(timerR)
+      return
+    }
 
     const dayId = Object.keys(dayStateMap || {}).find(
       (id) => isDayStateClosed(dayStateMap[id]) && !isDayStateClosed(prev.states[id])

@@ -8,6 +8,8 @@ import {
   pickTopCelebration,
   toCelebration,
   withStreak,
+  hasLostClosure,
+  computeLiveRevocations,
 } from './celebrationModel'
 
 const d = (s) => new Date(`${s}T12:00:00`)
@@ -321,5 +323,79 @@ describe('pickTopCelebration', () => {
       pickTopCelebration([{ level: 'toast' }, { level: 'full' }, { level: 'sheet' }]).level
     ).toBe('full')
     expect(pickTopCelebration([])).toBeNull()
+  })
+})
+
+describe('al desmarcar', () => {
+  const weekLogs = [...dayA('2026-09-15'), ...dayB('2026-09-17')]
+  const base = { assignment, blocksBySection, today: d('2026-09-17') }
+
+  it('detecta cuándo se perdió algo', () => {
+    expect(hasLostClosure({ day_b: 'complete' }, { day_b: 'open' })).toBe(true)
+    expect(hasLostClosure({ day_b: 'complete' }, { day_b: 'partial' })).toBe(true)
+    expect(hasLostClosure({ day_b: 'partial' }, { day_b: 'open' })).toBe(true)
+    expect(hasLostClosure({ day_b: 'open' }, { day_b: 'open' })).toBe(false)
+    expect(hasLostClosure({ day_b: 'partial' }, { day_b: 'complete' })).toBe(false)
+  })
+
+  it('completo → abierto con la semana completa: se deshacen día y semana', () => {
+    const r = computeLiveRevocations({
+      ...base,
+      date: '2026-09-17',
+      prevStates: { day_b: 'complete' },
+      nextStates: { day_b: 'open' },
+      activity: { logs: weekLogs, blockLogs: [] },
+    })
+    expect(r).toEqual([
+      { kind: 'day_complete', periodKey: '2026-09-17' },
+      { kind: 'week_complete', periodKey: '2026-W38' },
+    ])
+  })
+
+  it('completo → parcial: solo el día (la sesión sigue contando)', () => {
+    const r = computeLiveRevocations({
+      ...base,
+      date: '2026-09-17',
+      prevStates: { day_b: 'complete' },
+      nextStates: { day_b: 'partial' },
+      activity: { logs: weekLogs, blockLogs: [] },
+    })
+    expect(r).toEqual([{ kind: 'day_complete', periodKey: '2026-09-17' }])
+  })
+
+  it('la semana no estaba completa: solo el día', () => {
+    const r = computeLiveRevocations({
+      ...base,
+      date: '2026-09-17',
+      prevStates: { day_b: 'complete' },
+      nextStates: { day_b: 'open' },
+      activity: { logs: dayB('2026-09-17'), blockLogs: [] },
+    })
+    expect(r).toEqual([{ kind: 'day_complete', periodKey: '2026-09-17' }])
+  })
+
+  it('última semana del plan sin vencer: también el plan', () => {
+    const r = computeLiveRevocations({
+      assignment,
+      blocksBySection,
+      today: d('2026-09-24'),
+      date: '2026-09-24',
+      prevStates: { day_b: 'complete' },
+      nextStates: { day_b: 'open' },
+      activity: { logs: [...dayA('2026-09-22'), ...dayB('2026-09-24')], blockLogs: [] },
+    })
+    expect(r.map((x) => x.kind)).toEqual(['day_complete', 'week_complete', 'plan_complete'])
+    expect(r[2].periodKey).toBe('asg-1')
+  })
+
+  it('otro día de la misma fecha sigue cerrado: la semana no se toca', () => {
+    const r = computeLiveRevocations({
+      ...base,
+      date: '2026-09-17',
+      prevStates: { day_a: 'complete', day_b: 'complete' },
+      nextStates: { day_a: 'complete', day_b: 'open' },
+      activity: { logs: weekLogs, blockLogs: [] },
+    })
+    expect(r).toEqual([])
   })
 })

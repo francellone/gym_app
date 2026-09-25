@@ -18,6 +18,18 @@ export async function awardMilestone(supabase, studentId, candidate) {
   }
 }
 
+// Deshace un hito de día / semana / plan al desmarcar (v55d): borra la
+// fila y corrige o borra el aviso a la coach.
+export async function revokeMilestone(supabase, studentId, { kind, periodKey }) {
+  const { data, error } = await supabase.rpc('revoke_milestone', {
+    p_student_id: studentId,
+    p_kind: kind,
+    p_period_key: periodKey,
+  })
+  if (error) throw error
+  return !!data
+}
+
 // Hitos que la persona todavía no vio (los cargó la coach, o se cortó la
 // app antes de mostrarlos). Solo los que tienen pantalla.
 export async function fetchPendingMilestones(supabase, studentId) {

@@ -887,6 +887,8 @@ export default function TodayWorkoutPage() {
   }
 
   async function deleteLog(planExerciseId) {
+    // v55d: desmarcar también es una acción: puede deshacer hitos.
+    markUserAction()
     const existingLog = logs[planExerciseId]
     if (!existingLog) return
     // v33: .select() para detectar deletes silenciosos por RLS (0 filas).
@@ -1031,6 +1033,8 @@ export default function TodayWorkoutPage() {
   }
 
   async function deleteBlockLog(planBlockId) {
+    // v55d: desmarcar también es una acción: puede deshacer hitos.
+    markUserAction()
     const existing = blockLogs[planBlockId]
     if (!existing) return
     // v33: mismo patrón que deleteLog — detectar 0 filas por RLS.
