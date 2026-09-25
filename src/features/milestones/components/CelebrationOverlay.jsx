@@ -197,12 +197,34 @@ function BestToast({ item, onDismiss }) {
   )
 }
 
+// Barritas de la racha (una por semana, hasta 12). Si se usó el comodín,
+// la última va rayada.
+function StreakBars({ weeks, freezeUsed }) {
+  const n = Math.min(Math.max(weeks, 0), 12)
+  if (n === 0) return null
+  return (
+    <div className="mt-2 flex gap-1" aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => (
+        <i
+          key={i}
+          className="h-2 flex-1 rounded bg-primary-300"
+          style={
+            freezeUsed && i === n - 1
+              ? { background: 'repeating-linear-gradient(45deg,#fdba74 0 4px,#fff 4px 8px)' }
+              : undefined
+          }
+        />
+      ))}
+    </div>
+  )
+}
+
 function WeekSheet({ item, onDismiss }) {
   const { t } = useTranslation()
   const btnRef = useRef(null)
   useEffect(() => btnRef.current?.focus(), [])
   useEscape(onDismiss, true)
-  let range = null
+  let range = item.eyebrowKey ? t(item.eyebrowKey) : null
   if (item.weekStart) {
     const start = parseISO(item.weekStart)
     range = t('celebrations.week.eyebrow', {
@@ -227,12 +249,27 @@ function WeekSheet({ item, onDismiss }) {
           <p className="text-[11px] font-bold uppercase tracking-wider text-primary-700">{range}</p>
         )}
         <h2 id="celebration-title" className="mt-1 text-2xl font-extrabold text-gray-900">
-          {t(item.titleKey)}
+          {t(item.titleKey, item.titleVars)}
         </h2>
         <p className="mt-1 text-gray-600">{t(item.bodyKey, item.bodyVars)}</p>
-        <div className="mt-4">
-          <Stats stats={item.stats} />
-        </div>
+        {item.stats?.length > 0 && (
+          <div className="mt-4">
+            <Stats stats={item.stats} />
+          </div>
+        )}
+        {item.streakWeeks > 0 && (
+          <div className="mt-4">
+            <p
+              className={`text-sm font-bold ${item.streakHighlight ? 'text-primary-700' : 'text-gray-800'}`}
+            >
+              {t('celebrations.streak.label', { count: item.streakWeeks })}
+            </p>
+            <StreakBars weeks={item.streakWeeks} freezeUsed={item.showFreezeUsed} />
+            {item.freezeEarned && (
+              <p className="mt-2 text-[13px] text-gray-600">{t('celebrations.freeze.earned')}</p>
+            )}
+          </div>
+        )}
         <button
           ref={btnRef}
           type="button"

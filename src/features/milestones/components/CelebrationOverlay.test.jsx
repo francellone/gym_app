@@ -149,9 +149,34 @@ describe('CelebrationOverlay', () => {
     expect(onDismiss).toHaveBeenCalled()
   })
 
+  it('semana con racha: barritas, número y comodín ganado', () => {
+    const w = {
+      ...WEEK,
+      stats: [...WEEK.stats, { value: '4', labelKey: 'celebrations.week.statStreak' }],
+      streakWeeks: 4,
+      freezeEarned: true,
+    }
+    renderItem(w)
+    expect(screen.getByText('Racha de 4 semanas')).toBeInTheDocument()
+    expect(screen.getByText(/Ganaste un comodín/)).toBeInTheDocument()
+  })
+
+  it('comodín usado: hoja sin confeti con la racha que sigue', () => {
+    renderItem(toCelebration({ id: 'f1', kind: 'streak_freeze_used', payload: { streak: 6 } }))
+    expect(screen.getByText('Nueva semana')).toBeInTheDocument()
+    expect(screen.getByText('Usaste tu comodín')).toBeInTheDocument()
+    expect(screen.getByText(/tu racha sigue en 6 semanas/)).toBeInTheDocument()
+  })
+
   it('en inglés no se filtra español', async () => {
     await act(() => i18n.changeLanguage('en'))
-    for (const item of [DAY, WEEK, { ...PLAN, message: null }]) {
+    for (const item of [
+      DAY,
+      WEEK,
+      { ...PLAN, message: null },
+      toCelebration({ kind: 'streak', payload: { weeks: 3 } }),
+      toCelebration({ kind: 'streak_freeze_used', payload: { streak: 3 } }),
+    ]) {
       const { container, unmount } = renderItem(item)
       expect(container.textContent).not.toMatch(/[áéíóúñ¿¡]|Semana|Seguir|Cerrar|sesiones/)
       unmount()

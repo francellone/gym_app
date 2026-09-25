@@ -3,7 +3,14 @@
 // de StudentLayout (modo coach) las celebraciones están apagadas.
 import { createContext, useContext } from 'react'
 
-export const NOOP_CELEBRATIONS = { enabled: false, celebrate: () => {}, setHold: () => {} }
+export const NOOP_CELEBRATIONS = {
+  enabled: false,
+  celebrate: () => {},
+  setHold: () => {},
+  // Etapa 5: racha semanal vigente (null = todavía no calculada)
+  streak: null,
+  setStreak: () => {},
+}
 export const CelebrationContext = createContext(NOOP_CELEBRATIONS)
 
 export function useCelebrations() {

@@ -141,7 +141,10 @@
     "planDescriptionToggle": "Plan description",
     "myEvaluations": "My assessments",
     "seeCharts": "See charts",
-    "allLogs": "All logs"
+    "allLogs": "All logs",
+    "weekStreak_one": "{{count}}-week streak",
+    "weekStreak_other": "{{count}}-week streak",
+    "freezeSaved": "Streak saver ready"
   },
   "tallies": {
     "dayA": "Day A",
@@ -1125,7 +1128,8 @@
       "title": "Week complete!",
       "body_one": "You did the planned session.",
       "body_other": "You did all {{count}} planned sessions.",
-      "statSessions": "sessions"
+      "statSessions": "sessions",
+      "statStreak": "weeks in a row"
     },
     "plan": {
       "title": {
@@ -1162,6 +1166,21 @@
       "fixBody": "You logged {{value}} and your previous best was {{previous}}. If it was a typo, fix it and the record adjusts itself.",
       "fixEdit": "Fix the entry",
       "fixVoid": "Remove the record, keep the entry"
+    },
+    "streak": {
+      "title_one": "{{count}} full week!",
+      "title_other": "{{count}} weeks in a row!",
+      "body_one": "The first week of your streak. Keep it going.",
+      "body_other": "You completed {{count}} weeks in a row. Every one counts.",
+      "label_one": "{{count}}-week streak",
+      "label_other": "{{count}}-week streak"
+    },
+    "freeze": {
+      "eyebrow": "New week",
+      "title": "You used your streak saver",
+      "body_one": "Last week wasn't complete, but your streak is still at {{count}} week. Complete 4 weeks to earn another one.",
+      "body_other": "Last week wasn't complete, but your streak is still at {{count}} weeks. Complete 4 weeks to earn another one.",
+      "earned": "You earned a streak saver: if you miss a week, your streak keeps going."
     }
   }
 }

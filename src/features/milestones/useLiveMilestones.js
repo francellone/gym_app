@@ -19,7 +19,14 @@ import { useCallback, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { isDayStateClosed } from '@/features/workouts/completionRules'
 import { awardMilestone, fetchPlanActivity } from './api'
-import { computeLiveCandidates, pickTopCelebration, toCelebration } from './celebrationModel'
+import {
+  computeLiveCandidates,
+  pickTopCelebration,
+  toCelebration,
+  withStreak,
+} from './celebrationModel'
+import { detectStreakMilestones } from './milestoneRules'
+import { loadStreakState } from './streak'
 import { useCelebrations } from './celebrationContextValue'
 
 const ACTION_WINDOW_MS = 15000
@@ -33,15 +40,15 @@ export function useLiveMilestones({
   selectedDate,
   loading,
 }) {
-  const { enabled, celebrate } = useCelebrations()
+  const { enabled, celebrate, setStreak } = useCelebrations()
   const prevRef = useRef({ date: null, states: null })
   const latestRef = useRef({ date: null, states: null })
   const actionAtRef = useRef(0)
   const timersRef = useRef([])
   const ctxRef = useRef({})
   useEffect(() => {
-    ctxRef.current = { studentId, assignment, blocksBySection, enabled, celebrate }
-  }, [studentId, assignment, blocksBySection, enabled, celebrate])
+    ctxRef.current = { studentId, assignment, blocksBySection, enabled, celebrate, setStreak }
+  }, [studentId, assignment, blocksBySection, enabled, celebrate, setStreak])
 
   const markUserAction = useCallback(() => {
     actionAtRef.current = Date.now()
@@ -96,9 +103,33 @@ export function useLiveMilestones({
           const res = await awardMilestone(supabase, sid, c)
           if (res.isNew) awarded.push(res)
         }
+        // Etapa 5: si se cerró la semana, la racha cambia. Se recalcula,
+        // se otorga su hito si corresponde y se muestra DENTRO de la hoja
+        // de semana (no como otra hoja).
+        const weekCand = candidates.find((c) => c.kind === 'week_complete')
+        let streakState = null
+        let streakNew = false
+        if (weekCand) {
+          try {
+            streakState = await loadStreakState(supabase, sid)
+            ctxRef.current.setStreak?.(streakState)
+            for (const c of detectStreakMilestones(streakState, streakState.weeks)) {
+              const res = await awardMilestone(supabase, sid, c)
+              if (res.isNew && c.kind === 'streak') streakNew = true
+            }
+          } catch (err) {
+            console.warn('[celebrations] no se pudo actualizar la racha:', err)
+          }
+        }
         const { enabled: on, celebrate: show } = ctxRef.current
         if (!on || awarded.length === 0) return
-        const top = pickTopCelebration(awarded.map((m) => toCelebration(m, { studentId: sid })))
+        const items = awarded.map((m) => {
+          const c = toCelebration(m, { studentId: sid })
+          return c?.kind === 'week_complete'
+            ? withStreak(c, streakState, { streakMilestoneNew: streakNew })
+            : c
+        })
+        const top = pickTopCelebration(items)
         if (top) show(top)
       } catch (err) {
         console.warn('[celebrations] no se pudieron registrar los hitos:', err)

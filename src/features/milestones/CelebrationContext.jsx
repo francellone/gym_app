@@ -29,7 +29,8 @@ import {
   enrichPlanCandidate,
   toCelebration,
 } from './celebrationModel'
-import { closedSessionDates, detectPlanMilestone } from './milestoneRules'
+import { closedSessionDates, detectPlanMilestone, detectStreakMilestones } from './milestoneRules'
+import { loadStreakState } from './streak'
 
 async function checkExpiredPlan(studentId) {
   const { data: assignments, error } = await supabase
@@ -69,6 +70,7 @@ async function checkExpiredPlan(studentId) {
 export function CelebrationProvider({ studentId, children }) {
   const [queue, setQueue] = useState([])
   const [hold, setHold] = useState(false)
+  const [streak, setStreak] = useState(null)
   const bootedRef = useRef(null)
 
   const celebrate = useCallback((item) => {
@@ -96,6 +98,19 @@ export function CelebrationProvider({ studentId, children }) {
       } catch (err) {
         console.warn('[celebrations] no se pudo revisar el fin de plan:', err)
       }
+      // Etapa 5: racha semanal. Al abrir se otorgan los hitos que falten
+      // (por ejemplo, el comodín usado cuando cerró la semana pasada).
+      try {
+        const state = await loadStreakState(supabase, studentId)
+        if (cancelled) return
+        setStreak(state)
+        for (const cand of detectStreakMilestones(state, state.weeks)) {
+          const res = await awardMilestone(supabase, studentId, cand)
+          if (!cancelled && res.isNew) celebrate(toCelebration(res, { studentId }))
+        }
+      } catch (err) {
+        console.warn('[celebrations] no se pudo calcular la racha:', err)
+      }
     })()
     return () => {
       cancelled = true
@@ -116,7 +131,10 @@ export function CelebrationProvider({ studentId, children }) {
     })
   }, [])
 
-  const value = useMemo(() => ({ enabled: true, celebrate, setHold }), [celebrate])
+  const value = useMemo(
+    () => ({ enabled: true, celebrate, setHold, streak, setStreak }),
+    [celebrate, streak]
+  )
 
   return (
     <CelebrationContext.Provider value={value}>

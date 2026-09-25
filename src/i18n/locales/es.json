@@ -141,7 +141,10 @@
     "planDescriptionToggle": "Descripción del plan",
     "myEvaluations": "Mis evaluaciones",
     "seeCharts": "Ver gráficos",
-    "allLogs": "Todos los logs"
+    "allLogs": "Todos los logs",
+    "weekStreak_one": "Racha de {{count}} semana",
+    "weekStreak_other": "Racha de {{count}} semanas",
+    "freezeSaved": "Comodín guardado"
   },
   "tallies": {
     "dayA": "Día A",
@@ -1125,7 +1128,8 @@
       "title": "¡Semana completa!",
       "body_one": "Hiciste la sesión prevista.",
       "body_other": "Hiciste las {{count}} sesiones previstas.",
-      "statSessions": "sesiones"
+      "statSessions": "sesiones",
+      "statStreak": "semanas seguidas"
     },
     "plan": {
       "title": {
@@ -1162,6 +1166,21 @@
       "fixBody": "Registraste {{value}} y tu máximo anterior era {{previous}}. Si fue un error de tipeo, corregilo y la marca se ajusta sola.",
       "fixEdit": "Corregir el registro",
       "fixVoid": "Anular la marca sin cambiar el registro"
+    },
+    "streak": {
+      "title_one": "¡{{count}} semana completa!",
+      "title_other": "¡{{count}} semanas seguidas!",
+      "body_one": "Primera semana de tu racha. Seguí así.",
+      "body_other": "Completaste {{count}} semanas seguidas. Cada una suma.",
+      "label_one": "Racha de {{count}} semana",
+      "label_other": "Racha de {{count}} semanas"
+    },
+    "freeze": {
+      "eyebrow": "Nueva semana",
+      "title": "Usaste tu comodín",
+      "body_one": "La semana pasada quedó incompleta, pero tu racha sigue en {{count}} semana. Con 4 semanas completas ganás otro.",
+      "body_other": "La semana pasada quedó incompleta, pero tu racha sigue en {{count}} semanas. Con 4 semanas completas ganás otro.",
+      "earned": "Ganaste un comodín: si una semana no llegás, la racha sigue."
     }
   }
 }

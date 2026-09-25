@@ -7,6 +7,7 @@ import {
   enrichPlanCandidate,
   pickTopCelebration,
   toCelebration,
+  withStreak,
 } from './celebrationModel'
 
 const d = (s) => new Date(`${s}T12:00:00`)
@@ -245,7 +246,7 @@ describe('toCelebration', () => {
   })
 
   it('tipos sin pantalla devuelven null', () => {
-    expect(toCelebration({ kind: 'streak', payload: {} })).toBeNull()
+    expect(toCelebration({ kind: 'otro', payload: {} })).toBeNull()
   })
 })
 
@@ -282,6 +283,35 @@ describe('toCelebration: mejor marca', () => {
       bodyKey: 'celebrations.best.body.reps',
       titleKey: 'celebrations.best.titleNoName',
     })
+  })
+})
+
+describe('racha', () => {
+  it('hito de racha y de comodín usado son hojas', () => {
+    expect(
+      toCelebration({ kind: 'streak', payload: { weeks: 4, start_week: '2026-W36' } })
+    ).toMatchObject({
+      level: 'sheet',
+      titleVars: { count: 4 },
+      streakWeeks: 4,
+    })
+    expect(toCelebration({ kind: 'streak_freeze_used', payload: { streak: 6 } })).toMatchObject({
+      level: 'sheet',
+      confetti: 0,
+      showFreezeUsed: true,
+      bodyVars: { count: 6 },
+    })
+  })
+  it('la hoja de semana suma la racha y el comodín ganado', () => {
+    const week = toCelebration({ kind: 'week_complete', payload: { expected: 2, completed: 2 } })
+    const w = withStreak(
+      week,
+      { streak: 4, freezes: 1, freezeEarnedThisWeek: true },
+      { streakMilestoneNew: true }
+    )
+    expect(w.stats.map((s) => s.value)).toEqual(['2/2', '4'])
+    expect(w).toMatchObject({ streakWeeks: 4, streakHighlight: true, freezeEarned: true })
+    expect(withStreak(week, null)).toBe(week)
   })
 })
 

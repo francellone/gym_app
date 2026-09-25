@@ -27,7 +27,7 @@ export async function fetchPendingMilestones(supabase, studentId) {
     .eq('student_id', studentId)
     .is('celebrated_at', null)
     .is('voided_at', null)
-    .in('kind', ['day_complete', 'week_complete', 'plan_complete'])
+    .in('kind', ['day_complete', 'week_complete', 'plan_complete', 'streak', 'streak_freeze_used'])
     .order('created_at', { ascending: true })
     .limit(20)
   if (error) throw error

@@ -12,15 +12,13 @@ import {
   ChevronRight,
   ChevronDown,
   Flame,
+  Snowflake,
   BarChart2,
   Info,
 } from 'lucide-react'
 import { evalTypeIcon, evalTypeLabel } from '@/features/evaluations/helpers'
-import {
-  filterTrainingLogs,
-  computeStreak,
-  computeWeekTrainingDays,
-} from '@/features/students/dashboardLogic'
+import { filterTrainingLogs, computeWeekTrainingDays } from '@/features/students/dashboardLogic'
+import { useCelebrations } from '@/features/milestones/celebrationContextValue'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 
@@ -29,7 +27,12 @@ export default function StudentDashboard() {
   const { t } = useTranslation()
   const [assignments, setAssignments] = useState([])
   const [weekLogs, setWeekLogs] = useState([])
-  const [streak, setStreak] = useState(0)
+  // Etapa 5 celebraciones (decisión Franco 2026-09-25): la racha del Inicio
+  // pasa a ser SEMANAL (semanas completas seguidas, con comodín). Reemplaza
+  // la de "días seguidos", que se cortaba con cada día de descanso. La
+  // calcula el CelebrationProvider al abrir la app.
+  const { streak: streakState } = useCelebrations()
+  const streak = streakState?.streak || 0
   const [, setLoading] = useState(true)
   // Q2 — tallies por día (Día A ✓✓◐) para el plan activo.
   // Se carga aparte porque necesita la ventana completa del plan,
@@ -76,7 +79,6 @@ export default function StudentDashboard() {
       // de la regla en src/utils/studentDashboardLogic.js.
       const trainingLogs = filterTrainingLogs(logsRes.data || [])
       setWeekLogs(trainingLogs)
-      setStreak(computeStreak(trainingLogs, new Date()))
     } catch (err) {
       console.error(err)
     } finally {
@@ -170,8 +172,17 @@ export default function StudentDashboard() {
           <div className="flex items-center gap-2 mt-4 bg-white/10 rounded-xl px-3 py-2 w-fit">
             <Flame size={18} className="text-orange-300" />
             <span className="text-white font-semibold">
-              {t('dashboard.streak', { count: streak })}
+              {t('dashboard.weekStreak', { count: streak })}
             </span>
+            {streakState?.freezes > 0 && (
+              <span
+                className="flex items-center gap-1 text-xs text-primary-100"
+                title={t('dashboard.freezeSaved')}
+              >
+                <Snowflake size={14} aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">{t('dashboard.freezeSaved')}</span>
+              </span>
+            )}
           </div>
         )}
       </div>

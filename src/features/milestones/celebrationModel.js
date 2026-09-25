@@ -139,6 +139,24 @@ export function enrichPlanCandidate(candidate, { assignment, closedDates, today 
   }
 }
 
+// La hoja de semana suma la racha: cuántas semanas seguidas, si esta semana
+// ganó un comodín y si la racha llegó a un número que se celebra (el hito
+// de racha se otorga igual, pero se muestra dentro de esta hoja).
+export function withStreak(weekItem, streakState, { streakMilestoneNew = false } = {}) {
+  if (!weekItem || !streakState) return weekItem
+  const weeks = Number(streakState.streak) || 0
+  const stats = [...(weekItem.stats || [])]
+  if (weeks > 0) stats.push({ value: String(weeks), labelKey: 'celebrations.week.statStreak' })
+  return {
+    ...weekItem,
+    stats,
+    streakWeeks: weeks,
+    streakHighlight: streakMilestoneNew && weeks > 0,
+    freezeEarned: !!streakState.freezeEarnedThisWeek,
+    freezes: streakState.freezes ?? 0,
+  }
+}
+
 // De varios hitos otorgados a la vez se muestra el de más nivel; los
 // demás quedan registrados igual (y la coach recibe sus avisos).
 export function pickTopCelebration(items) {
@@ -223,6 +241,39 @@ export function toCelebration(milestone, { studentId } = {}) {
       fromCoach,
     }
   }
+  if (milestone.kind === 'streak') {
+    const weeks = Number(p.weeks) || 0
+    return {
+      ...base,
+      level: 'sheet',
+      confetti: CONFETTI.sheet,
+      titleKey: 'celebrations.streak.title',
+      titleVars: { count: weeks },
+      bodyKey: 'celebrations.streak.body',
+      bodyVars: { count: weeks },
+      streakWeeks: weeks,
+      stats: [],
+      fromCoach,
+    }
+  }
+
+  if (milestone.kind === 'streak_freeze_used') {
+    const weeks = Number(p.streak) || 0
+    return {
+      ...base,
+      level: 'sheet',
+      confetti: 0,
+      eyebrowKey: 'celebrations.freeze.eyebrow',
+      titleKey: 'celebrations.freeze.title',
+      bodyKey: 'celebrations.freeze.body',
+      bodyVars: { count: weeks },
+      streakWeeks: weeks,
+      showFreezeUsed: true,
+      stats: [],
+      fromCoach,
+    }
+  }
+
   if (milestone.kind === 'personal_best') {
     const unit = p.metric === 'reps' ? 'reps' : p.metric === 'seconds' ? 'seconds' : 'kg'
     return {
