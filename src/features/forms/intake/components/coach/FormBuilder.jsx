@@ -234,8 +234,8 @@ export default function FormBuilder({
             </p>
             <p className="text-xs mt-1 text-amber-800">
               Todas las preguntas están marcadas para el otro idioma. Revisá en cada pregunta la
-              opción “Esta pregunta se muestra a...” y poné “Alumnos en ambos idiomas”. Si lo
-              mandás así, la alumna abre el formulario y el botón de empezar no hace nada.
+              opción “Esta pregunta se muestra a...” y poné “Alumnos en ambos idiomas”. Si lo mandás
+              así, la alumna abre el formulario y el botón de empezar no hace nada.
             </p>
           </div>
         </div>
@@ -245,7 +245,7 @@ export default function FormBuilder({
         <div className="space-y-4">
           {/* Introducción */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-200">
+            <div className="bg-durazno-50 px-4 py-3 border-b border-gray-200">
               <h2 className="font-semibold text-gray-800">📝 Introducción</h2>
               <p className="text-xs text-gray-500">
                 Texto que verá el estudiante al abrir el formulario. Soporta emojis y formato.
@@ -325,7 +325,7 @@ export default function FormBuilder({
           </p>
           <button
             onClick={() => setShowPreview(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-linea text-tinta text-sm font-medium rounded-boton hover:bg-durazno-50 transition-colors"
           >
             👁 Abrir vista previa
           </button>
@@ -338,8 +338,8 @@ export default function FormBuilder({
           {/* Botón cerrar flotante */}
           <button
             onClick={() => setShowPreview(false)}
-            className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 bg-gray-900 text-white
-                       text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
+            className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 bg-white border border-linea text-tinta
+                       text-xs font-medium px-3 py-2 rounded-full shadow-flotante hover:bg-durazno-50 transition-colors"
           >
             ✕ Cerrar preview
           </button>

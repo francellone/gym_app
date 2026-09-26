@@ -167,7 +167,7 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
               <button
                 onClick={handleConfirm}
                 disabled={loading}
-                className="flex-1 text-sm bg-gray-800 text-white font-medium rounded-xl px-4 py-2.5 hover:bg-gray-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 text-sm bg-primary-600 text-white font-bold rounded-xl px-4 py-2.5 hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

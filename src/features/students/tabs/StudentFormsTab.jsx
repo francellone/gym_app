@@ -263,7 +263,7 @@ function ResponsesModal({ assignment, submission, onClose }) {
         <div className="p-4 border-t border-gray-100">
           <button
             onClick={onClose}
-            className="w-full py-3 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+            className="w-full py-3 bg-primary-600 text-white text-sm font-bold rounded-boton hover:bg-primary-700 transition-colors"
           >
             Cerrar
           </button>

@@ -256,12 +256,12 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 
 // ── Helper: bloque → color CSS ──────────────────────────────
 function blockStyle(block) {
-  if (!block) return { bg: '#f3f4f6', color: '#9ca3af', border: '#e5e7eb' }
+  if (!block) return { bg: '#f5f0eb', color: '#a3958b', border: '#f0e7df' }
   const l = block[0]
   if (l === 'A') return { bg: '#fff7ed', color: '#c2410c', border: '#fcd3a0' }
   if (l === 'B') return { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' }
   if (l === 'C') return { bg: '#f0fdf4', color: '#059669', border: '#a7f3d0' }
-  return { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' }
+  return { bg: '#faf5f8', color: '#7c3aed', border: '#ddd6fe' }
 }
 
 // ── Helper: PSE → color CSS ─────────────────────────────────
@@ -674,7 +674,7 @@ function CircuitBlockSummary({ block }) {
 // ── Sección con tabla ────────────────────────────────────────
 function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
   const sectionColors = {
-    activation: '#8b5cf6',
+    activation: '#9c6589',
     day_a: '#f97316',
     day_b: '#3b82f6',
     day_c: '#10b981',
@@ -683,7 +683,7 @@ function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
     day_f: '#06b6d4',
     day_g: '#84cc16',
   }
-  const color = sectionColors[section.id] || '#6b7280'
+  const color = sectionColors[section.id] || '#76675d'
 
   return (
     <div className="plan-ex-panel">
@@ -836,7 +836,7 @@ export default function PlanDetailPage() {
   const currentSection = activeSections.find((s) => s.id === activeSection)
 
   const sectionColors = {
-    activation: '#8b5cf6',
+    activation: '#9c6589',
     day_a: '#f97316',
     day_b: '#3b82f6',
     day_c: '#10b981',
@@ -1089,7 +1089,7 @@ export default function PlanDetailPage() {
           {/* ── Tabs de sección ───────────────────────────────── */}
           <div className="plan-tabs-bar">
             {activeSections.map((s) => {
-              const color = sectionColors[s.id] || '#6b7280'
+              const color = sectionColors[s.id] || '#76675d'
               const isActive = activeSection === s.id
               // Contar: strength = nº de ejercicios, aerobic/circuit = nº de bloques
               const typed = blocksBySectionTyped[s.id] || { strength: [], aerobic: [], circuit: [] }
@@ -1107,7 +1107,7 @@ export default function PlanDetailPage() {
                 >
                   <span
                     className="plan-tab-dot"
-                    style={{ background: isActive ? color : '#d1d5db' }}
+                    style={{ background: isActive ? color : '#e3d8cf' }}
                   />
                   {s.label}
                   <span

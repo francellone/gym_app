@@ -30,7 +30,7 @@ const PERIODS = [
 
 // Colores para cada línea del gráfico
 const LINE_COLORS = {
-  sleep_quality: '#6366f1',
+  sleep_quality: '#834f72',
   nutrition_quality: '#22c55e',
   hydration_quality: '#3b82f6',
   energy_level: '#f59e0b',
@@ -233,16 +233,16 @@ export default function StudentWellbeingTab({ studentId }) {
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
-                <PolarGrid stroke="#e5e7eb" />
+                <PolarGrid stroke="#f0e7df" />
                 <PolarAngleAxis dataKey="metric" tick={{ fontSize: 14 }} />
                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9 }} />
                 <Radar
                   name="Bienestar"
                   dataKey="value"
-                  stroke="#6366f1"
-                  fill="#6366f1"
+                  stroke="#834f72"
+                  fill="#834f72"
                   fillOpacity={0.25}
-                  dot={{ r: 3, fill: '#6366f1' }}
+                  dot={{ r: 3, fill: '#834f72' }}
                 />
                 <Tooltip
                   content={({ active, payload }) => {

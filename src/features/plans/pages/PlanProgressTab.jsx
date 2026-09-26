@@ -584,7 +584,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {weightData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <ComposedChart data={weightData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
                     <YAxis
@@ -609,7 +609,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                       yAxisId="right"
                       type="monotone"
                       dataKey="PSE"
-                      stroke="#8b5cf6"
+                      stroke="#9c6589"
                       strokeWidth={1.5}
                       dot={false}
                       strokeDasharray="4 2"
@@ -642,11 +642,11 @@ export default function PlanProgressTab({ planId, assignments }) {
               {volumeData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={volumeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
-                    <Bar dataKey="Volumen" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Volumen" fill="#834f72" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -665,17 +665,17 @@ export default function PlanProgressTab({ planId, assignments }) {
               {pseData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={pseData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Area
                       type="monotone"
                       dataKey="PSE promedio"
-                      stroke="#8b5cf6"
+                      stroke="#9c6589"
                       fill="#ede9fe"
                       strokeWidth={2}
-                      dot={{ fill: '#8b5cf6', r: 3 }}
+                      dot={{ fill: '#9c6589', r: 3 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -695,7 +695,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {borgData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={borgData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
@@ -728,7 +728,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {durationData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={durationData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} unit="min" />
                     <Tooltip content={<TooltipCard />} />
@@ -757,13 +757,13 @@ export default function PlanProgressTab({ planId, assignments }) {
               {compareData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={compareData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="Series sugeridas" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Series reales" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Series reales" fill="#834f72" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

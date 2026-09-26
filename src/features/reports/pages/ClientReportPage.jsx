@@ -481,7 +481,7 @@ export default function ClientReportPage() {
           key={regenKey}
         >
           <style>{`
-            .editable:empty::before { content: attr(data-ph); color: #9ca3af; }
+            .editable:empty::before { content: attr(data-ph); color: #a3958b; }
             [contenteditable].editable:hover, [contenteditable].editable:focus {
               outline: 1px dashed #fdba74; outline-offset: 2px; border-radius: 2px;
             }

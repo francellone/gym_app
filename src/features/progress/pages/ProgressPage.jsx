@@ -112,7 +112,7 @@ function AttendanceHeatmap({ logs }) {
 
 // Colores fijos por métrica wellbeing
 const WELLBEING_LINE_COLORS = {
-  sleep_quality: '#6366f1',
+  sleep_quality: '#834f72',
   nutrition_quality: '#86efac',
   hydration_quality: '#3b82f6',
   energy_level: '#f59e0b',

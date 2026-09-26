@@ -186,15 +186,15 @@ export function buildExportHtml({ bodyHtml, css, title, lang = 'es' }) {
 <style>
 ${css}
 /* Ajustes propios del archivo exportado */
-body { background: #f9fafb; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { background: #fbf8f5; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .export-shell { max-width: 48rem; margin: 0 auto; padding: 1rem; }
 .recharts-wrapper svg { max-width: 100%; }
 .no-print { position: fixed; top: 12px; right: 12px; }
-.export-toc { font-size: 0.8rem; color: #6b7280; margin: 0.75rem 0; }
+.export-toc { font-size: 0.8rem; color: #76675d; margin: 0.75rem 0; }
 .export-toc a { color: #4f46e5; text-decoration: none; }
 details.card > summary { cursor: pointer; list-style: none; }
 details.card > summary::-webkit-details-marker { display: none; }
-details.card > summary h2::after { content: ' ▾'; color: #9ca3af; font-size: 0.8em; }
+details.card > summary h2::after { content: ' ▾'; color: #a3958b; font-size: 0.8em; }
 details.card:not([open]) > summary h2::after { content: ' ▸'; }
 @media print { .no-print { display: none } body { background: #fff } details:not([open]) { display: block } }
 </style>

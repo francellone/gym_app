@@ -194,7 +194,7 @@ export default function EvaluationsPage() {
           onClick={() => setShowArchived((v) => !v)}
           className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
             showArchived
-              ? 'bg-gray-800 border-gray-800 text-white'
+              ? 'bg-durazno-50 border-durazno-200 text-primary-700'
               : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
           }`}
           title="Ver las evaluaciones archivadas"

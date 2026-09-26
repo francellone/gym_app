@@ -391,7 +391,7 @@ export default function CoachReportPage() {
           <SectionTitle icon={CalendarCheck}>Constancia semanal</SectionTitle>
           <ResponsiveContainer width="100%" height={170}>
             <ComposedChart data={attendanceRows}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" vertical={false} />
               <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis
                 allowDecimals={false}
@@ -414,7 +414,7 @@ export default function CoachReportPage() {
                 <Line
                   type="stepAfter"
                   dataKey="Previstos"
-                  stroke="#9ca3af"
+                  stroke="#a3958b"
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   dot={false}
@@ -441,7 +441,7 @@ export default function CoachReportPage() {
           </p>
           <ResponsiveContainer width="100%" height={Math.max(180, patternRows.length * 44)}>
             <BarChart data={patternRows} layout="vertical" margin={{ left: 8, right: 16 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" horizontal={false} />
               <XAxis
                 type="number"
                 allowDecimals={false}
@@ -588,7 +588,7 @@ export default function CoachReportPage() {
           <SectionTitle>Esfuerzo percibido por semana</SectionTitle>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={effortRows}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" vertical={false} />
               <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis
                 domain={[0, 10]}

@@ -110,7 +110,7 @@
 ───────────────────────────────────────────────────────────── */
 .plan-hero {
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0e7df;
   border-radius: 16px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -127,12 +127,12 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0e7df;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #76675d;
   flex-shrink: 0;
   margin-top: 3px;
   cursor: pointer;
@@ -141,8 +141,8 @@
     color 0.12s;
 }
 .plan-hero-back:hover {
-  background: #f9fafb;
-  color: #111827;
+  background: #fbf8f5;
+  color: #3a2e27;
 }
 
 .plan-hero-info {
@@ -153,13 +153,13 @@
 .plan-hero-title {
   font-size: 19px;
   font-weight: 700;
-  color: #111827;
+  color: #3a2e27;
   line-height: 1.25;
 }
 
 .plan-hero-desc {
   font-size: 13px;
-  color: #6b7280;
+  color: #76675d;
   margin-top: 3px;
 }
 
@@ -176,12 +176,12 @@
   align-items: center;
   gap: 4px;
   font-size: 11.5px;
-  color: #9ca3af;
+  color: #a3958b;
   font-weight: 500;
 }
 
 .plan-meta-sep {
-  color: #d1d5db;
+  color: #e3d8cf;
   font-size: 12px;
 }
 
@@ -195,7 +195,7 @@
 /* Stats strip */
 .plan-stats-strip {
   display: flex;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #f5f0eb;
 }
 
 .plan-stat {
@@ -204,7 +204,7 @@
   flex-direction: column;
   align-items: center;
   padding: 13px 0;
-  border-right: 1px solid #f3f4f6;
+  border-right: 1px solid #f5f0eb;
 }
 .plan-stat:last-child {
   border-right: none;
@@ -213,13 +213,13 @@
 .plan-stat-val {
   font-size: 22px;
   font-weight: 700;
-  color: #111827;
+  color: #3a2e27;
   line-height: 1;
 }
 
 .plan-stat-lbl {
   font-size: 11px;
-  color: #9ca3af;
+  color: #a3958b;
   font-weight: 500;
   margin-top: 3px;
 }
@@ -231,14 +231,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: #fbf8f5;
+  border: 1px solid #f0e7df;
   border-radius: 20px;
   padding: 4px 10px 4px 5px;
   transition: border-color 0.12s;
 }
 .plan-student-chip:hover {
-  border-color: #d1d5db;
+  border-color: #e3d8cf;
 }
 
 .plan-chip-avatar {
@@ -263,8 +263,8 @@
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
-  color: #9ca3af;
-  border: 1.5px dashed #d1d5db;
+  color: #a3958b;
+  border: 1.5px dashed #e3d8cf;
   background: transparent;
   cursor: pointer;
   transition:
@@ -283,7 +283,7 @@
   display: flex;
   gap: 2px;
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0e7df;
   border-radius: 14px;
   padding: 6px;
   margin-bottom: 12px;
@@ -297,7 +297,7 @@
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #9ca3af;
+  color: #a3958b;
   cursor: pointer;
   border: none;
   background: transparent;
@@ -307,11 +307,11 @@
   white-space: nowrap;
 }
 .plan-tab:hover {
-  color: #6b7280;
-  background: #f9fafb;
+  color: #76675d;
+  background: #fbf8f5;
 }
 .plan-tab--active {
-  background: #f9fafb;
+  background: #fbf8f5;
   color: var(--tab-color, #f97316);
 }
 
@@ -328,8 +328,8 @@
   font-weight: 600;
   padding: 1px 7px;
   border-radius: 20px;
-  background: #f3f4f6;
-  color: #9ca3af;
+  background: #f5f0eb;
+  color: #a3958b;
   transition:
     background 0.12s,
     color 0.12s;
@@ -346,7 +346,7 @@
 
 .plan-ex-panel {
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0e7df;
   border-radius: 14px;
   overflow: hidden;
 }
@@ -355,14 +355,14 @@
   display: grid;
   grid-template-columns: var(--ex-cols);
   padding: 8px 18px;
-  background: #f9fafb;
-  border-bottom: 1px solid #f3f4f6;
+  background: #fbf8f5;
+  border-bottom: 1px solid #f5f0eb;
 }
 
 .plan-ex-col-h {
   font-size: 10px;
   font-weight: 700;
-  color: #9ca3af;
+  color: #a3958b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -375,7 +375,7 @@
   display: grid;
   grid-template-columns: var(--ex-cols);
   padding: 11px 18px;
-  border-bottom: 1px solid #f9fafb;
+  border-bottom: 1px solid #fbf8f5;
   align-items: center;
   transition: background 0.1s;
   cursor: default;
@@ -384,10 +384,10 @@
   border-bottom: none;
 }
 .plan-ex-row:hover {
-  background: #fafafa;
+  background: #fbf8f5;
 }
 .plan-ex-row--open {
-  background: #fafafa;
+  background: #fbf8f5;
   border-bottom: none;
 }
 
@@ -414,7 +414,7 @@
 .plan-ex-name-text {
   font-size: 13px;
   font-weight: 600;
-  color: #111827;
+  color: #3a2e27;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -436,12 +436,12 @@
   width: 18px;
   height: 18px;
   border-radius: 5px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0e7df;
   background: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
+  color: #a3958b;
   cursor: pointer;
   transition: all 0.1s;
 }
@@ -465,7 +465,7 @@
 
 .plan-ex-cell {
   font-size: 12.5px;
-  color: #374151;
+  color: #5a4b42;
   padding-left: 2px;
 }
 .plan-ex-cell--center {
@@ -477,12 +477,12 @@
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #111827;
+  color: #3a2e27;
 }
 
 .plan-ex-soft {
   font-size: 12.5px;
-  color: #6b7280;
+  color: #76675d;
   font-variant-numeric: tabular-nums;
 }
 
@@ -497,7 +497,7 @@
 }
 
 .plan-ex-dash {
-  color: #d1d5db;
+  color: #e3d8cf;
   font-size: 12px;
 }
 
@@ -508,7 +508,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
+  color: #a3958b;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -518,14 +518,14 @@
     color 0.1s;
 }
 .plan-ex-menu-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: #f5f0eb;
+  color: #5a4b42;
 }
 
 /* Notes inline */
 .plan-ex-notes-row {
   padding: 0 18px 12px 88px;
-  border-bottom: 1px solid #f9fafb;
+  border-bottom: 1px solid #fbf8f5;
   animation: plan-fadein 0.15s ease;
 }
 .plan-ex-notes-row:last-child {
@@ -533,19 +533,19 @@
 }
 
 .plan-ex-notes-inner {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: #fbf8f5;
+  border: 1px solid #f5f0eb;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 12.5px;
-  color: #6b7280;
+  color: #76675d;
   line-height: 1.5;
 }
 
 .plan-ex-notes-label {
   font-size: 10px;
   font-weight: 700;
-  color: #9ca3af;
+  color: #a3958b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 4px;

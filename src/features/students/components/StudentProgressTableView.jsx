@@ -81,7 +81,7 @@ function displayActualReps(log) {
 }
 
 // Mini sparkline SVG para la columna Progreso
-function Sparkline({ values, color = '#6366f1' }) {
+function Sparkline({ values, color = '#834f72' }) {
   if (!values || values.length < 2) return null
   const w = 48,
     h = 18,
@@ -1343,7 +1343,7 @@ export default function StudentProgressTableView({
                 </span>
                 <Sparkline
                   values={r.sparklineValues}
-                  color={r.progressPct > 0 ? '#16a34a' : r.progressPct < 0 ? '#ef4444' : '#9ca3af'}
+                  color={r.progressPct > 0 ? '#16a34a' : r.progressPct < 0 ? '#ef4444' : '#a3958b'}
                 />
               </div>
             ) : (

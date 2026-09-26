@@ -745,7 +745,7 @@ export default function StudentProgressTab({ studentId }) {
                     onClick={() => setSelectedTag('')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                       selectedTag === ''
-                        ? 'bg-gray-900 text-white border-gray-900'
+                        ? 'bg-durazno-50 text-primary-700 border-durazno-200'
                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -957,7 +957,7 @@ export default function StudentProgressTab({ studentId }) {
                   {(chartMetric === 'weight' ? weightData : repsData).length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <ComposedChart data={chartMetric === 'weight' ? weightData : repsData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis
                           yAxisId="left"
@@ -1003,7 +1003,7 @@ export default function StudentProgressTab({ studentId }) {
                           yAxisId="right"
                           type="monotone"
                           dataKey="PSE"
-                          stroke="#8b5cf6"
+                          stroke="#9c6589"
                           strokeWidth={1.5}
                           dot={false}
                           strokeDasharray="4 2"
@@ -1058,7 +1058,7 @@ export default function StudentProgressTab({ studentId }) {
                     volumeGroupedData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={200}>
                         <AreaChart data={volumeGroupedData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                           <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                           <YAxis tick={{ fontSize: 10 }} />
                           <Tooltip content={<TooltipCard />} />
@@ -1084,11 +1084,11 @@ export default function StudentProgressTab({ studentId }) {
                   ) : volumeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={volumeData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
-                        <Bar dataKey="Volumen" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Volumen" fill="#834f72" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -1111,17 +1111,17 @@ export default function StudentProgressTab({ studentId }) {
                   {pseData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={pseData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
                         <Area
                           type="monotone"
                           dataKey="PSE promedio"
-                          stroke="#8b5cf6"
+                          stroke="#9c6589"
                           fill="#ede9fe"
                           strokeWidth={2}
-                          dot={{ fill: '#8b5cf6', r: 3 }}
+                          dot={{ fill: '#9c6589', r: 3 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -1141,7 +1141,7 @@ export default function StudentProgressTab({ studentId }) {
                   {borgData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={borgData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
@@ -1176,7 +1176,7 @@ export default function StudentProgressTab({ studentId }) {
                   {durationData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={durationData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} unit="min" />
                         <Tooltip content={<TooltipCard />} />
@@ -1205,13 +1205,13 @@ export default function StudentProgressTab({ studentId }) {
                   {compareData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={compareData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Bar dataKey="Series sugeridas" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Series reales" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Series reales" fill="#834f72" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (

@@ -55,6 +55,17 @@ Cada estado tiene un fondo pastel y un texto oscuro de su misma familia. El íco
 
 El estado siempre se lee también por la forma o el texto, nunca solo por el color: tilde para hecho, guion para omitido, círculo vacío para pendiente.
 
+### Categorías (agregado 2026-09-26)
+
+La parte de la coach necesita distinguir de un vistazo cosas que se miran juntas. Para eso hay dos tonos de categoría, apagados y cálidos, que no son estados ni acento:
+
+| Categoría | Fondo     | Borde     | Texto     | Relleno fuerte | Uso                                                             |
+| --------- | --------- | --------- | --------- | -------------- | --------------------------------------------------------------- |
+| Ciruela   | `#f3e8ef` | `#e7d0df` | `#6b3f5d` | `#834f72`      | Evaluaciones (tarjetas, etiquetas, calendario, botones propios) |
+| Niebla    | `#e3ecf1` | `#c8d8e2` | `#3d5869` | `#4a6b80`      | Información neutra y bloques aeróbicos                          |
+
+El durazno sigue siendo la categoría "entrenamiento". En Tailwind, `purple`, `violet` e `indigo` apuntan a ciruela y `blue` y `sky` a niebla, así que el código existente los toma solo. Para código nuevo, usar `ciruela-*` y `niebla-*`.
+
 ### Contraste verificado
 
 Todos los pares de texto de este manual superan 4,5 a 1, salvo dos casos conocidos:
@@ -191,3 +202,4 @@ Las notificaciones usan los colores de estado para el ícono y texto Tinta. Las 
 ## Historial
 
 - v1 (2026-09-26): primera versión. Variante elegida "Encabezado durazno", letra Roboto fija.
+- v1.1 (2026-09-26): colores de categoría ciruela (evaluaciones) y niebla (información, aeróbico), pedidos por Franco para que la vista de la coach no quede homogénea. Sombras de Tailwind en tono cálido.
