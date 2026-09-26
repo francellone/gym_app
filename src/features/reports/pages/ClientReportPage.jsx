@@ -57,7 +57,7 @@ const WELLBEING_I18N = {
 }
 
 const CHART = { width: 520, height: 170 }
-const COLORS = { period: '#6366f1', prev: '#d1d5db', pse: '#8b5cf6' }
+const COLORS = { period: '#ea580c', prev: '#e3d8cf', pse: '#76675d' }
 
 function escapeHtml(s) {
   return String(s ?? '').replace(
@@ -257,7 +257,7 @@ export default function ClientReportPage() {
             <XAxis dataKey="week" tick={{ fontSize: 11 }} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={28} />
             <Bar dataKey="full" stackId="d" fill={COLORS.period} />
-            <Bar dataKey="partial" stackId="d" fill="#a5b4fc" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="partial" stackId="d" fill="#fdba74" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ChartDetails>
       )
@@ -483,9 +483,9 @@ export default function ClientReportPage() {
           <style>{`
             .editable:empty::before { content: attr(data-ph); color: #9ca3af; }
             [contenteditable].editable:hover, [contenteditable].editable:focus {
-              outline: 1px dashed #a5b4fc; outline-offset: 2px; border-radius: 2px;
+              outline: 1px dashed #fdba74; outline-offset: 2px; border-radius: 2px;
             }
-            details.client-chart summary::marker { color: #6366f1; }
+            details.client-chart summary::marker { color: #ea580c; }
             @media print { details.client-chart { display: none } }
           `}</style>
 

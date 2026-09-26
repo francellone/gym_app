@@ -40,25 +40,25 @@ export function getPlanStatus(planAssignments) {
 export const PAYMENT_STATUS = {
   overdue: {
     label: 'Pago vencido',
-    badgeClass: 'bg-red-100 text-red-700',
-    dotClass: 'bg-red-500',
+    badgeClass: 'bg-[#fee2e2] text-[#b91c1c]',
+    dotClass: 'bg-[#dc2626]',
     icon: '🔴',
   },
   due_soon: {
     label: 'Vence pronto',
-    badgeClass: 'bg-yellow-100 text-yellow-700',
-    dotClass: 'bg-yellow-500',
+    badgeClass: 'bg-[#fef3c7] text-[#92400e]',
+    dotClass: 'bg-[#d97706]',
     icon: '🟡',
   },
   up_to_date: {
     label: 'Al día',
-    badgeClass: 'bg-green-100 text-green-700',
-    dotClass: 'bg-green-500',
+    badgeClass: 'bg-[#dcfce7] text-[#15803d]',
+    dotClass: 'bg-[#16a34a]',
     icon: '🟢',
   },
   no_data: {
     label: 'Sin registro',
-    badgeClass: 'bg-gray-100 text-gray-500',
+    badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',
     icon: '⚪',
   },
@@ -67,12 +67,12 @@ export const PAYMENT_STATUS = {
 export const PLAN_STATUS = {
   active: {
     label: 'Con plan',
-    badgeClass: 'bg-blue-100 text-blue-700',
-    dotClass: 'bg-blue-500',
+    badgeClass: 'bg-[#dcfce7] text-[#15803d]',
+    dotClass: 'bg-[#16a34a]',
   },
   no_plan: {
     label: 'Sin plan',
-    badgeClass: 'bg-gray-100 text-gray-500',
+    badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',
   },
 }
@@ -143,7 +143,6 @@ export function getPlanExpiryInfo(planAssignments, today = new Date()) {
   }
 }
 
-
 /**
  * Semáforo de vigencia del plan. Comparte la escala de colores con
  * PAYMENT_STATUS a propósito, pero NO el ícono: dos badges idénticos
@@ -152,31 +151,31 @@ export function getPlanExpiryInfo(planAssignments, today = new Date()) {
 export const PLAN_EXPIRY_STATUS = {
   expired: {
     label: 'Plan vencido',
-    badgeClass: 'bg-red-100 text-red-700',
-    dotClass: 'bg-red-500',
+    badgeClass: 'bg-[#fee2e2] text-[#b91c1c]',
+    dotClass: 'bg-[#dc2626]',
     icon: '📅',
   },
   expiring_soon: {
     label: 'Vence pronto',
-    badgeClass: 'bg-yellow-100 text-yellow-700',
-    dotClass: 'bg-yellow-500',
+    badgeClass: 'bg-[#fef3c7] text-[#92400e]',
+    dotClass: 'bg-[#d97706]',
     icon: '📅',
   },
   on_track: {
     label: 'Con plan',
-    badgeClass: 'bg-blue-100 text-blue-700',
-    dotClass: 'bg-blue-500',
+    badgeClass: 'bg-[#dcfce7] text-[#15803d]',
+    dotClass: 'bg-[#16a34a]',
     icon: '📅',
   },
   open: {
     label: 'Con plan (sin vencimiento)',
-    badgeClass: 'bg-blue-50 text-blue-600',
-    dotClass: 'bg-blue-300',
+    badgeClass: 'bg-[#dcfce7] text-[#15803d]',
+    dotClass: 'bg-[#86efac]',
     icon: '📅',
   },
   no_plan: {
     label: 'Sin plan',
-    badgeClass: 'bg-gray-100 text-gray-500',
+    badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',
     icon: '📅',
   },

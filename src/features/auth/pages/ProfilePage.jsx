@@ -349,14 +349,14 @@ export default function ProfilePage() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-8 text-center">
-        <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-          <span className="text-white font-bold text-2xl">{initials}</span>
+      <div className="hero px-5 pt-5 pb-8 text-center">
+        <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-primary-700 font-bold text-2xl">{initials}</span>
         </div>
-        <h1 className="text-xl font-bold text-white">{profile?.name}</h1>
-        <p className="text-primary-200 text-sm mt-0.5">{profile?.email}</p>
+        <h1 className="text-[26px] leading-tight font-bold text-tinta">{profile?.name}</h1>
+        <p className="text-texto2 text-sm mt-0.5">{profile?.email}</p>
         {profile?.level && (
-          <span className="inline-block mt-2 badge bg-white/20 text-white capitalize">
+          <span className="inline-block mt-2 badge bg-white/80 text-primary-700 capitalize">
             {profile.level === 'beginner'
               ? t('profile.levelBeginner')
               : profile.level === 'intermediate'

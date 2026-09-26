@@ -264,8 +264,8 @@ export default function StudentDetailPage() {
       {/* Tarjeta de perfil */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-xl">{initials}</span>
+          <div className="w-16 h-16 bg-durazno-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="text-primary-700 font-bold text-xl">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="font-bold text-gray-900 text-lg">{student.name}</h2>
@@ -330,16 +330,12 @@ export default function StudentDetailPage() {
       />
 
       {/* Tabs de navegación */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+      <div className="flex gap-2 flex-wrap">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all relative ${
-              activeTab === tab.id
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            className={`chip relative ${activeTab === tab.id ? 'chip-on' : 'hover:text-tinta'}`}
           >
             {tab.label}
             {tab.id === 'history' && editHistory.length > 0 && (

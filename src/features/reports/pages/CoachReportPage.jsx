@@ -12,9 +12,9 @@
 // gráficos viven en esta página y en ningún otro lado (UNA implementación).
 // Todo lo que no debe salir en el export/impresión lleva `print:hidden`.
 //
-// Colores: los de la app (indigo #6366f1 para el período, gris #d1d5db para
+// Colores (identidad durazno): naranja #ea580c para el período, gris cálido #e3d8cf para
 // el período anterior — "anterior" es SIEMPRE gris en todos los gráficos —,
-// violeta #8b5cf6 PSE, naranja #ea580c Borg). Un eje por gráfico.
+// marrón #76675d PSE, naranja #ea580c Borg). Un eje por gráfico.
 // ============================================================
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -402,11 +402,11 @@ export default function CoachReportPage() {
               />
               <Tooltip />
               {(hasExpected || hasPartialDays) && <Legend wrapperStyle={{ fontSize: 12 }} />}
-              <Bar dataKey="Completos" stackId="dias" fill="#6366f1" maxBarSize={36} />
+              <Bar dataKey="Completos" stackId="dias" fill="#ea580c" maxBarSize={36} />
               <Bar
                 dataKey="Solo activación"
                 stackId="dias"
-                fill="#a5b4fc"
+                fill="#fdba74"
                 radius={[4, 4, 0, 0]}
                 maxBarSize={36}
               />
@@ -459,8 +459,8 @@ export default function CoachReportPage() {
               />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Este período" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarSize={16} />
-              <Bar dataKey="Anterior" fill="#d1d5db" radius={[0, 4, 4, 0]} maxBarSize={16} />
+              <Bar dataKey="Este período" fill="#ea580c" radius={[0, 4, 4, 0]} maxBarSize={16} />
+              <Bar dataKey="Anterior" fill="#e3d8cf" radius={[0, 4, 4, 0]} maxBarSize={16} />
             </BarChart>
           </ResponsiveContainer>
         </section>
@@ -602,7 +602,7 @@ export default function CoachReportPage() {
               <Line
                 type="monotone"
                 dataKey="PSE"
-                stroke="#8b5cf6"
+                stroke="#76675d"
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 connectNulls

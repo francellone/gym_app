@@ -55,10 +55,8 @@ function Stats({ stats }) {
   return (
     <div className={`grid gap-2 ${stats.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {stats.map((s) => (
-        <div key={s.labelKey} className="rounded-xl bg-primary-50 px-3 py-2.5 text-center">
-          <span className="block text-xl font-extrabold tabular-nums text-primary-700">
-            {s.value}
-          </span>
+        <div key={s.labelKey} className="rounded-recuadro bg-durazno-50 px-3 py-2.5 text-center">
+          <span className="block text-xl font-bold tabular-nums text-primary-700">{s.value}</span>
           <span className="text-[11px] text-gray-500">{t(s.labelKey)}</span>
         </div>
       ))}
@@ -82,9 +80,9 @@ function DayToast({ item, onDismiss }) {
       <button
         type="button"
         onClick={onDismiss}
-        className="celebrate-up grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 text-left shadow-xl ring-1 ring-black/5"
+        className="celebrate-up grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 text-left border border-linea shadow-flotante"
       >
-        <span className="row-span-2 grid h-10 w-10 place-items-center rounded-xl bg-green-100 text-green-700">
+        <span className="row-span-2 grid h-10 w-10 place-items-center rounded-xl bg-[#dcfce7] text-[#15803d]">
           <CheckCircle2 size={22} />
         </span>
         <span className="font-bold text-gray-900">{t(item.titleKey, item.titleVars)}</span>
@@ -137,7 +135,7 @@ function BestToast({ item, onDismiss }) {
           style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 id="celebration-title" className="text-xl font-extrabold text-gray-900">
+          <h2 id="celebration-title" className="text-xl font-bold text-gray-900">
             {t('celebrations.best.fixTitle')}
           </h2>
           <p className="mt-1 text-gray-600">{t('celebrations.best.fixBody', bodyVars)}</p>
@@ -149,7 +147,7 @@ function BestToast({ item, onDismiss }) {
                 onDismiss()
                 requestLogEdit(item.planExerciseId)
               }}
-              className="w-full rounded-xl bg-primary-500 py-3 font-bold text-white hover:bg-primary-600 disabled:opacity-60"
+              className="btn-primary w-full disabled:opacity-60"
             >
               {t('celebrations.best.fixEdit')}
             </button>
@@ -160,7 +158,7 @@ function BestToast({ item, onDismiss }) {
                 await voidBest('student_void')
                 onDismiss()
               }}
-              className="w-full rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 disabled:opacity-60"
+              className="btn-secondary w-full disabled:opacity-60"
             >
               {t('celebrations.best.fixVoid')}
             </button>
@@ -176,7 +174,7 @@ function BestToast({ item, onDismiss }) {
       role="status"
       aria-live="polite"
     >
-      <div className="celebrate-up grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 shadow-xl ring-1 ring-black/5">
+      <div className="celebrate-up grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 border border-linea shadow-flotante">
         <span className="row-span-3 grid h-10 w-10 place-items-center rounded-xl bg-primary-50 text-primary-700">
           <Medal size={22} />
         </span>
@@ -207,7 +205,7 @@ function StreakBars({ weeks, freezeUsed }) {
       {Array.from({ length: n }, (_, i) => (
         <i
           key={i}
-          className="h-2 flex-1 rounded bg-primary-300"
+          className="h-2 flex-1 rounded-full bg-durazno-300"
           style={
             freezeUsed && i === n - 1
               ? { background: 'repeating-linear-gradient(45deg,#fdba74 0 4px,#fff 4px 8px)' }
@@ -245,10 +243,8 @@ function WeekSheet({ item, onDismiss }) {
         style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {range && (
-          <p className="text-[11px] font-bold uppercase tracking-wider text-primary-700">{range}</p>
-        )}
-        <h2 id="celebration-title" className="mt-1 text-2xl font-extrabold text-gray-900">
+        {range && <p className="eyebrow">{range}</p>}
+        <h2 id="celebration-title" className="mt-1 text-2xl font-bold text-gray-900">
           {t(item.titleKey, item.titleVars)}
         </h2>
         <p className="mt-1 text-gray-600">{t(item.bodyKey, item.bodyVars)}</p>
@@ -270,12 +266,7 @@ function WeekSheet({ item, onDismiss }) {
             )}
           </div>
         )}
-        <button
-          ref={btnRef}
-          type="button"
-          onClick={onDismiss}
-          className="mt-5 w-full rounded-xl bg-primary-500 py-3 font-bold text-white hover:bg-primary-600"
-        >
+        <button ref={btnRef} type="button" onClick={onDismiss} className="mt-5 btn-primary w-full">
           {t('celebrations.continue')}
         </button>
       </div>
@@ -307,17 +298,13 @@ function PlanScreen({ item, onDismiss }) {
         className="mx-auto flex min-h-full max-w-md flex-col gap-4 px-5 py-8"
         style={{ paddingTop: 'calc(2rem + env(safe-area-inset-top, 0px))' }}
       >
-        {item.planTitle && (
-          <p className="text-[11px] font-bold uppercase tracking-wider text-primary-700">
-            {item.planTitle}
-          </p>
-        )}
-        <h2 id="celebration-title" className="text-3xl font-extrabold leading-tight text-gray-900">
+        {item.planTitle && <p className="eyebrow">{item.planTitle}</p>}
+        <h2 id="celebration-title" className="text-3xl font-bold leading-tight text-gray-900">
           {t(item.titleKey)}
         </h2>
         <p className="text-gray-600">{t(item.bodyKey, item.bodyVars)}</p>
         <Stats stats={item.stats} />
-        <div className="rounded-2xl border border-primary-200 bg-white p-4">
+        <div className="rounded-recuadro border border-durazno-200 bg-white p-4">
           <p className="mb-1 text-xs font-semibold text-primary-800">
             {t('celebrations.plan.messageLabel')}
           </p>
@@ -331,15 +318,11 @@ function PlanScreen({ item, onDismiss }) {
               onDismiss()
               navigate('/student/progress')
             }}
-            className="w-full rounded-xl bg-primary-500 py-3 font-bold text-white hover:bg-primary-600"
+            className="btn-primary w-full"
           >
             {t('celebrations.plan.seeProgress')}
           </button>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="w-full rounded-xl border border-gray-300 py-3 font-semibold text-gray-700"
-          >
+          <button type="button" onClick={onDismiss} className="btn-secondary w-full">
             {t('celebrations.close')}
           </button>
         </div>

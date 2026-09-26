@@ -18,7 +18,7 @@ function LanguageToggle({ current }) {
           className={`px-3 py-1 rounded-full text-xs font-semibold uppercase transition-colors ${
             current === lng
               ? 'bg-white text-primary-700'
-              : 'text-primary-200 hover:text-white hover:bg-white/10'
+              : 'text-texto2 hover:text-tinta hover:bg-white/60'
           }`}
         >
           {lng}
@@ -51,21 +51,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-durazno-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <LanguageToggle current={i18n.language?.startsWith('en') ? 'en' : 'es'} />
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <Dumbbell className="w-8 h-8 text-primary-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
+            <Dumbbell className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">GymCoach</h1>
-          <p className="text-primary-200 mt-1">{t('loginPage.tagline')}</p>
+          <h1 className="text-3xl font-bold text-tinta">GymCoach</h1>
+          <p className="text-texto2 mt-1">{t('loginPage.tagline')}</p>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="bg-white rounded-tarjeta border border-linea shadow-flotante p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="login-email" className="label">

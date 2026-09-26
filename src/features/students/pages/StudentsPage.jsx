@@ -135,7 +135,8 @@ export default function StudentsPage() {
     if (filterStatus === 'overdue') return getPaymentStatus(s) === 'overdue'
     if (filterStatus === 'due_soon') return getPaymentStatus(s) === 'due_soon'
     if (filterStatus === 'no_plan') return getPlanStatus(s.plan_assignments) === 'no_plan'
-    if (filterStatus === 'plan_expired') return getPlanExpiryStatus(s.plan_assignments) === 'expired'
+    if (filterStatus === 'plan_expired')
+      return getPlanExpiryStatus(s.plan_assignments) === 'expired'
     if (filterStatus === 'plan_expiring')
       return getPlanExpiryStatus(s.plan_assignments) === 'expiring_soon'
     if (filterStatus === 'wellbeing') return wellbeingByStudent.get(s.id)?.status === 'bad'
@@ -205,7 +206,9 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Alumnos</h1>
           <p className="text-sm text-gray-500">
             {activeCount} activo{activeCount !== 1 ? 's' : ''}
-            {inactiveCount > 0 ? ` · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}` : ''}
+            {inactiveCount > 0
+              ? ` · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}`
+              : ''}
           </p>
         </div>
         <Link to="/coach/students/new" className="btn-primary flex items-center gap-2">
@@ -418,14 +421,14 @@ export default function StudentsPage() {
               <Link
                 key={student.id}
                 to={`/coach/students/${student.id}`}
-                className={`card hover:shadow-md transition-all flex items-center gap-3 active:scale-[0.98] ${
+                className={`card hover:bg-durazno-50/60 transition-all flex items-center gap-3 active:scale-[0.98] ${
                   studentActive ? '' : 'opacity-60'
                 }`}
               >
                 {/* Avatar con indicador de pago */}
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">{initials}</span>
+                  <div className="w-12 h-12 bg-durazno-100 rounded-full flex items-center justify-center">
+                    <span className="text-primary-700 font-bold text-sm">{initials}</span>
                   </div>
                   {(payStatus === 'overdue' || payStatus === 'due_soon') && (
                     <span
