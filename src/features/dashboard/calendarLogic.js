@@ -50,6 +50,7 @@ function parseYMD(s) {
 // Rediseño 2026-09-26: el calendario ya no usa puntitos de color.
 // Cada evento se escribe con palabras en una etiqueta pastel:
 //   label      nombre completo ("Fin de plan")
+//   legend     (opcional) cómo se nombra en la leyenda si difiere
 //   short      palabra corta para el teléfono ("Fin")
 //   tagClass   fondo + texto de la etiqueta (identidad durazno)
 //   lateClass  el mismo evento cuando ya pasó sin resolverse
@@ -76,9 +77,21 @@ export const COACH_EVENT_KIND = {
     tagClass: 'bg-durazno-100 text-primary-800',
     lateClass: LATE_TAG,
   },
+  // Pendiente: recuadro blanco con borde ciruela (todavía no pasó).
+  // Si la fecha agendada ya pasó sin hacerse → rojo pastel.
   evaluation: {
     label: 'Evaluación',
+    legend: 'Evaluación pendiente',
     short: 'Eval.',
+    tagClass: 'bg-white border border-ciruela-200 text-ciruela-700',
+    lateClass: LATE_TAG,
+  },
+  // Hecha (2026-09-26): va en el día en que se hizo (eval_date de
+  // evaluation_results), relleno ciruela y con tilde.
+  evaluation_done: {
+    label: '✓ Evaluó',
+    legend: '✓ Evaluación hecha',
+    short: '✓ Eval.',
     tagClass: 'bg-ciruela-100 text-ciruela-700',
     lateClass: 'bg-ciruela-100 text-ciruela-700',
   },
@@ -91,7 +104,14 @@ export const COACH_EVENT_KIND = {
 }
 
 // Orden en que se listan los eventos dentro de un mismo día.
-export const COACH_EVENT_ORDER = ['payment_due', 'plan_end', 'evaluation', 'plan_start', 'birthday']
+export const COACH_EVENT_ORDER = [
+  'payment_due',
+  'plan_end',
+  'evaluation',
+  'evaluation_done',
+  'plan_start',
+  'birthday',
+]
 
 // ============================================================
 // STUDENT_DAY_STYLE — estado del día de UNA persona
@@ -182,13 +202,26 @@ export function getCalendarWindow(monthAnchor) {
 //
 // Las asignaciones de EVALUACIÓN no generan inicio/fin de plan: generan
 // un evento 'evaluation' en su start_date, si siguen pendientes (mismo
-// criterio que tenía la lista "Próximas evaluaciones").
+// criterio que tenía la lista "Próximas evaluaciones"). Si la fecha ya
+// pasó y sigue pendiente, va marcada `late`.
+//
+//   evalResults  [{ student_id, plan_id, eval_date, plan?: { title } }]
+//                evaluaciones HECHAS (evaluation_results). Cada una es un
+//                evento 'evaluation_done' en el día en que se hizo, y
+//                apaga el pendiente de esa misma persona y plan aunque la
+//                asignación no haya pasado a 'completed'.
 //
 // Output: Map<YMD, CoachEvent[]>, cada día ordenado por COACH_EVENT_ORDER
 // ============================================================
 const EVAL_DONE_STATUSES = new Set(['archived', 'completed', 'replaced'])
 
-export function computeCalendarEvents(students, assignments, window, today = new Date()) {
+export function computeCalendarEvents(
+  students,
+  assignments,
+  window,
+  today = new Date(),
+  evalResults = []
+) {
   const map = new Map()
   const push = (ymd, ev) => {
     if (!map.has(ymd)) map.set(ymd, [])
@@ -202,6 +235,11 @@ export function computeCalendarEvents(students, assignments, window, today = new
 
   const inWindow = (d) => d >= startD && d <= endD
 
+  // Evaluaciones hechas, por persona + plan (para apagar el pendiente).
+  const evalDoneKeys = new Set(
+    (evalResults || []).filter((r) => r.plan_id).map((r) => `${r.student_id}|${r.plan_id}`)
+  )
+
   // ── Plan starts / ends / evaluaciones ───────────────────────
   for (const a of assignments || []) {
     const student = (students || []).find((s) => s.id === a.student_id)
@@ -211,7 +249,9 @@ export function computeCalendarEvents(students, assignments, window, today = new
     const planType = a.plan_type || a.plan?.plan_type || 'training'
     if (planType === 'evaluation') {
       const evd = parseYMD(a.start_date)
-      if (evd && inWindow(evd) && !EVAL_DONE_STATUSES.has(a.status)) {
+      const done =
+        EVAL_DONE_STATUSES.has(a.status) || evalDoneKeys.has(`${a.student_id}|${a.plan_id}`)
+      if (evd && inWindow(evd) && !done) {
         push(toYMD(evd), {
           type: 'evaluation',
           date: toYMD(evd),
@@ -219,6 +259,7 @@ export function computeCalendarEvents(students, assignments, window, today = new
           studentId: a.student_id,
           studentName,
           planTitle,
+          late: evd < todayD,
         })
       }
       continue
@@ -253,6 +294,33 @@ export function computeCalendarEvents(students, assignments, window, today = new
         late: ed < todayD,
       })
     }
+  }
+
+  // ── Evaluaciones hechas (en el día en que se hicieron) ─────
+  // Una por persona + plan + día aunque haya varias filas. Solo de
+  // personas de la lista (activas), igual que el resto de los eventos.
+  const seenDone = new Set()
+  for (const r of evalResults || []) {
+    const d = parseYMD(r.eval_date)
+    if (!d || !inWindow(d)) continue
+    const student = (students || []).find((s) => s.id === r.student_id)
+    if (!student) continue
+    const ymd = toYMD(d)
+    const key = `${r.student_id}|${r.plan_id || ''}|${ymd}`
+    if (seenDone.has(key)) continue
+    seenDone.add(key)
+    const planTitle =
+      r.plan?.title ||
+      (assignments || []).find((a) => a.plan_id === r.plan_id)?.plan?.title ||
+      'Evaluación'
+    push(ymd, {
+      type: 'evaluation_done',
+      date: ymd,
+      title: `Evaluación hecha: ${planTitle}`,
+      studentId: r.student_id,
+      studentName: student.name,
+      planTitle,
+    })
   }
 
   // ── Vencimientos de pago ────────────────────────────────────
@@ -408,7 +476,8 @@ export function buildAgendaDays(eventsByDate, start, days = 7, studentId = null)
   let cursor = startOfDay(start)
   for (let i = 0; i < days; i++) {
     const ymd = toYMD(cursor)
-    let events = eventsByDate?.get(ymd) || []
+    // La agenda es lo que viene: una evaluación ya hecha no va.
+    let events = (eventsByDate?.get(ymd) || []).filter((e) => e.type !== 'evaluation_done')
     if (studentId) events = events.filter((e) => e.studentId === studentId)
     if (events.length > 0) out.push({ ymd, events })
     cursor = addDays(cursor, 1)
@@ -430,7 +499,13 @@ export function agendaPhrase(ev) {
     case 'plan_start':
       return { lead: 'Empieza el plan de', name, detail: ev.planTitle || '' }
     case 'evaluation':
-      return { lead: 'Evaluación de', name, detail: ev.planTitle || '' }
+      return {
+        lead: ev.late ? 'Evaluación atrasada de' : 'Evaluación de',
+        name,
+        detail: ev.planTitle || '',
+      }
+    case 'evaluation_done':
+      return { lead: 'Evaluó', name, detail: ev.planTitle || '' }
     case 'birthday':
       return { lead: 'Cumple', name, detail: '' }
     default:

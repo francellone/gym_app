@@ -23,6 +23,9 @@ import { DAYS_OF_WEEK } from '@/features/plans/assignmentHelpers'
 //   - Una persona elegida: el día entero se pinta según cómo le fue
 //     (cumplido / parcial / no asistió / día extra / planificado),
 //     con ícono y palabra.
+//   - Evaluaciones: la pendiente en su fecha agendada (roja si ya
+//     pasó); la hecha en el día en que se hizo, con tilde.
+//   - Tocar un día en modo todas lista quiénes entrenaron.
 //   - Se sacó el modo comparación (2-3 personas con puntitos de
 //     colores): no se entendía y lo cubre la lista de cumplimiento.
 //
@@ -75,7 +78,7 @@ export default function MonthlyCalendar({
   const [openDay, setOpenDay] = useState(null) // YMD string
 
   const selectedIds = useMemo(() => (studentId ? [studentId] : []), [studentId])
-  const { loading, eventsByDate, perStudentDays, trainedCountByDate, window } =
+  const { loading, eventsByDate, perStudentDays, trainedCountByDate, trainedNamesByDate, window } =
     useCoachCalendarData(monthAnchor, selectedIds)
 
   const mode = studentId ? 'individual' : 'aggregate'
@@ -268,7 +271,7 @@ export default function MonthlyCalendar({
           events={eventsByDate.get(openDay) || []}
           mode={mode}
           status={mode === 'individual' ? dayStatus(studentData, openDay, today) : 'rest'}
-          trainedCount={mode === 'aggregate' ? trainedCountByDate?.get(openDay) || 0 : 0}
+          trainedNames={mode === 'aggregate' ? trainedNamesByDate?.get(openDay) || [] : []}
           onClose={() => setOpenDay(null)}
         />
       )}
@@ -370,7 +373,8 @@ function DayCell({ day, inMonth, isToday, isOpen, events, status, trainedCount, 
 // ─────────────────────────────────────────────────────────────
 // DayDetail — lo que pasó ese día, escrito en frases
 // ─────────────────────────────────────────────────────────────
-function DayDetail({ ymd, events, mode, status, trainedCount, onClose }) {
+function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
+  const trainedCount = trainedNames.length
   const [y, m, d] = ymd.split('-').map(Number)
   const fmt = format(new Date(y, m - 1, d), "EEEE d 'de' LLLL", { locale: es })
   const style = STUDENT_DAY_STYLE[status]
@@ -395,10 +399,21 @@ function DayDetail({ ymd, events, mode, status, trainedCount, onClose }) {
       )}
 
       {mode === 'aggregate' && trainedCount > 0 && (
-        <p className="text-sm text-texto2">
-          {trainedCount} persona{trainedCount === 1 ? '' : 's'} registr
-          {trainedCount === 1 ? 'ó' : 'aron'} entrenamiento.
-        </p>
+        <div className="space-y-1.5">
+          <p className="text-sm text-texto2">
+            {trainedCount === 1 ? 'Entrenó 1 persona' : `Entrenaron ${trainedCount} personas`}
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {trainedNames.map((n, i) => (
+              <li
+                key={`${n}-${i}`}
+                className="rounded-full bg-white border border-linea px-2.5 py-0.5 text-[13px] text-tinta"
+              >
+                {n}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {events.length > 0 && (
@@ -439,7 +454,9 @@ function Legend({ mode, eventsByDate, summary, hasTrainedCounts }) {
     return set
   }, [eventsByDate])
 
-  const kinds = Object.keys(COACH_EVENT_KIND).filter((k) => present.has(k))
+  const kinds = Object.keys(COACH_EVENT_KIND).filter(
+    (k) => present.has(k) || present.has(`${k}:late`)
+  )
   const hasLate = [...present].some((k) => k.endsWith(':late'))
   const statuses =
     mode === 'individual'
@@ -465,7 +482,7 @@ function Legend({ mode, eventsByDate, summary, hasTrainedCounts }) {
           key={k}
           className={`inline-block rounded-md px-1.5 py-0.5 text-[11.5px] ${COACH_EVENT_KIND[k].tagClass}`}
         >
-          {COACH_EVENT_KIND[k].label}
+          {COACH_EVENT_KIND[k].legend || COACH_EVENT_KIND[k].label}
         </span>
       ))}
       {hasLate && (
@@ -489,7 +506,7 @@ function Legend({ mode, eventsByDate, summary, hasTrainedCounts }) {
         <span>
           <span className="hidden sm:inline">“5 entrenaron”</span>
           <span className="sm:hidden">“5 entr.”</span>: personas que registraron entrenamiento ese
-          día
+          día (tocá el día para ver quiénes)
         </span>
       )}
     </div>

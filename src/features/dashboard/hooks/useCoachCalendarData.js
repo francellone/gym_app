@@ -69,6 +69,8 @@ const SCHED_FLEXIBLE = 'flexible'
 //     'plan_start'    | 'plan_end'    (de plan_assignments)
 //     'payment_due'   (de profiles.next_payment_due)
 //     'birthday'      (de profiles.birth_date, recurrente anual)
+//     'evaluation'    pendiente (plan_assignments de evaluación)
+//     'evaluation_done' hecha (evaluation_results.eval_date)
 // ============================================================
 
 // ── Date utils internas ──────────────────────────────────────
@@ -124,9 +126,12 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   const [assignments, setAssignments] = useState([])
   // Todas las asignaciones (training + evaluaciones) para los eventos.
   const [eventAssignments, setEventAssignments] = useState([])
-  // Modo "todas las personas": cuántas personas distintas entrenaron
-  // cada día → la celda dice "5 entrenaron".
-  const [trainedCountByDate, setTrainedCountByDate] = useState(new Map())
+  // Modo "todas las personas": QUIÉNES entrenaron cada día
+  // (Map<YMD, Set<studentId>>) → la celda dice "5 entrenaron" y el
+  // detalle del día lista los nombres.
+  const [trainedByDate, setTrainedByDate] = useState(new Map())
+  // Evaluaciones hechas en la ventana (evaluation_results).
+  const [evalResults, setEvalResults] = useState([])
   const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Set<YMD> }
   // Días CON sesión pero SIN el entrenamiento completo (ver computeDateCompleteness).
   const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Set<YMD> }
@@ -142,7 +147,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
     async function run() {
       try {
-        const [studentsRes, assignmentsRes] = await Promise.all([
+        const [studentsRes, assignmentsRes, evalResultsRows] = await Promise.all([
           supabase
             .from('profiles')
             .select('id, name, avatar_url, birth_date, next_payment_due, active')
@@ -167,6 +172,21 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               `and(start_date.lte.${windowEndYMD},closed_at.gte.${windowStartYMD}),` +
                 `and(start_date.lte.${windowEndYMD},closed_at.is.null)`
             ),
+          // Evaluaciones HECHAS en la ventana: van al calendario en el día
+          // en que se hicieron (antes desaparecían al completarse).
+          fetchAllRows((from, to) =>
+            supabase
+              .from('evaluation_results')
+              .select('id, student_id, plan_id, eval_date, plan:plans!plan_id(title)')
+              .gte('eval_date', windowStartYMD)
+              .lte('eval_date', windowEndYMD)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch((err) => {
+            // Si falla, el calendario sigue andando sin las hechas.
+            console.error('[useCoachCalendarData] evaluation_results', err)
+            return []
+          }),
         ])
 
         if (cancelled || reqIdRef.current !== myReqId) return
@@ -181,7 +201,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
         let completedMap = {}
         let partialMap = {}
-        let countMap = new Map()
+        let trainedMap = new Map()
         const sel = (selectionKey || '').split(',').filter(Boolean)
         if (!eventsOnly && sel.length === 0) {
           const activeIds = new Set(studentsData.map((s) => s.id))
@@ -196,14 +216,12 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               .range(from, to)
           )
           if (cancelled || reqIdRef.current !== myReqId) return
-          const perDay = new Map()
           for (const r of rows) {
             if (!activeIds.has(r.student_id)) continue
             const ymd = String(r.logged_date).slice(0, 10)
-            if (!perDay.has(ymd)) perDay.set(ymd, new Set())
-            perDay.get(ymd).add(r.student_id)
+            if (!trainedMap.has(ymd)) trainedMap.set(ymd, new Set())
+            trainedMap.get(ymd).add(r.student_id)
           }
-          for (const [ymd, set] of perDay) countMap.set(ymd, set.size)
         }
         if (!eventsOnly && sel.length > 0) {
           // ── IMPORTANTE: filtrar por plan_id del plan ACTIVO de TRAINING ──
@@ -323,7 +341,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
         setStudents(studentsData)
         setAssignments(assignmentsData)
         setEventAssignments(assignmentsRes.data || [])
-        setTrainedCountByDate(countMap)
+        setTrainedByDate(trainedMap)
+        setEvalResults(evalResultsRows || [])
         setCompletedByStudent(completedMap)
         setPartialByStudent(partialMap)
       } catch (err) {
@@ -341,9 +360,30 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
   // Eventos del coach (siempre).
   const eventsByDate = useMemo(
-    () => computeCalendarEvents(students, eventAssignments, window, new Date()),
-    [students, eventAssignments, window]
+    () => computeCalendarEvents(students, eventAssignments, window, new Date(), evalResults),
+    [students, eventAssignments, window, evalResults]
   )
+
+  // Nombres de quienes entrenaron cada día, en orden alfabético.
+  const trainedNamesByDate = useMemo(() => {
+    const nameById = new Map(students.map((s) => [s.id, String(s.name || '').trim()]))
+    const out = new Map()
+    for (const [ymd, ids] of trainedByDate) {
+      out.set(
+        ymd,
+        [...ids]
+          .map((id) => nameById.get(id))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, 'es'))
+      )
+    }
+    return out
+  }, [students, trainedByDate])
+  const trainedCountByDate = useMemo(() => {
+    const out = new Map()
+    for (const [ymd, names] of trainedNamesByDate) out.set(ymd, names.length)
+    return out
+  }, [trainedNamesByDate])
 
   // Por alumno: días esperados (de su asignación 'fixed' vigente)
   // y días completados (de workout_sessions). Solo se computa para
@@ -421,6 +461,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     eventsByDate,
     perStudentDays,
     trainedCountByDate,
+    trainedNamesByDate,
   }
 }
 

@@ -220,6 +220,68 @@ describe('rediseño 2026-09-26: evaluaciones, atrasos y agenda', () => {
     expect(map.get('2026-09-28')).toBeUndefined()
   })
 
+  const evalAsg = (props) => ({
+    id: 'e1',
+    student_id: 's1',
+    plan_id: 'p1',
+    start_date: '2026-09-20',
+    status: 'active',
+    plan_type: 'evaluation',
+    plan: { title: 'Test 1RM' },
+    ...props,
+  })
+
+  it('la evaluación hecha aparece en el día en que se hizo, no en la agendada', () => {
+    const map = computeCalendarEvents(personas, [evalAsg({ status: 'completed' })], win, hoy, [
+      { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-23' },
+    ])
+    expect(map.get('2026-09-20')).toBeUndefined()
+    const ev = map.get('2026-09-23')
+    expect(ev.map((e) => e.type)).toEqual(['evaluation_done'])
+    expect(ev[0].studentName).toBe('Ana')
+    expect(ev[0].planTitle).toBe('Test 1RM')
+  })
+
+  it('un resultado apaga el pendiente aunque la asignación siga activa', () => {
+    const map = computeCalendarEvents(personas, [evalAsg()], win, hoy, [
+      { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-22' },
+    ])
+    expect(map.get('2026-09-20')).toBeUndefined()
+    expect(map.get('2026-09-22').map((e) => e.type)).toEqual(['evaluation_done'])
+  })
+
+  it('varias filas del mismo día y plan son un solo evento; personas fuera de la lista no', () => {
+    const map = computeCalendarEvents(personas, [], win, hoy, [
+      { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-23' },
+      { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-23' },
+      { student_id: 'inactiva', plan_id: 'p9', eval_date: '2026-09-23' },
+    ])
+    expect(map.get('2026-09-23')).toHaveLength(1)
+  })
+
+  it('la evaluación pendiente con fecha pasada va atrasada; la futura no', () => {
+    const map = computeCalendarEvents(
+      personas,
+      [evalAsg(), evalAsg({ id: 'e2', plan_id: 'p2', start_date: '2026-09-29' })],
+      win,
+      hoy
+    )
+    expect(map.get('2026-09-20')[0].late).toBe(true)
+    expect(map.get('2026-09-29')[0].late).toBe(false)
+  })
+
+  it('la agenda no muestra evaluaciones ya hechas', () => {
+    const map = computeCalendarEvents([{ id: 's1', name: 'Ana' }], [], win, hoy, [
+      { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-26' },
+    ])
+    expect(buildAgendaDays(map, hoy, 7)).toEqual([])
+    expect(agendaPhrase(map.get('2026-09-26')[0])).toEqual({
+      lead: 'Evaluó',
+      name: 'Ana',
+      detail: 'Evaluación',
+    })
+  })
+
   it('marca como atrasado el pago que ya pasó y no el que viene', () => {
     const map = computeCalendarEvents(personas, [], win, hoy)
     expect(map.get('2026-09-15')[0].late).toBe(true)
