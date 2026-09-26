@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>GymCoach Identidad visual</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+:root{color-scheme:light only;--bg:#fbf8f5;--panel:#fff;--line:#f0e7df;--ink:#3a2e27;--t2:#76675d;--t3:#a3958b;--d50:#fff7ed;--d100:#ffedd5;--d200:#fed7aa;--d300:#fdba74;--n600:#ea580c;--n700:#c2410c;--float:0 8px 24px rgba(160,90,40,.12)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg)}
+body{color:var(--ink);font:15px/1.5 'Roboto',ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+.num{font-variant-numeric:tabular-nums}
+.hero{background:var(--d100);border-radius:0 0 28px 28px;padding:28px 16px 30px}
+.hero .in,.wrap{max-width:880px;margin:0 auto}
+.wrap{padding:24px 16px 60px;display:flex;flex-direction:column;gap:34px}
+.eb{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--n700);margin:0}
+h1{font-size:30px;font-weight:700;line-height:1.15;margin:6px 0 8px;text-wrap:balance}
+h2{font-size:22px;font-weight:700;line-height:1.2;margin:4px 0 0}
+.sub{margin:0;color:var(--t2);max-width:62ch}
+section{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.g3{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.sw{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel)}
+.sw i{display:block;height:64px}
+.sw div{padding:10px 12px;font-size:13px;color:var(--t2)}
+.sw b{display:block;color:var(--ink);font-size:14px}
+.sw code{font-size:12.5px;color:var(--t2)}
+.rules{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.rule{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
+.rule b{display:block;font-size:16px;margin-bottom:4px}
+.rule span{color:var(--t2);font-size:14px}
+.type-row{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:baseline;padding:12px 0;border-top:1px solid var(--line)}
+.type-row small{color:var(--t2);font-size:12.5px}
+@media (max-width:560px){.type-row{grid-template-columns:1fr;gap:2px}}
+.pill{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap}
+.g{background:#dcfce7;color:#15803d}.a{background:#fef3c7;color:#92400e}.r{background:#fee2e2;color:#b91c1c}.n{background:#f5f0eb;color:#76675d}
+.chip{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:14px;font-weight:500;color:var(--t2)}
+.chip.on{background:var(--d50);border-color:var(--d200);color:var(--n700)}
+.btn{display:flex;align-items:center;justify-content:center;height:52px;border-radius:18px;font-size:16px;font-weight:700;border:0;width:100%}
+.btn.p{background:var(--n600);color:#fff}
+.btn.s{background:#fff;border:1px solid var(--line);color:var(--ink);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--d50);border-radius:16px;padding:10px 6px;text-align:center}
+.stat b{display:block;font-size:22px;color:var(--n700)}
+.stat span{font-size:12px;color:var(--t2)}
+.seg{display:flex;gap:4px}.seg i{flex:1;height:8px;border-radius:4px;background:var(--d300)}.seg i.o{background:var(--d100)}.seg i.f{background:repeating-linear-gradient(45deg,var(--d300) 0 4px,#fff 4px 8px)}
+.ex{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.ex div{flex:1}.ex b{display:block}.ex small{color:var(--t2);font-size:13px}
+.ck{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;border:2px solid #e3d8cf;color:#fff;font-size:14px;font-weight:700}
+.ck.ok{background:#16a34a;border-color:#16a34a}.ck.sk{border-color:#f59e0b;color:#f59e0b;background:#fff}.ck.now{border-color:var(--n600)}
+.pse{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px}
+.pse span{height:38px;border-radius:10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;font-weight:700;color:var(--t2)}
+.pse span.on{background:var(--d50);border-color:var(--n600);color:var(--n700);box-shadow:0 0 0 1px var(--n600)}
+.nav{display:flex;justify-content:space-around;background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--float);padding:8px 6px;max-width:390px}
+.nav span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:500;color:var(--t3);padding:6px 8px;border-radius:14px}
+.nav span.on{background:var(--d50);color:var(--n700)}
+.nav svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.demo-hero{background:var(--d100);border-radius:0 0 28px 28px;padding:18px 18px 22px;display:flex;flex-direction:column;gap:6px}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.do,.dont{border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.do{background:#fff;border:1px solid var(--line)}
+.dont{background:#fff;border:1px dashed #e3cfc2}
+.tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.do .tag{color:#15803d}.dont .tag{color:#b91c1c}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{text-align:left;padding:9px 8px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);font-weight:700;border-top:0}
+.tw{overflow-x:auto}
+</style>
+</head>
+<body>
+<header class="hero"><div class="in">
+<p class="eb">GymCoach · versión 1 · 26 de septiembre de 2026</p>
+<h1>Identidad visual: Encabezado durazno</h1>
+<p class="sub">Cómo se ve la app, de punta a punta: la parte de la persona, la de la coach, las celebraciones, los informes y los avisos. El detalle para el código está en docs/identidad-visual.md.</p>
+</div></header>
+
+<div class="wrap">
+
+<section>
+<p class="eb">La idea</p>
+<h2>Clara, cálida y tranquila, como la pantalla de felicitación</h2>
+<div class="rules">
+<div class="rule"><b>Durazno para acompañar, naranja para señalar</b><span>El durazno va en fondos y recuadros. El naranja fuerte, solo en el botón principal, el dato destacado y lo seleccionado.</span></div>
+<div class="rule"><b>Nada de negro</b><span>El texto va en marrón oscuro. Ningún fondo, botón ni selección usa negro.</span></div>
+<div class="rule"><b>Colores suaves</b><span>Los estados van en pastel con texto oscuro del mismo tono.</span></div>
+</div>
+</section>
+
+<section>
+<p class="eb">Colores</p>
+<h2>Base</h2>
+<div class="grid g3">
+<div class="sw"><i style="background:#fbf8f5"></i><div><b>Fondo</b><code>#fbf8f5</code><br>Fondo de las pantallas</div></div>
+<div class="sw"><i style="background:#ffffff"></i><div><b>Superficie</b><code>#ffffff</code><br>Tarjetas, tablas, barras</div></div>
+<div class="sw"><i style="background:#f0e7df"></i><div><b>Línea</b><code>#f0e7df</code><br>Bordes y divisores</div></div>
+<div class="sw"><i style="background:#3a2e27"></i><div><b>Tinta</b><code>#3a2e27</code><br>Texto principal</div></div>
+<div class="sw"><i style="background:#76675d"></i><div><b>Texto secundario</b><code>#76675d</code><br>Descripciones y fechas</div></div>
+<div class="sw"><i style="background:#a3958b"></i><div><b>Texto terciario</b><code>#a3958b</code><br>Solo textos de apoyo</div></div>
+</div>
+<h2>Durazno y naranja</h2>
+<div class="grid g3">
+<div class="sw"><i style="background:#fff7ed"></i><div><b>Durazno 50</b><code>#fff7ed</code><br>Recuadros, selección</div></div>
+<div class="sw"><i style="background:#ffedd5"></i><div><b>Durazno 100</b><code>#ffedd5</code><br>Encabezado, avatar</div></div>
+<div class="sw"><i style="background:#fed7aa"></i><div><b>Durazno 200</b><code>#fed7aa</code><br>Borde de lo elegido</div></div>
+<div class="sw"><i style="background:#fdba74"></i><div><b>Durazno 300</b><code>#fdba74</code><br>Progreso, racha, barras</div></div>
+<div class="sw"><i style="background:#ea580c"></i><div><b>Naranja 600</b><code>#ea580c</code><br>Botón principal, marca</div></div>
+<div class="sw"><i style="background:#c2410c"></i><div><b>Naranja 700</b><code>#c2410c</code><br>Texto de acento, números</div></div>
+</div>
+<h2>Estados</h2>
+<div class="card" style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill g">Al día</span><span class="pill g">Con plan</span><span class="pill g">Bien</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill a">Vence en 6 días</span><span class="pill a">Omitido</span><span class="pill a">Regular</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill r">Vencido</span><span class="pill r">Plan vencido</span><span class="pill r">Atención</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill n">Sin plan</span><span class="pill n">Sin datos</span><span class="pill n">Pendiente</span></div>
+<p class="sub" style="font-size:13.5px">El estado también se lee por la forma o el texto: tilde para hecho, guion para omitido, círculo vacío para pendiente.</p>
+</div>
+</section>
+
+<section>
+<p class="eb">Letra</p>
+<h2>Roboto, igual en todos los teléfonos</h2>
+<p class="sub">Guardada dentro de la app, así se ve igual en iPhone, Android y computadora, y funciona sin conexión. Pesos 400, 500 y 700.</p>
+<div class="card" style="padding:4px 18px">
+<div class="type-row" style="border-top:0"><small>Título de pantalla<br>28 · 700</small><span style="font-size:28px;font-weight:700;line-height:1.15">Día B · Tren inferior</span></div>
+<div class="type-row"><small>Título de tarjeta<br>21 · 700</small><span style="font-size:21px;font-weight:700">Peso muerto rumano</span></div>
+<div class="type-row"><small>Etiqueta<br>11 · 700 · mayúsculas</small><span class="eb">Plan Fuerza · semana 5 de 8</span></div>
+<div class="type-row"><small>Cuerpo<br>15 · 400</small><span>Te falta una sesión para completar la semana.</span></div>
+<div class="type-row"><small>Secundario<br>13 · 400</small><span style="font-size:13px;color:var(--t2)">La última vez: 3 × 10 con 27,5 kg</span></div>
+<div class="type-row"><small>Número destacado<br>22 · 700 · tabular</small><span class="num" style="font-size:22px;font-weight:700;color:var(--n700)">22,5 kg · 86 %</span></div>
+</div>
+</section>
+
+<section>
+<p class="eb">Formas</p>
+<h2>Bordes finos, esquinas amables, sombra solo en lo que flota</h2>
+<div class="tw"><table>
+<tr><th>Elemento</th><th>Valor</th></tr>
+<tr><td>Tarjeta</td><td>radio 22 px, borde 1 px Línea, sin sombra</td></tr>
+<tr><td>Recuadro de datos</td><td>radio 16 px, fondo Durazno 50</td></tr>
+<tr><td>Botón</td><td>radio 18 px, alto 52 px</td></tr>
+<tr><td>Filtros y pastillas</td><td>radio completo</td></tr>
+<tr><td>Encabezado</td><td>Durazno 100, esquinas inferiores de 28 px</td></tr>
+<tr><td>Márgenes</td><td>16 px en teléfono, 40 px en escritorio; 10 a 14 px entre tarjetas</td></tr>
+<tr><td>Sombra (barra, hojas, avisos)</td><td><code>0 8px 24px rgba(160,90,40,.12)</code></td></tr>
+</table></div>
+</section>
+
+<section>
+<p class="eb">Piezas</p>
+<h2>Las que se repiten en toda la app</h2>
+<div class="grid g2">
+<div class="card" style="padding:0;overflow:hidden">
+<div class="demo-hero"><p class="eb">Sábado 26 de septiembre</p><span style="font-size:26px;font-weight:700;line-height:1.15">¡Hola, Lucía!</span><span style="color:var(--t2)">Te falta una sesión para completar la semana.</span></div>
+<div style="padding:14px 18px;color:var(--t2);font-size:13px">Encabezado de pantalla: etiqueta, título, una línea y como máximo un elemento más. Sin botones.</div>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:12px">
+<div class="stats"><div class="stat"><b class="num">3/4</b><span>sesiones</span></div><div class="stat"><b class="num">5</b><span>semanas seguidas</span></div><div class="stat"><b class="num">86 %</b><span>del plan</span></div></div>
+<span style="color:var(--t2);font-size:13px">Recuadros de datos: número en Naranja 700, etiqueta corta.</span>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:10px">
+<span class="btn p">Empezar entrenamiento</span><span class="btn s">Informe</span>
+<span style="color:var(--t2);font-size:13px">Un solo botón principal por pantalla o tarjeta. Las acciones menores van como enlace en Naranja 700.</span>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">1 mes</span><span class="chip on">3 meses</span><span class="chip">6 meses</span><span class="chip">Todo</span></div>
+<span style="color:var(--t2);font-size:13px">Filtros y pestañas: lo elegido en durazno con borde, nunca con fondo oscuro.</span>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:8px">
+<div class="ex"><div><b>Sentadilla goblet</b><small class="num">4 × 8 · 22,5 kg</small></div><span class="ck ok">✓</span></div>
+<div class="ex"><div><b>Remo con mancuerna</b><small style="color:#92400e">Omitido · máquina ocupada</small></div><span class="ck sk">–</span></div>
+<div class="ex"><div><b>Hip thrust</b><small class="num">3 × 10 · 50 kg</small></div><span class="ck"></span></div>
+<span style="color:var(--t2);font-size:13px">Ejercicio: hecho, omitido y pendiente se distinguen por forma y color.</span>
+</div>
+<div class="card" style="display:flex;flex-direction:column;gap:12px">
+<div class="pse"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span class="on">7</span><span>8</span><span>9</span><span>10</span></div>
+<div class="seg"><i></i><i></i><i class="f"></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i></div>
+<span style="color:var(--t2);font-size:13px">Escala de esfuerzo y barra de progreso o racha. Las rayas marcan el comodín usado.</span>
+</div>
+</div>
+<div class="nav">
+<span class="on"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Inicio</span>
+<span><svg viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>Hoy</span>
+<span><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Notas</span>
+<span><svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>Progreso</span>
+<span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Historial</span>
+<span><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Perfil</span>
+</div>
+<p class="sub" style="font-size:13.5px">Barra de navegación flotante. En la computadora de la coach, el menú lateral pasa a blanco con la sección activa en durazno.</p>
+</section>
+
+<section>
+<p class="eb">Alcance</p>
+<h2>Todo con la misma identidad</h2>
+<div class="rules">
+<div class="rule"><b>Celebraciones</b><span>Avisos, hojas y cierre de plan usan estas mismas piezas. Salen los fondos oscuros y los degradados saturados.</span></div>
+<div class="rule"><b>Informes</b><span>Los violetas e índigos actuales pasan a durazno, naranja y los colores de estado.</span></div>
+<div class="rule"><b>Avisos y campana</b><span>Íconos en color de estado, texto en Tinta, no leídos con un punto naranja.</span></div>
+</div>
+</section>
+
+<section>
+<p class="eb">Qué evitar</p>
+<h2>Lo que no entra</h2>
+<div class="pair">
+<div class="do"><span class="tag">Sí</span><span class="chip on" style="align-self:flex-start">3 meses</span><span>Selección en durazno con borde naranja.</span></div>
+<div class="dont"><span class="tag">No</span><span class="chip" style="align-self:flex-start;background:#1f1a17;border-color:#1f1a17;color:#fff">3 meses</span><span>Selección con fondo negro.</span></div>
+<div class="do"><span class="tag">Sí</span><span class="pill r" style="align-self:flex-start">Vencido</span><span>Estado en pastel con texto oscuro.</span></div>
+<div class="dont"><span class="tag">No</span><span class="pill" style="align-self:flex-start;background:#dc2626;color:#fff">Vencido</span><span>Estado en color saturado.</span></div>
+</div>
+<p class="sub" style="font-size:14px">Tampoco: bloques grandes rellenos de naranja, degradados fuera del encabezado, emojis como íconos, sombra en tarjetas del contenido, más de un botón principal por tarjeta, o "alumno/alumna" en vez de "persona".</p>
+</section>
+
+</div>
+</body>
+</html>

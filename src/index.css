@@ -2,39 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Roboto guardada dentro de la app (identidad visual, docs/identidad-visual.md).
+   Subconjunto latin: cubre español e inglés. Licencia OFL en assets/fonts/roboto. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/roboto/roboto-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/roboto/roboto-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/roboto/roboto-latin-700-normal.woff2') format('woff2');
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-gray-100 text-gray-900;
+    @apply bg-fondo text-tinta antialiased;
   }
 }
 
 @layer components {
+  /* ── Botones ── */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-semibold py-2.5 px-4 rounded-xl transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-bold py-3 px-4 rounded-boton transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold py-2.5 px-4 rounded-xl border border-gray-200 transition-colors duration-150;
+    @apply bg-white hover:bg-durazno-50 active:bg-durazno-100 text-tinta font-medium py-3 px-4 rounded-boton border border-linea transition-colors duration-150;
   }
   .btn-ghost {
-    @apply hover:bg-gray-100 active:bg-gray-200 text-gray-600 font-medium py-2 px-3 rounded-lg transition-colors duration-150;
+    @apply hover:bg-durazno-50 active:bg-durazno-100 text-texto2 font-medium py-2 px-3 rounded-xl transition-colors duration-150;
   }
+
+  /* ── Superficies ── */
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-200 p-4;
+    @apply bg-white rounded-tarjeta border border-linea p-4;
   }
+  /* Encabezado de pantalla: bloque durazno con esquinas inferiores redondeadas */
+  .hero {
+    @apply bg-durazno-100 rounded-b-encabezado;
+  }
+  /* Etiqueta chica arriba de un título */
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.1em] text-primary-700;
+  }
+  /* Recuadro de datos: número destacado + etiqueta corta */
+  .stat {
+    @apply bg-durazno-50 rounded-recuadro px-2 py-2.5 text-center;
+  }
+  .stat-value {
+    @apply block text-[22px] leading-tight font-bold text-primary-700 tabular-nums;
+  }
+  .stat-label {
+    @apply text-xs text-texto2;
+  }
+
+  /* ── Formularios ── */
   .input {
-    @apply w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+    @apply w-full bg-white border border-linea rounded-xl px-3 py-2.5 text-sm text-tinta placeholder:text-texto3 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all;
   }
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-texto2 mb-1;
   }
   .section-title {
-    @apply text-lg font-bold text-gray-900;
+    @apply text-lg font-bold text-tinta;
+  }
+
+  /* ── Filtros y pastillas ── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white border border-linea text-sm font-medium text-texto2 transition-colors;
+  }
+  .chip-on {
+    @apply bg-durazno-50 border-durazno-200 text-primary-700;
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .pill-ok {
+    @apply bg-[#dcfce7] text-[#15803d];
+  }
+  .pill-warn {
+    @apply bg-[#fef3c7] text-[#92400e];
+  }
+  .pill-bad {
+    @apply bg-[#fee2e2] text-[#b91c1c];
+  }
+  .pill-neutral {
+    @apply bg-gray-100 text-texto2;
   }
 }
 
