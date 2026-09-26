@@ -191,7 +191,7 @@ Las notificaciones usan los colores de estado para el ícono y texto Tinta. Las 
 
 ## 10. Cómo se lleva al código
 
-1. **Letra:** instalar `@fontsource/roboto` (pesos 400, 500, 700) e importarla en `main.jsx`. Queda dentro del paquete de la app y la cachea el service worker.
+1. **Letra:** Roboto 400, 500 y 700 guardada en `src/assets/fonts/roboto/` (woff2, subconjunto latino) y declarada con `@font-face` en `index.css`. Queda dentro de la app y la cachea el service worker.
 2. **Colores y formas en `tailwind.config.js`:** agregar `durazno` (50 a 300), `tinta`, `texto2`, `texto3`, `linea`, `fondo`, los radios (`tarjeta: 22px`, `recuadro: 16px`, `boton: 18px`) y la sombra `flotante`. `primary` se mantiene como la escala naranja.
 3. **Piezas comunes en `index.css`:** actualizar `.card`, `.btn-primary`, `.btn-secondary`, `.input`, `.badge` y agregar `.hero`, `.stat`, `.chip`, `.pill-*`, para que la mayor parte del cambio llegue a todas las pantallas a la vez.
 4. **Fondo general:** `body` pasa de `bg-gray-100` a Fondo.
