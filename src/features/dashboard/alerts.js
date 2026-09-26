@@ -72,6 +72,8 @@ export const ALERT_THRESHOLDS = {
   ],
   PAIN_MIN_MENTIONS: 1, // bajado de 2→1 (decisión Franco 23/05 noche)
   PAIN_WINDOW_DAYS: 21,
+  // Omitió algo por "me molestaba algo" (v54). Ventana en días.
+  SKIP_DISCOMFORT_WINDOW_DAYS: 14,
   // Estancamiento: sin subir max(actual_weight) en N días.
   STAGNATION_WINDOW_DAYS: 21,
   STAGNATION_MIN_LOGS: 6, // legacy aggregate (kept para compat)
@@ -267,6 +269,39 @@ export function computePlanExpired(students, today = new Date()) {
     })
   }
   out.sort((a, b) => b.daysExpired - a.daysExpired)
+  return out
+}
+
+// ============================================================
+// 3c. Omitió por molestia (etapa 5 del registro por confirmación)
+// ------------------------------------------------------------
+// skippedLogs: registros omitidos (de ejercicio o de bloque) con
+//   { student_id, logged_date, skip_reason, name }  (name = ejercicio o
+//   bloque, ya resuelto por el hook).
+// Es la misma señal de riesgo que "Contó dolor", pero declarada por la
+// persona al omitir: más confiable que buscar palabras en las notas.
+// ============================================================
+export function computeSkipDiscomfort(students, skippedLogs, today = new Date()) {
+  const todayD = startOfDay(today)
+  const since = addDays(todayD, -ALERT_THRESHOLDS.SKIP_DISCOMFORT_WINDOW_DAYS)
+  const byStudent = new Map()
+  for (const l of skippedLogs || []) {
+    if (l.skip_reason !== 'discomfort') continue
+    const d = parseYMD(l.logged_date)
+    if (!d || d < since || d > todayD) continue
+    if (!byStudent.has(l.student_id)) byStudent.set(l.student_id, { names: [], lastDate: null })
+    const acc = byStudent.get(l.student_id)
+    const name = l.name || null
+    if (name && !acc.names.includes(name)) acc.names.push(name)
+    if (!acc.lastDate || l.logged_date > acc.lastDate) acc.lastDate = l.logged_date
+  }
+  const out = []
+  for (const s of students || []) {
+    const acc = byStudent.get(s.id)
+    if (!acc) continue
+    out.push({ studentId: s.id, name: s.name, exerciseNames: acc.names, lastDate: acc.lastDate })
+  }
+  out.sort((a, b) => String(b.lastDate).localeCompare(String(a.lastDate)))
   return out
 }
 
@@ -776,6 +811,7 @@ export function computeAllAlerts({
   weeklyByStudent,
   recentLogs,
   wellbeingLogs = [],
+  skippedLogs = [],
   today = new Date(),
 }) {
   const { overdue, dueSoon } = computePaymentAlerts(students, today)
@@ -792,6 +828,7 @@ export function computeAllAlerts({
     fatigueStudents: computeFatigueStudents(students, wellbeingLogs, today),
     lowMotivationStudents: computeLowMotivationStudents(students, wellbeingLogs, today),
     painStudents: computePainStudents(students, wellbeingLogs, today),
+    skipDiscomfort: computeSkipDiscomfort(students, skippedLogs, today),
     stagnationStudents: computeStagnationByExercise(students, recentLogs, today),
   }
 }
@@ -878,6 +915,13 @@ export const ALERT_KIND = {
     borderClass: 'border-l-pink-400',
     accentClass: 'text-pink-600',
   },
+  skipDiscomfort: {
+    key: 'skipDiscomfort',
+    label: 'Omitió por molestia',
+    icon: '🤕',
+    borderClass: 'border-l-amber-400',
+    accentClass: 'text-amber-600',
+  },
   painStudents: {
     key: 'painStudents',
     label: 'Dolor repetido',
@@ -900,6 +944,7 @@ export const ALERT_RENDER_ORDER = [
   'adherenceDecline', // tendencia a la baja — la señal más accionable
   'lowAdherence', // semana cerrada por debajo del umbral
   'painStudents', // dolor — atender rápido por riesgo de lesión
+  'skipDiscomfort', // omitió por molestia — misma señal de riesgo
   'fatigueStudents', // fatiga — ajustar carga
   'planExpired',
   'planExpiringSoon',
@@ -933,6 +978,7 @@ const PERSON_ALERT_ORDER = [
   'overdue',
   'inactiveStudents',
   'painStudents',
+  'skipDiscomfort',
   'planExpired',
   'adherenceDecline',
   'fatigueStudents',
@@ -967,6 +1013,18 @@ export function describeAlertItem(kind, it) {
         tone: 'warn',
         text: it.lastNoteSnippet ? `Contó dolor: "${it.lastNoteSnippet}"` : 'Contó dolor',
       }
+    case 'skipDiscomfort': {
+      const names = it.exerciseNames || []
+      return {
+        tone: 'warn',
+        text:
+          names.length === 0
+            ? 'Omitió por molestia'
+            : names.length === 1
+              ? `Omitió ${names[0]} por molestia`
+              : `Omitió por molestia: ${names.slice(0, 2).join(', ')}${names.length > 2 ? ` y ${names.length - 2} más` : ''}`,
+      }
+    }
     case 'planExpired':
       return {
         tone: 'warn',

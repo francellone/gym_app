@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { computeAllAlerts, computeLastWeekCompliance, ALERT_THRESHOLDS } from '../alerts'
+import { isLogSkipped, isTrainingActivity } from '@/features/workouts/completionRules'
 
 // ============================================================
 // useCoachAlerts
@@ -35,6 +36,8 @@ export default function useCoachAlerts() {
   const [students, setStudents] = useState([])
   const [logs, setLogs] = useState([])
   const [wellbeingLogs, setWellbeingLogs] = useState([])
+  // v54: omisiones (ejercicio y bloque) para la alerta "omitió por molestia"
+  const [skippedLogs, setSkippedLogs] = useState([])
   const [refreshTick, setRefreshTick] = useState(0)
   const reqIdRef = useRef(0)
 
@@ -67,7 +70,7 @@ export default function useCoachAlerts() {
         // de inactividad marcaba 22/23 alumnos porque a la mayoría le
         // faltaban los logs recientes en la página truncada). Por eso los
         // fetches de logs paginan con fetchAllRows + orden estable.
-        const [studentsRes, logRows, wellbeingRows] = await Promise.all([
+        const [studentsRes, logRows, wellbeingRows, skippedBlockRows] = await Promise.all([
           supabase
             .from('profiles')
             .select(
@@ -89,6 +92,7 @@ export default function useCoachAlerts() {
               .from('workout_logs')
               .select(
                 `id, student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
+                 status, skip_reason,
                  plan_exercise:plan_exercises!plan_exercise_id(
                    exercise:exercises!exercise_id(id, name)
                  )`
@@ -109,6 +113,25 @@ export default function useCoachAlerts() {
               .order('id', { ascending: true })
               .range(from, to)
           ),
+          // v54: bloques (circuito / aeróbico) omitidos por molestia. Solo
+          // esos: el resto de las alertas sigue mirando workout_logs.
+          fetchAllRows((from, to) =>
+            supabase
+              .from('workout_block_logs')
+              .select(
+                `id, student_id, logged_date, status, skip_reason,
+                 block:plan_blocks!plan_block_id(title, block_type)`
+              )
+              .eq('status', 'skipped')
+              .eq('skip_reason', 'discomfort')
+              .gte('logged_date', ymdWellbeingSince)
+              .lte('logged_date', ymdToday)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch((err) => {
+            console.error('[useCoachAlerts] block logs omitidos', err)
+            return []
+          }),
         ])
 
         if (cancelled || reqIdRef.current !== myReqId) return
@@ -116,7 +139,30 @@ export default function useCoachAlerts() {
         if (studentsRes.error) throw studentsRes.error
 
         setStudents(studentsRes.data || [])
-        setLogs(logRows)
+        // v54: una omisión declarada NO es entrenamiento. Sin este filtro,
+        // omitir contaba como "entrenó" para inactividad, adherencia y
+        // "entrenaron hoy". Las omisiones van aparte, a la alerta de molestia.
+        setLogs(logRows.filter(isTrainingActivity))
+        setSkippedLogs([
+          ...logRows.filter(isLogSkipped).map((l) => ({
+            student_id: l.student_id,
+            logged_date: l.logged_date,
+            skip_reason: l.skip_reason,
+            name: l.plan_exercise?.exercise?.name || null,
+          })),
+          ...(skippedBlockRows || []).map((b) => ({
+            student_id: b.student_id,
+            logged_date: b.logged_date,
+            skip_reason: b.skip_reason,
+            name:
+              b.block?.title ||
+              (b.block?.block_type === 'aerobic'
+                ? 'el aeróbico'
+                : b.block?.block_type === 'circuit'
+                  ? 'el circuito'
+                  : null),
+          })),
+        ])
         setWellbeingLogs(wellbeingRows)
       } catch (err) {
         console.error('[useCoachAlerts] fetch', err)
@@ -219,9 +265,10 @@ export default function useCoachAlerts() {
         weeklyByStudent,
         recentLogs: logs,
         wellbeingLogs,
+        skippedLogs,
         today: new Date(),
       }),
-    [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs]
+    [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs, skippedLogs]
   )
 
   // Números del encabezado del dashboard (rediseño 2026-09-26):

@@ -8,6 +8,7 @@ import {
   computePlanExpiringSoon,
   computePlanExpired,
   computePainStudents,
+  computeSkipDiscomfort,
   ALERT_THRESHOLDS,
   groupAlertsByStudent,
   describeAlertItem,
@@ -366,4 +367,57 @@ describe('computePainStudents en inglés (2026-09-26)', () => {
       expect(computePainStudents(alumnos, nota(n), hoy)).toHaveLength(0)
     }
   )
+})
+
+describe('computeSkipDiscomfort (etapa 5)', () => {
+  const hoy = new Date(2026, 8, 26)
+  const alumnos = [
+    { id: 's1', name: 'Ana' },
+    { id: 's2', name: 'Bea' },
+  ]
+  it('alerta solo por molestia, dentro de la ventana, con los nombres', () => {
+    const out = computeSkipDiscomfort(
+      alumnos,
+      [
+        {
+          student_id: 's1',
+          logged_date: '2026-09-25',
+          skip_reason: 'discomfort',
+          name: 'Sentadilla',
+        },
+        {
+          student_id: 's1',
+          logged_date: '2026-09-24',
+          skip_reason: 'discomfort',
+          name: 'Sentadilla',
+        },
+        {
+          student_id: 's1',
+          logged_date: '2026-09-23',
+          skip_reason: 'discomfort',
+          name: 'Estocada',
+        },
+        { student_id: 's2', logged_date: '2026-09-25', skip_reason: 'time', name: 'Remo' },
+        { student_id: 's2', logged_date: '2026-08-01', skip_reason: 'discomfort', name: 'Remo' },
+      ],
+      hoy
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].exerciseNames).toEqual(['Sentadilla', 'Estocada'])
+    expect(describeAlertItem('skipDiscomfort', out[0]).text).toBe(
+      'Omitió por molestia: Sentadilla, Estocada'
+    )
+    expect(describeAlertItem('skipDiscomfort', { exerciseNames: ['Remo'] })).toEqual({
+      tone: 'warn',
+      text: 'Omitió Remo por molestia',
+    })
+  })
+
+  it('en la fila de la persona va junto a los otros motivos', () => {
+    const { rows } = groupAlertsByStudent({
+      painStudents: [{ studentId: 's1', name: 'Ana', lastNoteSnippet: 'rodilla' }],
+      skipDiscomfort: [{ studentId: 's1', name: 'Ana', exerciseNames: ['Sentadilla'] }],
+    })
+    expect(rows[0].items.map((i) => i.kind)).toEqual(['painStudents', 'skipDiscomfort'])
+  })
 })

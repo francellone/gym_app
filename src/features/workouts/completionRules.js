@@ -103,3 +103,61 @@ export function dayStateFromTally(tally) {
 export function isDayStateClosed(state) {
   return state === 'complete' || state === 'partial'
 }
+
+// ============================================================
+// Resumen para las vistas de la coach (etapa 5, 2026-09-26)
+// ------------------------------------------------------------
+// summarizeEntries(logs): sobre registros de ejercicio y/o de bloque,
+// cuántos se omitieron (con apertura por motivo) y, de los hechos que
+// declararon cómo se cargaron, cuántos fueron tal cual y cuántos con
+// ajustes. Los hechos sin entry_mode (anteriores a v54) no cuentan en
+// la proporción: no sabemos cómo se cargaron.
+// ============================================================
+export const SKIP_REASON_LABEL = {
+  choice: 'Eligió no hacerlo',
+  time: 'No llegó con el tiempo',
+  discomfort: 'Le molestaba algo',
+}
+export const SKIP_REASON_SHORT = {
+  choice: 'Eligió',
+  time: 'Tiempo',
+  discomfort: 'Molestia',
+}
+
+export function summarizeEntries(logs) {
+  const out = {
+    skipped: 0,
+    byReason: { choice: 0, time: 0, discomfort: 0, unknown: 0 },
+    confirmed: 0,
+    edited: 0,
+  }
+  for (const l of logs || []) {
+    if (isLogSkipped(l)) {
+      out.skipped += 1
+      if (SKIP_REASONS.includes(l.skip_reason)) out.byReason[l.skip_reason] += 1
+      else out.byReason.unknown += 1
+    } else if (isLogDone(l)) {
+      if (l.entry_mode === 'confirmed') out.confirmed += 1
+      else if (l.entry_mode === 'edited') out.edited += 1
+    }
+  }
+  const withMode = out.confirmed + out.edited
+  out.withMode = withMode
+  out.confirmedPct = withMode > 0 ? Math.round((out.confirmed / withMode) * 100) : null
+  return out
+}
+
+// "3 omitidos: 2 por tiempo y 1 por molestia"
+export function describeSkips(summary) {
+  const n = summary?.skipped || 0
+  if (n === 0) return ''
+  const parts = []
+  const by = summary.byReason || {}
+  if (by.time) parts.push(`${by.time} por tiempo`)
+  if (by.discomfort) parts.push(`${by.discomfort} por molestia`)
+  if (by.choice) parts.push(`${by.choice} por elección`)
+  if (by.unknown) parts.push(`${by.unknown} sin motivo`)
+  const joined =
+    parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}`
+  return `${n} omitido${n === 1 ? '' : 's'}${joined ? `: ${joined}` : ''}`
+}

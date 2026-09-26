@@ -29,6 +29,7 @@ import {
   PauseCircle,
   Flame,
   CalendarCheck,
+  ClipboardCheck,
 } from 'lucide-react'
 import {
   BarChart,
@@ -48,6 +49,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { buildReport, UNTAGGED_KEY } from '../reportEngine'
 import { fetchReportData } from '../fetchReportData'
 import { downloadReportHtml } from '../exportReportHtml'
+import { describeSkips, SKIP_REASON_LABEL } from '@/features/workouts/completionRules'
 
 const PERIODS = [
   { weeks: 4, days: 28, label: '4 semanas' },
@@ -428,6 +430,54 @@ export default function CoachReportPage() {
               cambia).
             </p>
           )}
+        </section>
+      )}
+
+      {/* Cómo registró (v54): omisiones por motivo y tal cual / con ajustes.
+          Solo en el informe de la coach, nunca en el de clientes. */}
+      {m.entries && (
+        <section className="card" id="sec-registro">
+          <SectionTitle icon={ClipboardCheck}>Cómo registró</SectionTitle>
+          <div className="space-y-3 text-sm text-gray-700">
+            {report.entries.withMode > 0 && (
+              <div>
+                <p>
+                  <b className="tabular-nums">{report.entries.confirmedPct} %</b> tal cual y{' '}
+                  <b className="tabular-nums">{100 - report.entries.confirmedPct} %</b> con ajustes
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Sobre {report.entries.withMode} registros hechos desde que existe el registro por
+                  confirmación. Un número muy alto de "tal cual" puede ser que el plan le queda
+                  justo o que confirma sin mirar.
+                </p>
+              </div>
+            )}
+            {report.entries.skipped > 0 ? (
+              <div>
+                <p>
+                  <span className="pill-warn">{describeSkips(report.entries)}</span>
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {report.entries.skippedItems.slice(0, 10).map((it, i) => (
+                    <li key={i} className="flex flex-wrap gap-x-2 text-[13px]">
+                      <span className="tabular-nums text-gray-500 w-12">{fmtShort(it.date)}</span>
+                      <span className="font-medium text-gray-800">{it.name}</span>
+                      <span className="text-gray-500">
+                        {SKIP_REASON_LABEL[it.reason] || 'Sin motivo'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {report.entries.skippedItems.length > 10 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    y {report.entries.skippedItems.length - 10} más
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500">No omitió nada en el período.</p>
+            )}
+          </div>
         </section>
       )}
 

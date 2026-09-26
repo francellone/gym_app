@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Columns3, Filter, Table as TableIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { SKIP_REASON_LABEL, SKIP_REASON_SHORT } from '@/features/workouts/completionRules'
 import {
   parseReps,
   displayReps,
@@ -192,6 +193,10 @@ export default function StudentProgressTableView({
   // v53 — workout_block_logs del período (aeróbico / circuito), con `block`
   // (plan_blocks) y `exercise` embebidos. Se intercalan como filas de bloque.
   blockLogs = [],
+  // v54 — registros OMITIDOS del período (ejercicio y bloque). No entran en
+  // ninguna métrica ni definen columnas: solo se muestran en la celda de un
+  // día que sí fue sesión, con el motivo ("— Tiempo").
+  skippedLogs = [],
   exerciseTags = [],
   tagAssignments = [],
   selectedTag = '',
@@ -437,6 +442,28 @@ export default function StudentProgressTableView({
     }
     return map
   }, [logs])
+
+  // v54 — omitidos: por plan_exercise / ejercicio / bloque → fecha → log
+  const skippedIndex = useMemo(() => {
+    const byPex = new Map()
+    const byEx = new Map()
+    const byBlock = new Map()
+    const put = (map, key, date, log) => {
+      if (!key || !date) return
+      if (!map.has(key)) map.set(key, new Map())
+      map.get(key).set(date, log)
+    }
+    for (const l of skippedLogs) {
+      if (l.plan_block_id && !l.plan_exercise_id) {
+        put(byBlock, l.plan_block_id, l.logged_date, l)
+        put(byEx, l.exercise_id, l.logged_date, l)
+        continue
+      }
+      put(byPex, l.plan_exercise_id, l.logged_date, l)
+      put(byEx, l.exercise_id || l.plan_exercise?.exercise?.id, l.logged_date, l)
+    }
+    return { byPex, byEx, byBlock }
+  }, [skippedLogs])
 
   // ── Fecha real de cada sesión → block_label para el header ─
   const sessionDateInfo = useMemo(() => {
@@ -894,6 +921,23 @@ export default function StudentProgressTableView({
     ]
   )
 
+  // v54 — omitido de esa fila en esa fecha (solo si no hay registro hecho)
+  const getSkippedForDate = useCallback(
+    (row, date) => {
+      if (effectiveRowMode === 'exercise')
+        return skippedIndex.byEx.get(row.exerciseId)?.get(date) ?? null
+      if (row.kind === 'block') return skippedIndex.byBlock.get(row.blockId)?.get(date) ?? null
+      return skippedIndex.byPex.get(row.id)?.get(date) ?? null
+    },
+    [skippedIndex, effectiveRowMode]
+  )
+
+  // ¿Hay algún omitido en las columnas visibles? (para la leyenda)
+  const hasVisibleSkipped = useMemo(() => {
+    const dates = new Set(allSessionDates)
+    return skippedLogs.some((l) => dates.has(l.logged_date))
+  }, [skippedLogs, allSessionDates])
+
   // Abrir/cerrar modal de nota
   const handleNoteClick = (e, key, text) => {
     e.stopPropagation()
@@ -1024,6 +1068,23 @@ export default function StudentProgressTableView({
     ) : (
       <span className="badge bg-green-100 text-green-700">{v}</span>
     )
+
+  // v54 — celda de un ejercicio / bloque omitido ese día
+  const renderSkippedCell = (log, highlight, extraClass = '') => {
+    const bg = highlight ? 'bg-primary-50/40' : ''
+    const short = SKIP_REASON_SHORT[log.skip_reason] || 'Omitido'
+    const long = SKIP_REASON_LABEL[log.skip_reason] || 'Sin motivo'
+    return (
+      <td
+        className={`px-2 py-2 text-center border-l border-gray-100 ${bg} ${extraClass}`}
+        title={`No lo hizo: ${long}`}
+      >
+        <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+          — {short}
+        </span>
+      </td>
+    )
+  }
 
   // Celda de sesión
   const renderSessionCell = (
@@ -1295,6 +1356,14 @@ export default function StudentProgressTableView({
               : null
           const prevLog = prevDate ? getLogForDate(r, prevDate) : null
           const noteKey = `${r.id}-${date}`
+          const skipped = log ? null : getSkippedForDate(r, date)
+          if (skipped) {
+            return (
+              <Fragment key={`sc-${r.id}-${date}`}>
+                {renderSkippedCell(skipped, isLatest, cutClass(i))}
+              </Fragment>
+            )
+          }
           return (
             <Fragment key={`sc-${r.id}-${date}`}>
               {renderSessionCell(
@@ -1728,7 +1797,19 @@ export default function StudentProgressTableView({
         </div>
       </div>
 
-      {/* ── Leyenda tendencia ── */}
+      {/* ── Leyenda ── */}
+      {hasVisibleSkipped && (
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-400 justify-end">
+          {hasVisibleSkipped && (
+            <span>
+              <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1 font-medium">
+                — Tiempo
+              </span>{' '}
+              no lo hizo, con el motivo (Tiempo, Molestia, Eligió)
+            </span>
+          )}
+        </div>
+      )}
       {isCol('trend') && (
         <div className="flex items-center gap-3 text-[11px] text-gray-400 justify-end">
           <span>

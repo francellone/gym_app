@@ -32,7 +32,11 @@ import { parseISO, differenceInCalendarDays, addDays, startOfWeek, format } from
 import { readLogReps, maxWeightOfLog } from '@/features/plans/helpers'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
-import { isTrainingActivity } from '@/features/workouts/completionRules'
+import {
+  isTrainingActivity,
+  isLogSkipped,
+  summarizeEntries,
+} from '@/features/workouts/completionRules'
 
 // Un ejercicio se considera estancado si su progresión por semanas quedó
 // dentro de ±STALL_THRESHOLD_PCT con al menos MIN_POINTS_FOR_STALL registros.
@@ -304,6 +308,32 @@ export function buildReport({
   const historyLogs = trainingLogs.filter((l) => l.logged_date < from)
 
   const periodBlockLogs = sliceByPeriod(trainingBlockLogs, from, to)
+
+  // --- Cómo registró (v54, etapa 5): omisiones por motivo y proporción de
+  // registros tal cual vs con ajustes. Sobre los registros SIN filtrar por
+  // actividad (las omisiones son justamente lo que se quiere contar). Un
+  // circuito hecho ya aporta un registro por ejercicio: su registro de
+  // bloque no se cuenta para no duplicarlo; omitido solo deja el de bloque.
+  const rawPeriodLogs = sliceByPeriod(filterTrainingLogs(logs), from, to)
+  const rawPeriodBlocks = sliceByPeriod(filterTrainingLogs(blockLogs), from, to).filter(
+    (b) => isLogSkipped(b) || b.plan_block?.block_type !== 'circuit'
+  )
+  const entrySummary = summarizeEntries([...rawPeriodLogs, ...rawPeriodBlocks])
+  const skippedItems = [...rawPeriodLogs, ...rawPeriodBlocks]
+    .filter(isLogSkipped)
+    .map((l) => ({
+      date: l.logged_date,
+      reason: l.skip_reason || null,
+      name:
+        l.plan_exercise?.exercise?.name ||
+        l.plan_block?.title ||
+        (l.plan_block?.block_type === 'aerobic'
+          ? 'Aeróbico'
+          : l.plan_block?.block_type === 'circuit'
+            ? 'Circuito'
+            : 'Ejercicio'),
+    }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
   const prevBlockLogs = sliceByPeriod(trainingBlockLogs, prev.from, prev.to)
 
   // --- Asistencia: días distintos con CUALQUIER registro (logs o bloques) ---
@@ -510,6 +540,7 @@ export function buildReport({
     effort,
     blocks,
     wellbeing: wellbeingModule,
+    entries: { ...entrySummary, skippedItems },
     modules: {
       attendance: periodDays.size > 0,
       activation: activationSeries > 0,
@@ -518,6 +549,7 @@ export function buildReport({
       effort: effort.pseAvg != null || effort.borgAvg != null,
       blocks: blocks.length > 0,
       wellbeing: wellbeingModule.length > 0,
+      entries: entrySummary.skipped > 0 || entrySummary.withMode > 0,
     },
   }
 }

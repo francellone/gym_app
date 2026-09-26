@@ -478,3 +478,68 @@ describe('días completos vs solo activación + racha (caso Andrea)', () => {
     expect(r.attendance.bestStreak).toBe(2)
   })
 })
+
+describe('Cómo registró (v54, etapa 5)', () => {
+  const base = { from: '2026-09-01', to: '2026-09-30' }
+  const withMode = (l, mode) => ({ ...l, completed: true, status: 'done', entry_mode: mode })
+  const skipped = (date, reason, exercise = EX_PRESS) => ({
+    ...log({ date, exercise, reps: null }),
+    completed: false,
+    status: 'skipped',
+    skip_reason: reason,
+  })
+
+  it('las omisiones no son días entrenados pero sí se cuentan con su motivo', () => {
+    const r = buildReport({
+      ...base,
+      logs: [
+        withMode(log({ date: '2026-09-10' }), 'confirmed'),
+        withMode(log({ date: '2026-09-10', exercise: EX_GATO }), 'edited'),
+        skipped('2026-09-12', 'time'),
+        skipped('2026-09-12', 'discomfort', EX_GATO),
+      ],
+    })
+    expect(r.attendance.daysTrained).toBe(1)
+    expect(r.entries.skipped).toBe(2)
+    expect(r.entries.confirmedPct).toBe(50)
+    expect(r.entries.skippedItems.map((i) => i.name).sort()).toEqual([
+      'Gato-camello',
+      'Press banca',
+    ])
+    expect(r.modules.entries).toBe(true)
+  })
+
+  it('un circuito hecho no se cuenta dos veces; omitido cuenta por el bloque', () => {
+    const r = buildReport({
+      ...base,
+      logs: [withMode(log({ date: '2026-09-10' }), 'confirmed')],
+      blockLogs: [
+        {
+          logged_date: '2026-09-10',
+          completed: true,
+          status: 'done',
+          entry_mode: 'confirmed',
+          plan: { plan_type: 'training' },
+          plan_block: { block_type: 'circuit', title: 'TABATA' },
+        },
+        {
+          logged_date: '2026-09-11',
+          completed: false,
+          status: 'skipped',
+          skip_reason: 'time',
+          plan: { plan_type: 'training' },
+          plan_block: { block_type: 'circuit', title: 'TABATA' },
+        },
+      ],
+    })
+    expect(r.entries.withMode).toBe(1)
+    expect(r.entries.skipped).toBe(1)
+    expect(r.entries.skippedItems[0].name).toBe('TABATA')
+    expect(r.attendance.daysTrained).toBe(1)
+  })
+
+  it('sin datos de v54 el módulo no aparece', () => {
+    const r = buildReport({ ...base, logs: [log({ date: '2026-09-10' })] })
+    expect(r.modules.entries).toBe(false)
+  })
+})

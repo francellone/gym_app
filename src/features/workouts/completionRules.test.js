@@ -9,6 +9,8 @@ import {
   mergeTallies,
   dayStateFromTally,
   isDayStateClosed,
+  summarizeEntries,
+  describeSkips,
 } from './completionRules'
 
 const DONE = { completed: true, status: 'done' }
@@ -134,5 +136,34 @@ describe('isDayStateClosed', () => {
     expect(isDayStateClosed('open')).toBe(false)
     expect(isDayStateClosed('none')).toBe(false)
     expect(isDayStateClosed(undefined)).toBe(false)
+  })
+})
+
+describe('summarizeEntries / describeSkips (etapa 5)', () => {
+  it('cuenta omisiones por motivo y la proporción tal cual / con ajustes', () => {
+    const s = summarizeEntries([
+      { completed: true, status: 'done', entry_mode: 'confirmed' },
+      { completed: true, status: 'done', entry_mode: 'confirmed' },
+      { completed: true, status: 'done', entry_mode: 'confirmed' },
+      { completed: true, status: 'done', entry_mode: 'edited' },
+      { completed: true, status: 'done', entry_mode: null }, // anterior a v54: no cuenta
+      { completed: false, status: 'skipped', skip_reason: 'time' },
+      { completed: false, status: 'skipped', skip_reason: 'time' },
+      { completed: false, status: 'skipped', skip_reason: 'discomfort' },
+    ])
+    expect(s.skipped).toBe(3)
+    expect(s.byReason).toEqual({ choice: 0, time: 2, discomfort: 1, unknown: 0 })
+    expect(s.withMode).toBe(4)
+    expect(s.confirmedPct).toBe(75)
+    expect(describeSkips(s)).toBe('3 omitidos: 2 por tiempo y 1 por molestia')
+  })
+
+  it('sin registros con modo, la proporción es null; sin omisiones, texto vacío', () => {
+    const s = summarizeEntries([{ completed: true, status: 'done' }])
+    expect(s.confirmedPct).toBeNull()
+    expect(describeSkips(s)).toBe('')
+    expect(describeSkips(summarizeEntries([{ status: 'skipped', skip_reason: 'choice' }]))).toBe(
+      '1 omitido: 1 por elección'
+    )
   })
 })

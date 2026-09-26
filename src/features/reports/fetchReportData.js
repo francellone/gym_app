@@ -30,6 +30,7 @@ export async function fetchReportData(supabase, studentId) {
           id, logged_date, actual_sets, actual_reps, actual_weight,
           actual_reps_jsonb, actual_weights_jsonb, actual_weights,
           weight_mode, unilateral, reps_unit, perceived_difficulty,
+          completed, status, skip_reason, entry_mode,
           plan:plans!plan_id(plan_type),
           plan_exercise:plan_exercises!plan_exercise_id(
             section,
@@ -48,6 +49,7 @@ export async function fetchReportData(supabase, studentId) {
           .select(
             `
           id, logged_date, actual_minutes, actual_rounds, perceived_difficulty,
+          completed, status, skip_reason, entry_mode,
           plan:plans!plan_id(plan_type),
           plan_block:plan_blocks!plan_block_id(block_type, title)
         `

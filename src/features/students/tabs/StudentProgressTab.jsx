@@ -33,6 +33,13 @@ import { planWindowsFromLogs, previousPlanStart, NO_PLAN } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import PersonalBestsCard from '@/features/milestones/components/PersonalBestsCard'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import { fetchAllRows } from '@/lib/fetchAllRows'
+import {
+  isLogSkipped,
+  isTrainingActivity,
+  summarizeEntries,
+  describeSkips,
+} from '@/features/workouts/completionRules'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes estáticas fuera del componente
@@ -146,6 +153,10 @@ export default function StudentProgressTab({ studentId }) {
   // para asistencia y el coach nunca veía minutos, rondas ni PSE de estos
   // bloques en ningún lado ("no puedo visualizar los datos de los aeróbicos").
   const [progressBlockLogs, setProgressBlockLogs] = useState([])
+  // v54 — omitidos del período (ejercicio + bloque) y el resumen de cómo se
+  // registró: omisiones por motivo y proporción tal cual / con ajustes.
+  const [skippedLogs, setSkippedLogs] = useState([])
+  const [entrySummary, setEntrySummary] = useState(null)
 
   useEffect(() => {
     fetchProgressData()
@@ -176,10 +187,13 @@ export default function StudentProgressTab({ studentId }) {
 
     // Joineamos plan_type para excluir logs de evaluaciones de los
     // gráficos del coach (mismo motivo que en ProgressPage del alumno).
-    let logsQuery = supabase
-      .from('workout_logs')
-      .select(
-        `
+    // Paginado: con el período "todo" pasa las 1000 filas y PostgREST corta
+    // en silencio.
+    const buildLogsQuery = (from, to) => {
+      let q = supabase
+        .from('workout_logs')
+        .select(
+          `
         *,
         plan:plans!plan_id(plan_type, title),
         exercise:exercises!exercise_id(id, name, muscle_group),
@@ -189,11 +203,15 @@ export default function StudentProgressTab({ studentId }) {
           exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
         )
       `
-      )
-      .eq('student_id', studentId)
-      .gte('logged_date', since)
-    if (until) logsQuery = logsQuery.lte('logged_date', until)
-    logsQuery = logsQuery.order('logged_date')
+        )
+        .eq('student_id', studentId)
+        .gte('logged_date', since)
+      if (until) q = q.lte('logged_date', until)
+      return q
+        .order('logged_date', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    }
 
     // Asistencia: rango propio, siempre las últimas 8 semanas hasta hoy.
     // No lleva `until` ni depende de `since` a propósito — el heatmap muestra
@@ -221,7 +239,10 @@ export default function StudentProgressTab({ studentId }) {
       attLogsRes,
       assignRes,
     ] = await Promise.all([
-      logsQuery,
+      fetchAllRows(buildLogsQuery).then(
+        (data) => ({ data, error: null }),
+        (error) => ({ data: [], error })
+      ),
       sessionsQuery,
       supabase.from('exercise_tags').select('*').order('name'),
       supabase.from('exercise_tag_assignments').select('*'),
@@ -249,15 +270,21 @@ export default function StudentProgressTab({ studentId }) {
         .from('workout_logs')
         .select('logged_date, plan:plans!plan_id(plan_type)')
         .eq('student_id', studentId)
-        .gte('logged_date', attendanceFrom),
+        .gte('logged_date', attendanceFrom)
+        .neq('status', 'skipped'), // v54: omitir no es asistir
       supabase
         .from('plan_assignments')
         .select('plan_id, active, created_at, start_date')
         .eq('student_id', studentId),
     ])
 
+    if (logsRes.error) console.error('StudentProgressTab: workout_logs', logsRes.error)
     // Excluir logs de evaluaciones del cómputo de gráficos.
-    const logData = filterTrainingLogs(logsRes.data || [])
+    const allLogData = filterTrainingLogs(logsRes.data || [])
+    // v54: los omitidos no son entrenamiento. Salen de gráficos, métricas,
+    // sesiones y columnas; van aparte a la celda "— Tiempo" y al resumen.
+    const logData = allLogData.filter(isTrainingActivity)
+    const skippedExLogs = allLogData.filter(isLogSkipped)
 
     // Round 2a: merge body de notas mirror para que StudentProgressTableView
     // muestre la última versión del panel (en lugar de workout_logs.notes
@@ -282,9 +309,21 @@ export default function StudentProgressTab({ studentId }) {
     // gráficos (ver filterTrainingLogs).
     if (blockLogsRes.error)
       console.error('StudentProgressTab: workout_block_logs', blockLogsRes.error)
-    const blockRows = filterTrainingLogs(blockLogsRes.data || [])
-    const blockRowsInPeriod = blockRows.filter(
+    const allBlockRows = filterTrainingLogs(blockLogsRes.data || [])
+    const allBlockRowsInPeriod = allBlockRows.filter(
       (b) => b.logged_date >= since && (!until || b.logged_date <= until)
+    )
+    const blockRows = allBlockRows.filter(isTrainingActivity)
+    const blockRowsInPeriod = allBlockRowsInPeriod.filter(isTrainingActivity)
+    setSkippedLogs([...skippedExLogs, ...allBlockRowsInPeriod.filter(isLogSkipped)])
+    // Un circuito hecho ya aporta un registro por ejercicio (con su
+    // entry_mode); su registro de bloque no se cuenta para no duplicarlo.
+    // Omitido, en cambio, solo deja el de bloque.
+    setEntrySummary(
+      summarizeEntries([
+        ...allLogData,
+        ...allBlockRowsInPeriod.filter((b) => isLogSkipped(b) || b.block?.block_type !== 'circuit'),
+      ])
     )
     setBlockDatesInPeriod(new Set(blockRowsInPeriod.map((b) => b.logged_date)))
     // La nota del bloque vive en el panel (mirror), igual que la del ejercicio.
@@ -778,12 +817,16 @@ export default function StudentProgressTab({ studentId }) {
             </div>
           )}
 
+          {/* ── Cómo registró (v54): omisiones y tal cual / con ajustes ── */}
+          <EntrySummaryLine summary={entrySummary} />
+
           {/* ── Vista: Tabla ── */}
           {viewMode === 'table' ? (
             <StudentProgressTableView
               studentId={studentId}
               logs={progressLogs}
               blockLogs={progressBlockLogs}
+              skippedLogs={skippedLogs}
               exerciseTags={exerciseTags}
               tagAssignments={tagAssignments}
               selectedTag={selectedTag}
@@ -1224,6 +1267,31 @@ export default function StudentProgressTab({ studentId }) {
             </>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// v54 — cómo registró en el período: omisiones por motivo y proporción de
+// registros tal cual vs con ajustes. Solo cuenta los registros posteriores
+// a v54 (los anteriores no guardaban cómo se cargaron).
+// ─────────────────────────────────────────────────────────────
+function EntrySummaryLine({ summary }) {
+  if (!summary) return null
+  const skipsText = describeSkips(summary)
+  const hasMode = summary.withMode > 0
+  if (!skipsText && !hasMode) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-[13px]">
+      {skipsText && <span className="pill-warn">{skipsText}</span>}
+      {hasMode && (
+        <span
+          className="pill-neutral"
+          title="De los registros hechos desde que existe el registro por confirmación (22/9)"
+        >
+          {summary.confirmedPct} % tal cual · {100 - summary.confirmedPct} % con ajustes
+        </span>
       )}
     </div>
   )
