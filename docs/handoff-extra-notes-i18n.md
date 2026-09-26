@@ -1,5 +1,23 @@
 # Handoff: traducción de `plan_exercises.extra_notes` (fase 2 de ejercicios bilingües)
 
+> **ESTADO 2026-09-26: NO IMPLEMENTAR. Queda como idea.** Revisado con Franco
+> contra los datos de producción. Leer esta sección antes que el resto.
+>
+> - En la práctica cada plan se arma para una persona, y la coach escribe la
+>   nota directamente en el idioma de esa persona. Las 20 notas que veían
+>   personas en inglés en planes activos ya estaban en inglés.
+> - De 62 plantillas asignadas, 58 las usa una sola persona. Solo una se
+>   compartió entre personas de distinto idioma, y sus asignaciones ya no están
+>   activas. Hoy nadie lee una nota en el idioma equivocado.
+> - Criterio de Franco si algún día se retoma: la versión en inglés solo tiene
+>   sentido para notas de planes **genéricos** (asignables a cualquiera), con el
+>   mismo patrón que el catálogo y los formularios. En planes de una persona no
+>   hace falta campo extra.
+> - Si se retoma, el diagnóstico de abajo está desactualizado en dos puntos: el
+>   duplicado de planes (`DuplicatePlanModal`) copia todas las columnas solo, y
+>   el armador ya sabe para quién es el plan (`usePlanTargetPerson`). Las RPC de
+>   asignación siguen listando columnas a mano (hay que sumar `i18n` ahí).
+
 > Para el modelo/sesión que tome esta tarea. Contexto completo abajo; no arranques
 > sin leer "Restricciones del entorno".
 
