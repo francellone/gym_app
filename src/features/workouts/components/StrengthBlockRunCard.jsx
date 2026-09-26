@@ -121,8 +121,8 @@ export default function StrengthBlockRunCard({
 
   return (
     <div
-      className={`rounded-2xl border-2 transition-all overflow-hidden ${
-        completed ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-white'
+      className={`rounded-2xl border transition-all overflow-hidden ${
+        completed ? 'border-[#bbf7d0] bg-white' : 'border-linea bg-white'
       }`}
     >
       {/* Header colapsable */}
@@ -163,7 +163,7 @@ export default function StrengthBlockRunCard({
         {total > 0 && !expanded && (
           <div className="hidden sm:block w-14 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
             <div
-              className={`h-full ${completed ? 'bg-green-500' : 'bg-primary-500'} transition-all`}
+              className={`h-full ${completed ? 'bg-[#16a34a]' : 'bg-durazno-300'} transition-all`}
               style={{ width: `${(done / total) * 100}%` }}
             />
           </div>

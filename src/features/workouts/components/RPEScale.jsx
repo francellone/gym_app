@@ -98,9 +98,10 @@ export const RPE_CIRCUIT = [
 // Color del botón según el número (común a las dos escalas)
 function rpeColor(n, selected) {
   if (!selected) return 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-  if (n >= 8) return 'bg-red-500 text-white'
-  if (n >= 5) return 'bg-orange-400 text-white'
-  return 'bg-green-500 text-white'
+  // Identidad visual: pasteles con texto oscuro del mismo tono (sin saturados).
+  if (n >= 8) return 'bg-[#fee2e2] text-[#b91c1c]'
+  if (n >= 5) return 'bg-durazno-100 text-primary-700'
+  return 'bg-[#dcfce7] text-[#15803d]'
 }
 
 // Color de la zona Z1–Z5 (sólo para escala cardio)

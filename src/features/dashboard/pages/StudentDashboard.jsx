@@ -6,7 +6,7 @@ import { format, subDays, eachDayOfInterval, isToday } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
 import {
-  Dumbbell,
+  Check,
   TrendingUp,
   Calendar,
   ChevronRight,
@@ -160,57 +160,64 @@ export default function StudentDashboard() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-8">
-        <p className="text-primary-200 text-sm">{saludo}</p>
-        <h1 className="text-2xl font-bold text-white mt-0.5">{profile?.name?.split(' ')[0]} 💪</h1>
-        <p className="text-primary-200 text-sm mt-1">
+      {/* Encabezado durazno (identidad visual, docs/identidad-visual.md) */}
+      <div className="hero px-5 pt-3 pb-8">
+        <p className="eyebrow">
           {format(new Date(), t('dates.fullDate'), { locale: dateLocale() })}
         </p>
+        <h1 className="text-[28px] leading-tight font-bold text-tinta mt-1 [text-wrap:balance]">
+          {saludo}, {profile?.name?.split(' ')[0]}
+        </h1>
 
         {streak > 0 && (
-          <div className="flex items-center gap-2 mt-4 bg-white/10 rounded-xl px-3 py-2 w-fit">
-            <Flame size={18} className="text-orange-300" />
-            <span className="text-white font-semibold">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 bg-white/80 rounded-full px-3 py-1 text-sm font-bold text-primary-700">
+              <Flame size={16} aria-hidden="true" />
               {t('dashboard.weekStreak', { count: streak })}
             </span>
             {streakState?.freezes > 0 && (
               <span
-                className="flex items-center gap-1 text-xs text-primary-100"
+                className="inline-flex items-center gap-1.5 bg-white/60 rounded-full px-3 py-1 text-sm font-medium text-texto2"
                 title={t('dashboard.freezeSaved')}
               >
                 <Snowflake size={14} aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">{t('dashboard.freezeSaved')}</span>
+                {t('dashboard.freezeSaved')}
               </span>
             )}
           </div>
         )}
       </div>
 
-      <div className="px-4 -mt-4 pb-6 space-y-4">
-        {/* Weekly heatmap */}
+      <div className="px-4 -mt-4 pb-6 space-y-3.5">
+        {/* Esta semana: tilde verde = entrenó, anillo naranja = hoy */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('dashboard.thisWeek')}</h3>
-          <div className="flex gap-2 justify-between">
+          <h3 className="text-sm font-bold text-tinta mb-3">{t('dashboard.thisWeek')}</h3>
+          <div className="flex gap-1.5 justify-between">
             {last7Days.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd')
               const trained = trainingDays.has(dateStr)
               const today = isToday(day)
               return (
-                <div key={dateStr} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs text-gray-400">
+                <div key={dateStr} className="flex-1 flex flex-col items-center gap-1.5">
+                  <span
+                    className={`text-[11px] font-medium ${today ? 'text-primary-700' : 'text-texto3'}`}
+                  >
                     {format(day, 'EEEEE', { locale: dateLocale() })}
                   </span>
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium tabular-nums transition-colors ${
                       trained
-                        ? 'bg-primary-500 text-white'
+                        ? 'bg-[#16a34a] text-white'
                         : today
-                          ? 'bg-primary-100 text-primary-600 border-2 border-primary-400'
-                          : 'bg-gray-100 text-gray-400'
+                          ? 'bg-durazno-50 text-primary-700 border-2 border-primary-600'
+                          : 'border-2 border-gray-200 text-texto3'
                     }`}
                   >
-                    {format(day, 'd')}
+                    {trained ? (
+                      <Check size={16} strokeWidth={3} aria-hidden="true" />
+                    ) : (
+                      format(day, 'd')
+                    )}
                   </div>
                 </div>
               )
@@ -219,119 +226,111 @@ export default function StudentDashboard() {
 
           {/* Q2 — Tildes por día del plan activo */}
           {activePlan && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                {t('dashboard.dayTalliesTitle')}
-              </h4>
+            <div className="mt-4 pt-4 border-t border-linea">
+              <h4 className="eyebrow mb-2">{t('dashboard.dayTalliesTitle')}</h4>
               <DayTalliesBadge tallies={dayTallies} showLegend />
             </div>
           )}
         </div>
 
-        {/* Go to today's workout */}
-        <Link
-          to="/student/workout"
-          className="block card bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 transition-all active:scale-[0.98]"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <Dumbbell className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">{t('dashboard.todayWorkout')}</p>
-              <p className="text-primary-200 text-sm">
-                {activePlan?.plan?.title || t('dashboard.seeYourRoutine')}
-              </p>
-            </div>
-            <ChevronRight className="text-white/70" size={20} />
-          </div>
-        </Link>
+        {/* Entrenamiento de hoy */}
+        <div className="card p-5">
+          <p className="eyebrow">{t('dashboard.todayWorkout')}</p>
+          <p className="text-[21px] font-bold text-tinta leading-snug mt-1 break-words">
+            {activePlan?.plan?.title || t('workout.noPlanTitle')}
+          </p>
+          <Link
+            to="/student/workout"
+            className="btn-primary w-full mt-4 flex items-center justify-center gap-2 text-base"
+          >
+            {t('dashboard.seeYourRoutine')}
+            <ChevronRight size={18} aria-hidden="true" />
+          </Link>
+        </div>
 
-        {/* Descripción del plan activo — colapsable. Va fuera de la card-link
-            de arriba (que navega al tocarla) para que el toggle no dispare la
-            navegación. Solo si el coach cargó texto. */}
+        {/* Descripción del plan activo — colapsable. Solo si el coach cargó texto. */}
         {activePlan?.plan?.description?.trim() && (
           <div className="card">
             <button
               type="button"
               onClick={() => setShowPlanDesc((v) => !v)}
               aria-expanded={showPlanDesc}
-              className="flex items-center gap-1.5 w-full text-left text-sm font-medium text-gray-700"
+              className="flex items-center gap-1.5 w-full text-left text-sm font-medium text-tinta"
             >
-              <Info size={15} className="flex-shrink-0 text-primary-500" />
+              <Info size={15} className="flex-shrink-0 text-primary-600" />
               <span className="flex-1">{t('dashboard.planDescriptionToggle')}</span>
               <ChevronDown
                 size={16}
-                className={`flex-shrink-0 text-gray-400 transition-transform ${showPlanDesc ? 'rotate-180' : ''}`}
+                className={`flex-shrink-0 text-texto3 transition-transform ${showPlanDesc ? 'rotate-180' : ''}`}
               />
             </button>
             {showPlanDesc && (
-              <p className="text-sm text-gray-600 mt-2 leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-texto2 mt-2 leading-relaxed whitespace-pre-line">
                 {activePlan.plan.description}
               </p>
             )}
           </div>
         )}
 
-        {/* Evaluation plans */}
+        {/* Evaluaciones */}
         {evalPlans.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <BarChart2 size={14} className="text-purple-500" />
+            <h3 className="eyebrow flex items-center gap-2 px-1">
+              <BarChart2 size={14} aria-hidden="true" />
               {t('dashboard.myEvaluations')}
             </h3>
             {evalPlans.map((a) => (
               <Link
                 key={a.id}
                 to={`/student/eval/${a.plan_id}`}
-                className="block card hover:shadow-md transition-all active:scale-[0.98]"
+                className="block card hover:bg-durazno-50/60 transition-colors active:scale-[0.98]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
+                  <div className="w-10 h-10 bg-durazno-50 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
                     {evalTypeIcon(a.plan?.eval_type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 break-words">
-                      {a.plan?.title}
-                    </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-bold text-sm text-tinta break-words">{a.plan?.title}</p>
+                    <p className="text-xs text-texto2">
                       {t(`evalType.${a.plan?.eval_type}`, {
                         defaultValue: evalTypeLabel(a.plan?.eval_type),
                       })}
                     </p>
                   </div>
-                  <ChevronRight size={16} className="text-gray-400" />
+                  <ChevronRight size={16} className="text-texto3" />
                 </div>
               </Link>
             ))}
           </div>
         )}
 
-        {/* Quick links */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Accesos rápidos */}
+        <div className="card p-0 overflow-hidden">
           <Link
             to="/student/progress"
-            className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3"
+            className="flex items-center gap-3 px-4 py-3.5 border-b border-linea hover:bg-durazno-50/60 transition-colors"
           >
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <TrendingUp size={18} className="text-green-600" />
+            <div className="w-10 h-10 bg-durazno-50 rounded-xl flex items-center justify-center text-primary-700">
+              <TrendingUp size={18} />
             </div>
-            <div>
-              <p className="font-semibold text-sm text-gray-900">{t('nav.progress')}</p>
-              <p className="text-xs text-gray-500">{t('dashboard.seeCharts')}</p>
+            <div className="flex-1">
+              <p className="font-bold text-sm text-tinta">{t('nav.progress')}</p>
+              <p className="text-xs text-texto2">{t('dashboard.seeCharts')}</p>
             </div>
+            <ChevronRight size={16} className="text-texto3" />
           </Link>
           <Link
             to="/student/history"
-            className="card hover:shadow-md transition-all active:scale-[0.98] flex items-center gap-3"
+            className="flex items-center gap-3 px-4 py-3.5 hover:bg-durazno-50/60 transition-colors"
           >
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Calendar size={18} className="text-blue-600" />
+            <div className="w-10 h-10 bg-durazno-50 rounded-xl flex items-center justify-center text-primary-700">
+              <Calendar size={18} />
             </div>
-            <div>
-              <p className="font-semibold text-sm text-gray-900">{t('nav.history')}</p>
-              <p className="text-xs text-gray-500">{t('dashboard.allLogs')}</p>
+            <div className="flex-1">
+              <p className="font-bold text-sm text-tinta">{t('nav.history')}</p>
+              <p className="text-xs text-texto2">{t('dashboard.allLogs')}</p>
             </div>
+            <ChevronRight size={16} className="text-texto3" />
           </Link>
         </div>
       </div>

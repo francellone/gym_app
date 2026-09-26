@@ -18,14 +18,14 @@ export default function CoachModeLangToggle() {
 
   return (
     <div className="flex items-center justify-end gap-1.5 mb-1.5">
-      <Languages size={13} className="text-white/70 flex-shrink-0" aria-hidden="true" />
+      <Languages size={13} className="text-texto2 flex-shrink-0" aria-hidden="true" />
       <span className="sr-only" id="coach-mode-lang-label">
         {t('workout.coachModeLangLabel')}
       </span>
       <div
         role="group"
         aria-labelledby="coach-mode-lang-label"
-        className="flex items-center rounded-lg bg-white/20 p-0.5"
+        className="flex items-center rounded-lg bg-white/80 p-0.5"
       >
         {OPTIONS.map(({ code, labelKey }) => {
           const active = ctx.lang === code
@@ -37,7 +37,7 @@ export default function CoachModeLangToggle() {
               aria-pressed={active}
               title={t(labelKey)}
               className={`px-2 py-0.5 text-[11px] font-bold rounded-md transition-colors ${
-                active ? 'bg-white text-primary-700' : 'text-white/80 hover:text-white'
+                active ? 'bg-durazno-100 text-primary-700' : 'text-texto2 hover:text-tinta'
               }`}
             >
               {code.toUpperCase()}

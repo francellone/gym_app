@@ -113,7 +113,7 @@ function AttendanceHeatmap({ logs }) {
 // Colores fijos por métrica wellbeing
 const WELLBEING_LINE_COLORS = {
   sleep_quality: '#6366f1',
-  nutrition_quality: '#22c55e',
+  nutrition_quality: '#86efac',
   hydration_quality: '#3b82f6',
   energy_level: '#f59e0b',
   stress_level: '#ef4444',
@@ -515,17 +515,15 @@ export default function ProgressPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 pt-12 pb-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">{t('progress.title')}</h1>
-        <div className="flex gap-1 mt-3 bg-gray-100 p-1 rounded-xl">
+      {/* Encabezado durazno (identidad visual) */}
+      <div className="hero px-5 pt-3 pb-6">
+        <h1 className="text-[28px] leading-tight font-bold text-tinta">{t('progress.title')}</h1>
+        <div className="flex gap-2 mt-3 flex-wrap">
           {PERIODS.map((p) => (
             <button
               key={p.days}
               onClick={() => setPeriod(p.days)}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                period === p.days ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-              }`}
+              className={`chip ${period === p.days ? 'chip-on' : ''}`}
             >
               {p.labelKey ? t(p.labelKey) : p.label}
             </button>
@@ -533,7 +531,7 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-5">
+      <div className="px-4 pt-1 pb-4 space-y-5">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -546,26 +544,20 @@ export default function ProgressPage() {
           </div>
         ) : (
           <>
-            {/* Stats resumen */}
-            <div className="grid grid-cols-3 gap-3">
-              <Card>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{totalSessions}</p>
-                  <p className="text-xs text-gray-500">{t('progress.sessions')}</p>
-                </div>
-              </Card>
-              <Card>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{totalCompleted}</p>
-                  <p className="text-xs text-gray-500">{t('progress.exercises')}</p>
-                </div>
-              </Card>
-              <Card>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{avgPSE ?? '—'}</p>
-                  <p className="text-xs text-gray-500">{t('progress.avgPseShort')}</p>
-                </div>
-              </Card>
+            {/* Stats resumen: recuadros de datos */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="stat">
+                <span className="stat-value">{totalSessions}</span>
+                <span className="stat-label">{t('progress.sessions')}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{totalCompleted}</span>
+                <span className="stat-label">{t('progress.exercises')}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{avgPSE ?? '—'}</span>
+                <span className="stat-label">{t('progress.avgPseShort')}</span>
+              </div>
             </div>
 
             {avgBorg !== null && (
@@ -634,7 +626,7 @@ export default function ProgressPage() {
                       onClick={() => setSelectedTag('')}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                         selectedTag === ''
-                          ? 'bg-gray-900 text-white border-gray-900'
+                          ? 'bg-durazno-50 text-primary-700 border-durazno-200'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -684,14 +676,12 @@ export default function ProgressPage() {
 
             {/* Tabs de gráficos */}
             <div className="overflow-x-auto -mx-4 px-4">
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-max min-w-full">
+              <div className="flex gap-2 w-max min-w-full pb-0.5">
                 {CHARTS.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setActiveChart(c.id)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
-                      activeChart === c.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                    }`}
+                    className={`chip whitespace-nowrap ${activeChart === c.id ? 'chip-on' : ''}`}
                   >
                     {c.label}
                   </button>
@@ -743,7 +733,7 @@ export default function ProgressPage() {
                 {activeSeriesData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <ComposedChart data={activeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis
                         yAxisId="left"
@@ -762,7 +752,7 @@ export default function ProgressPage() {
                         yAxisId="left"
                         type="monotone"
                         dataKey={chartMetric === 'weight' ? sWeight : sReps}
-                        fill="#fde68a"
+                        fill="#fff1e3"
                         stroke="#ea580c"
                         strokeWidth={2.5}
                         dot={{ fill: '#ea580c', r: 4 }}
@@ -772,7 +762,7 @@ export default function ProgressPage() {
                         yAxisId="right"
                         type="monotone"
                         dataKey={sPse}
-                        stroke="#8b5cf6"
+                        stroke="#76675d"
                         strokeWidth={1.5}
                         dot={false}
                         strokeDasharray="4 2"
@@ -803,13 +793,13 @@ export default function ProgressPage() {
                 {compareData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={compareData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey={sSuggestedSets} fill="#e0e7ff" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey={sActualSets} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={sSuggestedSets} fill="#ffedd5" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={sActualSets} fill="#ea580c" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -860,7 +850,7 @@ export default function ProgressPage() {
                   volumeGroupedData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={volumeGroupedData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<CustomTooltip />} />
@@ -889,7 +879,7 @@ export default function ProgressPage() {
                   /* Modo normal (una sola serie) */
                   <ResponsiveContainer width="100%" height={180}>
                     <AreaChart data={volumeData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
@@ -930,16 +920,16 @@ export default function ProgressPage() {
                 {pseData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>
                     <LineChart data={pseData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
                       <Line
                         type="monotone"
                         dataKey={sPseAvg}
-                        stroke="#8b5cf6"
+                        stroke="#76675d"
                         strokeWidth={2}
-                        dot={{ fill: '#8b5cf6', r: 3 }}
+                        dot={{ fill: '#76675d', r: 3 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -960,7 +950,7 @@ export default function ProgressPage() {
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={borgData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<CustomTooltip />} />
@@ -970,12 +960,12 @@ export default function ProgressPage() {
                           key={i}
                           fill={
                             entry[sIntensity] >= 8
-                              ? '#ef4444'
+                              ? '#fca5a5'
                               : entry[sIntensity] >= 6
-                                ? '#f97316'
+                                ? '#fdba74'
                                 : entry[sIntensity] >= 4
-                                  ? '#eab308'
-                                  : '#22c55e'
+                                  ? '#fcd34d'
+                                  : '#86efac'
                           }
                         />
                       ))}
@@ -1003,11 +993,11 @@ export default function ProgressPage() {
                 {durationData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={durationData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} unit="min" />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey={sMinutes} fill="#14b8a6" radius={[4, 4, 0, 0]} unit="min" />
+                      <Bar dataKey={sMinutes} fill="#fdba74" radius={[4, 4, 0, 0]} unit="min" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1080,7 +1070,7 @@ export default function ProgressPage() {
                   }))}
                   margin={{ top: 4, right: 8, left: -24, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0e7df" />
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                   <YAxis domain={[0, 10]} ticks={[2, 4, 6, 8, 10]} tick={{ fontSize: 10 }} />
                   <Tooltip

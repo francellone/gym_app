@@ -243,12 +243,12 @@ export default function AerobicBlockRunCard({
       )}
 
       <div
-        className={`rounded-2xl border-2 transition-all overflow-hidden ${
+        className={`rounded-2xl border transition-all overflow-hidden ${
           completed
-            ? 'border-sky-200 bg-sky-50'
+            ? 'border-[#bbf7d0] bg-white'
             : isSkipped
-              ? 'border-amber-200 bg-amber-50/60'
-              : 'border-gray-100 bg-white'
+              ? 'border-[#fde68a] bg-white'
+              : 'border-linea bg-white'
         }`}
       >
         <div
@@ -360,7 +360,7 @@ export default function AerobicBlockRunCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"
+                  className="p-1.5 text-primary-600 hover:bg-durazno-50 rounded-lg"
                 >
                   <PlayCircle size={18} />
                 </a>
@@ -450,9 +450,9 @@ export default function AerobicBlockRunCard({
             </div>
 
             {block.notes && (
-              <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
-                <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700 leading-relaxed">{block.notes}</p>
+              <div className="bg-durazno-50 rounded-xl p-3 flex gap-2">
+                <Info size={15} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-tinta leading-relaxed">{block.notes}</p>
               </div>
             )}
 

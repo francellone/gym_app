@@ -90,18 +90,6 @@ const DAY_SHORT_LABELS = {
   day_g: 'Día G',
 }
 
-// Emojis para el header de sección
-const SECTION_EMOJIS = {
-  activation: '🔥',
-  day_a: '💪',
-  day_b: '🏋️',
-  day_c: '🏃',
-  day_d: '🎯',
-  day_e: '⚡',
-  day_f: '🔱',
-  day_g: '🧘',
-}
-
 // parseSuggestedWeight, ExerciseCard y pseColor viven en
 // `../components/ExerciseCard` y `../helpers` desde el 21/05.
 
@@ -1447,29 +1435,31 @@ export default function TodayWorkoutPage() {
 
       <div className="max-w-lg mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-primary-600 to-primary-700 px-5 pt-12 pb-6">
+        <div className="hero px-5 pt-5 pb-7">
           {/* v33 — banner de modo coach: deja claro que todo lo que se
               registre queda en la cuenta del alumno, con autoría coach. */}
           {coachMode && (
-            <div className="bg-white/15 rounded-xl px-3 py-2 mb-3">
+            <div className="bg-white/70 rounded-xl px-3 py-2 mb-3">
               {/* Idioma de ESTA pantalla, no el del panel: pedido de Anto para
                   mostrarle el celu a una alumna que habla inglés. Arranca en
                   el idioma de la alumna. Ver CoachModeLanguage.jsx. */}
               <CoachModeLangToggle />
               <div className="flex items-center gap-2">
-                <UserCog size={16} className="text-white flex-shrink-0" />
-                <p className="text-white text-xs font-semibold">
+                <UserCog size={16} className="text-tinta flex-shrink-0" />
+                <p className="text-tinta text-xs font-semibold">
                   {t('workout.coachModeBanner', { name: studentName || '…' })}
                 </p>
               </div>
             </div>
           )}
-          <p className="text-primary-200 text-sm capitalize">
+          <p className="eyebrow">
             {format(parseISO(selectedDate), t('dates.fullDate'), {
               locale: dateLocale(i18n.language),
             })}
           </p>
-          <h1 className="text-xl font-bold text-white mt-1">{assignment.plan?.title}</h1>
+          <h1 className="text-[26px] leading-tight font-bold text-tinta mt-1 [text-wrap:balance]">
+            {assignment.plan?.title}
+          </h1>
 
           {/* Descripción del plan — colapsable. Solo se muestra si el coach
               cargó texto. Es texto libre: se renderiza tal cual (no se
@@ -1480,7 +1470,7 @@ export default function TodayWorkoutPage() {
                 type="button"
                 onClick={() => setShowPlanDesc((v) => !v)}
                 aria-expanded={showPlanDesc}
-                className="flex items-center gap-1 text-primary-200 text-xs font-medium hover:text-white transition-colors"
+                className="flex items-center gap-1 text-texto2 text-xs font-medium hover:text-tinta transition-colors"
               >
                 <Info size={12} className="flex-shrink-0" />
                 {t('workout.planDescriptionToggle')}
@@ -1490,7 +1480,7 @@ export default function TodayWorkoutPage() {
                 />
               </button>
               {showPlanDesc && (
-                <p className="text-primary-100 text-xs mt-1.5 leading-relaxed whitespace-pre-line">
+                <p className="text-texto2 text-xs mt-1.5 leading-relaxed whitespace-pre-line">
                   {assignment.plan.description}
                 </p>
               )}
@@ -1499,7 +1489,7 @@ export default function TodayWorkoutPage() {
 
           {/* Timestamps */}
           {session?.started_at && (
-            <div className="flex items-center gap-3 mt-2 text-primary-200 text-xs">
+            <div className="flex items-center gap-3 mt-2 text-texto2 text-xs">
               <span className="flex items-center gap-1">
                 <Clock size={12} />
                 {t('workout.startTime', { time: format(new Date(session.started_at), 'HH:mm') })}
@@ -1510,7 +1500,7 @@ export default function TodayWorkoutPage() {
                     <Clock size={12} />
                     {t('workout.endTime', { time: format(new Date(session.finished_at), 'HH:mm') })}
                   </span>
-                  <span className="flex items-center gap-1 bg-white/15 rounded-full px-2 py-0.5 font-semibold text-white">
+                  <span className="flex items-center gap-1 bg-white/70 rounded-full px-2 py-0.5 font-semibold text-tinta">
                     {t('workout.minutesShort', {
                       value: Math.round(
                         (new Date(session.finished_at) - new Date(session.started_at)) / 60000
@@ -1529,7 +1519,7 @@ export default function TodayWorkoutPage() {
                 .filter((id) => borgPerDay[id] !== undefined)
                 .map((id) => (
                   <div key={id} className="flex items-center gap-1.5">
-                    <span className="text-primary-200 text-xs">{dayShortLabel(id)}:</span>
+                    <span className="text-texto2 text-xs">{dayShortLabel(id)}:</span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}
                     >
@@ -1537,7 +1527,7 @@ export default function TodayWorkoutPage() {
                     </span>
                     <button
                       onClick={() => setShowPSEForDay(id)}
-                      className="text-primary-300 text-xs underline"
+                      className="text-primary-700 text-xs underline"
                     >
                       {t('workout.edit')}
                     </button>
@@ -1549,21 +1539,21 @@ export default function TodayWorkoutPage() {
           {/* Progress */}
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-primary-200 text-xs">
+              <span className="text-texto2 text-xs">
                 {t('workout.unitsProgress', { completed: completedCount, total: totalCount })}
                 {skippedCount > 0 && (
-                  <span className="ml-1.5 text-amber-200">
+                  <span className="ml-1.5 text-[#92400e]">
                     · {t('workout.skippedCount', { count: skippedCount })}
                   </span>
                 )}
               </span>
-              <span className="text-primary-200 text-xs">
+              <span className="text-texto2 text-xs">
                 {Math.round((completedCount / Math.max(totalCount, 1)) * 100)}%
               </span>
             </div>
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-2 bg-white/70 rounded-full overflow-hidden">
               <div
-                className="h-full bg-white rounded-full transition-all"
+                className="h-full bg-durazno-300 rounded-full transition-all"
                 style={{ width: `${(completedCount / Math.max(totalCount, 1)) * 100}%` }}
               />
             </div>
@@ -1605,9 +1595,7 @@ export default function TodayWorkoutPage() {
               onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
             />
             {!isToday && (
-              <span className="badge bg-orange-100 text-orange-700 text-xs">
-                {t('workout.editingPast')}
-              </span>
+              <span className="badge pill-warn text-xs">{t('workout.editingPast')}</span>
             )}
           </div>
 
@@ -1616,7 +1604,7 @@ export default function TodayWorkoutPage() {
               (Día A ✓✓◐) para que el alumno vea cuántas veces ya hizo
               cada día y elija con criterio. */}
           {hasMultipleDays && (
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto">
               {activeDays.map((id) => {
                 const isDone = dayDoneMap[id]
                 const hasPSE = borgPerDay[id] !== undefined
@@ -1636,8 +1624,10 @@ export default function TodayWorkoutPage() {
                   <button
                     key={id}
                     onClick={() => setActiveDay(id)}
-                    className={`flex-1 min-w-[70px] py-2 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${
-                      activeDay === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    className={`flex-1 min-w-[70px] py-2 text-sm rounded-2xl border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                      activeDay === id
+                        ? 'bg-durazno-50 border-durazno-200 text-primary-700 font-bold'
+                        : 'bg-white border-linea text-texto2 font-medium'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
@@ -1741,9 +1731,7 @@ export default function TodayWorkoutPage() {
           {/* Activación */}
           {activationBlocks.length > 0 && (
             <div>
-              <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {SECTION_EMOJIS.activation} {sectionLabel('activation')}
-              </h2>
+              <h2 className="eyebrow mb-2 px-1">{sectionLabel('activation')}</h2>
               <div className="space-y-2">
                 {activationBlocks.map((block) => (
                   <BlockRenderer
@@ -1776,9 +1764,7 @@ export default function TodayWorkoutPage() {
           {/* Día activo */}
           {(blocksBySection[activeDay] || []).length > 0 && (
             <div>
-              <h2 className="text-sm font-bold text-gray-700 mb-2 px-1">
-                {SECTION_EMOJIS[activeDay] || '🏋️'} {sectionLabel(activeDay) || t('workout.day')}
-              </h2>
+              <h2 className="eyebrow mb-2 px-1">{sectionLabel(activeDay) || t('workout.day')}</h2>
               <div className="space-y-2">
                 {(blocksBySection[activeDay] || []).map((block) => (
                   <BlockRenderer
@@ -1826,13 +1812,13 @@ export default function TodayWorkoutPage() {
                 key={id}
                 className={`card text-center py-4 ${
                   isPartialDay
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                    ? 'bg-[#fef3c7] border-[#fde68a]'
                     : isFinalBanner
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                      ? 'bg-[#dcfce7] border-[#bbf7d0]'
+                      : 'bg-durazno-50 border-durazno-200'
                 }`}
               >
-                <p className="text-white font-bold">
+                <p className="text-tinta font-bold">
                   {isPartialDay
                     ? t('workout.dayPartialBanner', {
                         day: dayShortLabel(id),
@@ -1842,11 +1828,11 @@ export default function TodayWorkoutPage() {
                     : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
                 </p>
                 {isFinalBanner && weekComplete && (
-                  <p className="text-white font-bold text-sm mt-1">{t('workout.weekComplete')}</p>
+                  <p className="text-tinta font-bold text-sm mt-1">{t('workout.weekComplete')}</p>
                 )}
                 {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
                 {isFinalBanner && isToday && !wellbeing && (
-                  <p className="text-white/90 text-xs mt-1.5">
+                  <p className="text-texto2 text-xs mt-1.5">
                     {t('workout.wellbeingNotLoggedToday')}
                   </p>
                 )}
@@ -1859,7 +1845,7 @@ export default function TodayWorkoutPage() {
                     </span>
                     <button
                       onClick={() => setShowPSEForDay(id)}
-                      className="text-white/70 text-xs underline"
+                      className="text-primary-700 text-xs underline"
                     >
                       {t('workout.edit')}
                     </button>
@@ -1867,7 +1853,7 @@ export default function TodayWorkoutPage() {
                 ) : (
                   <button
                     onClick={() => setShowPSEForDay(id)}
-                    className="mt-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-4 py-1.5 rounded-xl transition"
+                    className="mt-2 bg-white border border-linea hover:bg-durazno-50 text-tinta text-sm font-medium px-4 py-1.5 rounded-xl transition"
                   >
                     {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
                   </button>
