@@ -46,12 +46,12 @@ import { ALERT_KIND } from '@/features/dashboard/alerts'
 
 Cinco categorías ordenadas por severidad (`ALERT_RENDER_ORDER`):
 
-| Kind            | Condición                                                            |
-| --------------- | -------------------------------------------------------------------- |
-| `no_plan`       | Alumno sin plan activo                                               |
-| `stagnation`    | Mismo peso/reps por N sesiones (configurable via `ALERT_THRESHOLDS`) |
-| `high_effort`   | RPE alto sostenido (≥ N sesiones con PSE ≥ X)                        |
-| `inactive`      | Sin logs en > N días                                                 |
+| Kind            | Condición                                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `no_plan`       | Alumno sin plan activo                                                                                                                                                                                 |
+| `stagnation`    | Mismo peso/reps por N sesiones (configurable via `ALERT_THRESHOLDS`)                                                                                                                                   |
+| `high_effort`   | RPE alto sostenido (≥ N sesiones con PSE ≥ X)                                                                                                                                                          |
+| `inactive`      | Sin logs en > N días                                                                                                                                                                                   |
 | `plan_expiring` | Plan próximo a vencer (≤ 7 días). v50: el cron lee `expected_end_date`, avisa SOLO al coach (el aviso al alumno está apagado detrás de `p_notify_student`) y no repite por la misma asignación y fecha |
 
 Thresholds en `ALERT_THRESHOLDS`. Cambiarlos = cambiar la sensibilidad de las alertas, sin tocar la lógica.

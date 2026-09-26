@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/fetchAllRows'
-import { computeAllAlerts, ALERT_THRESHOLDS } from '../alerts'
+import { computeAllAlerts, computeLastWeekCompliance, ALERT_THRESHOLDS } from '../alerts'
 
 // ============================================================
 // useCoachAlerts
@@ -224,11 +224,36 @@ export default function useCoachAlerts() {
     [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs]
   )
 
+  // Números del encabezado del dashboard (rediseño 2026-09-26):
+  //   activeCount   personas activas
+  //   trainedToday  cuántas de ellas registraron algo hoy
+  //   lastWeekPct   cumplimiento de la última semana cerrada (todas)
+  const summary = useMemo(() => {
+    const ids = new Set(students.map((s) => s.id))
+    const todayYmd = formatYMD(new Date())
+    const trained = new Set()
+    for (const l of logs) {
+      if (String(l.logged_date).slice(0, 10) === todayYmd && ids.has(l.student_id)) {
+        trained.add(l.student_id)
+      }
+    }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dow = today.getDay()
+    const lastMonday = new Date(today)
+    lastMonday.setDate(today.getDate() + (dow === 0 ? -6 : 1 - dow) - 7)
+    return {
+      activeCount: students.length,
+      trainedToday: trained.size,
+      lastWeekPct: computeLastWeekCompliance(weeklyByStudent, formatYMD(lastMonday)),
+    }
+  }, [students, logs, weeklyByStudent])
+
   function refresh() {
     setRefreshTick((t) => t + 1)
   }
 
-  return { loading, error, alerts, refresh }
+  return { loading, error, alerts, summary, refresh }
 }
 
 // ── Date utils locales ──

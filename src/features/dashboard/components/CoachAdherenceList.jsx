@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ChevronRight, Users } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 
@@ -200,38 +200,39 @@ export default function CoachAdherenceList({
 
   if (loading) {
     return (
-      <div className={`card ${className}`}>
-        <p className="text-xs text-gray-400 italic">Cargando adherencia…</p>
+      <div className={className}>
+        <p className="text-sm text-texto3 py-2">Cargando…</p>
       </div>
     )
   }
 
   if (rows.length === 0) {
     return (
-      <div className={`card text-center py-6 ${className}`}>
-        <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-        <p className="text-sm text-gray-500">
-          Todavía no hay alumnos con plan de entrenamiento activo
+      <div className={className}>
+        <p className="text-sm text-texto2 py-2">
+          Todavía no hay personas con plan de entrenamiento activo.
         </p>
       </div>
     )
   }
 
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div className={`divide-y divide-linea ${className}`}>
       {rows.map(({ assignment, student, tallies, hasAnyTally }) => (
         <Link
           key={assignment.id}
           to={`/coach/students/${student.id}`}
-          className="card flex items-center gap-3 hover:shadow-md transition-shadow"
+          className="flex items-center gap-3 py-2.5 group"
         >
-          <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-700 text-sm font-semibold">{initials(student.name)}</span>
+          <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-primary-700 text-[13px] font-bold">{initials(student.name)}</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-gray-900 truncate">{student.name}</p>
-              <span className="text-[11px] text-gray-400 truncate ml-2 max-w-[40%]">
+              <p className="text-sm font-bold text-tinta truncate group-hover:text-primary-700">
+                {student.name}
+              </p>
+              <span className="text-[12px] text-texto2 truncate ml-2 max-w-[40%]">
                 {assignment.plan?.title || ''}
               </span>
             </div>
@@ -239,11 +240,11 @@ export default function CoachAdherenceList({
               {hasAnyTally ? (
                 <DayTalliesBadge tallies={tallies} variant="compact" />
               ) : (
-                <p className="text-xs text-gray-400 italic">Sin entrenos registrados</p>
+                <p className="text-[13px] text-texto2">Sin entrenamientos registrados</p>
               )}
             </div>
           </div>
-          <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+          <ChevronRight size={16} className="text-texto3 flex-shrink-0" />
         </Link>
       ))}
     </div>

@@ -1,115 +1,92 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
-import {
-  Users,
-  ClipboardList,
-  TrendingUp,
-  Activity,
-  ChevronRight,
-  Calendar,
-  AlertTriangle,
-  Clock,
-  Zap,
-} from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import MonthlyCalendar from '../components/MonthlyCalendar'
 import CoachAdherenceList from '../components/CoachAdherenceList'
 import DashboardFilterBar from '../components/DashboardFilterBar'
 import StudentPanel from '../components/StudentPanel'
-import UpcomingEvaluations from '../components/UpcomingEvaluations'
+import AttentionList from '../components/AttentionList'
+import UpcomingAgenda from '../components/UpcomingAgenda'
 import useCoachAlerts from '../hooks/useCoachAlerts'
 import useCoachDashboardFilters from '../hooks/useCoachDashboardFilters'
-import { ALERT_KIND, ALERT_RENDER_ORDER, ALERT_THRESHOLDS } from '../alerts'
+import { groupAlertsByStudent } from '../alerts'
 
+// ============================================================
+// CoachDashboard
+// ------------------------------------------------------------
+// Rediseño 2026-09-26 (revisión de la lógica con Franco):
+//   - Encabezado con tres números que ayudan a decidir: personas
+//     activas, cuántas entrenaron hoy DE cuántas, y el cumplimiento
+//     de la semana pasada. Se sacaron "Planes creados" (total
+//     histórico) y los conteos de logs sueltos.
+//   - Orden: Necesitan atención → Próximos 7 días → (panel de la
+//     persona si hay filtro) → Calendario → Cumplimiento por persona
+//     → Últimas sesiones.
+//   - "Alertas de gestión" (una tarjeta por tipo) pasó a
+//     "Necesitan atención" (una fila por persona).
+//   - "Próximas evaluaciones" quedó dentro de "Próximos 7 días".
+// ============================================================
 export default function CoachDashboard() {
   const { profile } = useAuth()
-  const [stats, setStats] = useState({ students: 0, plans: 0, logsToday: 0, logsWeek: 0 })
   // Sesiones recientes enriquecidas (no logs sueltos — Franco 23/05 noche).
   const [recentSessions, setRecentSessions] = useState([])
   const [loading, setLoading] = useState(true)
-  const { loading: alertsLoading, alerts } = useCoachAlerts()
+  const { loading: alertsLoading, alerts, summary } = useCoachAlerts()
 
   // Filtros globales del dashboard (alumno + plan + período).
-  // Doc 19 — Opción C. Defaults aplicados desde el hook.
   const filters = useCoachDashboardFilters()
   const { studentId, planId, periodRange } = filters
 
   useEffect(() => {
-    fetchStatsAndRecent()
+    fetchRecentSessions()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, planId, periodRange.start, periodRange.end])
 
-  // Fetch de KPIs + últimas sesiones. Honra los filtros globales.
-  // "Actividad reciente" se rediseñó (23/05 noche): en lugar de listar
-  // 10 logs sueltos por ejercicio, mostramos las últimas 10 SESIONES
-  // (1 fila por sesión = student_id + logged_date) con su día A/B/C,
-  // PSE promedio, count de ejercicios y duración.
-  async function fetchStatsAndRecent() {
+  // Últimas 10 SESIONES (1 fila por sesión = student_id + logged_date)
+  // con su día A/B/C, PSE promedio, ejercicios y duración. Honra los
+  // filtros globales.
+  async function fetchRecentSessions() {
     try {
-      const today = format(new Date(), 'yyyy-MM-dd')
       const { start: windowStart, end: windowEnd } = periodRange
-
       const planIdForLogs = filters.selectedAssignment?.plan_id || null
 
-      const applyCommonLogs = (q) => {
-        let out = q.eq('plans.plan_type', 'training')
-        if (studentId) out = out.eq('student_id', studentId)
-        if (planIdForLogs) out = out.eq('plan_id', planIdForLogs)
-        return out
-      }
-      const applyCommonSessions = (q) => {
+      const applyCommon = (q) => {
         let out = q.eq('plans.plan_type', 'training')
         if (studentId) out = out.eq('student_id', studentId)
         if (planIdForLogs) out = out.eq('plan_id', planIdForLogs)
         return out
       }
 
-      const [studentsRes, plansRes, logsTodayRes, logsWeekRes, sessionsRes, sessionLogsRes] =
-        await Promise.all([
-          supabase
-            .from('profiles')
-            .select('id', { count: 'exact' })
-            .eq('role', 'student')
-            .eq('active', true),
-          supabase.from('plans').select('id', { count: 'exact' }).is('archived_at', null),
-          applyCommonLogs(
-            supabase.from('workout_logs').select('id, plans!inner(plan_type)', { count: 'exact' })
-          ).eq('logged_date', today),
-          applyCommonLogs(
-            supabase.from('workout_logs').select('id, plans!inner(plan_type)', { count: 'exact' })
+      const [sessionsRes, sessionLogsRes] = await Promise.all([
+        applyCommon(
+          supabase.from('workout_sessions').select(
+            `id, student_id, plan_id, logged_date, started_at, finished_at, borg_per_day, logged_late,
+             student:profiles!student_id(name),
+             plans!inner(plan_type, title)`
           )
-            .gte('logged_date', windowStart)
-            .lte('logged_date', windowEnd),
-          // Últimas N sesiones del coach (con datos del alumno + plan).
-          applyCommonSessions(
-            supabase.from('workout_sessions').select(
-              `id, student_id, plan_id, logged_date, started_at, finished_at, borg_per_day, logged_late,
-               student:profiles!student_id(name),
-               plans!inner(plan_type, title)`
-            )
+        )
+          .gte('logged_date', windowStart)
+          .lte('logged_date', windowEnd)
+          .order('logged_date', { ascending: false })
+          .order('finished_at', { ascending: false, nullsFirst: false })
+          .limit(10),
+        // Logs en la misma ventana para enriquecer las sesiones con
+        // section dominante + count de ejercicios completados.
+        applyCommon(
+          supabase.from('workout_logs').select(
+            `student_id, logged_date, completed,
+             plans!inner(plan_type),
+             plan_exercise:plan_exercises!plan_exercise_id(section)`
           )
-            .gte('logged_date', windowStart)
-            .lte('logged_date', windowEnd)
-            .order('logged_date', { ascending: false })
-            .order('finished_at', { ascending: false, nullsFirst: false })
-            .limit(10),
-          // Logs en la misma ventana para enriquecer las sesiones con
-          // section dominante + count de ejercicios completados.
-          applyCommonLogs(
-            supabase.from('workout_logs').select(
-              `student_id, logged_date, completed,
-               plans!inner(plan_type),
-               plan_exercise:plan_exercises!plan_exercise_id(section)`
-            )
-          )
-            .gte('logged_date', windowStart)
-            .lte('logged_date', windowEnd),
-        ])
+        )
+          .gte('logged_date', windowStart)
+          .lte('logged_date', windowEnd),
+      ])
 
-      // Agrupar logs por (student_id, YMD) para enriquecer cada sesión.
       const byKey = new Map()
       for (const l of sessionLogsRes.data || []) {
         const k = `${l.student_id}__${String(l.logged_date).slice(0, 10)}`
@@ -126,7 +103,6 @@ export default function CoachDashboard() {
       const enriched = (sessionsRes.data || []).map((s) => {
         const k = `${s.student_id}__${String(s.logged_date).slice(0, 10)}`
         const meta = byKey.get(k) || { total: 0, completed: 0, sections: new Map() }
-        // Section dominante = la más frecuente en los logs del día.
         let dominantSection = null
         let bestCount = 0
         for (const [sec, count] of meta.sections) {
@@ -135,7 +111,6 @@ export default function CoachDashboard() {
             bestCount = count
           }
         }
-        // PSE promedio: avg de borg_per_day si no está vacío.
         const borg = s.borg_per_day || {}
         const borgValues = Object.values(borg)
           .map((v) => Number(v))
@@ -144,9 +119,8 @@ export default function CoachDashboard() {
           borgValues.length > 0
             ? Math.round((borgValues.reduce((a, b) => a + b, 0) / borgValues.length) * 10) / 10
             : null
-        // Duración: si hay started_at + finished_at + mismo día, mostramos
-        // minutos. Si no, null (no inflar con el ruido de carga tardía —
-        // documentado en memoria 2026-05-23).
+        // Duración solo si empezó y terminó el mismo día y no es carga
+        // tardía (memoria 2026-05-23).
         let durationMin = null
         if (s.started_at && s.finished_at && !s.logged_late) {
           const startD = new Date(s.started_at)
@@ -166,12 +140,6 @@ export default function CoachDashboard() {
         }
       })
 
-      setStats({
-        students: studentsRes.count || 0,
-        plans: plansRes.count || 0,
-        logsToday: logsTodayRes.count || 0,
-        logsWeek: logsWeekRes.count || 0,
-      })
       setRecentSessions(enriched)
     } catch (err) {
       console.error(err)
@@ -182,33 +150,48 @@ export default function CoachDashboard() {
 
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const nombre = profile?.name?.split(' ')[0]
 
-  // Lista de alertas a renderizar, ya filtradas por las que tienen items.
-  const alertsToShow = ALERT_RENDER_ORDER.map((kind) => ({
-    kind,
-    items: alerts?.[kind] || [],
-  })).filter((g) => g.items.length > 0)
-  const hasAlerts = alertsToShow.length > 0
+  const attentionCount = useMemo(() => groupAlertsByStudent(alerts).rows.length, [alerts])
+  const subtitle = alertsLoading
+    ? ' '
+    : attentionCount === 0
+      ? 'Nadie necesita tu atención ahora.'
+      : attentionCount === 1
+        ? '1 persona necesita tu atención.'
+        : `${attentionCount} personas necesitan tu atención.`
 
-  // Labels dinámicos según si hay filtro de alumno activo. Cuando hay
-  // alumno seleccionado, los KPIs se vuelven alumno-céntricos.
-  const isFiltered = !!studentId
-  const logsTodayLabel = isFiltered ? 'Logs hoy (alumno)' : 'Logs hoy'
-  const logsWindowLabel = isFiltered ? 'Logs en período (alumno)' : 'Logs esta semana'
+  const s = summary || {}
+  const fechaHoy = format(new Date(), "EEEE d 'de' MMMM", { locale: es })
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {saludo}, {profile?.name?.split(' ')[0]} 👋
+    <div className="space-y-4">
+      {/* Encabezado */}
+      <div className="bg-durazno-100 rounded-encabezado px-5 pt-5 pb-5 space-y-1">
+        <p className="eyebrow">{fechaHoy}</p>
+        <h1 className="text-[28px] font-bold leading-tight text-tinta text-balance">
+          {saludo}
+          {nombre ? `, ${nombre}` : ''}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
-        </p>
+        <p className="text-texto2">{subtitle}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 pt-3 max-w-2xl">
+          <HeroStat
+            value={alertsLoading ? '—' : s.activeCount}
+            label="personas activas"
+            to="/coach/students"
+          />
+          <HeroStat
+            value={alertsLoading ? '—' : `${s.trainedToday} de ${s.activeCount}`}
+            label="entrenaron hoy"
+          />
+          <HeroStat
+            value={alertsLoading || s.lastWeekPct == null ? '—' : `${s.lastWeekPct} %`}
+            label="cumplimiento semana pasada"
+          />
+        </div>
       </div>
 
-      {/* Filtros globales (alumno + plan + período) — Doc 19 Fase C.1 */}
+      {/* Filtros globales (persona + plan + período) */}
       <DashboardFilterBar
         studentId={filters.studentId}
         planId={filters.planId}
@@ -223,74 +206,12 @@ export default function CoachDashboard() {
         loadingOptions={filters.loadingOptions}
       />
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/coach/students" className="card hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{loading ? '—' : stats.students}</p>
-          <p className="text-sm text-gray-500">Alumnos activos</p>
-        </Link>
-
-        <Link to="/coach/plans" className="card hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-purple-600" />
-            </div>
-            <ChevronRight size={16} className="text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{loading ? '—' : stats.plans}</p>
-          <p className="text-sm text-gray-500">Planes creados</p>
-        </Link>
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <Activity className="w-5 h-5 text-green-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{loading ? '—' : stats.logsToday}</p>
-          <p className="text-sm text-gray-500">{logsTodayLabel}</p>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-orange-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{loading ? '—' : stats.logsWeek}</p>
-          <p className="text-sm text-gray-500">{logsWindowLabel}</p>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <AttentionList alerts={alerts} loading={alertsLoading} studentId={filters.studentId} />
+        <UpcomingAgenda studentId={filters.studentId} />
       </div>
 
-      {/* Alertas de gestión (Fase 4 — extendidas, render driven by data) */}
-      {!alertsLoading && hasAlerts && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="section-title flex items-center gap-2">
-              <AlertTriangle size={15} className="text-yellow-500" />
-              Alertas de gestión
-            </h2>
-            <Link to="/coach/students" className="text-xs text-primary-600 font-medium">
-              Ver alumnos →
-            </Link>
-          </div>
-
-          <div className="space-y-2">
-            {alertsToShow.map(({ kind, items }) => (
-              <AlertCard key={kind} kind={kind} items={items} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Panel del alumno — solo visible cuando hay alumno seleccionado.
-          Muestra KPIs + donut + tildes + mensaje motivacional. Fase C.2 */}
+      {/* Panel de la persona — solo con filtro de persona. */}
       {filters.studentId && (
         <StudentPanel
           studentId={filters.studentId}
@@ -301,81 +222,66 @@ export default function CoachDashboard() {
         />
       )}
 
-      {/* Adherencia por alumno (Q2) — tildes ✓✓◐ filtradas por
-          alumno/plan/período. Click en una fila → detalle del alumno. */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="section-title flex items-center gap-2">
-            <Users size={15} className="text-primary-500" />
-            Adherencia por alumno
-          </h2>
-        </div>
-        <CoachAdherenceList
-          filterStudentId={filters.studentId}
-          filterPlanId={filters.planId}
-          filterPeriodRange={filters.periodRange}
-        />
-      </div>
+      <MonthlyCalendar
+        studentId={filters.studentId || null}
+        studentOptions={filters.studentOptions}
+        onSelectStudent={(id) => filters.setStudent(id || '')}
+      />
 
-      {/* Próximas evaluaciones (Fase C.3 doc 19).
-          Filtradas por alumno cuando hay filtro global. */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="section-title flex items-center gap-2">
-            <ClipboardList size={15} className="text-purple-500" />
-            Próximas evaluaciones
-          </h2>
-        </div>
-        <UpcomingEvaluations filterStudentId={filters.studentId} />
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <section className="card">
+          <p className="eyebrow mb-2">Cumplimiento por persona</p>
+          <CoachAdherenceList
+            filterStudentId={filters.studentId}
+            filterPlanId={filters.planId}
+            filterPeriodRange={filters.periodRange}
+          />
+        </section>
 
-      {/* Calendario mensual (Fase 3) */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="section-title flex items-center gap-2">
-            <Calendar size={15} className="text-primary-500" />
-            Calendario
-          </h2>
-        </div>
-        <MonthlyCalendar controlledSelectedIds={filters.studentId ? [filters.studentId] : null} />
-      </div>
-
-      {/* Últimas sesiones (rediseño 2026-05-23 noche).
-          Antes: 10 logs sueltos por ejercicio (mucho ruido).
-          Ahora: 1 fila por sesión con día A/B/C, # ejercicios, PSE, duración. */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="section-title">Últimas sesiones</h2>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="card animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-xl" />
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-2/3 mb-1" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                  </div>
+        <section className="card">
+          <p className="eyebrow mb-1">Últimas sesiones</p>
+          {loading ? (
+            <div className="space-y-3 py-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-4 bg-gray-100 rounded w-2/3 mb-1" />
+                  <div className="h-3 bg-gray-50 rounded w-1/2" />
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : recentSessions.length === 0 ? (
-          <div className="card text-center py-8">
-            <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 text-sm">No hay sesiones en este período</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {recentSessions.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : recentSessions.length === 0 ? (
+            <p className="text-sm text-texto2 py-2">No hay sesiones en este período.</p>
+          ) : (
+            <div className="divide-y divide-linea">
+              {recentSessions.map((session) => (
+                <SessionRow key={session.id} session={session} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
+  )
+}
+
+function HeroStat({ value, label, to }) {
+  const inner = (
+    <>
+      <b className="block text-lg sm:text-[22px] font-bold text-primary-700 tabular-nums leading-tight">
+        {value}
+      </b>
+      <span className="block text-[12px] sm:text-[12.5px] leading-tight text-texto2 mt-0.5">
+        {label}
+      </span>
+    </>
+  )
+  const cls = 'bg-white/75 rounded-recuadro px-2 py-2.5 text-center'
+  return to ? (
+    <Link to={to} className={`${cls} hover:bg-white`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   )
 }
 
@@ -391,244 +297,36 @@ const SECTION_LABEL = {
 
 function SessionRow({ session }) {
   const dayLabel = session.dominantSection ? SECTION_LABEL[session.dominantSection] : null
-  const completedPart =
+  const parts = []
+  if (dayLabel) parts.push(dayLabel)
+  parts.push(
     session.totalCount > 0
-      ? `${session.completedCount}/${session.totalCount} ejercicios`
+      ? `${session.completedCount} de ${session.totalCount} ejercicios`
       : 'Sin ejercicios cargados'
+  )
+  if (session.pseAvg !== null) parts.push(`PSE ${session.pseAvg}`)
+  if (session.durationMin !== null) parts.push(`${session.durationMin} min`)
+
   return (
     <Link
       to={`/coach/students/${session.student_id}`}
-      className="card flex items-center gap-3 hover:shadow-md transition-shadow"
+      className="flex items-center gap-3 py-2.5 group"
     >
-      <div
-        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          session.completedCount > 0 ? 'bg-green-100' : 'bg-gray-100'
-        }`}
-      >
-        <Activity
-          size={18}
-          className={session.completedCount > 0 ? 'text-green-600' : 'text-gray-400'}
-        />
-      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {session.student?.name || 'Alumno'}
+          <p className="text-sm font-bold text-tinta truncate group-hover:text-primary-700">
+            {session.student?.name || 'Persona'}
           </p>
-          <span className="text-xs text-gray-400 flex-shrink-0">
+          <span className="text-[13px] text-texto2 tabular-nums flex-shrink-0">
             {format(parseISO(session.logged_date), 'dd/MM')}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap text-xs text-gray-500">
-          {dayLabel && <span className="font-medium text-primary-600">{dayLabel}</span>}
-          <span>·</span>
-          <span>{completedPart}</span>
-          {session.pseAvg !== null && (
-            <>
-              <span>·</span>
-              <span className="inline-flex items-center gap-0.5">
-                <Zap size={11} /> PSE {session.pseAvg}
-              </span>
-            </>
-          )}
-          {session.durationMin !== null && (
-            <>
-              <span>·</span>
-              <span className="inline-flex items-center gap-0.5">
-                <Clock size={11} /> {session.durationMin} min
-              </span>
-            </>
-          )}
-          {session.logged_late && (
-            <span className="badge bg-amber-100 text-amber-700 text-[10px]">Carga tardía</span>
-          )}
-        </div>
+        <p className="text-[13px] text-texto2 mt-0.5">
+          {parts.join(' · ')}
+          {session.logged_late && <span className="pill-warn ml-2 text-[11px]">Carga tardía</span>}
+        </p>
       </div>
-      <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+      <ChevronRight size={16} className="text-texto3 flex-shrink-0" />
     </Link>
   )
-}
-
-// ─────────────────────────────────────────────────────────────
-// AlertCard
-// ─────────────────────────────────────────────────────────────
-// Card genérica para cada tipo de alerta. La copia/grammar se decide
-// vía buildAlertTitle / buildAlertSubtitle, así no acoplamos la
-// lógica pura (en coachAlerts.js) con el español de la UI.
-function AlertCard({ kind, items }) {
-  // Expandible (pedido de Franco 2026-08-27): "+N más" antes linkeaba al
-  // listado general y no se podía ver QUIÉNES eran; ahora despliega todos
-  // los chips en la misma card.
-  const [expanded, setExpanded] = useState(false)
-  const cfg = ALERT_KIND[kind]
-  if (!cfg) return null
-  const count = items.length
-  // Alumnos clickeables → su pestaña Progreso ("la tablita", pedido de
-  // Anto 13a: la alerta lleva al progreso, no a un chat). Colapsada
-  // muestra hasta 6 chips; "+N más" expande el resto.
-  const shown = expanded ? items : items.slice(0, 6)
-  const rest = count - shown.length
-  return (
-    <div className={`card border-l-4 ${cfg.borderClass} py-3`}>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-gray-900">
-          {cfg.icon} {buildAlertTitle(kind, count)}
-        </p>
-        <p className="text-xs text-gray-500 mt-0.5">{buildAlertSubtitle(kind, items)}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 mt-2">
-        {shown.map((s) => (
-          <Link
-            key={s.studentId}
-            to={`/coach/students/${s.studentId}?tab=progress`}
-            className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 ${cfg.accentClass}`}
-          >
-            {s.name}
-          </Link>
-        ))}
-        {rest > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="text-xs text-gray-500 hover:text-gray-700 hover:underline px-1"
-          >
-            +{rest} más
-          </button>
-        )}
-        {expanded && count > 6 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="text-xs text-gray-400 hover:text-gray-600 hover:underline px-1"
-          >
-            ver menos
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function buildAlertTitle(kind, count) {
-  const plural = count !== 1
-  switch (kind) {
-    case 'overdue':
-      return `${count} pago${plural ? 's' : ''} vencido${plural ? 's' : ''}`
-    case 'planExpiringSoon':
-      return `${count} plan${plural ? 'es' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PLAN_EXPIRING_SOON_DAYS} días`
-    case 'dueSoon':
-      return `${count} pago${plural ? 's' : ''} vence${plural ? 'n' : ''} en ${ALERT_THRESHOLDS.PAYMENT_DUE_SOON_DAYS} días`
-    case 'adherenceDecline':
-      return `${count} alumno${plural ? 's' : ''} con adherencia en declive`
-    case 'lowAdherence':
-      return `${count} alumno${plural ? 's' : ''} con baja adherencia la semana pasada`
-    case 'inactiveStudents':
-      return `${count} alumno${plural ? 's' : ''} sin entrenar hace varios días`
-    case 'highRpeStudents':
-      return `${count} alumno${plural ? 's' : ''} con esfuerzo alto sostenido`
-    case 'noActivePlan':
-      return `${count} alumno${plural ? 's' : ''} sin plan activo`
-    case 'fatigueStudents':
-      return `${count} alumno${plural ? 's' : ''} con señales de fatiga`
-    case 'lowMotivationStudents':
-      return `${count} alumno${plural ? 's' : ''} con baja motivación`
-    case 'painStudents':
-      return `${count} alumno${plural ? 's' : ''} con dolor repetido`
-    case 'stagnationStudents':
-      return `${count} alumno${plural ? 's' : ''} con estancamiento`
-    default:
-      return `${count} alertas`
-  }
-}
-
-function buildAlertSubtitle(kind, items) {
-  // Para alertas con metadata interesante por item (días vencidos,
-  // RPE pico, etc.) mostramos un detalle del primero. Para el resto,
-  // nombres separados por coma + "y N más" si hay muchos.
-  const top = items.slice(0, 3)
-  const rest = items.length - top.length
-
-  if (kind === 'adherenceDecline') {
-    const detail = top.map((s) => `${s.name} (${(s.trend || []).join('→')}%)`).join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'lowAdherence') {
-    const detail = top.map((s) => `${s.name} (${s.completed}/${s.target} · ${s.pct}%)`).join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'inactiveStudents') {
-    const detail = top
-      .map((s) => {
-        const d = s.daysSinceLastLog
-        const days = d === Infinity ? '∞' : d
-        return `${s.name} (${days}d)`
-      })
-      .join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'highRpeStudents') {
-    const detail = top.map((s) => `${s.name} (${s.highRpeCount}× · pico ${s.peakRpe})`).join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'planExpiringSoon') {
-    const detail = top
-      .map(
-        (s) =>
-          `${s.name} (${s.daysUntilEnd === 0 ? 'hoy' : `en ${s.daysUntilEnd}d`}${
-            s.isEstimated ? ' · est.' : ''
-          })`
-      )
-      .join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'fatigueStudents') {
-    const detail = top
-      .map((s) => `${s.name} (${(s.triggers || []).join(' · ') || 'sin detalle'})`)
-      .join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'lowMotivationStudents') {
-    const detail = top
-      .map((s) => `${s.name} (${(s.triggers || []).join(' · ') || 'sin detalle'})`)
-      .join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'painStudents') {
-    const detail = top
-      .map((s) => {
-        const parts = []
-        if (s.triggers && s.triggers.length > 0) parts.push(s.triggers.join(' · '))
-        if (s.lastNoteSnippet) parts.push(`"${s.lastNoteSnippet}"`)
-        const meta = parts.length > 0 ? ` (${parts.join(' — ')})` : ''
-        return `${s.name}${meta}`
-      })
-      .join(', ')
-    return rest > 0 ? `${detail} y ${rest} más` : detail
-  }
-
-  if (kind === 'stagnationStudents') {
-    const detail = top
-      .map((s) => {
-        const exNames = (s.stagnantExercises || [])
-          .slice(0, 3)
-          .map((ex) => ex.exerciseName)
-          .join(', ')
-        const extras = (s.stagnantExercises || []).length - 3
-        const exDetail = extras > 0 ? `${exNames} +${extras}` : exNames
-        return `${s.name} (${exDetail || 'sin detalle'})`
-      })
-      .join(' · ')
-    return rest > 0 ? `${detail} · ${rest} más` : detail
-  }
-
-  // Por defecto: solo nombres
-  const names = top.map((s) => s.name).join(', ')
-  return rest > 0 ? `${names} y ${rest} más` : names
 }

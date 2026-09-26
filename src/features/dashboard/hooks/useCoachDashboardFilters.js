@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import {
-  computePeriodRange,
-  resolveDefaultPeriod,
-  PERIOD_OPTIONS,
-} from '../dashboardPeriods'
+import { computePeriodRange, resolveDefaultPeriod, PERIOD_OPTIONS } from '../dashboardPeriods'
 
 // ============================================================
 // useCoachDashboardFilters

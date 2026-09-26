@@ -864,3 +864,132 @@ export const ALERT_RENDER_ORDER = [
   'highRpeStudents',
   'noActivePlan',
 ]
+
+// ============================================================
+// Alertas agrupadas por persona (rediseño del dashboard 2026-09-26)
+// ------------------------------------------------------------
+// Antes: una tarjeta por TIPO de alerta (12 tipos) y la misma persona
+// repetida en varias. Ahora: una fila por PERSONA con todos sus
+// motivos, lo más grave primero.
+//
+// Qué NO entra en las filas:
+//   - dueSoon y planExpiringSoon: ya están en la agenda de los
+//     próximos 7 días (mismo umbral de 7 días), no se repiten.
+//   - lowAdherence: con el umbral en 100 % (decisión Franco 16/06)
+//     salta ante cualquier falta; va a una línea discreta aparte
+//     (`quiet`) para no llenar la lista.
+//
+// Cada motivo: { kind, tone: 'bad' | 'warn' | 'neutral', text }
+// Orden de filas: más motivos 'bad', después más 'warn', después
+// según ALERT_RENDER_ORDER del motivo más urgente.
+// ============================================================
+const PERSON_ALERT_ORDER = [
+  'overdue',
+  'inactiveStudents',
+  'painStudents',
+  'adherenceDecline',
+  'fatigueStudents',
+  'lowMotivationStudents',
+  'highRpeStudents',
+  'stagnationStudents',
+  'noActivePlan',
+]
+
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
+
+export function describeAlertItem(kind, it) {
+  switch (kind) {
+    case 'overdue':
+      return {
+        tone: 'bad',
+        text:
+          it.daysOverdue > 0
+            ? `Pago vencido hace ${plural(it.daysOverdue, 'día', 'días')}`
+            : 'Pago vencido',
+      }
+    case 'inactiveStudents':
+      return {
+        tone: 'bad',
+        text:
+          it.daysSinceLastLog === Infinity || it.daysSinceLastLog == null
+            ? 'Sin entrenamientos registrados'
+            : `No entrena hace ${plural(it.daysSinceLastLog, 'día', 'días')}`,
+      }
+    case 'painStudents':
+      return {
+        tone: 'warn',
+        text: it.lastNoteSnippet ? `Contó dolor: "${it.lastNoteSnippet}"` : 'Contó dolor',
+      }
+    case 'adherenceDecline':
+      return {
+        tone: 'warn',
+        text: `Cumplimiento en baja: ${(it.trend || []).join(' → ')} %`,
+      }
+    case 'fatigueStudents':
+      return { tone: 'warn', text: 'Señales de fatiga' }
+    case 'lowMotivationStudents':
+      return { tone: 'warn', text: 'Motivación baja' }
+    case 'highRpeStudents':
+      return {
+        tone: 'warn',
+        text: `Esfuerzo alto ${plural(it.highRpeCount || 0, 'vez', 'veces')}`,
+      }
+    case 'stagnationStudents': {
+      const names = (it.stagnantExercises || []).map((e) => e.exerciseName).filter(Boolean)
+      return {
+        tone: 'neutral',
+        text: names.length > 0 ? `Sin progreso en ${names.slice(0, 2).join(', ')}` : 'Sin progreso',
+      }
+    }
+    case 'noActivePlan':
+      return { tone: 'neutral', text: 'Sin plan activo' }
+    default:
+      return { tone: 'neutral', text: ALERT_KIND[kind]?.label || kind }
+  }
+}
+
+export function groupAlertsByStudent(alerts) {
+  const byId = new Map()
+  for (const kind of PERSON_ALERT_ORDER) {
+    for (const it of alerts?.[kind] || []) {
+      if (!byId.has(it.studentId)) {
+        byId.set(it.studentId, { studentId: it.studentId, name: it.name, items: [] })
+      }
+      byId.get(it.studentId).items.push({ kind, ...describeAlertItem(kind, it) })
+    }
+  }
+  const count = (row, tone) => row.items.filter((i) => i.tone === tone).length
+  const firstIdx = (row) => PERSON_ALERT_ORDER.indexOf(row.items[0]?.kind)
+  const rows = [...byId.values()].sort(
+    (a, b) =>
+      count(b, 'bad') - count(a, 'bad') ||
+      count(b, 'warn') - count(a, 'warn') ||
+      firstIdx(a) - firstIdx(b) ||
+      String(a.name).localeCompare(String(b.name))
+  )
+  const quiet = (alerts?.lowAdherence || []).map((it) => ({
+    studentId: it.studentId,
+    name: it.name,
+  }))
+  return { rows, quiet }
+}
+
+// ============================================================
+// Cumplimiento de la última semana cerrada, de todas las personas
+// ------------------------------------------------------------
+// weeklyByStudent: Map<studentId, [{ weekStart, completed, target }]>
+// lastWeekStart:   YMD del lunes de la semana pasada
+// Suma días hechos (con tope en el objetivo de cada persona) sobre la
+// suma de objetivos. null si nadie tenía objetivo esa semana.
+// ============================================================
+export function computeLastWeekCompliance(weeklyByStudent, lastWeekStart) {
+  let done = 0
+  let target = 0
+  for (const weeks of weeklyByStudent?.values?.() || []) {
+    const w = (weeks || []).find((x) => x.weekStart === lastWeekStart)
+    if (!w || !(w.target > 0)) continue
+    done += Math.min(w.completed, w.target)
+    target += w.target
+  }
+  return target > 0 ? Math.round((done / target) * 100) : null
+}

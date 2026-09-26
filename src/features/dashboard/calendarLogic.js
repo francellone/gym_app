@@ -45,76 +45,99 @@ function parseYMD(s) {
 }
 
 // ============================================================
-// COACH_EVENT_KIND — paleta de eventos del coach
+// COACH_EVENT_KIND — cómo se muestra cada evento del coach
+// ------------------------------------------------------------
+// Rediseño 2026-09-26: el calendario ya no usa puntitos de color.
+// Cada evento se escribe con palabras en una etiqueta pastel:
+//   label      nombre completo ("Fin de plan")
+//   short      palabra corta para el teléfono ("Fin")
+//   tagClass   fondo + texto de la etiqueta (identidad durazno)
+//   lateClass  el mismo evento cuando ya pasó sin resolverse
+//              (pago o fin de plan atrasado)
 // ============================================================
+const LATE_TAG = 'bg-[#fee2e2] text-[#b91c1c]'
+
 export const COACH_EVENT_KIND = {
   plan_start: {
     label: 'Inicio de plan',
-    icon: '▸',
-    dotClass: 'bg-emerald-500',
-    textClass: 'text-emerald-700',
+    short: 'Inicio',
+    tagClass: 'bg-[#dcfce7] text-[#15803d]',
+    lateClass: 'bg-[#dcfce7] text-[#15803d]',
   },
   plan_end: {
     label: 'Fin de plan',
-    icon: '◂',
-    dotClass: 'bg-slate-400',
-    textClass: 'text-slate-600',
+    short: 'Fin',
+    tagClass: 'bg-gray-100 text-gray-700',
+    lateClass: LATE_TAG,
   },
   payment_due: {
-    label: 'Vencimiento de pago',
-    icon: '$',
-    dotClass: 'bg-amber-500',
-    textClass: 'text-amber-700',
+    label: 'Pago',
+    short: 'Pago',
+    tagClass: 'bg-durazno-100 text-primary-800',
+    lateClass: LATE_TAG,
+  },
+  evaluation: {
+    label: 'Evaluación',
+    short: 'Eval.',
+    tagClass: 'bg-ciruela-100 text-ciruela-700',
+    lateClass: 'bg-ciruela-100 text-ciruela-700',
   },
   birthday: {
     label: 'Cumpleaños',
-    icon: '🎂',
-    dotClass: 'bg-pink-400',
-    textClass: 'text-pink-600',
+    short: 'Cumple',
+    tagClass: 'bg-niebla-100 text-niebla-700',
+    lateClass: 'bg-niebla-100 text-niebla-700',
   },
 }
 
+// Orden en que se listan los eventos dentro de un mismo día.
+export const COACH_EVENT_ORDER = ['payment_due', 'plan_end', 'evaluation', 'plan_start', 'birthday']
+
 // ============================================================
-// STUDENT_DAY_STYLE — paleta de estados de día por alumno
+// STUDENT_DAY_STYLE — estado del día de UNA persona
+// ------------------------------------------------------------
+// El día entero se pinta con el estado (cellClass) y lleva ícono +
+// palabra (textClass). Pasteles de la identidad; el estado se lee
+// también por el ícono, nunca solo por el color.
 // ============================================================
 export const STUDENT_DAY_STYLE = {
   planned_done: {
     label: 'Cumplido',
     icon: '✓',
-    dotClass: 'bg-emerald-500',
-    ringClass: 'ring-emerald-300',
+    cellClass: 'bg-[#dcfce7] border-[#bbf7d0]',
+    textClass: 'text-[#15803d]',
   },
   planned_partial: {
     label: 'Parcial',
-    icon: '◐',
-    dotClass: 'bg-amber-400',
-    ringClass: 'ring-amber-300',
+    icon: '½',
+    cellClass: 'bg-[#fef3c7] border-[#fde68a]',
+    textClass: 'text-[#92400e]',
   },
   planned_missed: {
     label: 'No asistió',
-    icon: '✗',
-    dotClass: 'bg-rose-500',
-    ringClass: 'ring-rose-300',
+    icon: '×',
+    cellClass: 'bg-[#fee2e2] border-[#fecaca]',
+    textClass: 'text-[#b91c1c]',
   },
   planned_future: {
-    label: 'Próximo',
+    label: 'Planificado',
     icon: '○',
-    dotClass: 'bg-slate-300',
-    ringClass: 'ring-slate-200',
+    cellClass: 'bg-white border-dashed border-gray-300',
+    textClass: 'text-gray-500',
   },
   unplanned_done: {
     label: 'Día extra',
     icon: '+',
-    dotClass: 'bg-blue-400',
-    ringClass: 'ring-blue-300',
+    cellClass: 'bg-niebla-100 border-niebla-200',
+    textClass: 'text-niebla-700',
   },
   unplanned_partial: {
-    label: 'Día extra parcial',
-    icon: '◐',
-    dotClass: 'bg-amber-300',
-    ringClass: 'ring-amber-200',
+    label: 'Extra parcial',
+    icon: '½',
+    cellClass: 'bg-[#fef3c7] border-[#fde68a]',
+    textClass: 'text-[#92400e]',
   },
-  rest: { label: 'Descanso', icon: '·', dotClass: 'bg-transparent', ringClass: '' },
+  rest: { label: 'Descanso', icon: '', cellClass: '', textClass: '' },
 }
 
 // ============================================================
@@ -154,10 +177,18 @@ export function getCalendarWindow(monthAnchor) {
 //   assignments  [{ id, student_id, start_date, expected_end_date,
 //                   plan: { title } }]
 //   window       { start: Date, end: Date }
+//   today        Date (para marcar `late` en pagos y fines de plan
+//                que ya pasaron sin resolverse)
 //
-// Output: Map<YMD, CoachEvent[]>
+// Las asignaciones de EVALUACIÓN no generan inicio/fin de plan: generan
+// un evento 'evaluation' en su start_date, si siguen pendientes (mismo
+// criterio que tenía la lista "Próximas evaluaciones").
+//
+// Output: Map<YMD, CoachEvent[]>, cada día ordenado por COACH_EVENT_ORDER
 // ============================================================
-export function computeCalendarEvents(students, assignments, window) {
+const EVAL_DONE_STATUSES = new Set(['archived', 'completed', 'replaced'])
+
+export function computeCalendarEvents(students, assignments, window, today = new Date()) {
   const map = new Map()
   const push = (ymd, ev) => {
     if (!map.has(ymd)) map.set(ymd, [])
@@ -167,13 +198,31 @@ export function computeCalendarEvents(students, assignments, window) {
   const startD = startOfDay(window.start)
   const endD = startOfDay(window.end)
 
+  const todayD = startOfDay(today)
+
   const inWindow = (d) => d >= startD && d <= endD
 
-  // ── Plan starts / ends ──────────────────────────────────────
+  // ── Plan starts / ends / evaluaciones ───────────────────────
   for (const a of assignments || []) {
     const student = (students || []).find((s) => s.id === a.student_id)
     const studentName = student?.name || '—'
     const planTitle = a.plan?.title || 'Plan'
+
+    const planType = a.plan_type || a.plan?.plan_type || 'training'
+    if (planType === 'evaluation') {
+      const evd = parseYMD(a.start_date)
+      if (evd && inWindow(evd) && !EVAL_DONE_STATUSES.has(a.status)) {
+        push(toYMD(evd), {
+          type: 'evaluation',
+          date: toYMD(evd),
+          title: `Evaluación: ${planTitle}`,
+          studentId: a.student_id,
+          studentName,
+          planTitle,
+        })
+      }
+      continue
+    }
 
     const sd = parseYMD(a.start_date)
     if (sd && inWindow(sd)) {
@@ -201,6 +250,7 @@ export function computeCalendarEvents(students, assignments, window) {
         studentId: a.student_id,
         studentName,
         planTitle,
+        late: ed < todayD,
       })
     }
   }
@@ -215,6 +265,7 @@ export function computeCalendarEvents(students, assignments, window) {
         title: `Vence pago: ${s.name}`,
         studentId: s.id,
         studentName: s.name,
+        late: pd < todayD,
       })
     }
   }
@@ -249,6 +300,9 @@ export function computeCalendarEvents(students, assignments, window) {
     }
   }
 
+  for (const arr of map.values()) {
+    arr.sort((x, y) => COACH_EVENT_ORDER.indexOf(x.type) - COACH_EVENT_ORDER.indexOf(y.type))
+  }
   return map
 }
 
@@ -339,4 +393,47 @@ export function computeFlexibleOverflowSet(completedSet, sessionsPerWeek) {
     }
   }
   return out
+}
+
+// ============================================================
+// Agenda de los próximos días (rediseño 2026-09-26)
+// ------------------------------------------------------------
+// buildAgendaDays: de un Map<YMD, CoachEvent[]> saca la lista de días
+// CON eventos entre `start` y `start + days - 1`, en orden.
+// agendaPhrase: cómo se escribe cada evento en la agenda, en frase
+// ("Vence el pago de Tomás"). Devuelve { lead, name, detail }.
+// ============================================================
+export function buildAgendaDays(eventsByDate, start, days = 7, studentId = null) {
+  const out = []
+  let cursor = startOfDay(start)
+  for (let i = 0; i < days; i++) {
+    const ymd = toYMD(cursor)
+    let events = eventsByDate?.get(ymd) || []
+    if (studentId) events = events.filter((e) => e.studentId === studentId)
+    if (events.length > 0) out.push({ ymd, events })
+    cursor = addDays(cursor, 1)
+  }
+  return out
+}
+
+export function agendaPhrase(ev) {
+  const name = ev.studentName || ''
+  switch (ev.type) {
+    case 'payment_due':
+      return { lead: ev.late ? 'Pago vencido de' : 'Vence el pago de', name, detail: '' }
+    case 'plan_end':
+      return {
+        lead: ev.late ? 'Venció el plan de' : 'Termina el plan de',
+        name,
+        detail: ev.planTitle || '',
+      }
+    case 'plan_start':
+      return { lead: 'Empieza el plan de', name, detail: ev.planTitle || '' }
+    case 'evaluation':
+      return { lead: 'Evaluación de', name, detail: ev.planTitle || '' }
+    case 'birthday':
+      return { lead: 'Cumple', name, detail: '' }
+    default:
+      return { lead: ev.title || '', name: '', detail: '' }
+  }
 }

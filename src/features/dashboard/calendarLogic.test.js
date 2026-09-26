@@ -6,7 +6,13 @@
 // —que entrenaba solo la activación— le figuraba cumplida a la coach.
 // ============================================================
 import { describe, it, expect } from 'vitest'
-import { computeStudentDayStatus, STUDENT_DAY_STYLE, computeCalendarEvents } from './calendarLogic'
+import {
+  computeStudentDayStatus,
+  STUDENT_DAY_STYLE,
+  computeCalendarEvents,
+  buildAgendaDays,
+  agendaPhrase,
+} from './calendarLogic'
 
 const TODAY = new Date(2026, 7, 27) // jueves 2026-08-27
 const YMD = '2026-08-24'
@@ -15,7 +21,9 @@ describe('computeStudentDayStatus — modo flexible', () => {
   const opts = { scheduleMode: 'flexible' }
 
   it('día entrenado y completo → Cumplido', () => {
-    expect(computeStudentDayStatus(YMD, new Set(), new Set([YMD]), TODAY, opts)).toBe('planned_done')
+    expect(computeStudentDayStatus(YMD, new Set(), new Set([YMD]), TODAY, opts)).toBe(
+      'planned_done'
+    )
   })
 
   it('día entrenado a medias → Parcial', () => {
@@ -38,7 +46,9 @@ describe('computeStudentDayStatus — modo flexible', () => {
   })
 
   it('sin partialSet mantiene el comportamiento anterior', () => {
-    expect(computeStudentDayStatus(YMD, new Set(), new Set([YMD]), TODAY, opts)).toBe('planned_done')
+    expect(computeStudentDayStatus(YMD, new Set(), new Set([YMD]), TODAY, opts)).toBe(
+      'planned_done'
+    )
   })
 
   it('un día sin sesión sigue siendo descanso aunque esté en partialSet', () => {
@@ -161,5 +171,76 @@ describe('computeCalendarEvents — vencimiento del plan', () => {
       win
     )
     expect(tipos(map, '2026-09-12').sort()).toEqual(['payment_due', 'plan_end'])
+  })
+})
+
+describe('rediseño 2026-09-26: evaluaciones, atrasos y agenda', () => {
+  const win = { start: new Date(2026, 8, 1), end: new Date(2026, 9, 4) }
+  const hoy = new Date(2026, 8, 26)
+  const personas = [
+    { id: 's1', name: 'Ana', next_payment_due: '2026-09-15' },
+    { id: 's2', name: 'Bea', next_payment_due: '2026-09-30' },
+  ]
+
+  it('una evaluación pendiente genera evento "evaluation" y no inicio de plan', () => {
+    const map = computeCalendarEvents(
+      personas,
+      [
+        {
+          id: 'e1',
+          student_id: 's1',
+          start_date: '2026-09-28',
+          status: 'active',
+          plan_type: 'evaluation',
+          plan: { title: 'Test' },
+        },
+      ],
+      win,
+      hoy
+    )
+    expect((map.get('2026-09-28') || []).map((e) => e.type)).toEqual(['evaluation'])
+  })
+
+  it('una evaluación completada no aparece', () => {
+    const map = computeCalendarEvents(
+      personas,
+      [
+        {
+          id: 'e1',
+          student_id: 's1',
+          start_date: '2026-09-28',
+          status: 'completed',
+          plan_type: 'evaluation',
+          plan: { title: 'Test' },
+        },
+      ],
+      win,
+      hoy
+    )
+    expect(map.get('2026-09-28')).toBeUndefined()
+  })
+
+  it('marca como atrasado el pago que ya pasó y no el que viene', () => {
+    const map = computeCalendarEvents(personas, [], win, hoy)
+    expect(map.get('2026-09-15')[0].late).toBe(true)
+    expect(map.get('2026-09-30')[0].late).toBe(false)
+  })
+
+  it('la agenda arma solo los días con eventos, en orden, y filtra por persona', () => {
+    const map = computeCalendarEvents(personas, [], win, hoy)
+    const dias = buildAgendaDays(map, hoy, 7)
+    expect(dias.map((d) => d.ymd)).toEqual(['2026-09-30'])
+    expect(buildAgendaDays(map, hoy, 7, 's1')).toEqual([])
+  })
+
+  it('la frase de la agenda dice qué pasa y con quién', () => {
+    expect(agendaPhrase({ type: 'payment_due', studentName: 'Bea', late: false })).toEqual({
+      lead: 'Vence el pago de',
+      name: 'Bea',
+      detail: '',
+    })
+    expect(agendaPhrase({ type: 'payment_due', studentName: 'Ana', late: true }).lead).toBe(
+      'Pago vencido de'
+    )
   })
 })

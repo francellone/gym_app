@@ -94,8 +94,22 @@ function toYMD(date) {
 // ============================================================
 // Hook principal
 // ============================================================
-export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
-  const window = useMemo(() => getCalendarWindow(monthAnchor), [monthAnchor])
+// opts (rediseño 2026-09-26):
+//   window      { start, end } explícito en vez del mes (lo usa la
+//               agenda de los próximos 7 días, que cruza meses)
+//   eventsOnly  true → no trae sesiones (ni por persona ni el conteo
+//               "N entrenaron"); solo eventos
+export default function useCoachCalendarData(monthAnchor, selectedStudentIds, opts = {}) {
+  const { window: windowOverride = null, eventsOnly = false } = opts
+  const overrideStart = windowOverride ? toYMD(windowOverride.start) : null
+  const overrideEnd = windowOverride ? toYMD(windowOverride.end) : null
+  const window = useMemo(
+    () =>
+      overrideStart
+        ? { start: parseLocalYMD(overrideStart), end: parseLocalYMD(overrideEnd) }
+        : getCalendarWindow(monthAnchor),
+    [monthAnchor, overrideStart, overrideEnd]
+  )
   const windowStartYMD = toYMD(window.start)
   const windowEndYMD = toYMD(window.end)
 
@@ -108,6 +122,11 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState([])
   const [assignments, setAssignments] = useState([])
+  // Todas las asignaciones (training + evaluaciones) para los eventos.
+  const [eventAssignments, setEventAssignments] = useState([])
+  // Modo "todas las personas": cuántas personas distintas entrenaron
+  // cada día → la celda dice "5 entrenaron".
+  const [trainedCountByDate, setTrainedCountByDate] = useState(new Map())
   const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Set<YMD> }
   // Días CON sesión pero SIN el entrenamiento completo (ver computeDateCompleteness).
   const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Set<YMD> }
@@ -138,7 +157,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
             .from('plan_assignments')
             .select(
               `
-              id, student_id, plan_id, status, plan_type,
+              id, student_id, plan_id, status, plan_type, active,
               start_date, closed_at, expected_end_date, expected_end_source,
               schedule_mode, preferred_days,
               plan:plans!plan_id(title, sessions_per_week)
@@ -162,8 +181,31 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
 
         let completedMap = {}
         let partialMap = {}
+        let countMap = new Map()
         const sel = (selectionKey || '').split(',').filter(Boolean)
-        if (sel.length > 0) {
+        if (!eventsOnly && sel.length === 0) {
+          const activeIds = new Set(studentsData.map((s) => s.id))
+          const rows = await fetchAllRows((from, to) =>
+            supabase
+              .from('workout_sessions')
+              .select('id, student_id, logged_date, plans!inner(plan_type)')
+              .eq('plans.plan_type', 'training')
+              .gte('logged_date', windowStartYMD)
+              .lte('logged_date', windowEndYMD)
+              .order('id', { ascending: true })
+              .range(from, to)
+          )
+          if (cancelled || reqIdRef.current !== myReqId) return
+          const perDay = new Map()
+          for (const r of rows) {
+            if (!activeIds.has(r.student_id)) continue
+            const ymd = String(r.logged_date).slice(0, 10)
+            if (!perDay.has(ymd)) perDay.set(ymd, new Set())
+            perDay.get(ymd).add(r.student_id)
+          }
+          for (const [ymd, set] of perDay) countMap.set(ymd, set.size)
+        }
+        if (!eventsOnly && sel.length > 0) {
           // ── IMPORTANTE: filtrar por plan_id del plan ACTIVO de TRAINING ──
           // Sin este filtro, el Set de "días entrenados" se contamina con:
           //   1. Sesiones de planes 'replaced' que solapan la ventana
@@ -280,6 +322,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
 
         setStudents(studentsData)
         setAssignments(assignmentsData)
+        setEventAssignments(assignmentsRes.data || [])
+        setTrainedCountByDate(countMap)
         setCompletedByStudent(completedMap)
         setPartialByStudent(partialMap)
       } catch (err) {
@@ -293,12 +337,12 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
     return () => {
       cancelled = true
     }
-  }, [windowStartYMD, windowEndYMD, selectionKey, refreshTick])
+  }, [windowStartYMD, windowEndYMD, selectionKey, refreshTick, eventsOnly])
 
   // Eventos del coach (siempre).
   const eventsByDate = useMemo(
-    () => computeCalendarEvents(students, assignments, window),
-    [students, assignments, window]
+    () => computeCalendarEvents(students, eventAssignments, window, new Date()),
+    [students, eventAssignments, window]
   )
 
   // Por alumno: días esperados (de su asignación 'fixed' vigente)
@@ -376,5 +420,11 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds) {
     selectedStudents,
     eventsByDate,
     perStudentDays,
+    trainedCountByDate,
   }
+}
+
+function parseLocalYMD(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }

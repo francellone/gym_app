@@ -65,7 +65,7 @@ describe('computePeriodRange', () => {
     expect(r.end).toBeDefined()
   })
 
-  it("planAssignment.start_date como timestamp ISO se normaliza a YMD", () => {
+  it('planAssignment.start_date como timestamp ISO se normaliza a YMD', () => {
     expect(
       computePeriodRange({
         periodKey: 'vigente',

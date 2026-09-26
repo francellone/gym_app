@@ -7,6 +7,9 @@ import {
   computeStagnationByExercise,
   computePlanExpiringSoon,
   ALERT_THRESHOLDS,
+  groupAlertsByStudent,
+  describeAlertItem,
+  computeLastWeekCompliance,
 } from './alerts'
 
 // Construye una semana cerrada {weekStart, completed, target, pct}
@@ -206,7 +209,10 @@ describe('computePlanExpiringSoon', () => {
   })
 
   it('avisa por el vencimiento previsto, no por el cierre', () => {
-    const out = computePlanExpiringSoon([conPlan('1', 'Ana', { expected_end_date: '2026-09-14' })], TODAY)
+    const out = computePlanExpiringSoon(
+      [conPlan('1', 'Ana', { expected_end_date: '2026-09-14' })],
+      TODAY
+    )
     expect(out).toHaveLength(1)
     expect(out[0].daysUntilEnd).toBe(4)
     expect(out[0].planTitle).toBe('Hipertrofia')
@@ -242,5 +248,49 @@ describe('computePlanExpiringSoon', () => {
     expect(out.map((o) => o.name)).toEqual(['Bea', 'Ana'])
     expect(out[0].isEstimated).toBe(true)
     expect(out[1].isEstimated).toBe(false)
+  })
+})
+
+describe('groupAlertsByStudent (rediseño 2026-09-26)', () => {
+  const alerts = {
+    overdue: [{ studentId: 'm', name: 'Martín', daysOverdue: 11 }],
+    inactiveStudents: [{ studentId: 't', name: 'Tomás', daysSinceLastLog: 5 }],
+    adherenceDecline: [{ studentId: 't', name: 'Tomás', trend: [100, 67, 33] }],
+    painStudents: [{ studentId: 'l', name: 'Lucía', lastNoteSnippet: 'rodilla' }],
+    dueSoon: [{ studentId: 'x', name: 'Xime', daysUntilDue: 2 }],
+    planExpiringSoon: [{ studentId: 'x', name: 'Xime', daysUntilEnd: 3 }],
+    lowAdherence: [{ studentId: 'v', name: 'Vale' }],
+  }
+
+  it('una fila por persona con todos sus motivos, la más grave primero', () => {
+    const { rows } = groupAlertsByStudent(alerts)
+    expect(rows.map((r) => r.name)).toEqual(['Tomás', 'Martín', 'Lucía'])
+    expect(rows[0].items.map((i) => i.text)).toEqual([
+      'No entrena hace 5 días',
+      'Cumplimiento en baja: 100 → 67 → 33 %',
+    ])
+  })
+
+  it('lo que ya está en la agenda no se repite y la baja adherencia va aparte', () => {
+    const { rows, quiet } = groupAlertsByStudent(alerts)
+    expect(rows.find((r) => r.name === 'Xime')).toBeUndefined()
+    expect(rows.find((r) => r.name === 'Vale')).toBeUndefined()
+    expect(quiet).toEqual([{ studentId: 'v', name: 'Vale' }])
+  })
+
+  it('singular bien escrito', () => {
+    expect(describeAlertItem('overdue', { daysOverdue: 1 }).text).toBe('Pago vencido hace 1 día')
+  })
+})
+
+describe('computeLastWeekCompliance', () => {
+  it('suma hechos con tope sobre la suma de objetivos', () => {
+    const m = new Map([
+      ['a', [{ weekStart: '2026-09-14', completed: 5, target: 4 }]],
+      ['b', [{ weekStart: '2026-09-14', completed: 1, target: 4 }]],
+      ['c', [{ weekStart: '2026-09-07', completed: 3, target: 3 }]],
+    ])
+    expect(computeLastWeekCompliance(m, '2026-09-14')).toBe(63)
+    expect(computeLastWeekCompliance(new Map(), '2026-09-14')).toBeNull()
   })
 })
