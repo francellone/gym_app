@@ -59,6 +59,16 @@ export const ALERT_THRESHOLDS = {
     'sigue molestando',
     'lesion',
     'lesión',
+    // Inglés (2026-09-26): la coach tiene personas que escriben en inglés.
+    // Raíces para cubrir variantes (injury/injured, hurts, aching).
+    // "sore" queda AFUERA a propósito: es normal después de entrenar y
+    // daría falsas alarmas. Las notas que solo nombran la parte del
+    // cuerpo ("Hamstrings") no se detectan: decisión de Franco, mejor
+    // eso que alertar cada vez que alguien cuenta qué entrenó.
+    'pain',
+    'hurt',
+    'injur',
+    'ache',
   ],
   PAIN_MIN_MENTIONS: 1, // bajado de 2→1 (decisión Franco 23/05 noche)
   PAIN_WINDOW_DAYS: 21,
@@ -230,6 +240,33 @@ export function computePlanExpiringSoon(students, today = new Date()) {
     }
   }
   out.sort((a, b) => a.daysUntilEnd - b.daysUntilEnd)
+  return out
+}
+
+// ============================================================
+// 3b. Plan vencido que sigue activo (2026-09-26)
+// ------------------------------------------------------------
+// expected_end_date ya pasó y la asignación de training sigue activa:
+// o la persona sigue entrenando con un plan vencido (hay que renovarlo
+// o extenderlo), o dejó de entrenar (y además salta "no entrena").
+// ============================================================
+export function computePlanExpired(students, today = new Date()) {
+  const todayD = startOfDay(today)
+  const out = []
+  for (const s of students || []) {
+    const a = getActiveTrainingAssignment(s)
+    if (!a) continue
+    const ed = parseYMD(a.expected_end_date)
+    if (!ed || ed >= todayD) continue
+    out.push({
+      studentId: s.id,
+      name: s.name,
+      planTitle: a.plan?.title || 'Plan activo',
+      endDate: a.expected_end_date,
+      daysExpired: daysBetween(todayD, ed),
+    })
+  }
+  out.sort((a, b) => b.daysExpired - a.daysExpired)
   return out
 }
 
@@ -749,6 +786,7 @@ export function computeAllAlerts({
     lowAdherence: computeLowAdherence(students, weeklyByStudent),
     noActivePlan: computeNoActivePlan(students),
     planExpiringSoon: computePlanExpiringSoon(students, today),
+    planExpired: computePlanExpired(students, today),
     inactiveStudents: computeInactiveStudents(students, lastLogDateByStudent, today),
     highRpeStudents: computeHighRpeStudents(students, recentLogs, today),
     fatigueStudents: computeFatigueStudents(students, wellbeingLogs, today),
@@ -773,6 +811,13 @@ export const ALERT_KIND = {
   planExpiringSoon: {
     key: 'planExpiringSoon',
     label: 'Planes que vencen pronto',
+    icon: '🟠',
+    borderClass: 'border-l-orange-400',
+    accentClass: 'text-orange-600',
+  },
+  planExpired: {
+    key: 'planExpired',
+    label: 'Plan vencido',
     icon: '🟠',
     borderClass: 'border-l-orange-400',
     accentClass: 'text-orange-600',
@@ -856,6 +901,7 @@ export const ALERT_RENDER_ORDER = [
   'lowAdherence', // semana cerrada por debajo del umbral
   'painStudents', // dolor — atender rápido por riesgo de lesión
   'fatigueStudents', // fatiga — ajustar carga
+  'planExpired',
   'planExpiringSoon',
   'dueSoon',
   'inactiveStudents',
@@ -887,6 +933,7 @@ const PERSON_ALERT_ORDER = [
   'overdue',
   'inactiveStudents',
   'painStudents',
+  'planExpired',
   'adherenceDecline',
   'fatigueStudents',
   'lowMotivationStudents',
@@ -919,6 +966,14 @@ export function describeAlertItem(kind, it) {
       return {
         tone: 'warn',
         text: it.lastNoteSnippet ? `Contó dolor: "${it.lastNoteSnippet}"` : 'Contó dolor',
+      }
+    case 'planExpired':
+      return {
+        tone: 'warn',
+        text:
+          it.daysExpired > 0
+            ? `Plan vencido hace ${plural(it.daysExpired, 'día', 'días')}`
+            : 'Plan vencido',
       }
     case 'adherenceDecline':
       return {

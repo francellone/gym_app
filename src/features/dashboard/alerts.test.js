@@ -6,6 +6,8 @@ import {
   computeFatigueStudents,
   computeStagnationByExercise,
   computePlanExpiringSoon,
+  computePlanExpired,
+  computePainStudents,
   ALERT_THRESHOLDS,
   groupAlertsByStudent,
   describeAlertItem,
@@ -293,4 +295,75 @@ describe('computeLastWeekCompliance', () => {
     expect(computeLastWeekCompliance(m, '2026-09-14')).toBe(63)
     expect(computeLastWeekCompliance(new Map(), '2026-09-14')).toBeNull()
   })
+})
+
+describe('computePlanExpired (2026-09-26)', () => {
+  const hoy = new Date(2026, 8, 26)
+  const persona = (id, asg) => ({ id, name: id, plan_assignments: asg })
+  const training = (props) => ({
+    status: 'active',
+    plan_type: 'training',
+    plan: { title: 'P' },
+    ...props,
+  })
+
+  it('marca el plan activo con vencimiento pasado, el más viejo primero', () => {
+    const out = computePlanExpired(
+      [
+        persona('a', [training({ expected_end_date: '2026-09-18' })]),
+        persona('b', [training({ expected_end_date: '2026-08-28' })]),
+        persona('c', [training({ expected_end_date: '2026-09-26' })]),
+        persona('d', [training({ expected_end_date: null })]),
+      ],
+      hoy
+    )
+    expect(out.map((x) => [x.studentId, x.daysExpired])).toEqual([
+      ['b', 29],
+      ['a', 8],
+    ])
+  })
+
+  it('no mira asignaciones reemplazadas ni evaluaciones', () => {
+    const out = computePlanExpired(
+      [
+        persona('a', [training({ status: 'replaced', expected_end_date: '2026-09-01' })]),
+        persona('b', [training({ plan_type: 'evaluation', expected_end_date: '2026-09-01' })]),
+      ],
+      hoy
+    )
+    expect(out).toEqual([])
+  })
+
+  it('en la lista por persona es un motivo "warn" que se suma a los otros', () => {
+    const { rows } = groupAlertsByStudent({
+      planExpired: [{ studentId: 'a', name: 'Ana', daysExpired: 8 }],
+      inactiveStudents: [{ studentId: 'a', name: 'Ana', daysSinceLastLog: 12 }],
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].items.map((i) => i.text)).toEqual([
+      'No entrena hace 12 días',
+      'Plan vencido hace 8 días',
+    ])
+    expect(describeAlertItem('planExpired', { daysExpired: 1 }).tone).toBe('warn')
+  })
+})
+
+describe('computePainStudents en inglés (2026-09-26)', () => {
+  const hoy = new Date(2026, 8, 26)
+  const alumnos = [{ id: 's1', name: 'Kate' }]
+  const nota = (notes) => [{ user_id: 's1', date: '2026-09-25', notes }]
+
+  it.each(['Hamstring pain 5', 'My knee hurts', 'Old injury came back', 'Back aches'])(
+    'detecta "%s"',
+    (n) => {
+      expect(computePainStudents(alumnos, nota(n), hoy)).toHaveLength(1)
+    }
+  )
+
+  it.each(['Hamstrings soreness', 'Hamstrings', 'Stiff body from jogging'])(
+    'no alerta con "%s"',
+    (n) => {
+      expect(computePainStudents(alumnos, nota(n), hoy)).toHaveLength(0)
+    }
+  )
 })

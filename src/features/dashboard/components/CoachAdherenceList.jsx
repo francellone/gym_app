@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { ChevronRight } from 'lucide-react'
+import { fetchAllRows } from '@/lib/fetchAllRows'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 
@@ -28,14 +29,27 @@ import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
 //   - filterStudentId   uuid | null   solo ese alumno
 //   - filterPlanId      uuid | null   solo esa plan_assignment (UUID, no plan_id)
 //   - filterPeriodRange { start, end } YMD para acotar workout_logs
+//
+// Agrupado (2026-09-26, "con mucha gente queda muy larga"):
+//   - Atrasadas: la última semana CERRADA hicieron menos días de los
+//     que pide el plan (mismo criterio que la alerta lowAdherence, que
+//     llega por `behind`). Arriba, con "1 de 3 la semana pasada".
+//   - Al día: plegado en una línea que se despliega.
+//   - Sin entrenamientos registrados: plegado igual.
+//   Con una persona filtrada se muestra la fila sola, sin grupos.
+//
+// Los logs se traen PAGINADOS (fetchAllRows): con 28 planes activos ya
+// había 1466 workout_logs y PostgREST corta en 1000 sin avisar.
 // ============================================================
 
 export default function CoachAdherenceList({
   filterStudentId = null,
   filterPlanId = null,
   filterPeriodRange = null,
+  behind = null, // [{ studentId, completed, target, pct }] (alerts.lowAdherence)
   className = '',
 }) {
+  const [openGroups, setOpenGroups] = useState({})
   const [loading, setLoading] = useState(true)
   // rows: [{ assignment, student, talliesBySection }]
   const [rows, setRows] = useState([])
@@ -81,33 +95,44 @@ export default function CoachAdherenceList({
         // v29 (plan 29): además de plan_exercises + workout_logs, traemos
         // plan_blocks (para resolver block_type) y workout_block_logs (para
         // que los bloques aerobic/circuit cuenten al armar los tallies).
-        const [exercisesRes, blocksRes, logsRes, blockLogsRes] = await Promise.all([
-          supabase
-            .from('plan_exercises')
-            .select('id, section, plan_id, block_id')
-            .in('plan_id', planIds),
-          supabase
-            .from('plan_blocks')
-            .select('id, plan_id, section, block_type')
-            .in('plan_id', planIds),
-          supabase
-            .from('workout_logs')
-            .select('logged_date, plan_exercise_id, completed, plan_id, student_id')
-            .in('plan_id', planIds)
-            .in('student_id', studentIds),
-          supabase
-            .from('workout_block_logs')
-            .select('logged_date, plan_block_id, completed, plan_id, student_id')
-            .in('plan_id', planIds)
-            .in('student_id', studentIds),
+        const [allExercises, allBlocks, allLogs, allBlockLogs] = await Promise.all([
+          fetchAllRows((from, to) =>
+            supabase
+              .from('plan_exercises')
+              .select('id, section, plan_id, block_id')
+              .in('plan_id', planIds)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('plan_blocks')
+              .select('id, plan_id, section, block_type')
+              .in('plan_id', planIds)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('workout_logs')
+              .select('id, logged_date, plan_exercise_id, completed, plan_id, student_id')
+              .in('plan_id', planIds)
+              .in('student_id', studentIds)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('workout_block_logs')
+              .select('id, logged_date, plan_block_id, completed, plan_id, student_id')
+              .in('plan_id', planIds)
+              .in('student_id', studentIds)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
         ])
 
         if (cancelled) return
-
-        const allExercises = exercisesRes.data || []
-        const allBlocks = blocksRes.data || []
-        const allLogs = logsRes.data || []
-        const allBlockLogs = blockLogsRes.data || []
 
         // 3) Indexar por plan_id y (plan_id, student_id) para no recorrer
         // todo el array por cada asignación.
@@ -198,6 +223,26 @@ export default function CoachAdherenceList({
     }
   }, [filterStudentId, filterPlanId, filterPeriodRange?.start, filterPeriodRange?.end])
 
+  // Grupos: atrasadas / al día / sin entrenamientos.
+  const groups = useMemo(() => {
+    const behindById = new Map((behind || []).map((b) => [b.studentId, b]))
+    const late = []
+    const ok = []
+    const none = []
+    for (const r of rows) {
+      const b = behindById.get(r.student.id)
+      if (b) late.push({ ...r, behind: b })
+      else if (r.hasAnyTally) ok.push(r)
+      else none.push(r)
+    }
+    late.sort(
+      (a, b) =>
+        (a.behind.pct ?? 0) - (b.behind.pct ?? 0) ||
+        (a.student?.name || '').localeCompare(b.student?.name || '', 'es')
+    )
+    return { late, ok, none }
+  }, [rows, behind])
+
   if (loading) {
     return (
       <div className={className}>
@@ -216,38 +261,115 @@ export default function CoachAdherenceList({
     )
   }
 
+  // Una sola persona filtrada: la fila sola.
+  if (filterStudentId || rows.length === 1) {
+    return (
+      <div className={`divide-y divide-linea ${className}`}>
+        {rows.map((r) => (
+          <AdherenceRow key={r.assignment.id} {...r} />
+        ))}
+      </div>
+    )
+  }
+
+  const toggle = (k) => setOpenGroups((g) => ({ ...g, [k]: !g[k] }))
+
   return (
-    <div className={`divide-y divide-linea ${className}`}>
-      {rows.map(({ assignment, student, tallies, hasAnyTally }) => (
-        <Link
-          key={assignment.id}
-          to={`/coach/students/${student.id}`}
-          className="flex items-center gap-3 py-2.5 group"
-        >
-          <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-700 text-[13px] font-bold">{initials(student.name)}</span>
+    <div className={`space-y-3 ${className}`}>
+      {groups.late.length > 0 && (
+        <div>
+          <p className="text-[13px] font-medium text-[#92400e] mb-0.5">
+            {groups.late.length === 1
+              ? '1 persona hizo menos de lo planificado la semana pasada'
+              : `${groups.late.length} personas hicieron menos de lo planificado la semana pasada`}
+          </p>
+          <div className="divide-y divide-linea">
+            {groups.late.map((r) => (
+              <AdherenceRow key={r.assignment.id} {...r} />
+            ))}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-bold text-tinta truncate group-hover:text-primary-700">
-                {student.name}
-              </p>
-              <span className="text-[12px] text-texto2 truncate ml-2 max-w-[40%]">
-                {assignment.plan?.title || ''}
-              </span>
-            </div>
-            <div className="mt-1">
-              {hasAnyTally ? (
-                <DayTalliesBadge tallies={tallies} variant="compact" />
-              ) : (
-                <p className="text-[13px] text-texto2">Sin entrenamientos registrados</p>
-              )}
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-texto3 flex-shrink-0" />
-        </Link>
-      ))}
+        </div>
+      )}
+      <FoldedGroup
+        open={!!openGroups.ok}
+        onToggle={() => toggle('ok')}
+        label={
+          groups.ok.length === 1 ? 'Al día: 1 persona' : `Al día: ${groups.ok.length} personas`
+        }
+        rows={groups.ok}
+      />
+      <FoldedGroup
+        open={!!openGroups.none}
+        onToggle={() => toggle('none')}
+        label={`Sin entrenamientos registrados: ${groups.none.length}`}
+        rows={groups.none}
+      />
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Grupo plegado: una línea que se despliega
+// ─────────────────────────────────────────────────────────────
+function FoldedGroup({ open, onToggle, label, rows }) {
+  if (rows.length === 0) return null
+  return (
+    <div className="border-t border-linea pt-2">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 py-1.5 text-sm font-medium text-tinta hover:text-primary-700"
+        aria-expanded={open}
+      >
+        <span>{label}</span>
+        <ChevronDown
+          size={16}
+          className={`text-texto3 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="divide-y divide-linea">
+          {rows.map((r) => (
+            <AdherenceRow key={r.assignment.id} {...r} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// Fila de una persona
+// ─────────────────────────────────────────────────────────────
+function AdherenceRow({ assignment, student, tallies, hasAnyTally, behind = null }) {
+  return (
+    <Link to={`/coach/students/${student.id}`} className="flex items-center gap-3 py-2.5 group">
+      <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0">
+        <span className="text-primary-700 text-[13px] font-bold">{initials(student.name)}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-bold text-tinta truncate group-hover:text-primary-700">
+            {student.name}
+          </p>
+          <span className="text-[12px] text-texto2 truncate ml-2 max-w-[40%]">
+            {assignment.plan?.title || ''}
+          </span>
+        </div>
+        {behind && (
+          <span className="pill-warn mt-1 inline-block tabular-nums">
+            {behind.completed} de {behind.target} la semana pasada
+          </span>
+        )}
+        <div className="mt-1">
+          {hasAnyTally ? (
+            <DayTalliesBadge tallies={tallies} variant="compact" />
+          ) : (
+            <p className="text-[13px] text-texto2">Sin entrenamientos registrados</p>
+          )}
+        </div>
+      </div>
+      <ChevronRight size={16} className="text-texto3 flex-shrink-0" />
+    </Link>
   )
 }
 

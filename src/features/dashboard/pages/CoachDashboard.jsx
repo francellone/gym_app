@@ -235,6 +235,7 @@ export default function CoachDashboard() {
             filterStudentId={filters.studentId}
             filterPlanId={filters.planId}
             filterPeriodRange={filters.periodRange}
+            behind={alerts?.lowAdherence || []}
           />
         </section>
 
