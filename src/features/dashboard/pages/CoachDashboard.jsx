@@ -40,6 +40,11 @@ export default function CoachDashboard() {
   // Filtros globales del dashboard (alumno + plan + período).
   const filters = useCoachDashboardFilters()
   const { studentId, planId, periodRange } = filters
+  // v57: fotos de perfil por persona para las listas del panel.
+  const avatarById = useMemo(
+    () => new Map((filters.studentOptions || []).map((s) => [s.id, s.avatar_url])),
+    [filters.studentOptions]
+  )
 
   useEffect(() => {
     fetchRecentSessions()
@@ -207,7 +212,12 @@ export default function CoachDashboard() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <AttentionList alerts={alerts} loading={alertsLoading} studentId={filters.studentId} />
+        <AttentionList
+          alerts={alerts}
+          loading={alertsLoading}
+          studentId={filters.studentId}
+          avatarById={avatarById}
+        />
         <UpcomingAgenda studentId={filters.studentId} />
       </div>
 

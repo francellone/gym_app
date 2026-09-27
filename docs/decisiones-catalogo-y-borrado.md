@@ -118,3 +118,16 @@ ejecuta los borrados que hoy rompen y termina en `RAISE EXCEPTION` con un jsonb 
 resultados. La excepción revierte todo (migración incluida) y el resultado vuelve en
 el mensaje de error. Después se verifica que no quedó nada aplicado y recién ahí se
 corre en serio con `apply_migration`. Regla de fondo: cero filas de prueba en la base.
+
+## D7 — La fusión completa los huecos del que queda (v56, 2026-09-27)
+
+**Decisión.** Al fusionar, el ejercicio que queda manda: se completan solo sus campos vacíos
+(descripción, grupo muscular, video, nota técnica, valores por defecto y cada clave de las
+traducciones) con los del que desaparece. Nunca se pisa un dato existente. El nombre, el tipo
+de peso y "unilateral" no se tocan.
+
+**Por qué.** Hasta v55 los datos del que se iba quedaban solo en la auditoría. Con el default
+"queda el de más registros" se perdían descripciones y grupos musculares reales (Gato Bueno
+Malo, Goblet Sq, Vuelos en Y). El modal ahora muestra campo a campo qué se completa y qué se
+descarta antes de confirmar. `exercise_merges.into_snapshot` guarda el destino previo para
+poder deshacer.

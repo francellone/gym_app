@@ -120,7 +120,19 @@
       "passwordTooShort": "Password must be at least 6 characters"
     },
     "followUpSentBody": "Your coach sent you a follow-up form. Answer it whenever you can.",
-    "viewAllForms": "View all my forms"
+    "viewAllForms": "View all my forms",
+    "photoTitle": "Profile photo",
+    "photoChoose": "Choose a photo",
+    "photoOther": "Choose another",
+    "photoRemove": "Remove photo",
+    "photoChange": "Change photo",
+    "photoAdd": "Add photo",
+    "photoZoom": "Zoom in or out",
+    "photoHint": "Drag to frame it and use the slider to zoom.",
+    "photoPrivacy": "Only you and your coach can see your photo.",
+    "photoSaving": "Saving…",
+    "photoErrorRead": "That image couldn't be opened. Try another one.",
+    "photoErrorSave": "The photo couldn't be saved. Please try again."
   },
   "dashboard": {
     "greetingMorning": "Good morning",

@@ -1042,7 +1042,9 @@ export default function ProgressPage() {
                   <div key={key} className="card p-3 flex items-center gap-3">
                     <span className="text-xl">{emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 truncate">{t(labelKey)}</p>
+                      <p className="text-xs text-gray-500 leading-tight break-words">
+                        {t(labelKey)}
+                      </p>
                     </div>
                     <div className={`text-sm font-bold px-2.5 py-1 rounded-xl ${colorClass}`}>
                       {avg ? avg.toFixed(1) : '—'}

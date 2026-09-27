@@ -26,6 +26,7 @@ import {
   getEffectiveUnilateral,
 } from '../helpers'
 import StudentProgressTableView from '@/features/students/components/StudentProgressTableView'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes
@@ -347,11 +348,13 @@ export default function PlanProgressTab({ planId, assignments }) {
                   }`}
                 >
                   <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 overflow-hidden ${
                       isActive ? 'bg-white/20 text-white' : 'bg-primary-100 text-primary-700'
                     }`}
                   >
-                    {a.student?.name?.[0]?.toUpperCase()}
+                    <AvatarImage path={a.student?.avatar_url} alt={a.student?.name}>
+                      {a.student?.name?.[0]?.toUpperCase()}
+                    </AvatarImage>
                   </span>
                   {a.student?.name}
                 </button>
@@ -364,8 +367,13 @@ export default function PlanProgressTab({ planId, assignments }) {
       {/* Si hay un solo alumno, solo mostrar su nombre como header sutil */}
       {assignments.length === 1 && (
         <div className="flex items-center gap-2 px-1">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-[11px] font-bold text-primary-700">
-            {assignments[0].student?.name?.[0]?.toUpperCase()}
+          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-[11px] font-bold text-primary-700 overflow-hidden">
+            <AvatarImage
+              path={assignments[0].student?.avatar_url}
+              alt={assignments[0].student?.name}
+            >
+              {assignments[0].student?.name?.[0]?.toUpperCase()}
+            </AvatarImage>
           </div>
           <span className="text-sm font-medium text-gray-700">{assignments[0].student?.name}</span>
         </div>

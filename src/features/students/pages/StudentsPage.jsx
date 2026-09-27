@@ -20,6 +20,7 @@ import {
 import WellbeingStatusBadge from '@/features/wellbeing/components/WellbeingStatusBadge'
 import { summarizeByStudent, formatYMD } from '@/features/wellbeing/wellbeingSummaryLogic'
 import { ALERT_THRESHOLDS } from '@/features/dashboard/alerts'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 export default function StudentsPage() {
   const { profile } = useAuth()
@@ -427,8 +428,10 @@ export default function StudentsPage() {
               >
                 {/* Avatar con indicador de pago */}
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 bg-durazno-100 rounded-full flex items-center justify-center">
-                    <span className="text-primary-700 font-bold text-sm">{initials}</span>
+                  <div className="w-12 h-12 bg-durazno-100 rounded-full flex items-center justify-center overflow-hidden">
+                    <AvatarImage path={student.avatar_url} alt={student.name}>
+                      <span className="text-primary-700 font-bold text-sm">{initials}</span>
+                    </AvatarImage>
                   </div>
                   {(payStatus === 'overdue' || payStatus === 'due_soon') && (
                     <span

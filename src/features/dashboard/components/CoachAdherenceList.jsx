@@ -5,6 +5,7 @@ import { fetchAllRows } from '@/lib/fetchAllRows'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 // ============================================================
 // CoachAdherenceList
@@ -63,7 +64,7 @@ export default function CoachAdherenceList({
         let assignmentsQuery = supabase
           .from('plan_assignments')
           .select(
-            'id, plan_id, student_id, start_date, plan_type, status, plan:plans!plan_id(title, plan_type), student:profiles!student_id(id, name, active)'
+            'id, plan_id, student_id, start_date, plan_type, status, plan:plans!plan_id(title, plan_type), student:profiles!student_id(id, name, avatar_url, active)'
           )
           .eq('status', 'active')
           .eq('plan_type', 'training')
@@ -343,8 +344,10 @@ function FoldedGroup({ open, onToggle, label, rows }) {
 function AdherenceRow({ assignment, student, tallies, hasAnyTally, behind = null }) {
   return (
     <Link to={`/coach/students/${student.id}`} className="flex items-center gap-3 py-2.5 group">
-      <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0">
-        <span className="text-primary-700 text-[13px] font-bold">{initials(student.name)}</span>
+      <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <AvatarImage path={student.avatar_url} alt={student.name}>
+          <span className="text-primary-700 text-[13px] font-bold">{initials(student.name)}</span>
+        </AvatarImage>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">

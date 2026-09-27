@@ -25,6 +25,7 @@ import { setPlanArchived } from '@/features/plans/planLifecycle'
 import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
 import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 // ============================================================
 // Shared mini components
@@ -487,10 +488,12 @@ function StudentResultCard({ assignment, allResults, evalType }) {
         className="w-full flex items-center gap-3 p-3 text-left"
         onClick={() => studentResults.length > 0 && setExpanded(!expanded)}
       >
-        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-          <span className="text-primary-700 font-semibold text-sm">
-            {assignment.student?.name?.[0]?.toUpperCase()}
-          </span>
+        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <AvatarImage path={assignment.student?.avatar_url} alt={assignment.student?.name}>
+            <span className="text-primary-700 font-semibold text-sm">
+              {assignment.student?.name?.[0]?.toUpperCase()}
+            </span>
+          </AvatarImage>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900">{assignment.student?.name}</p>
@@ -585,7 +588,7 @@ export default function EvaluationDetailPage() {
         // completó. El filtrado fino se hace abajo (active O con resultado).
         supabase
           .from('plan_assignments')
-          .select('*, student:profiles!student_id(id, name)')
+          .select('*, student:profiles!student_id(id, name, avatar_url)')
           .in('plan_id', planIds),
         supabase
           .from('evaluation_results')

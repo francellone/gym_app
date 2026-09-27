@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Globe,
+  Camera,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format, parseISO } from 'date-fns'
@@ -22,6 +23,8 @@ import {
   displayValueFor,
 } from '@/features/forms/intake/schema/resolve-form-language.js'
 import { formPathFor } from '@/features/forms/hooks/usePendingForms'
+import AvatarImage from '@/features/avatars/AvatarImage'
+import AvatarEditor from '@/features/avatars/AvatarEditor'
 
 // ── Opciones del form ──────────────────────────────────────────────────────────
 // Tomadas del intake form (intake_form_submissions.form_snapshot) para mantener
@@ -116,6 +119,7 @@ export default function ProfilePage() {
 
   // ── Estado de edición y feedback ─────────────────────────────────────────────
   const [editing, setEditing] = useState(false)
+  const [editingPhoto, setEditingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -350,9 +354,32 @@ export default function ProfilePage() {
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="hero px-5 pt-5 pb-8 text-center">
-        <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center mx-auto mb-3">
-          <span className="text-primary-700 font-bold text-2xl">{initials}</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => setEditingPhoto(true)}
+          className="relative w-20 h-20 mx-auto mb-3 block"
+          aria-label={profile?.avatar_url ? t('profile.photoChange') : t('profile.photoAdd')}
+        >
+          <span className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center overflow-hidden">
+            <AvatarImage path={profile?.avatar_url} alt={profile?.name}>
+              <span className="text-primary-700 font-bold text-2xl">{initials}</span>
+            </AvatarImage>
+          </span>
+          <span className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-white shadow flex items-center justify-center text-primary-700">
+            <Camera size={14} />
+          </span>
+        </button>
+        {editingPhoto && (
+          <AvatarEditor
+            userId={profile?.id}
+            currentPath={profile?.avatar_url}
+            onClose={() => setEditingPhoto(false)}
+            onSaved={async () => {
+              await refreshProfile()
+              setEditingPhoto(false)
+            }}
+          />
+        )}
         <h1 className="text-[26px] leading-tight font-bold text-tinta">{profile?.name}</h1>
         <p className="text-texto2 text-sm mt-0.5">{profile?.email}</p>
         {profile?.level && (

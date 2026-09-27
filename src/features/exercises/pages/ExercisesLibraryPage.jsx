@@ -19,6 +19,7 @@ import { WEIGHT_MODES } from '@/features/plans/helpers'
 import ExerciseFormModal from '../components/ExerciseFormModal'
 import MergeExerciseModal from '../components/MergeExerciseModal'
 import { fetchUsage, isReferenced, usageSummary } from '../exerciseUsage'
+import { filledSummary } from '../mergeFill'
 import DuplicatesModal from '../components/DuplicatesModal'
 
 // Colores predefinidos para etiquetas
@@ -285,9 +286,11 @@ export default function ExercisesLibraryPage() {
     const evals = (counts?.eval_responses || 0) + (counts?.eval_tests || 0)
     if (evals) partes.push(`${evals} evaluaciones`)
     if (counts?.notes) partes.push(`${counts.notes} notas`)
+    const completados = filledSummary(counts?.filled)
     alert(
       `"${from.name}" se fusionó en "${into.name}".` +
-        (partes.length ? ` Pasaron ${partes.join(', ')}.` : '')
+        (partes.length ? ` Pasaron ${partes.join(', ')}.` : '') +
+        (completados.length ? ` Se completó: ${completados.join(', ')}.` : '')
     )
     fetchAll()
   }

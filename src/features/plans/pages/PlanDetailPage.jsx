@@ -40,6 +40,7 @@ import PrescriptionHistoryTimeline from '../components/PrescriptionHistoryTimeli
 import { assignTemplateToStudent } from '../assignmentHelpers'
 import Pct1rmEvalGapNotice from '../components/Pct1rmEvalGapNotice'
 import { fetchPrescriptionHistory, groupHistoryByExercise } from '../prescriptionHistory'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 // ── Assign student modal (sin cambios visuales mayores) ─────
 //
@@ -73,7 +74,11 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 
   useEffect(() => {
     const promises = [
-      supabase.from('profiles').select('id, name, active').eq('role', 'student').order('name'),
+      supabase
+        .from('profiles')
+        .select('id, name, avatar_url, active')
+        .eq('role', 'student')
+        .order('name'),
       supabase
         .from('plan_assignments')
         .select('student_id')
@@ -202,10 +207,12 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
                       : 'bg-gray-50 border-2 border-transparent hover:border-gray-200'
                   }`}
                 >
-                  <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-primary-700 font-semibold text-xs">
-                      {s.name?.[0]?.toUpperCase()}
-                    </span>
+                  <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <AvatarImage path={s.avatar_url} alt={s.name}>
+                      <span className="text-primary-700 font-semibold text-xs">
+                        {s.name?.[0]?.toUpperCase()}
+                      </span>
+                    </AvatarImage>
                   </div>
                   <span className="text-sm font-medium text-gray-900">
                     {s.name}
@@ -749,7 +756,7 @@ export default function PlanDetailPage() {
         supabase.from('plan_blocks').select('*').eq('plan_id', id).order('order_index'),
         supabase
           .from('plan_assignments')
-          .select('*, student:profiles!student_id(id, name)')
+          .select('*, student:profiles!student_id(id, name, avatar_url)')
           .eq('plan_id', id)
           .eq('active', true),
       ])
@@ -1064,7 +1071,11 @@ export default function PlanDetailPage() {
                 <>
                   {assignments.map((a) => (
                     <div key={a.id} className="plan-student-chip">
-                      <div className="plan-chip-avatar">{a.student?.name?.[0]?.toUpperCase()}</div>
+                      <div className="plan-chip-avatar overflow-hidden">
+                        <AvatarImage path={a.student?.avatar_url} alt={a.student?.name}>
+                          {a.student?.name?.[0]?.toUpperCase()}
+                        </AvatarImage>
+                      </div>
                       <Link
                         to={`/coach/students/${a.student_id}`}
                         className="text-xs font-medium text-gray-700 hover:text-gray-900"

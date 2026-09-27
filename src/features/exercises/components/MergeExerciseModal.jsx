@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, GitMerge, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fetchUsage, usageSummary } from '../exerciseUsage'
+import { compareForMerge } from '../mergeFill'
 
 // ============================================================
 // Fusionar un ejercicio duplicado en otro (v46, decisión D2)
@@ -15,6 +16,13 @@ import { fetchUsage, usageSummary } from '../exerciseUsage'
 // reps, kilos, descanso) vive en plan_exercises y se conserva. Cambia la
 // identidad (nombre, video, nota técnica) y se une el historial.
 // ============================================================
+
+const OUTCOME = {
+  same: { label: 'Igual', cls: 'bg-gray-100 text-gray-600' },
+  keep: { label: 'Se mantiene', cls: 'bg-gray-100 text-gray-600' },
+  fill: { label: 'Se completa', cls: 'bg-emerald-50 text-emerald-700' },
+  drop: { label: 'Gana el que queda', cls: 'bg-amber-50 text-amber-700' },
+}
 
 export default function MergeExerciseModal({
   from,
@@ -80,6 +88,7 @@ export default function MergeExerciseModal({
   }
 
   const fromParts = usageSummary(fromUsage)
+  const comparison = useMemo(() => (into ? compareForMerge(from, into) : []), [from, into])
 
   return (
     <div
@@ -172,15 +181,45 @@ export default function MergeExerciseModal({
             )}
           </div>
 
+          {into && comparison.length > 0 && (
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <p className="text-xs font-semibold text-gray-700 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                Qué datos quedan
+              </p>
+              <ul className="divide-y divide-gray-100">
+                {comparison.map((row) => (
+                  <li key={row.key} className="px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-gray-700">{row.label}</span>
+                      <span
+                        className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${OUTCOME[row.outcome].cls}`}
+                      >
+                        {OUTCOME[row.outcome].label}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 mt-0.5 break-words line-clamp-2">
+                      {String(row.outcome === 'fill' ? row.from : row.into)}
+                    </p>
+                    {row.outcome === 'drop' && (
+                      <p className="text-gray-400 mt-0.5 break-words line-clamp-2 line-through">
+                        {String(row.from)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {into && (
             <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 leading-relaxed">
                 Los registros de las dos versiones van a pasar a leerse como{' '}
                 <strong>un solo ejercicio</strong> en el progreso de cada alumna, y de ahora en más
-                van a ver el nombre, el video y la nota técnica de <strong>"{into.name}"</strong>.
-                Lo prescripto en cada plan (series, reps, kilos, descanso) no cambia. Confirmá solo
-                si es el mismo movimiento.
+                van a ver los datos de <strong>"{into.name}"</strong>. Lo que a ese le falte se
+                completa con el que desaparece, sin pisar nada. Lo prescripto en cada plan (series,
+                reps, kilos, descanso) no cambia. Confirmá solo si es el mismo movimiento.
               </p>
             </div>
           )}

@@ -20,6 +20,7 @@ import StudentFormsTab from '../tabs/StudentFormsTab'
 import StudentNotesTab from '@/features/notes/pages/StudentNotesTab'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 const TABS = [
   { id: 'info', label: 'Info' },
@@ -264,8 +265,10 @@ export default function StudentDetailPage() {
       {/* Tarjeta de perfil */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-durazno-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-700 font-bold text-xl">{initials}</span>
+          <div className="w-16 h-16 bg-durazno-100 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <AvatarImage path={student.avatar_url} alt={student.name}>
+              <span className="text-primary-700 font-bold text-xl">{initials}</span>
+            </AvatarImage>
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="font-bold text-gray-900 text-lg">{student.name}</h2>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { groupAlertsByStudent } from '../alerts'
+import AvatarImage from '@/features/avatars/AvatarImage'
 
 // ============================================================
 // AttentionList — "Necesitan atención"
@@ -32,7 +33,7 @@ function joinNodes(nodes) {
   })
 }
 
-export default function AttentionList({ alerts, loading, studentId = null }) {
+export default function AttentionList({ alerts, loading, studentId = null, avatarById = null }) {
   const [expanded, setExpanded] = useState(false)
 
   const { rows, quiet } = useMemo(() => {
@@ -68,8 +69,10 @@ export default function AttentionList({ alerts, loading, studentId = null }) {
               to={`/coach/students/${r.studentId}?tab=progress`}
               className="flex items-center gap-3 py-3 group"
             >
-              <span className="w-[38px] h-[38px] rounded-full bg-durazno-100 text-primary-700 text-[13px] font-bold grid place-items-center flex-shrink-0">
-                {initials(r.name)}
+              <span className="w-[38px] h-[38px] rounded-full bg-durazno-100 text-primary-700 text-[13px] font-bold grid place-items-center flex-shrink-0 overflow-hidden">
+                <AvatarImage path={avatarById?.get(r.studentId)} alt={r.name}>
+                  {initials(r.name)}
+                </AvatarImage>
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block font-bold text-tinta group-hover:text-primary-700">
