@@ -95,11 +95,60 @@ export const COACH_EVENT_KIND = {
     tagClass: 'bg-ciruela-100 text-ciruela-700',
     lateClass: 'bg-ciruela-100 text-ciruela-700',
   },
-  birthday: {
-    label: 'Cumpleaños',
-    short: 'Cumple',
+  // ── Formularios (2026-09-27) ─────────────────────────────
+  // Cada formulario aparece UNA sola vez, según su estado (pedido de
+  // Franco: "para que no ensucie"):
+  //   programado    todavía no llegó su día y no se respondió
+  //   sin responder ya llegó su día (o se envió) y no se respondió;
+  //                 va en el día en que se envió; ámbar desde los 7 días
+  //   respondido    en el día en que la persona lo respondió
+  form_scheduled: {
+    label: 'Formulario programado',
+    short: 'Form.',
+    tagClass: 'bg-white border border-[#d8ccc1] text-[#5a4b42]',
+    lateClass: 'bg-white border border-[#d8ccc1] text-[#5a4b42]',
+  },
+  form_unanswered: {
+    label: 'Formulario sin responder',
+    short: 'Sin resp.',
+    tagClass: 'bg-[#f5f0eb] text-[#5a4b42]',
+    lateClass: 'bg-[#fef3c7] text-[#92400e]',
+  },
+  form_answered: {
+    label: '✓ Formulario respondido',
+    short: '✓ Form.',
+    tagClass: 'bg-[#f5f0eb] text-[#5a4b42]',
+    lateClass: 'bg-[#f5f0eb] text-[#5a4b42]',
+  },
+  // ── Pago cobrado (2026-09-27): el día en que se registró el cobro ──
+  payment_done: {
+    label: '✓ Pago cobrado',
+    short: '✓ Pago',
+    tagClass: 'bg-durazno-100 text-primary-800',
+    lateClass: 'bg-durazno-100 text-primary-800',
+  },
+  // ── La persona (2026-09-27) ──────────────────────────────
+  // Actividad extra: lo que la persona cargó por su cuenta. La etiqueta
+  // lleva el emoji de la actividad (ev.emoji) en vez de una palabra.
+  activity: {
+    label: 'Actividad extra',
+    short: '⚽',
     tagClass: 'bg-niebla-100 text-niebla-700',
     lateClass: 'bg-niebla-100 text-niebla-700',
+  },
+  // Festejo: semana completa, cierre de plan, racha, mejor marca.
+  // Los festejos conservan el emoji (decisión de Franco).
+  milestone: {
+    label: '🎉 Festejo',
+    short: '🎉',
+    tagClass: 'bg-durazno-50 border border-durazno-200 text-primary-700',
+    lateClass: 'bg-durazno-50 border border-durazno-200 text-primary-700',
+  },
+  birthday: {
+    label: '🎂 Cumpleaños',
+    short: '🎂',
+    tagClass: 'bg-durazno-50 border border-durazno-200 text-primary-700',
+    lateClass: 'bg-durazno-50 border border-durazno-200 text-primary-700',
   },
 }
 
@@ -108,9 +157,100 @@ export const COACH_EVENT_ORDER = [
   'payment_due',
   'plan_end',
   'evaluation',
-  'evaluation_done',
+  'form_unanswered',
+  'form_scheduled',
   'plan_start',
+  'evaluation_done',
+  'form_answered',
+  'payment_done',
+  'milestone',
   'birthday',
+  'activity',
+]
+
+// ============================================================
+// Temas del calendario (2026-09-27)
+// ------------------------------------------------------------
+// La leyenda son interruptores agrupados por tema. 'trained' no es un
+// evento: es el "N entrenaron" de cada día pasado (modo todas).
+// DEFAULT_HIDDEN: lo que arranca apagado (decisión de Franco).
+// ============================================================
+export const CALENDAR_GROUPS = [
+  { key: 'plans', label: 'Planes', kinds: ['plan_start', 'plan_end'] },
+  { key: 'evaluations', label: 'Evaluaciones', kinds: ['evaluation', 'evaluation_done'] },
+  {
+    key: 'forms',
+    label: 'Formularios',
+    kinds: ['form_scheduled', 'form_unanswered', 'form_answered'],
+  },
+  { key: 'payments', label: 'Pagos', kinds: ['payment_due', 'payment_done'] },
+  { key: 'person', label: 'La persona', kinds: ['trained', 'activity', 'milestone', 'birthday'] },
+]
+
+export const DEFAULT_HIDDEN = ['form_unanswered', 'form_answered']
+
+// Lo que ya pasó no va en "Próximos 7 días".
+export const PAST_ONLY_KINDS = new Set([
+  'evaluation_done',
+  'form_unanswered',
+  'form_answered',
+  'payment_done',
+  'activity',
+  'milestone',
+])
+
+// A partir de cuántos días un formulario sin responder se marca en ámbar
+// (y entra en "Necesitan atención").
+export const FORM_UNANSWERED_WARN_DAYS = 7
+
+// Filtra un Map<YMD, CoachEvent[]> sacando los tipos apagados.
+export function filterEventsByDate(eventsByDate, hidden) {
+  const h = hidden instanceof Set ? hidden : new Set(hidden || [])
+  if (h.size === 0) return eventsByDate
+  const out = new Map()
+  for (const [ymd, arr] of eventsByDate || []) {
+    const keep = arr.filter((e) => !h.has(e.type))
+    if (keep.length > 0) out.set(ymd, keep)
+  }
+  return out
+}
+
+// Timestamp (con hora) → día local.
+function tsToDay(ts) {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return null
+  return startOfDay(d)
+}
+
+function daysBetween(later, earlier) {
+  return Math.round((startOfDay(later) - startOfDay(earlier)) / 86400000)
+}
+
+// Qué dice un festejo, en una frase corta.
+export function milestoneText(m) {
+  const p = m?.payload || {}
+  switch (m?.kind) {
+    case 'week_complete':
+      return 'Semana completa'
+    case 'plan_complete':
+      return 'Terminó el plan'
+    case 'streak': {
+      const w = Number(p.weeks)
+      return Number.isFinite(w) && w > 0 ? `Racha de ${w} semanas` : 'Racha de semanas'
+    }
+    case 'personal_best':
+      return p.exercise_name ? `Mejor marca en ${p.exercise_name}` : 'Mejor marca'
+    default:
+      return 'Festejo'
+  }
+}
+
+export const MILESTONE_KINDS_IN_CALENDAR = [
+  'week_complete',
+  'plan_complete',
+  'streak',
+  'personal_best',
 ]
 
 // ============================================================
@@ -211,6 +351,15 @@ export function getCalendarWindow(monthAnchor) {
 //                apaga el pendiente de esa misma persona y plan aunque la
 //                asignación no haya pasado a 'completed'.
 //
+//   extras (2026-09-27, todo opcional):
+//     forms       [{ id, student_id, status, sent_at, scheduled_for,
+//                    completed_at, form_kind, template?: { name } }]
+//                 cada formulario va UNA vez según su estado (ver
+//                 COACH_EVENT_KIND.form_*)
+//     payments    [{ student_id, paid_on }]           → payment_done
+//     activities  [{ student_id, date, emoji, name }] → activity
+//     milestones  [{ student_id, kind, created_at, payload }] → milestone
+//
 // Output: Map<YMD, CoachEvent[]>, cada día ordenado por COACH_EVENT_ORDER
 // ============================================================
 const EVAL_DONE_STATUSES = new Set(['archived', 'completed', 'replaced'])
@@ -220,7 +369,8 @@ export function computeCalendarEvents(
   assignments,
   window,
   today = new Date(),
-  evalResults = []
+  evalResults = [],
+  extras = {}
 ) {
   const map = new Map()
   const push = (ymd, ev) => {
@@ -368,6 +518,111 @@ export function computeCalendarEvents(
     }
   }
 
+  // Solo personas de la lista (activas), como el resto de los eventos.
+  const studentById = new Map((students || []).map((s) => [s.id, s]))
+
+  // ── Formularios: uno por formulario, según su estado ───────
+  for (const f of extras.forms || []) {
+    const student = studentById.get(f.student_id)
+    if (!student) continue
+    const formTitle =
+      f.template?.name ||
+      (f.form_kind === 'intake' ? 'Formulario inicial' : 'Formulario de seguimiento')
+    const base = { studentId: f.student_id, studentName: student.name, planTitle: formTitle }
+    const done = f.status === 'completed' || !!f.completed_at
+    if (done) {
+      const d = tsToDay(f.completed_at)
+      if (d && inWindow(d)) {
+        push(toYMD(d), {
+          ...base,
+          type: 'form_answered',
+          date: toYMD(d),
+          title: `Respondió ${formTitle}`,
+        })
+      }
+      continue
+    }
+    // Su día: la fecha programada o, si fue manual, la del envío.
+    const d = tsToDay(f.scheduled_for) || tsToDay(f.sent_at) || tsToDay(f.created_at)
+    if (!d || !inWindow(d)) continue
+    if (d > todayD) {
+      push(toYMD(d), {
+        ...base,
+        type: 'form_scheduled',
+        date: toYMD(d),
+        title: `Sale ${formTitle}`,
+      })
+    } else {
+      const daysWaiting = daysBetween(todayD, d)
+      push(toYMD(d), {
+        ...base,
+        type: 'form_unanswered',
+        date: toYMD(d),
+        title: `Sin responder: ${formTitle}`,
+        daysWaiting,
+        late: daysWaiting >= FORM_UNANSWERED_WARN_DAYS,
+      })
+    }
+  }
+
+  // ── Pagos cobrados ─────────────────────────────────────────
+  const seenPaid = new Set()
+  for (const p of extras.payments || []) {
+    const student = studentById.get(p.student_id)
+    const d = parseYMD(p.paid_on)
+    if (!student || !d || !inWindow(d)) continue
+    const ymd = toYMD(d)
+    const key = `${p.student_id}|${ymd}`
+    if (seenPaid.has(key)) continue
+    seenPaid.add(key)
+    push(ymd, {
+      type: 'payment_done',
+      date: ymd,
+      title: `Pagó ${student.name}`,
+      studentId: p.student_id,
+      studentName: student.name,
+    })
+  }
+
+  // ── Actividades extra ──────────────────────────────────────
+  for (const a of extras.activities || []) {
+    const student = studentById.get(a.student_id)
+    const d = parseYMD(a.date)
+    if (!student || !d || !inWindow(d)) continue
+    const ymd = toYMD(d)
+    push(ymd, {
+      type: 'activity',
+      date: ymd,
+      title: `${a.emoji || '✨'} ${a.name || 'Actividad'}: ${student.name}`,
+      studentId: a.student_id,
+      studentName: student.name,
+      emoji: a.emoji || '✨',
+      planTitle: a.name || 'Actividad',
+    })
+  }
+
+  // ── Festejos (una vez por persona + tipo + día) ────────────
+  const seenMilestone = new Set()
+  for (const m of extras.milestones || []) {
+    if (!MILESTONE_KINDS_IN_CALENDAR.includes(m.kind) || m.voided_at) continue
+    const student = studentById.get(m.student_id)
+    const d = tsToDay(m.created_at)
+    if (!student || !d || !inWindow(d)) continue
+    const ymd = toYMD(d)
+    const text = milestoneText(m)
+    const key = `${m.student_id}|${m.kind}|${ymd}|${text}`
+    if (seenMilestone.has(key)) continue
+    seenMilestone.add(key)
+    push(ymd, {
+      type: 'milestone',
+      date: ymd,
+      title: `🎉 ${text}: ${student.name}`,
+      studentId: m.student_id,
+      studentName: student.name,
+      planTitle: text,
+    })
+  }
+
   for (const arr of map.values()) {
     arr.sort((x, y) => COACH_EVENT_ORDER.indexOf(x.type) - COACH_EVENT_ORDER.indexOf(y.type))
   }
@@ -471,13 +726,18 @@ export function computeFlexibleOverflowSet(completedSet, sessionsPerWeek) {
 // agendaPhrase: cómo se escribe cada evento en la agenda, en frase
 // ("Vence el pago de Tomás"). Devuelve { lead, name, detail }.
 // ============================================================
-export function buildAgendaDays(eventsByDate, start, days = 7, studentId = null) {
+export function buildAgendaDays(eventsByDate, start, days = 7, studentId = null, hidden = null) {
   const out = []
+  const h = hidden instanceof Set ? hidden : new Set(hidden || [])
   let cursor = startOfDay(start)
   for (let i = 0; i < days; i++) {
     const ymd = toYMD(cursor)
-    // La agenda es lo que viene: una evaluación ya hecha no va.
-    let events = (eventsByDate?.get(ymd) || []).filter((e) => e.type !== 'evaluation_done')
+    // La agenda es lo que viene: lo que ya pasó (evaluación hecha,
+    // formulario respondido, pago cobrado…) no va. Respeta los
+    // interruptores del calendario.
+    let events = (eventsByDate?.get(ymd) || []).filter(
+      (e) => !PAST_ONLY_KINDS.has(e.type) && !h.has(e.type)
+    )
     if (studentId) events = events.filter((e) => e.studentId === studentId)
     if (events.length > 0) out.push({ ymd, events })
     cursor = addDays(cursor, 1)
@@ -508,6 +768,25 @@ export function agendaPhrase(ev) {
       return { lead: 'Evaluó', name, detail: ev.planTitle || '' }
     case 'birthday':
       return { lead: 'Cumple', name, detail: '' }
+    case 'form_scheduled':
+      return { lead: 'Sale el formulario de', name, detail: ev.planTitle || '' }
+    case 'form_unanswered':
+      return {
+        lead: 'Sin responder el formulario de',
+        name,
+        detail:
+          ev.daysWaiting > 0
+            ? `${ev.planTitle || ''} · hace ${ev.daysWaiting} ${ev.daysWaiting === 1 ? 'día' : 'días'}`
+            : ev.planTitle || '',
+      }
+    case 'form_answered':
+      return { lead: 'Respondió el formulario', name, detail: ev.planTitle || '' }
+    case 'payment_done':
+      return { lead: 'Pagó', name, detail: '' }
+    case 'activity':
+      return { lead: `${ev.emoji || '✨'} ${ev.planTitle || 'Actividad'}:`, name, detail: '' }
+    case 'milestone':
+      return { lead: `🎉 ${ev.planTitle || 'Festejo'}:`, name, detail: '' }
     default:
       return { lead: ev.title || '', name: '', detail: '' }
   }

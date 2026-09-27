@@ -306,3 +306,136 @@ describe('rediseño 2026-09-26: evaluaciones, atrasos y agenda', () => {
     )
   })
 })
+
+// ============================================================
+// 2026-09-27 — formularios, pagos cobrados, actividades y festejos.
+// Regla de Franco: cada formulario aparece UNA sola vez según su estado.
+// ============================================================
+describe('computeCalendarEvents — formularios, uno por estado', () => {
+  const today = new Date(2026, 8, 27) // domingo 27/09
+  const win = { start: new Date(2026, 7, 31), end: new Date(2026, 9, 4) }
+  const students = [{ id: 's1', name: 'Ana Paz' }]
+  const run = (forms) => computeCalendarEvents(students, [], win, today, [], { forms })
+  const all = (map) => [...map.values()].flat()
+
+  it('programado a futuro → solo "programado" en su fecha', () => {
+    const ev = all(
+      run([
+        {
+          id: 'f1',
+          student_id: 's1',
+          status: 'scheduled',
+          scheduled_for: '2026-10-02T12:00:00Z',
+          sent_at: null,
+          completed_at: null,
+          template: { name: 'Mensual' },
+        },
+      ])
+    )
+    expect(ev.map((e) => [e.type, e.date])).toEqual([['form_scheduled', '2026-10-02']])
+    expect(ev[0].planTitle).toBe('Mensual')
+  })
+
+  it('llegó el día y no respondió → solo "sin responder" en el día del envío', () => {
+    const ev = all(
+      run([
+        {
+          id: 'f2',
+          student_id: 's1',
+          status: 'pending',
+          scheduled_for: null,
+          sent_at: '2026-09-10T15:00:00Z',
+          completed_at: null,
+        },
+      ])
+    )
+    expect(ev.map((e) => e.type)).toEqual(['form_unanswered'])
+    expect(ev[0].date).toBe('2026-09-10')
+    expect(ev[0].daysWaiting).toBe(17)
+    expect(ev[0].late).toBe(true)
+  })
+
+  it('menos de 7 días sin responder → no se marca demorado', () => {
+    const ev = all(
+      run([{ id: 'f3', student_id: 's1', status: 'pending', sent_at: '2026-09-24T15:00:00Z' }])
+    )
+    expect(ev[0].type).toBe('form_unanswered')
+    expect(ev[0].late).toBe(false)
+  })
+
+  it('respondido → solo "respondido" en el día de la respuesta (no el del envío)', () => {
+    const ev = all(
+      run([
+        {
+          id: 'f4',
+          student_id: 's1',
+          status: 'completed',
+          sent_at: '2026-09-18T15:00:00Z',
+          completed_at: '2026-09-21T15:00:00Z',
+        },
+      ])
+    )
+    expect(ev.map((e) => [e.type, e.date])).toEqual([['form_answered', '2026-09-21']])
+  })
+
+  it('formularios de personas fuera de la lista no aparecen', () => {
+    const ev = all(
+      run([{ id: 'f5', student_id: 'otra', status: 'pending', sent_at: '2026-09-20T15:00:00Z' }])
+    )
+    expect(ev).toEqual([])
+  })
+})
+
+describe('computeCalendarEvents — pagos cobrados, actividades y festejos', () => {
+  const today = new Date(2026, 8, 27)
+  const win = { start: new Date(2026, 7, 31), end: new Date(2026, 9, 4) }
+  const students = [{ id: 's1', name: 'Ana Paz' }]
+
+  it('pago cobrado en su día, una vez por persona y día', () => {
+    const map = computeCalendarEvents(students, [], win, today, [], {
+      payments: [
+        { student_id: 's1', paid_on: '2026-09-15' },
+        { student_id: 's1', paid_on: '2026-09-15' },
+      ],
+    })
+    expect(map.get('2026-09-15').map((e) => e.type)).toEqual(['payment_done'])
+  })
+
+  it('actividad extra lleva su emoji y nombre', () => {
+    const map = computeCalendarEvents(students, [], win, today, [], {
+      activities: [{ student_id: 's1', date: '2026-09-20', emoji: '⚽', name: 'Fútbol' }],
+    })
+    const [ev] = map.get('2026-09-20')
+    expect(ev.type).toBe('activity')
+    expect(agendaPhrase(ev).lead).toBe('⚽ Fútbol:')
+  })
+
+  it('festejos: semana completa sí, día completo no, anulados no', () => {
+    const map = computeCalendarEvents(students, [], win, today, [], {
+      milestones: [
+        { student_id: 's1', kind: 'week_complete', created_at: '2026-09-21T15:00:00Z' },
+        { student_id: 's1', kind: 'day_complete', created_at: '2026-09-21T15:00:00Z' },
+        {
+          student_id: 's1',
+          kind: 'personal_best',
+          created_at: '2026-09-22T15:00:00Z',
+          voided_at: '2026-09-23T10:00:00Z',
+        },
+      ],
+    })
+    const ev = [...map.values()].flat()
+    expect(ev.map((e) => [e.type, e.planTitle])).toEqual([['milestone', 'Semana completa']])
+  })
+
+  it('la agenda no muestra lo que ya pasó y respeta lo apagado', () => {
+    const map = computeCalendarEvents(students, [], win, today, [], {
+      forms: [
+        { id: 'a', student_id: 's1', status: 'scheduled', scheduled_for: '2026-09-29T12:00:00Z' },
+      ],
+      payments: [{ student_id: 's1', paid_on: '2026-09-28' }],
+    })
+    const days = buildAgendaDays(map, today, 7)
+    expect(days.flatMap((d) => d.events.map((e) => e.type))).toEqual(['form_scheduled'])
+    expect(buildAgendaDays(map, today, 7, null, new Set(['form_scheduled']))).toEqual([])
+  })
+})

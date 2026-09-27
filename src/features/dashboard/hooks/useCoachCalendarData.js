@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { getExpectedSessionDates, getScheduleMode } from '@/features/plans/assignmentHelpers'
 import { computeDateCompleteness } from '@/features/students/dayTalliesLogic'
 import { fetchAllRows } from '@/lib/fetchAllRows'
+import i18n from '@/i18n'
+import { ACTIVITY_TYPES } from '@/features/activities/api'
 import {
   COACH_EVENT_KIND,
   STUDENT_DAY_STYLE,
@@ -10,6 +12,7 @@ import {
   computeCalendarEvents,
   computeStudentDayStatus,
   computeFlexibleOverflowSet,
+  MILESTONE_KINDS_IN_CALENDAR,
 } from '../calendarLogic'
 
 // Re-exports para mantener la API histórica del hook
@@ -71,6 +74,12 @@ const SCHED_FLEXIBLE = 'flexible'
 //     'birthday'      (de profiles.birth_date, recurrente anual)
 //     'evaluation'    pendiente (plan_assignments de evaluación)
 //     'evaluation_done' hecha (evaluation_results.eval_date)
+//     2026-09-27:
+//     'form_scheduled' | 'form_unanswered' | 'form_answered'
+//                     (intake_form_assignments, uno por formulario)
+//     'payment_done'  (payments.paid_on)
+//     'activity'      (activity_logs.date)
+//     'milestone'     (student_milestones.created_at)
 // ============================================================
 
 // ── Date utils internas ──────────────────────────────────────
@@ -132,6 +141,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   const [trainedByDate, setTrainedByDate] = useState(new Map())
   // Evaluaciones hechas en la ventana (evaluation_results).
   const [evalResults, setEvalResults] = useState([])
+  // 2026-09-27: formularios, pagos cobrados, actividades extra y festejos.
+  const [extras, setExtras] = useState({})
   const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Set<YMD> }
   // Días CON sesión pero SIN el entrenamiento completo (ver computeDateCompleteness).
   const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Set<YMD> }
@@ -147,7 +158,26 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
     async function run() {
       try {
-        const [studentsRes, assignmentsRes, evalResultsRows] = await Promise.all([
+        // Rango con hora para las columnas timestamptz (festejos).
+        const tsStart = parseLocalYMD(windowStartYMD).toISOString()
+        const tsEndD = parseLocalYMD(windowEndYMD)
+        tsEndD.setDate(tsEndD.getDate() + 1)
+        const tsEnd = tsEndD.toISOString()
+        // Si alguno de estos falla, el calendario sigue sin ese tipo.
+        const soft = (label) => (err) => {
+          console.error(`[useCoachCalendarData] ${label}`, err)
+          return []
+        }
+
+        const [
+          studentsRes,
+          assignmentsRes,
+          evalResultsRows,
+          formRows,
+          paymentRows,
+          activityRows,
+          milestoneRows,
+        ] = await Promise.all([
           supabase
             .from('profiles')
             .select('id, name, avatar_url, birth_date, next_payment_due, active')
@@ -187,6 +217,46 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
             console.error('[useCoachCalendarData] evaluation_results', err)
             return []
           }),
+          // Formularios: todos (son pocos); la función pura decide en qué
+          // día y con qué estado va cada uno.
+          fetchAllRows((from, to) =>
+            supabase
+              .from('intake_form_assignments')
+              .select(
+                'id, student_id, status, form_kind, sent_at, scheduled_for, completed_at, created_at, template:intake_form_templates!template_id(name)'
+              )
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch(soft('intake_form_assignments')),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('payments')
+              .select('id, student_id, paid_on')
+              .gte('paid_on', windowStartYMD)
+              .lte('paid_on', windowEndYMD)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch(soft('payments')),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('activity_logs')
+              .select('id, student_id, date, activity_type, label')
+              .gte('date', windowStartYMD)
+              .lte('date', windowEndYMD)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch(soft('activity_logs')),
+          fetchAllRows((from, to) =>
+            supabase
+              .from('student_milestones')
+              .select('id, student_id, kind, created_at, voided_at, payload')
+              .in('kind', MILESTONE_KINDS_IN_CALENDAR)
+              .is('voided_at', null)
+              .gte('created_at', tsStart)
+              .lt('created_at', tsEnd)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch(soft('student_milestones')),
         ])
 
         if (cancelled || reqIdRef.current !== myReqId) return
@@ -343,6 +413,12 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
         setEventAssignments(assignmentsRes.data || [])
         setTrainedByDate(trainedMap)
         setEvalResults(evalResultsRows || [])
+        setExtras({
+          forms: formRows || [],
+          payments: paymentRows || [],
+          activities: (activityRows || []).map(toActivityEvent),
+          milestones: milestoneRows || [],
+        })
         setCompletedByStudent(completedMap)
         setPartialByStudent(partialMap)
       } catch (err) {
@@ -360,8 +436,9 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
   // Eventos del coach (siempre).
   const eventsByDate = useMemo(
-    () => computeCalendarEvents(students, eventAssignments, window, new Date(), evalResults),
-    [students, eventAssignments, window, evalResults]
+    () =>
+      computeCalendarEvents(students, eventAssignments, window, new Date(), evalResults, extras),
+    [students, eventAssignments, window, evalResults, extras]
   )
 
   // Nombres de quienes entrenaron cada día, en orden alfabético.
@@ -462,6 +539,20 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     perStudentDays,
     trainedCountByDate,
     trainedNamesByDate,
+  }
+}
+
+// Actividad extra → emoji + nombre en el idioma de la app. Los tipos
+// libres ("Otro deporte", "Otra") usan lo que escribió la persona.
+const ACTIVITY_BY_KEY = new Map(ACTIVITY_TYPES.map((t) => [t.key, t]))
+function toActivityEvent(row) {
+  const t = ACTIVITY_BY_KEY.get(row.activity_type)
+  const typeName = t ? i18n.t(t.i18n) : ''
+  return {
+    student_id: row.student_id,
+    date: row.date,
+    emoji: t?.emoji || '✨',
+    name: (row.label && String(row.label).trim()) || typeName || 'Actividad',
   }
 }
 

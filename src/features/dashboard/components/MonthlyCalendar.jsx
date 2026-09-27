@@ -7,7 +7,8 @@ import useCoachCalendarData, {
   STUDENT_DAY_STYLE,
   computeStudentDayStatus,
 } from '../hooks/useCoachCalendarData'
-import { agendaPhrase } from '../calendarLogic'
+import { agendaPhrase, CALENDAR_GROUPS, filterEventsByDate } from '../calendarLogic'
+import useCalendarVisibility from '../hooks/useCalendarVisibility'
 import { DAYS_OF_WEEK } from '@/features/plans/assignmentHelpers'
 
 // ============================================================
@@ -28,6 +29,13 @@ import { DAYS_OF_WEEK } from '@/features/plans/assignmentHelpers'
 //   - Tocar un día en modo todas lista quiénes entrenaron.
 //   - Se sacó el modo comparación (2-3 personas con puntitos de
 //     colores): no se entendía y lo cubre la lista de cumplimiento.
+//
+// 2026-09-27: la leyenda son interruptores por tema (Planes,
+// Evaluaciones, Formularios, Pagos, La persona). Tocar uno lo apaga o
+// lo enciende acá y en "Próximos 7 días"; queda guardado en el
+// dispositivo. Formularios sin responder y respondidos arrancan
+// apagados. Cada formulario / evaluación aparece una sola vez, según
+// su estado.
 //
 // La persona elegida es la del filtro global del dashboard. El
 // selector de acá arriba cambia ese mismo filtro (onSelectStudent).
@@ -78,8 +86,20 @@ export default function MonthlyCalendar({
   const [openDay, setOpenDay] = useState(null) // YMD string
 
   const selectedIds = useMemo(() => (studentId ? [studentId] : []), [studentId])
-  const { loading, eventsByDate, perStudentDays, trainedCountByDate, trainedNamesByDate, window } =
-    useCoachCalendarData(monthAnchor, selectedIds)
+  const {
+    loading,
+    eventsByDate: allEventsByDate,
+    perStudentDays,
+    trainedCountByDate,
+    trainedNamesByDate,
+    window,
+  } = useCoachCalendarData(monthAnchor, selectedIds)
+  const { hidden, toggle, reset, isDefault } = useCalendarVisibility()
+  const eventsByDate = useMemo(
+    () => filterEventsByDate(allEventsByDate, hidden),
+    [allEventsByDate, hidden]
+  )
+  const showTrained = !hidden.has('trained')
 
   const mode = studentId ? 'individual' : 'aggregate'
   const studentData = studentId ? perStudentDays.get(studentId) : null
@@ -140,7 +160,7 @@ export default function MonthlyCalendar({
     return { counts, planText }
   }, [mode, studentData, days, monthAnchor, today])
 
-  const hasTrainedCounts = mode === 'aggregate' && trainedCountByDate?.size > 0
+  const hasTrainedCounts = mode === 'aggregate' && trainedCountByDate?.size > 0 && showTrained
 
   return (
     <section className="card space-y-3">
@@ -254,7 +274,9 @@ export default function MonthlyCalendar({
               events={eventsByDate.get(ymd) || []}
               status={mode === 'individual' ? dayStatus(studentData, ymd, today) : 'rest'}
               trainedCount={
-                mode === 'aggregate' && day <= today ? trainedCountByDate?.get(ymd) || 0 : 0
+                mode === 'aggregate' && showTrained && day <= today
+                  ? trainedCountByDate?.get(ymd) || 0
+                  : 0
               }
               onClick={() => setOpenDay((prev) => (prev === ymd ? null : ymd))}
             />
@@ -271,7 +293,9 @@ export default function MonthlyCalendar({
           events={eventsByDate.get(openDay) || []}
           mode={mode}
           status={mode === 'individual' ? dayStatus(studentData, openDay, today) : 'rest'}
-          trainedNames={mode === 'aggregate' ? trainedNamesByDate?.get(openDay) || [] : []}
+          trainedNames={
+            mode === 'aggregate' && showTrained ? trainedNamesByDate?.get(openDay) || [] : []
+          }
           onClose={() => setOpenDay(null)}
         />
       )}
@@ -281,6 +305,10 @@ export default function MonthlyCalendar({
         eventsByDate={eventsByDate}
         summary={summary}
         hasTrainedCounts={hasTrainedCounts}
+        hidden={hidden}
+        onToggle={toggle}
+        onReset={reset}
+        isDefault={isDefault}
       />
     </section>
   )
@@ -293,16 +321,19 @@ function EventTag({ ev, withName = true }) {
   const cfg = COACH_EVENT_KIND[ev.type]
   if (!cfg) return null
   const cls = ev.late ? cfg.lateClass : cfg.tagClass
+  // La actividad extra se nombra con su propio emoji ("⚽ Fútbol").
+  const label = ev.type === 'activity' ? `${ev.emoji} ${ev.planTitle}` : cfg.label
+  const short = ev.type === 'activity' ? ev.emoji : cfg.short
   return (
     <span
       className={`block rounded-md px-0.5 sm:px-1.5 py-px sm:py-0.5 text-[9.5px] sm:text-[11.5px] leading-tight text-center sm:text-left truncate sm:whitespace-normal ${cls}`}
       title={ev.title}
     >
       <span className="hidden sm:inline">
-        {cfg.label}
+        {label}
         {withName && ev.studentName ? ` · ${firstName(ev.studentName)}` : ''}
       </span>
-      <span className="sm:hidden">{cfg.short}</span>
+      <span className="sm:hidden">{short}</span>
     </span>
   )
 }
@@ -443,21 +474,43 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Legend — solo lo que aparece este mes
+// Legend — interruptores por tema (2026-09-27)
+// ------------------------------------------------------------
+// Cada tipo de evento es un botón: encendido se ve como en el
+// calendario; apagado, en blanco y tachado. Siempre se listan todos
+// (para poder encender algo que este mes no aparece). Abajo, las
+// referencias que no se apagan: "Atrasado" y los estados del día de
+// una persona.
 // ─────────────────────────────────────────────────────────────
-function Legend({ mode, eventsByDate, summary, hasTrainedCounts }) {
-  const present = useMemo(() => {
-    const set = new Set()
+const TRAINED_CHIP = {
+  label: 'Entrenaron',
+  tagClass: 'bg-white border border-linea text-texto2',
+}
+
+function Legend({
+  mode,
+  eventsByDate,
+  summary,
+  hasTrainedCounts,
+  hidden,
+  onToggle,
+  onReset,
+  isDefault,
+}) {
+  // Atrasado (rojo) y formulario demorado (ámbar) solo si aparecen.
+  const { hasLate, hasLateForm } = useMemo(() => {
+    let late = false
+    let lateForm = false
     for (const arr of eventsByDate.values()) {
-      for (const ev of arr) set.add(ev.late ? `${ev.type}:late` : ev.type)
+      for (const ev of arr) {
+        if (!ev.late) continue
+        if (ev.type === 'form_unanswered') lateForm = true
+        else late = true
+      }
     }
-    return set
+    return { hasLate: late, hasLateForm: lateForm }
   }, [eventsByDate])
 
-  const kinds = Object.keys(COACH_EVENT_KIND).filter(
-    (k) => present.has(k) || present.has(`${k}:late`)
-  )
-  const hasLate = [...present].some((k) => k.endsWith(':late'))
   const statuses =
     mode === 'individual'
       ? [
@@ -473,41 +526,86 @@ function Legend({ mode, eventsByDate, summary, hasTrainedCounts }) {
         )
       : []
 
-  if (kinds.length === 0 && !hasLate && statuses.length === 0 && !hasTrainedCounts) return null
-
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-texto2 pt-2 border-t border-linea">
-      {kinds.map((k) => (
-        <span
-          key={k}
-          className={`inline-block rounded-md px-1.5 py-0.5 text-[11.5px] ${COACH_EVENT_KIND[k].tagClass}`}
-        >
-          {COACH_EVENT_KIND[k].legend || COACH_EVENT_KIND[k].label}
-        </span>
-      ))}
-      {hasLate && (
-        <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fee2e2] text-[#b91c1c]">
-          Atrasado
-        </span>
-      )}
-      {statuses.map((s) => {
-        const st = STUDENT_DAY_STYLE[s]
-        return (
-          <span
-            key={s}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${st.cellClass} ${st.textClass}`}
+    <div className="space-y-2 pt-2 border-t border-linea">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-texto2">Tocá un tipo para mostrarlo u ocultarlo</p>
+        {!isDefault && (
+          <button
+            onClick={onReset}
+            className="text-xs font-medium text-primary-700 hover:underline flex-shrink-0"
           >
-            <b>{st.icon}</b>
-            {st.label}
-          </span>
-        )
-      })}
-      {hasTrainedCounts && (
-        <span>
-          <span className="hidden sm:inline">“5 entrenaron”</span>
-          <span className="sm:hidden">“5 entr.”</span>: personas que registraron entrenamiento ese
-          día (tocá el día para ver quiénes)
-        </span>
+            Restablecer
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        {CALENDAR_GROUPS.map((g) => {
+          const kinds = g.kinds.filter((k) => k !== 'trained' || mode === 'aggregate')
+          if (kinds.length === 0) return null
+          return (
+            <div key={g.key} className="flex flex-wrap items-center gap-1.5">
+              <span className="w-full sm:w-24 text-[11px] font-bold uppercase tracking-wide text-texto3">
+                {g.label}
+              </span>
+              {kinds.map((k) => {
+                const cfg = k === 'trained' ? TRAINED_CHIP : COACH_EVENT_KIND[k]
+                const on = !hidden.has(k)
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => onToggle(k)}
+                    aria-pressed={on}
+                    className={[
+                      'inline-block rounded-md px-1.5 py-0.5 text-[11.5px] transition-opacity',
+                      on
+                        ? cfg.tagClass
+                        : 'bg-white border border-dashed border-linea text-texto3 line-through',
+                    ].join(' ')}
+                  >
+                    {cfg.legend || cfg.label}
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+
+      {(hasLate || hasLateForm || statuses.length > 0 || hasTrainedCounts) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-texto2">
+          {hasLate && (
+            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fee2e2] text-[#b91c1c]">
+              Atrasado
+            </span>
+          )}
+          {hasLateForm && (
+            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fef3c7] text-[#92400e]">
+              Sin responder hace 7 días o más
+            </span>
+          )}
+          {statuses.map((s) => {
+            const st = STUDENT_DAY_STYLE[s]
+            return (
+              <span
+                key={s}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${st.cellClass} ${st.textClass}`}
+              >
+                <b>{st.icon}</b>
+                {st.label}
+              </span>
+            )
+          })}
+          {hasTrainedCounts && (
+            <span>
+              <span className="hidden sm:inline">“5 entrenaron”</span>
+              <span className="sm:hidden">“5 entr.”</span>: personas que registraron entrenamiento
+              ese día (tocá el día para ver quiénes)
+            </span>
+          )}
+        </div>
       )}
     </div>
   )

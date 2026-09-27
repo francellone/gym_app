@@ -38,6 +38,8 @@ export default function useCoachAlerts() {
   const [wellbeingLogs, setWellbeingLogs] = useState([])
   // v54: omisiones (ejercicio y bloque) para la alerta "omitió por molestia"
   const [skippedLogs, setSkippedLogs] = useState([])
+  // 2026-09-27: formularios sin responder (motivo en "Necesitan atención")
+  const [forms, setForms] = useState([])
   const [refreshTick, setRefreshTick] = useState(0)
   const reqIdRef = useRef(0)
 
@@ -70,11 +72,12 @@ export default function useCoachAlerts() {
         // de inactividad marcaba 22/23 alumnos porque a la mayoría le
         // faltaban los logs recientes en la página truncada). Por eso los
         // fetches de logs paginan con fetchAllRows + orden estable.
-        const [studentsRes, logRows, wellbeingRows, skippedBlockRows] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select(
-              `
+        const [studentsRes, logRows, wellbeingRows, skippedBlockRows, formRows] = await Promise.all(
+          [
+            supabase
+              .from('profiles')
+              .select(
+                `
               id, name, next_payment_due,
               plan_assignments:plan_assignments!student_id(
                 id, active, status, plan_type, start_date, closed_at,
@@ -82,57 +85,73 @@ export default function useCoachAlerts() {
                 plan:plans!plan_id(plan_type, title, sessions_per_week)
               )
             `
-            )
-            .eq('role', 'student')
-            .eq('active', true),
-          // Sumamos actual_weight + plan_exercise → exercise.name para que
-          // la alerta de estancamiento sea por ejercicio (no aggregate).
-          fetchAllRows((from, to) =>
-            supabase
-              .from('workout_logs')
-              .select(
-                `id, student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
+              )
+              .eq('role', 'student')
+              .eq('active', true),
+            // Sumamos actual_weight + plan_exercise → exercise.name para que
+            // la alerta de estancamiento sea por ejercicio (no aggregate).
+            fetchAllRows((from, to) =>
+              supabase
+                .from('workout_logs')
+                .select(
+                  `id, student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
                  status, skip_reason,
                  plan_exercise:plan_exercises!plan_exercise_id(
                    exercise:exercises!exercise_id(id, name)
                  )`
-              )
-              .gte('logged_date', ymdSince)
-              .lte('logged_date', ymdToday)
-              .order('logged_date', { ascending: true })
-              .order('id', { ascending: true })
-              .range(from, to)
-          ),
-          fetchAllRows((from, to) =>
-            supabase
-              .from('wellbeing_logs')
-              .select('id, user_id, date, energy_level, muscle_fatigue, stress_level, notes')
-              .gte('date', ymdWellbeingSince)
-              .lte('date', ymdToday)
-              .order('date', { ascending: true })
-              .order('id', { ascending: true })
-              .range(from, to)
-          ),
-          // v54: bloques (circuito / aeróbico) omitidos por molestia. Solo
-          // esos: el resto de las alertas sigue mirando workout_logs.
-          fetchAllRows((from, to) =>
-            supabase
-              .from('workout_block_logs')
-              .select(
-                `id, student_id, logged_date, status, skip_reason,
+                )
+                .gte('logged_date', ymdSince)
+                .lte('logged_date', ymdToday)
+                .order('logged_date', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to)
+            ),
+            fetchAllRows((from, to) =>
+              supabase
+                .from('wellbeing_logs')
+                .select('id, user_id, date, energy_level, muscle_fatigue, stress_level, notes')
+                .gte('date', ymdWellbeingSince)
+                .lte('date', ymdToday)
+                .order('date', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to)
+            ),
+            // v54: bloques (circuito / aeróbico) omitidos por molestia. Solo
+            // esos: el resto de las alertas sigue mirando workout_logs.
+            fetchAllRows((from, to) =>
+              supabase
+                .from('workout_block_logs')
+                .select(
+                  `id, student_id, logged_date, status, skip_reason,
                  block:plan_blocks!plan_block_id(title, block_type)`
-              )
-              .eq('status', 'skipped')
-              .eq('skip_reason', 'discomfort')
-              .gte('logged_date', ymdWellbeingSince)
-              .lte('logged_date', ymdToday)
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch((err) => {
-            console.error('[useCoachAlerts] block logs omitidos', err)
-            return []
-          }),
-        ])
+                )
+                .eq('status', 'skipped')
+                .eq('skip_reason', 'discomfort')
+                .gte('logged_date', ymdWellbeingSince)
+                .lte('logged_date', ymdToday)
+                .order('id', { ascending: true })
+                .range(from, to)
+            ).catch((err) => {
+              console.error('[useCoachAlerts] block logs omitidos', err)
+              return []
+            }),
+            // Formularios todavía sin responder (RLS: solo los de esta coach).
+            fetchAllRows((from, to) =>
+              supabase
+                .from('intake_form_assignments')
+                .select(
+                  'id, student_id, status, sent_at, scheduled_for, completed_at, template:intake_form_templates!template_id(name)'
+                )
+                .neq('status', 'completed')
+                .is('completed_at', null)
+                .order('id', { ascending: true })
+                .range(from, to)
+            ).catch((err) => {
+              console.error('[useCoachAlerts] formularios', err)
+              return []
+            }),
+          ]
+        )
 
         if (cancelled || reqIdRef.current !== myReqId) return
 
@@ -164,6 +183,7 @@ export default function useCoachAlerts() {
           })),
         ])
         setWellbeingLogs(wellbeingRows)
+        setForms(formRows || [])
       } catch (err) {
         console.error('[useCoachAlerts] fetch', err)
         if (!cancelled && reqIdRef.current === myReqId) setError(err)
@@ -266,9 +286,10 @@ export default function useCoachAlerts() {
         recentLogs: logs,
         wellbeingLogs,
         skippedLogs,
+        forms,
         today: new Date(),
       }),
-    [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs, skippedLogs]
+    [students, lastLogDateByStudent, weeklyByStudent, logs, wellbeingLogs, skippedLogs, forms]
   )
 
   // Números del encabezado del dashboard (rediseño 2026-09-26):

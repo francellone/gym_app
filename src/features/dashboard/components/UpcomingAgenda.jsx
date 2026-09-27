@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import useCoachCalendarData from '../hooks/useCoachCalendarData'
 import { buildAgendaDays, agendaPhrase } from '../calendarLogic'
+import useCalendarVisibility from '../hooks/useCalendarVisibility'
 
 // ============================================================
 // UpcomingAgenda — "Próximos 7 días"
@@ -13,6 +14,8 @@ import { buildAgendaDays, agendaPhrase } from '../calendarLogic'
 // escrito en frases ("Miércoles 30 · Vence el pago de Tomás Paz").
 // Incluye pagos, fines e inicios de plan, evaluaciones y cumpleaños.
 // Si hay una persona filtrada en el dashboard, solo lo de esa persona.
+// 2026-09-27: suma formularios programados y respeta los interruptores
+// de la leyenda del calendario (lo apagado allá no aparece acá).
 // ============================================================
 
 const DAYS = 7
@@ -22,7 +25,8 @@ const ICON = {
   plan_end: { char: '■', cls: 'bg-gray-100 text-gray-700' },
   plan_start: { char: '▸', cls: 'bg-[#dcfce7] text-[#15803d]' },
   evaluation: { char: '◆', cls: 'bg-ciruela-100 text-ciruela-700' },
-  birthday: { char: '★', cls: 'bg-niebla-100 text-niebla-700' },
+  birthday: { char: '🎂', cls: 'bg-durazno-50 text-primary-700' },
+  form_scheduled: { char: '✎', cls: 'bg-[#f5f0eb] text-[#5a4b42]' },
 }
 
 function startOfToday() {
@@ -43,9 +47,10 @@ export default function UpcomingAgenda({ studentId = null }) {
     window: win,
     eventsOnly: true,
   })
+  const { hidden } = useCalendarVisibility()
   const days = useMemo(
-    () => buildAgendaDays(eventsByDate, today, DAYS, studentId),
-    [eventsByDate, today, studentId]
+    () => buildAgendaDays(eventsByDate, today, DAYS, studentId, hidden),
+    [eventsByDate, today, studentId, hidden]
   )
 
   const dayLabel = (ymd) => {
@@ -67,7 +72,7 @@ export default function UpcomingAgenda({ studentId = null }) {
         <p className="text-sm text-texto3 py-2">Cargando…</p>
       ) : days.length === 0 ? (
         <p className="text-sm text-texto2 py-2">
-          Nada anotado: sin pagos, fines de plan, evaluaciones ni cumpleaños esta semana.
+          Nada anotado: sin pagos, planes, evaluaciones, formularios ni cumpleaños esta semana.
         </p>
       ) : (
         <div className="divide-y divide-linea">

@@ -72,6 +72,8 @@ export const ALERT_THRESHOLDS = {
   ],
   PAIN_MIN_MENTIONS: 1, // bajado de 2→1 (decisión Franco 23/05 noche)
   PAIN_WINDOW_DAYS: 21,
+  // Formulario enviado y sin responder hace N+ días (2026-09-27).
+  FORM_UNANSWERED_DAYS: 7,
   // Omitió algo por "me molestaba algo" (v54). Ventana en días.
   SKIP_DISCOMFORT_WINDOW_DAYS: 14,
   // Estancamiento: sin subir max(actual_weight) en N días.
@@ -269,6 +271,46 @@ export function computePlanExpired(students, today = new Date()) {
     })
   }
   out.sort((a, b) => b.daysExpired - a.daysExpired)
+  return out
+}
+
+// ============================================================
+// 3b-bis. Formulario sin responder (2026-09-27)
+// ------------------------------------------------------------
+// forms: intake_form_assignments { student_id, status, sent_at,
+//   scheduled_for, completed_at, template?: { name } }.
+// Cuenta desde el día en que le llegó (programado o envío manual).
+// Uno por persona: el más viejo, con cuántos otros tiene pendientes.
+// ============================================================
+export function computeFormsUnanswered(students, forms, today = new Date()) {
+  const todayD = startOfDay(today)
+  const byStudent = new Map()
+  for (const f of forms || []) {
+    if (f.status === 'completed' || f.completed_at) continue
+    const raw = f.scheduled_for || f.sent_at
+    if (!raw) continue
+    const d = startOfDay(new Date(raw))
+    if (Number.isNaN(d.getTime()) || d > todayD) continue
+    const days = daysBetween(todayD, d)
+    if (days < ALERT_THRESHOLDS.FORM_UNANSWERED_DAYS) continue
+    const acc = byStudent.get(f.student_id)
+    const title = f.template?.name || null
+    if (!acc) byStudent.set(f.student_id, { daysWaiting: days, count: 1, formTitle: title })
+    else {
+      acc.count += 1
+      if (days > acc.daysWaiting) {
+        acc.daysWaiting = days
+        acc.formTitle = title
+      }
+    }
+  }
+  const out = []
+  for (const s of students || []) {
+    const acc = byStudent.get(s.id)
+    if (!acc) continue
+    out.push({ studentId: s.id, name: s.name, ...acc })
+  }
+  out.sort((a, b) => b.daysWaiting - a.daysWaiting)
   return out
 }
 
@@ -812,6 +854,7 @@ export function computeAllAlerts({
   recentLogs,
   wellbeingLogs = [],
   skippedLogs = [],
+  forms = [],
   today = new Date(),
 }) {
   const { overdue, dueSoon } = computePaymentAlerts(students, today)
@@ -829,6 +872,7 @@ export function computeAllAlerts({
     lowMotivationStudents: computeLowMotivationStudents(students, wellbeingLogs, today),
     painStudents: computePainStudents(students, wellbeingLogs, today),
     skipDiscomfort: computeSkipDiscomfort(students, skippedLogs, today),
+    formUnanswered: computeFormsUnanswered(students, forms, today),
     stagnationStudents: computeStagnationByExercise(students, recentLogs, today),
   }
 }
@@ -929,6 +973,13 @@ export const ALERT_KIND = {
     borderClass: 'border-l-amber-400',
     accentClass: 'text-amber-600',
   },
+  formUnanswered: {
+    key: 'formUnanswered',
+    label: 'Formulario sin responder',
+    icon: '📝',
+    borderClass: 'border-l-amber-400',
+    accentClass: 'text-amber-600',
+  },
   stagnationStudents: {
     key: 'stagnationStudents',
     label: 'Estancamiento',
@@ -947,6 +998,7 @@ export const ALERT_RENDER_ORDER = [
   'skipDiscomfort', // omitió por molestia — misma señal de riesgo
   'fatigueStudents', // fatiga — ajustar carga
   'planExpired',
+  'formUnanswered',
   'planExpiringSoon',
   'dueSoon',
   'inactiveStudents',
@@ -980,6 +1032,7 @@ const PERSON_ALERT_ORDER = [
   'painStudents',
   'skipDiscomfort',
   'planExpired',
+  'formUnanswered',
   'adherenceDecline',
   'fatigueStudents',
   'lowMotivationStudents',
@@ -1033,6 +1086,13 @@ export function describeAlertItem(kind, it) {
             ? `Plan vencido hace ${plural(it.daysExpired, 'día', 'días')}`
             : 'Plan vencido',
       }
+    case 'formUnanswered': {
+      const more = it.count > 1 ? ` (y ${plural(it.count - 1, 'otro', 'otros')})` : ''
+      return {
+        tone: 'warn',
+        text: `Formulario sin responder hace ${plural(it.daysWaiting, 'día', 'días')}${more}`,
+      }
+    }
     case 'adherenceDecline':
       return {
         tone: 'warn',

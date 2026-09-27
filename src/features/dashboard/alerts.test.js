@@ -421,3 +421,44 @@ describe('computeSkipDiscomfort (etapa 5)', () => {
     expect(rows[0].items.map((i) => i.kind)).toEqual(['painStudents', 'skipDiscomfort'])
   })
 })
+
+// ============================================================
+// 2026-09-27 — formulario sin responder en "Necesitan atención"
+// ============================================================
+import { computeFormsUnanswered, describeAlertItem as describeItem } from './alerts'
+
+describe('computeFormsUnanswered', () => {
+  const today = new Date(2026, 8, 27)
+  const students = [
+    { id: 's1', name: 'Ana' },
+    { id: 's2', name: 'Beto' },
+  ]
+
+  it('desde los 7 días; uno por persona con el más viejo y cuántos más', () => {
+    const out = computeFormsUnanswered(
+      students,
+      [
+        { student_id: 's1', status: 'pending', sent_at: '2026-09-20T15:00:00Z' }, // 7 días
+        { student_id: 's1', status: 'pending', sent_at: '2026-08-31T15:00:00Z' }, // 27 días
+        { student_id: 's2', status: 'pending', sent_at: '2026-09-22T15:00:00Z' }, // 5 días
+        { student_id: 's2', status: 'completed', sent_at: '2026-08-01T15:00:00Z' },
+      ],
+      today
+    )
+    expect(out).toEqual([
+      { studentId: 's1', name: 'Ana', daysWaiting: 27, count: 2, formTitle: null },
+    ])
+    expect(describeItem('formUnanswered', out[0]).text).toBe(
+      'Formulario sin responder hace 27 días (y 1 otro)'
+    )
+  })
+
+  it('un programado que todavía no salió no cuenta', () => {
+    const out = computeFormsUnanswered(
+      students,
+      [{ student_id: 's1', status: 'scheduled', scheduled_for: '2026-10-05T12:00:00Z' }],
+      today
+    )
+    expect(out).toEqual([])
+  })
+})
