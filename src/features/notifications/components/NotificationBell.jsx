@@ -42,81 +42,88 @@ import { formatDistanceToNow } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
 
 // ── Ícono y color por tipo de notificación ────────────────────
+// Identidad (2026-09-27, aprobado por Franco): cinco tonos con significado,
+// no un color por tipo.
+//   verde    salió bien (sesión, semana, plan terminado, formulario)
+//   ámbar    conviene mirarlo (plan por vencer, estancamiento, marca anulada)
+//   ciruela  evaluaciones
+//   durazno  novedades del plan y mensajes
+//   gris     informativo
 const TYPE_CONFIG = {
   plan_assigned: {
     Icon: Dumbbell,
-    color: 'text-blue-500',
-    bg: 'bg-blue-50',
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
   },
   activity_update: {
     Icon: UserCheck,
-    color: 'text-green-500',
-    bg: 'bg-green-50',
+    color: 'text-texto2',
+    bg: 'bg-[#f5f0eb]',
   },
   session_completed: {
     Icon: CheckCheck,
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-50',
+    color: 'text-[#16a34a]',
+    bg: 'bg-[#dcfce7]',
   },
   plan_expiring: {
     Icon: Calendar,
-    color: 'text-amber-500',
-    bg: 'bg-amber-50',
+    color: 'text-[#d97706]',
+    bg: 'bg-[#fef3c7]',
   },
   stagnation_alert: {
     Icon: AlertTriangle,
-    color: 'text-red-500',
-    bg: 'bg-red-50',
+    color: 'text-[#d97706]',
+    bg: 'bg-[#fef3c7]',
   },
   coach_comment: {
     Icon: MessageSquare,
-    color: 'text-purple-500',
-    bg: 'bg-purple-50',
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
   },
   student_note: {
     Icon: MessageSquare,
-    color: 'text-orange-500',
-    bg: 'bg-orange-50',
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
   },
   weekly_summary: {
     Icon: TrendingUp,
-    color: 'text-indigo-500',
-    bg: 'bg-indigo-50',
+    color: 'text-texto2',
+    bg: 'bg-[#f5f0eb]',
   },
   form_submitted: {
     Icon: ClipboardCheck,
-    color: 'text-teal-500',
-    bg: 'bg-teal-50',
+    color: 'text-[#16a34a]',
+    bg: 'bg-[#dcfce7]',
   },
   evaluation_completed: {
     Icon: ClipboardCheck,
-    color: 'text-violet-600',
-    bg: 'bg-violet-50',
+    color: 'text-ciruela-600',
+    bg: 'bg-ciruela-100',
   },
   plan_updated: {
     Icon: RefreshCw,
-    color: 'text-sky-500',
-    bg: 'bg-sky-50',
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
   },
   profile_change: {
     Icon: UserCog,
-    color: 'text-cyan-600',
-    bg: 'bg-cyan-50',
+    color: 'text-texto2',
+    bg: 'bg-[#f5f0eb]',
   }, // v55: avisos informativos de hitos (la celebración es de la persona)
   week_completed: {
     Icon: CalendarCheck,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50',
+    color: 'text-[#16a34a]',
+    bg: 'bg-[#dcfce7]',
   },
   plan_completed: {
     Icon: Trophy,
-    color: 'text-amber-600',
-    bg: 'bg-amber-50',
+    color: 'text-[#16a34a]',
+    bg: 'bg-[#dcfce7]',
   },
   personal_best_voided: {
     Icon: Undo2,
-    color: 'text-gray-500',
-    bg: 'bg-gray-100',
+    color: 'text-[#d97706]',
+    bg: 'bg-[#fef3c7]',
   },
 }
 
@@ -221,7 +228,7 @@ function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread 
         if (targetUrl) onNavigate(targetUrl)
       }}
       className={`w-full text-left flex items-start gap-3 px-4 py-3 transition-colors
-        hover:bg-gray-50 ${showAsUnread ? 'bg-blue-50/30' : ''}`}
+        hover:bg-durazno-50`}
     >
       {/* Ícono */}
       <div
@@ -244,7 +251,12 @@ function NotificationItem({ notification, onRead, onNavigate, highlightAsUnread 
       </div>
 
       {/* Punto de no leída */}
-      {showAsUnread && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />}
+      {showAsUnread && (
+        <div
+          className="w-2 h-2 rounded-full bg-primary-600 flex-shrink-0 mt-2"
+          aria-hidden="true"
+        />
+      )}
     </button>
   )
 }
@@ -332,7 +344,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
         {unreadCount > 0 && (
           <span
             className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5
-                           bg-red-500 text-white text-[10px] font-bold rounded-full
+                           bg-primary-700 text-white text-[10px] font-bold rounded-full
                            flex items-center justify-center leading-none"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -355,7 +367,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
                 {t('notifications.title')}
               </span>
               {unreadCount > 0 && (
-                <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                <span className="bg-durazno-100 text-primary-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">
                   {unreadCount}
                 </span>
               )}
@@ -364,7 +376,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="p-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors
+                  className="p-1.5 text-xs text-primary-700 hover:bg-durazno-50 rounded-lg transition-colors
                              flex items-center gap-1 font-medium"
                   title={t('notifications.markAllTitle')}
                 >
@@ -385,7 +397,7 @@ export default function NotificationBell({ userId, theme = 'dark', placement = '
           <div className="overflow-y-auto flex-1 divide-y divide-gray-50">
             {loading ? (
               <div className="flex items-center justify-center py-10">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
