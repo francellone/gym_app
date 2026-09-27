@@ -85,6 +85,17 @@ export default {
         blue: NIEBLA,
         sky: NIEBLA,
         niebla: NIEBLA,
+        // Salvia (2026-09-27): parte "Bienestar". Más gris que el verde de
+        // estado para que no se confundan.
+        salvia: {
+          50: '#f3f7f4',
+          100: '#e7f0e8',
+          200: '#cfe0d3',
+          300: '#a9c7b0',
+          500: '#6a9a76',
+          700: '#4f7a5b',
+          800: '#3f6249',
+        },
         slate: GRIS_CALIDO,
         // Escalas saturadas sueltas (2026-09-27): se llevan a la familia del
         // manual que ya significa lo mismo, así nada queda fuera de paleta.

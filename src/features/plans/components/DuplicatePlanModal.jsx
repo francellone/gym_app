@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { EVAL_TYPES } from '@/features/evaluations/helpers'
 import { X, Copy, Dumbbell, BarChart2, ArrowRight, Loader } from 'lucide-react'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // Two-step modal:
 // Step 1: Choose name + type (training / evaluation)
@@ -266,7 +267,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <span className="text-xl">{et.icon}</span>
+                    <EvalTypeIcon type={et.key} size="sm" />
                     <div>
                       <p
                         className={`text-sm font-semibold ${evalType === et.key ? 'text-purple-700' : 'text-gray-700'}`}

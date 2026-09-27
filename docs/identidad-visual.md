@@ -161,6 +161,27 @@ Círculo Durazno 50 o 100 con las iniciales en Naranja 700.
 
 Líneas en Durazno 300 o Naranja 600, área bajo la línea en Durazno 50, último punto destacado en Naranja 600. Cuadrícula en Línea, ejes en texto terciario.
 
+## 5b. Íconos y colores por parte de la app (agregado 2026-09-27)
+
+Cada parte de la app tiene siempre el mismo fondo y el mismo tono de ícono, así el color solo ya dice de qué se trata. Verde, ámbar y rojo no son partes: se reservan para estados (bien, atención, problema) y se usan en cualquier parte.
+
+| Parte                  | Fondo     | Ícono     | Capa clara (dos tonos) |
+| ---------------------- | --------- | --------- | ---------------------- |
+| Entrenamiento          | `#ffedd5` | `#c2410c` | `#fdba74`              |
+| Aeróbico               | `#e3ecf1` | `#3d5869` | `#a3bccb`              |
+| Evaluaciones           | `#f3e8ef` | `#6b3f5d` | `#d3adc6`              |
+| Bienestar (salvia)     | `#e7f0e8` | `#4f7a5b` | `#a9c7b0`              |
+| Mensajes y formularios | `#f5f0eb` | `#5a4b42` | `#d8ccc1`              |
+
+Dos estilos, los mismos colores:
+
+- **Estilo 1, línea en círculo** (`<CircleIcon>`): ícono de línea dentro de un círculo con el fondo de su parte. Para listas, filas, avisos y carteles, donde el ícono acompaña al texto.
+- **Estilo 2, dos tonos en recuadro** (`<DuoIcon>`): ícono relleno a dos tonos dentro de un recuadro redondeado. Para identificar un tipo o una sección: tipos de evaluación, encabezados, tarjetas grandes.
+
+Ambos viven en `src/components/icons/` (colores en `segments.js`). Los íconos a dos tonos son trazados de Phosphor Icons (licencia MIT) copiados en `duoPaths.js`.
+
+**Emojis:** no se usan como íconos de la interfaz. Los festejos (semana completa, fin de bloque, informe para la persona) sí conservan su emoji, porque ahí suma calidez y es parte del mensaje. Los emojis que la coach escribe en su contenido (módulos de formularios, textos) se respetan.
+
 ## 6. Celebraciones
 
 Las celebraciones son el origen de esta identidad y se alinean con ella:
@@ -184,7 +205,7 @@ Las notificaciones usan los colores de estado para el ícono y texto Tinta. Las 
 - Naranja o durazno fuerte rellenando bloques grandes.
 - Colores saturados de fondo para estados.
 - Degradados fuera del encabezado y del cierre de plan.
-- Emojis como íconos de la interfaz (se usan íconos de línea de lucide-react).
+- Emojis como íconos de la interfaz (se usan los dos estilos de la sección 5b). Excepción: los festejos.
 - Sombra en tarjetas del contenido.
 - Más de un botón principal por tarjeta.
 - Textos que dicen "alumno" o "alumna": se usa "persona" (lenguaje neutro).
@@ -202,4 +223,5 @@ Las notificaciones usan los colores de estado para el ícono y texto Tinta. Las 
 ## Historial
 
 - v1 (2026-09-26): primera versión. Variante elegida "Encabezado durazno", letra Roboto fija.
+- v1.2 (2026-09-27): colores por parte de la app (suma salvia para Bienestar), dos estilos de ícono y regla de emojis.
 - v1.1 (2026-09-26): colores de categoría ciruela (evaluaciones) y niebla (información, aeróbico), pedidos por Franco para que la vista de la coach no quede homogénea. Sombras de Tailwind en tono cálido.

@@ -8,7 +8,6 @@ import { useAuth } from '@/features/auth/AuthContext'
 import {
   emptyResults,
   evalTypeLabel,
-  evalTypeIcon,
   isExerciseBasedEval,
   groupEvalExercisesByDay,
   buildExerciseResponseJson,
@@ -27,6 +26,7 @@ import BodyCompForm from '../components/forms/BodyCompForm'
 import ScoredForm from '../components/forms/ScoredForm'
 import EvalByDayForm from '../components/forms/EvalByDayForm'
 import CoachModeLangToggle from '@/features/workouts/components/CoachModeLangToggle'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // ============================================================
 // Helper: leer la nota general de un evaluation_result desde el panel
@@ -738,7 +738,7 @@ export default function EvalWorkoutPage() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{evalTypeIcon(plan.eval_type)}</span>
+            <EvalTypeIcon type={plan.eval_type} size="sm" />
             <h1 className="text-lg font-bold text-gray-900 break-words">{plan.title}</h1>
           </div>
           <p className="text-sm text-gray-500">

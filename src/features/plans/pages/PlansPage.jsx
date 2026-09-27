@@ -15,7 +15,8 @@ import {
 import DuplicatePlanModal from '../components/DuplicatePlanModal'
 import DeletePlanModal from '../components/DeletePlanModal'
 import { setPlanArchived } from '../planLifecycle'
-import { evalTypeColor, evalTypeIcon } from '@/features/evaluations/helpers'
+import { evalTypeColor } from '@/features/evaluations/helpers'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 export default function PlansPage() {
   const navigate = useNavigate()
@@ -242,7 +243,7 @@ export default function PlansPage() {
                       )}
                       {isEval && plan.eval_type && (
                         <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                          {evalTypeIcon(plan.eval_type)} Evaluación
+                          <EvalTypeIcon type={plan.eval_type} inline /> Evaluación
                         </span>
                       )}
                     </div>

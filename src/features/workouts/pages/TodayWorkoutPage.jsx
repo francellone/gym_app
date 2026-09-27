@@ -16,7 +16,11 @@ import {
   ChevronDown,
   Activity,
   ClipboardEdit,
+  CircleDashed,
+  CalendarCheck,
+  Smile,
 } from 'lucide-react'
+import { CircleIcon } from '@/components/icons/SegmentIcon'
 import {
   DAY_SECTION_IDS,
   SECTION_LABELS,
@@ -1818,7 +1822,12 @@ export default function TodayWorkoutPage() {
                       : 'bg-durazno-50 border-durazno-200'
                 }`}
               >
-                <p className="text-tinta font-bold">
+                <p className="text-tinta font-bold inline-flex items-center justify-center gap-2">
+                  <CircleIcon
+                    icon={isPartialDay ? CircleDashed : CalendarCheck}
+                    segment={isPartialDay ? 'warn' : 'ok'}
+                    size="sm"
+                  />
                   {isPartialDay
                     ? t('workout.dayPartialBanner', {
                         day: dayShortLabel(id),
@@ -1832,7 +1841,8 @@ export default function TodayWorkoutPage() {
                 )}
                 {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
                 {isFinalBanner && isToday && !wellbeing && (
-                  <p className="text-texto2 text-xs mt-1.5">
+                  <p className="text-texto2 text-xs mt-1.5 inline-flex items-center justify-center gap-1.5">
+                    <CircleIcon icon={Smile} segment="wellbeing" size="xs" />
                     {t('workout.wellbeingNotLoggedToday')}
                   </p>
                 )}

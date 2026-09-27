@@ -9,6 +9,7 @@ export const EVAL_TYPES = [
     label: 'Fuerza Máxima (1RM)',
     description: 'Estimación de 1RM por fórmula a partir de peso × reps',
     icon: '🏋️',
+    duo: 'barbell', // ícono a dos tonos (identidad 2026-09-27)
     color: 'red',
   },
   {
@@ -16,6 +17,7 @@ export const EVAL_TYPES = [
     label: 'Fuerza-Resistencia',
     description: 'Máximas repeticiones hasta el fallo o en tiempo fijo',
     icon: '💪',
+    duo: 'repeat', // ícono a dos tonos (identidad 2026-09-27)
     color: 'orange',
   },
   {
@@ -23,6 +25,7 @@ export const EVAL_TYPES = [
     label: 'Mixta / Por ejercicio',
     description: 'Combina métodos por ejercicio (1RM, fuerza-resistencia, pruebas)',
     icon: '🔀',
+    duo: 'shuffle', // ícono a dos tonos (identidad 2026-09-27)
     color: 'indigo',
   },
   {
@@ -30,6 +33,7 @@ export const EVAL_TYPES = [
     label: 'Potencia',
     description: 'Potencia explosiva en saltos y sprints',
     icon: '⚡',
+    duo: 'lightning', // ícono a dos tonos (identidad 2026-09-27)
     color: 'yellow',
   },
   {
@@ -37,6 +41,7 @@ export const EVAL_TYPES = [
     label: 'Resistencia Cardiovascular',
     description: 'Estimación de VO₂max por test de campo',
     icon: '🏃',
+    duo: 'person-simple-run', // ícono a dos tonos (identidad 2026-09-27)
     color: 'blue',
   },
   {
@@ -44,6 +49,7 @@ export const EVAL_TYPES = [
     label: 'Composición Corporal',
     description: 'Porcentaje graso y masa magra por pliegues o perímetros',
     icon: '📏',
+    duo: 'ruler', // ícono a dos tonos (identidad 2026-09-27)
     color: 'green',
   },
   {
@@ -51,6 +57,7 @@ export const EVAL_TYPES = [
     label: 'Funcional / Movilidad',
     description: 'Evaluación por puntajes (FMS, sit & reach, movilidad)',
     icon: '🔍',
+    duo: 'person-simple-tai-chi', // ícono a dos tonos (identidad 2026-09-27)
     color: 'purple',
   },
   {
@@ -58,6 +65,7 @@ export const EVAL_TYPES = [
     label: 'Personalizado',
     description: 'Campos libres para cualquier métrica',
     icon: '✏️',
+    duo: 'pencil-simple', // ícono a dos tonos (identidad 2026-09-27)
     color: 'gray',
   },
 ]
@@ -793,24 +801,21 @@ export function emptyResults(evalType, method) {
 // ============================================================
 // HELPERS DE UI
 // ============================================================
-export function evalTypeColor(key) {
-  const map = {
-    one_rm: 'bg-red-100 text-red-700',
-    max_reps: 'bg-orange-100 text-orange-700',
-    mixed: 'bg-indigo-100 text-indigo-700',
-    power: 'bg-yellow-100 text-yellow-700',
-    cardio: 'bg-blue-100 text-blue-700',
-    body_comp: 'bg-green-100 text-green-700',
-    scored: 'bg-purple-100 text-purple-700',
-    custom: 'bg-gray-100 text-gray-600',
-  }
-  return map[key] || 'bg-gray-100 text-gray-600'
+// Identidad (2026-09-27): todas las evaluaciones van en ciruela, el color
+// de su parte de la app. El tipo se distingue por el ícono, no por color.
+export function evalTypeColor() {
+  return 'bg-ciruela-100 text-ciruela-700'
 }
 
 export function evalTypeLabel(key) {
   return EVAL_TYPES.find((e) => e.key === key)?.label || key
 }
 
+export function evalTypeDuo(key) {
+  return EVAL_TYPES.find((e) => e.key === key)?.duo || 'clipboard-text'
+}
+
+// Emoji del tipo: ya no se muestra en la interfaz (se usa <EvalTypeIcon>).
 export function evalTypeIcon(key) {
   return EVAL_TYPES.find((e) => e.key === key)?.icon || '📋'
 }

@@ -16,7 +16,8 @@ import {
   BarChart2,
   Info,
 } from 'lucide-react'
-import { evalTypeIcon, evalTypeLabel } from '@/features/evaluations/helpers'
+import { evalTypeLabel } from '@/features/evaluations/helpers'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 import { filterTrainingLogs, computeWeekTrainingDays } from '@/features/students/dashboardLogic'
 import { useCelebrations } from '@/features/milestones/celebrationContextValue'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
@@ -286,9 +287,7 @@ export default function StudentDashboard() {
                 className="block card hover:bg-durazno-50/60 transition-colors active:scale-[0.98]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-durazno-50 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
-                    {evalTypeIcon(a.plan?.eval_type)}
-                  </div>
+                  <EvalTypeIcon type={a.plan?.eval_type} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm text-tinta break-words">{a.plan?.title}</p>
                     <p className="text-xs text-texto2">

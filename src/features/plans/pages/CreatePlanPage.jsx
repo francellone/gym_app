@@ -29,6 +29,7 @@ import {
 } from '@/features/evaluations/helpers'
 import EvaluationParentPlanField from '../components/EvaluationParentPlanField'
 import EvalDaysEditor from '../components/EvalDaysEditor'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // ============================================================
 // El catálogo de ejercicios se publica por context para que cualquier fila
@@ -430,7 +431,7 @@ function CreatePlanPageInner() {
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <span className="text-lg">{et.icon}</span>
+                  <EvalTypeIcon type={et.key} size="sm" />
                   <div className="flex-1">
                     <p
                       className={`text-sm font-semibold ${plan.eval_type === et.key ? 'text-purple-700' : 'text-gray-700'}`}

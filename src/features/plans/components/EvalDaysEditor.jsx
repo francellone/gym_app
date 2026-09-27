@@ -9,6 +9,7 @@ import {
   PRUEBA_TYPES,
   emptyEvalExercise,
 } from '@/features/evaluations/helpers'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // ============================================================
 // EvalDaysEditor — editor de evaluaciones exercise-based (doc 38)
@@ -244,7 +245,7 @@ function TypeMethodSelector({ type, method, onChange }) {
                   : 'border-gray-200 text-gray-600 hover:border-gray-300'
               }`}
             >
-              <span className="mr-1">{et.icon}</span>
+              <EvalTypeIcon type={et.key} inline className="mr-1" />
               {et.label.split(' ')[0]}
             </button>
           ))}

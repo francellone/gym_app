@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { EVAL_TYPES, evalTypeColor, evalTypeIcon } from '../helpers'
+import { EVAL_TYPES, evalTypeColor } from '../helpers'
 import {
   BarChart2,
   Plus,
@@ -16,6 +16,7 @@ import {
 import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
 import { setPlanArchived } from '@/features/plans/planLifecycle'
 import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 export default function EvaluationsPage() {
   const [evalPlans, setEvalPlans] = useState([])
@@ -157,7 +158,7 @@ export default function EvaluationsPage() {
               onClick={() => setFilterType(filterType === et.key ? '' : et.key)}
               className={`card text-left transition-all ${filterType === et.key ? 'ring-2 ring-primary-500' : ''}`}
             >
-              <span className="text-xl">{et.icon}</span>
+              <EvalTypeIcon type={et.key} size="sm" />
               <p className="text-xs font-medium text-gray-700 mt-1 leading-tight">{et.label}</p>
               <p className="text-lg font-bold text-gray-900">{count}</p>
             </button>
@@ -185,7 +186,7 @@ export default function EvaluationsPage() {
           <option value="">Todos los tipos</option>
           {EVAL_TYPES.map((et) => (
             <option key={et.key} value={et.key}>
-              {et.icon} {et.label}
+              {et.label}
             </option>
           ))}
         </select>
@@ -245,9 +246,7 @@ export default function EvaluationsPage() {
                 className="card flex items-start gap-3 hover:shadow-md transition-shadow"
               >
                 {/* Icon */}
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">
-                  {evalTypeIcon(plan.eval_type)}
-                </div>
+                <EvalTypeIcon type={plan.eval_type} size="sm" />
 
                 {/* Info – clickeable para navegar */}
                 <Link to={`/coach/evaluations/${plan.id}`} className="flex-1 min-w-0">

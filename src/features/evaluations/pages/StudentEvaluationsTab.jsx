@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
-  evalTypeIcon,
   evalTypeLabel,
   evalTypeColor,
   isExerciseBasedEval,
@@ -46,6 +45,7 @@ import {
   fetchSingleMirrorBodies,
 } from '@/features/notes/api'
 import { useAuth } from '@/features/auth/AuthContext'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // ─────────────────────────────────────────────────────────────
 // StudentEvaluationsTab
@@ -563,7 +563,7 @@ function EvaluationCard({
         }}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors cursor-pointer"
       >
-        <span className="text-2xl">{evalTypeIcon(plan?.eval_type)}</span>
+        <EvalTypeIcon type={plan?.eval_type} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 break-words">{plan?.title}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

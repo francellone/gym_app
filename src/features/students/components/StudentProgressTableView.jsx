@@ -1,6 +1,18 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Columns3, Filter, Table as TableIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
+import {
+  Columns3,
+  Filter,
+  Table as TableIcon,
+  ChevronDown,
+  ChevronUp,
+  X,
+  TrendingUp,
+  TrendingDown,
+  Equal,
+  MessageCircle,
+} from 'lucide-react'
+import { CircleIcon } from '@/components/icons/SegmentIcon'
 import { format, parseISO } from 'date-fns'
 import { SKIP_REASON_LABEL, SKIP_REASON_SHORT } from '@/features/workouts/completionRules'
 import {
@@ -176,8 +188,8 @@ const SESSION_FIELDS = [
   { id: 'weight', label: 'Peso' },
   { id: 'sets_reps', label: 'Series × Reps' },
   { id: 'pse', label: 'PSE' },
-  { id: 'status', label: 'Estado ⬆️😊⬇️' },
-  { id: 'notes', label: 'Notas 💬' },
+  { id: 'status', label: 'Estado (subió, igual, bajó)' },
+  { id: 'notes', label: 'Notas' },
 ]
 
 const defaultSessionFields = () => new Set(['date', 'weight', 'pse'])
@@ -944,23 +956,23 @@ export default function StudentProgressTableView({
     setActiveNote((prev) => (prev?.key === key ? null : { key, text }))
   }
 
-  // Emoji de estado comparando log actual con el anterior
+  // Estado comparando log actual con el anterior (ícono en círculo, identidad 2026-09-27)
   const getStatusEmoji = (log, prevLog, isBlock = false) => {
     if (!log || !prevLog) return null
     if (isBlock) {
       const c = blockMetricOf(log)
       const p = blockMetricOf(prevLog)
       if (!(c > 0 && p > 0)) return null
-      if (c > p) return { emoji: '⬆️', color: 'text-green-600' }
-      if (c < p) return { emoji: '⬇️', color: 'text-red-500' }
-      return { emoji: '😊', color: 'text-gray-400' }
+      if (c > p) return { icon: TrendingUp, segment: 'ok', label: 'Subió' }
+      if (c < p) return { icon: TrendingDown, segment: 'bad', label: 'Bajó' }
+      return { icon: Equal, segment: 'messages', label: 'Igual' }
     }
     const curr = maxWeightOf(log)
     const prev = maxWeightOf(prevLog)
     if (curr > 0 && prev > 0) {
-      if (curr > prev) return { emoji: '⬆️', color: 'text-green-600' }
-      if (curr < prev) return { emoji: '⬇️', color: 'text-red-500' }
-      return { emoji: '😊', color: 'text-gray-400' }
+      if (curr > prev) return { icon: TrendingUp, segment: 'ok', label: 'Subió' }
+      if (curr < prev) return { icon: TrendingDown, segment: 'bad', label: 'Bajó' }
+      return { icon: Equal, segment: 'messages', label: 'Igual' }
     }
     const repsMaxOfLog = (l) => {
       const arr = readLogReps(l)
@@ -970,9 +982,9 @@ export default function StudentProgressTableView({
     }
     const currR = repsMaxOfLog(log)
     const prevR = repsMaxOfLog(prevLog)
-    if (currR > prevR) return { emoji: '⬆️', color: 'text-green-600' }
-    if (currR < prevR) return { emoji: '⬇️', color: 'text-red-500' }
-    return { emoji: '😊', color: 'text-gray-400' }
+    if (currR > prevR) return { icon: TrendingUp, segment: 'ok', label: 'Subió' }
+    if (currR < prevR) return { icon: TrendingDown, segment: 'bad', label: 'Bajó' }
+    return { icon: Equal, segment: 'messages', label: 'Igual' }
   }
 
   // ── Conteo de columnas (para colSpan) ─────────────────────
@@ -1144,7 +1156,12 @@ export default function StudentProgressTableView({
               <span className="text-[10px] text-gray-300">PSE —</span>
             ))}
           {isField('status') && status && (
-            <span className={`text-[11px] leading-none ${status.color}`}>{status.emoji}</span>
+            <CircleIcon
+              icon={status.icon}
+              segment={status.segment}
+              size="xs"
+              title={status.label}
+            />
           )}
           {isField('notes') &&
             (hasNotes ? (
@@ -1156,7 +1173,7 @@ export default function StudentProgressTableView({
                 title="Ver nota"
                 aria-label="Ver nota completa"
               >
-                💬
+                <MessageCircle size={14} className="text-texto2" />
               </button>
             ) : (
               <span className="text-[10px] text-gray-200">—</span>
@@ -1334,7 +1351,7 @@ export default function StudentProgressTableView({
                 className="text-left text-xs italic text-gray-600 hover:text-primary-600 transition-colors cursor-pointer w-full"
                 onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0].notes)}
               >
-                <span className="line-clamp-2">💬 {r.recentLogs[0].notes}</span>
+                <span className="line-clamp-2">{r.recentLogs[0].notes}</span>
               </button>
             ) : (
               <span className="text-gray-300 text-xs not-italic">—</span>
@@ -1475,7 +1492,7 @@ export default function StudentProgressTableView({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <span className="text-xl flex-shrink-0 mt-0.5">💬</span>
+              <CircleIcon icon={MessageCircle} segment="messages" size="md" />
               <p className="text-sm text-gray-800 flex-1 leading-relaxed whitespace-pre-wrap">
                 {activeNote.text}
               </p>
@@ -1798,8 +1815,16 @@ export default function StudentProgressTableView({
       </div>
 
       {/* ── Leyenda ── */}
-      {hasVisibleSkipped && (
+      {(hasVisibleSkipped || isField('status')) && (
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-400 justify-end">
+          {isField('status') && (
+            <span className="inline-flex items-center gap-1.5">
+              <CircleIcon icon={TrendingUp} segment="ok" size="xs" /> subió
+              <CircleIcon icon={Equal} segment="messages" size="xs" /> igual
+              <CircleIcon icon={TrendingDown} segment="bad" size="xs" /> bajó respecto de la sesión
+              anterior
+            </span>
+          )}
           {hasVisibleSkipped && (
             <span>
               <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1 font-medium">

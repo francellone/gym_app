@@ -6,7 +6,6 @@ import {
   METHODS,
   evalTypeColor,
   evalTypeLabel,
-  evalTypeIcon,
   isExerciseBasedEval,
   pruebaTypeInfo,
 } from '../helpers'
@@ -25,6 +24,7 @@ import DeletePlanModal from '@/features/plans/components/DeletePlanModal'
 import { setPlanArchived } from '@/features/plans/planLifecycle'
 import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 // ============================================================
 // Shared mini components
@@ -698,7 +698,7 @@ export default function EvaluationDetailPage() {
             <h1 className="text-xl font-bold text-gray-900 break-words">{plan.title}</h1>
             {plan.eval_type && (
               <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                {evalTypeIcon(plan.eval_type)} {evalTypeLabel(plan.eval_type)}
+                <EvalTypeIcon type={plan.eval_type} inline /> {evalTypeLabel(plan.eval_type)}
               </span>
             )}
           </div>
@@ -793,7 +793,7 @@ export default function EvaluationDetailPage() {
       {typeInfo && (
         <div className="card">
           <div className="flex items-start gap-3">
-            <span className="text-2xl">{typeInfo.icon}</span>
+            <EvalTypeIcon type={typeInfo.key} />
             <div>
               <p className="font-semibold text-gray-900">{typeInfo.label}</p>
               <p className="text-sm text-gray-500">{typeInfo.description}</p>
