@@ -37,7 +37,7 @@ export default function PaymentModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-tinta/40 flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel()
       }}
@@ -46,8 +46,7 @@ export default function PaymentModal({
         <div>
           <h3 className="font-semibold text-gray-900">Registrar pago</h3>
           <p className="text-xs text-gray-500 mt-1">
-            El vencimiento del pago se calcula solo: es el día siguiente al último día
-            cubierto.
+            El vencimiento del pago se calcula solo: es el día siguiente al último día cubierto.
           </p>
         </div>
 
@@ -123,9 +122,8 @@ export default function PaymentModal({
               Extender también la vigencia del plan hasta el{' '}
               {format(parseISO(form.period_end), 'dd/MM/yyyy')}
               <span className="block text-gray-500">
-                Hoy vence el{' '}
-                {format(parseISO(activeAssignment.expected_end_date), 'dd/MM/yyyy')}. Son dos
-                cosas distintas: marcalo solo si además querés correr el plan.
+                Hoy vence el {format(parseISO(activeAssignment.expected_end_date), 'dd/MM/yyyy')}.
+                Son dos cosas distintas: marcalo solo si además querés correr el plan.
               </span>
             </span>
           </label>

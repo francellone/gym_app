@@ -24,7 +24,7 @@ export default function DailyPSEModal({ dayLabel, currentEffort, onSave, onClose
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 bg-tinta/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
         <div className="p-5 space-y-4">
           {/* Encabezado */}

@@ -65,7 +65,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onClick={onClose}
     >
       <div
@@ -103,9 +103,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
             >
               <option value="">— Seleccionar alumno —</option>
               {students
-                .filter(
-                  (s) => showInactive || s.active !== false || s.id === selectedStudentId
-                )
+                .filter((s) => showInactive || s.active !== false || s.id === selectedStudentId)
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name || s.email}

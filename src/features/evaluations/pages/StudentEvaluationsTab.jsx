@@ -1359,7 +1359,7 @@ function ResultadoResumen({ results, evalType }) {
 function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, onConfirm }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onClick={onCancel}
     >
       <div

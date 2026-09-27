@@ -52,7 +52,7 @@ export default function ActivityModal({ open, initial, onSave, onClose, saving }
   const showLabel = requiresLabel(draft.activity_type)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-tinta/40 p-0 sm:p-4">
       <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">

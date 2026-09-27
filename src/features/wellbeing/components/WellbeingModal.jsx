@@ -75,7 +75,7 @@ export default function WellbeingModal({ userId, date, onSave, onSkip }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 bg-tinta/40 z-50 flex items-end sm:items-center justify-center">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col">
         {/* Header fijo */}
         <div className="p-5 pb-3 border-b border-gray-100 flex-shrink-0">

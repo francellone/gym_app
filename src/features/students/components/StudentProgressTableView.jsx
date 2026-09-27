@@ -1469,7 +1469,7 @@ export default function StudentProgressTableView({
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setActiveNote(null)}
         >
-          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute inset-0 bg-tinta/15" />
           <div
             className="relative bg-white shadow-2xl rounded-2xl p-4 max-w-sm w-full border border-gray-100"
             onClick={(e) => e.stopPropagation()}
