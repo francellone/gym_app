@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Tag } from 'lucide-react'
 import { useExerciseCatalog } from '../ExerciseCatalogContext'
 import ExerciseFormModal from './ExerciseFormModal'
@@ -27,15 +28,19 @@ import ExerciseFormModal from './ExerciseFormModal'
 export default function ExercisePicker({
   value,
   onChange,
-  label = 'Ejercicio',
+  label,
   required = false,
-  placeholder = 'Seleccionar...',
+  placeholder,
   options = null,
   defaultTagName = null,
   createTagIds = null,
   size = 'sm',
   children,
 }) {
+  const { t } = useTranslation()
+  // label/placeholder sin pasar → texto por defecto traducido; label null o '' → sin label.
+  const labelText = label === undefined ? t('coach.exercises.picker.label') : label
+  const placeholderText = placeholder ?? t('coach.exercises.picker.placeholder')
   const { exercises, exerciseTags, tagAssignments, upsertExercise } = useExerciseCatalog()
   const [showModal, setShowModal] = useState(false)
 
@@ -44,7 +49,7 @@ export default function ExercisePicker({
   const defaultTagId =
     (defaultTagName &&
       exerciseTags.find(
-        (t) => (t.name || '').trim().toUpperCase() === defaultTagName.trim().toUpperCase()
+        (tag) => (tag.name || '').trim().toUpperCase() === defaultTagName.trim().toUpperCase()
       )?.id) ||
     ''
   // null = "todavía sin tocar" → vale el default
@@ -87,21 +92,25 @@ export default function ExercisePicker({
             value={tagFilter}
             onChange={(e) => setTagFilterOverride(e.target.value)}
           >
-            <option value="">Todos los ejercicios</option>
-            {exerciseTags.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t('coach.exercises.picker.allExercises')}</option>
+            {exerciseTags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
               </option>
             ))}
           </select>
-          {tagFilter && <span className="text-xs text-gray-400">{filtered.length} ej.</span>}
+          {tagFilter && (
+            <span className="text-xs text-gray-400">
+              {t('coach.exercises.picker.countShort', { count: filtered.length })}
+            </span>
+          )}
         </div>
       )}
 
       <div>
-        {label ? (
+        {labelText ? (
           <label className="text-xs text-gray-500 mb-1 block">
-            {label} {required && '*'}
+            {labelText} {required && '*'}
           </label>
         ) : null}
         <div className="flex gap-2">
@@ -113,7 +122,7 @@ export default function ExercisePicker({
               onChange(id, id ? exercises.find((x) => x.id === id) || null : null)
             }}
           >
-            <option value="">{placeholder}</option>
+            <option value="">{placeholderText}</option>
             {selectedOutsideFilter && <option value={selected.id}>{selected.name}</option>}
             {filtered.map((e) => (
               <option key={e.id} value={e.id}>
@@ -125,10 +134,12 @@ export default function ExercisePicker({
             type="button"
             onClick={() => setShowModal(true)}
             className="btn-secondary px-2.5 flex items-center gap-1 flex-shrink-0"
-            title="Crear un ejercicio nuevo sin salir del plan"
+            title={t('coach.exercises.picker.createTitle')}
           >
             <Plus size={15} />
-            <span className="hidden sm:inline text-xs font-medium">Nuevo</span>
+            <span className="hidden sm:inline text-xs font-medium">
+              {t('coach.exercises.picker.new')}
+            </span>
           </button>
         </div>
         {children}

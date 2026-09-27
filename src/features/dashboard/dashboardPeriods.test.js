@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import {
   computePeriodRange,
   resolveDefaultPeriod,
   findPeriodLabel,
+  normalizePeriodKey,
+  PERIOD_OPTIONS,
   DEFAULT_PERIOD_WITH_PLAN,
   DEFAULT_PERIOD_NO_PLAN,
 } from './dashboardPeriods'
@@ -101,5 +104,20 @@ describe('findPeriodLabel', () => {
 
   it('desconocido → cae a un default sensato', () => {
     expect(findPeriodLabel('bogus')).toBeTruthy()
+  })
+})
+
+describe('normalizePeriodKey (i18n del panel de la coach)', () => {
+  it('deja pasar las claves válidas y cae a 30d con lo desconocido', () => {
+    expect(normalizePeriodKey('7d')).toBe('7d')
+    expect(normalizePeriodKey('bogus')).toBe('30d')
+    expect(normalizePeriodKey(undefined)).toBe('30d')
+  })
+
+  it('cada período tiene su texto en es y en', () => {
+    for (const p of PERIOD_OPTIONS) {
+      expect(i18n.t(`coach.dashboard.periods.${p.key}`)).toBe(p.label)
+      expect(i18n.exists(`coach.dashboard.periods.${p.key}`, { lng: 'en' })).toBe(true)
+    }
   })
 })

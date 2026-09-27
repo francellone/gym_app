@@ -25,46 +25,40 @@ export function planLifecycleMode(usage) {
   return 'delete'
 }
 
-/** Qué se conserva al archivar, en palabras. */
-export function planUsageSummary(u) {
+/**
+ * Qué se conserva al archivar, en palabras. Recibe `t` (useTranslation) y
+ * devuelve textos del panel de la coach (coach.planEditor.usage.*).
+ */
+export function planUsageSummary(u, t) {
   if (!u) return []
   const partes = []
   const n = (k) => u[k] || 0
+  const k = (key, count, extra) => t(`coach.planEditor.usage.${key}`, { count, ...extra })
   if (u.is_template) {
     if (n('clones') > 0) {
       partes.push(
-        `${n('clones')} ${n('clones') === 1 ? 'copia asignada' : 'copias asignadas'}` +
-          (n('clone_students') > 0
-            ? ` a ${n('clone_students')} ${n('clone_students') === 1 ? 'persona' : 'personas'}`
-            : '')
+        k('clones', n('clones')) +
+          (n('clone_students') > 0 ? k('toPeople', n('clone_students')) : '')
       )
     }
     if (n('child_evaluations') > 0) {
-      partes.push(
-        `${n('child_evaluations')} ${n('child_evaluations') === 1 ? 'evaluación vinculada' : 'evaluaciones vinculadas'}`
-      )
+      partes.push(k('childEvaluations', n('child_evaluations')))
     }
   } else if (n('students') > 0) {
-    partes.push(
-      `${n('assignments')} ${n('assignments') === 1 ? 'asignación' : 'asignaciones'} (${n('students')} ${n('students') === 1 ? 'persona' : 'personas'})`
-    )
+    partes.push(k('assignments', n('assignments'), { people: k('people', n('students')) }))
   }
   if (n('workout_logs') > 0) {
-    partes.push(
-      `${n('workout_logs')} ${n('workout_logs') === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
-    )
+    partes.push(k('workoutLogs', n('workout_logs')))
   }
   if (n('sessions') > 0) {
-    partes.push(`${n('sessions')} ${n('sessions') === 1 ? 'sesión' : 'sesiones'}`)
+    partes.push(k('sessions', n('sessions')))
   }
   const evals = n('eval_results') + n('eval_responses')
   if (evals > 0) {
-    partes.push(`${evals} ${evals === 1 ? 'resultado de evaluación' : 'resultados de evaluación'}`)
+    partes.push(k('evalResults', evals))
   }
   if (n('prescription_history') > 0) {
-    partes.push(
-      `${n('prescription_history')} ${n('prescription_history') === 1 ? 'cambio de prescripción' : 'cambios de prescripción'}`
-    )
+    partes.push(k('prescriptionChanges', n('prescription_history')))
   }
   return partes
 }
@@ -83,6 +77,8 @@ export async function deletePlan(planId) {
   const { data, error } = await supabase.from('plans').delete().eq('id', planId).select('id')
   if (error) throw error
   if (!data || data.length === 0) {
-    throw new Error('No se pudo eliminar el plan: no tenés permisos sobre él.')
+    const err = new Error('No se pudo eliminar el plan: no tenés permisos sobre él.')
+    err.i18nKey = 'coach.planEditor.deletePlan.noPermission'
+    throw err
   }
 }

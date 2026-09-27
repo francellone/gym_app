@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 // ============================================================
 // DashboardFilterBar
@@ -24,44 +25,57 @@ export default function DashboardFilterBar({
   loadingOptions = false,
   className = '',
 }) {
+  const { t } = useTranslation()
   const hasAnyFilter = !!(studentId || planId || (periodKey && periodKey !== '30d'))
 
   return (
     <div className={`card ${className}`}>
       <div className="flex flex-wrap items-center gap-2">
-        {/* Alumno */}
+        {/* Persona */}
         <FilterSelect
-          label="Alumno"
+          label={t('coach.dashboard.filters.student')}
           value={studentId || ''}
           onChange={(v) => setStudent(v)}
           disabled={loadingOptions || studentOptions.length === 0}
           options={[
-            { value: '', label: 'Todos' },
+            { value: '', label: t('coach.dashboard.filters.allStudents') },
             ...studentOptions.map((s) => ({ value: s.id, label: s.name })),
           ]}
         />
 
-        {/* Plan (dependiente del alumno) */}
+        {/* Plan (dependiente de la persona) */}
         <FilterSelect
-          label="Plan"
+          label={t('coach.dashboard.filters.plan')}
           value={planId || ''}
           onChange={(v) => setPlan(v)}
           disabled={!studentId || planOptionsForStudent.length === 0}
           options={[
-            { value: '', label: studentId ? 'Todos del alumno' : 'Elegí un alumno' },
+            {
+              value: '',
+              label: studentId
+                ? t('coach.dashboard.filters.allPlansOfStudent')
+                : t('coach.dashboard.filters.pickStudent'),
+            },
             ...planOptionsForStudent.map((a) => ({
               value: a.id,
-              label: `${a.plan?.title || 'Sin título'}${a.status !== 'active' ? ` · ${a.status}` : ''}`,
+              label: `${a.plan?.title || t('coach.dashboard.filters.untitled')}${
+                a.status !== 'active'
+                  ? ` · ${t(`coach.dashboard.filters.status.${a.status}`, { defaultValue: a.status })}`
+                  : ''
+              }`,
             })),
           ]}
         />
 
         {/* Período */}
         <FilterSelect
-          label="Período"
+          label={t('coach.dashboard.filters.period')}
           value={periodKey || ''}
           onChange={(v) => setPeriod(v)}
-          options={periodOptions.map((p) => ({ value: p.key, label: p.label }))}
+          options={periodOptions.map((p) => ({
+            value: p.key,
+            label: t(`coach.dashboard.periods.${p.key}`, { defaultValue: p.label }),
+          }))}
         />
 
         {hasAnyFilter && (
@@ -70,7 +84,7 @@ export default function DashboardFilterBar({
             onClick={clearAll}
             className="ml-auto inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100"
           >
-            <X size={14} /> Limpiar
+            <X size={14} /> {t('coach.dashboard.filters.clear')}
           </button>
         )}
       </div>

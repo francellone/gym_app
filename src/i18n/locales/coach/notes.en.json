@@ -1,0 +1,10 @@
+{
+  "tab": {
+    "coachOnly": "Only the coach can open this panel.",
+    "openError": "Couldn't open the notes thread.",
+    "fetchError": "Couldn't load the notes thread.",
+    "unexpectedError": "Unexpected error opening the thread.",
+    "errorTitle": "We couldn't open the notes",
+    "unavailable": "Thread not available."
+  }
+}

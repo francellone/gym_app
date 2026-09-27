@@ -210,7 +210,7 @@ export function computeExerciseProgress({ logs, periodRange, minLogs = 3 } = {})
     if (isNaN(d.getTime()) || d < startD || d > endD) continue
 
     const prev = byEx.get(exId) || {
-      exerciseName: exName || 'Ejercicio',
+      exerciseName: exName || null, // la UI pone "Ejercicio" traducido
       firstMax: 0,
       secondMax: 0,
       count: 0,
@@ -372,42 +372,21 @@ export function computeAdherencePct({ completedDays, expectedDays }) {
 //   expectedDays   number | null
 //
 // Output:
-//   { tone: 'great'|'good'|'meh'|'bad'|'empty', text }
+//   { tone: 'great'|'good'|'meh'|'bad'|'empty', key, params }
+//   key/params: clave i18n (coach.dashboard.motivation.*); la UI hace t(key, params).
 // ============================================================
+const MOTIVATION = 'coach.dashboard.motivation.'
+
 export function buildMotivationalMessage({ completedDays, expectedDays }) {
   if (completedDays === 0) {
-    return {
-      tone: 'empty',
-      text: 'Sin entrenos registrados en el período seleccionado.',
-    }
+    return { tone: 'empty', key: MOTIVATION + 'empty', params: {} }
   }
   const pct = computeAdherencePct({ completedDays, expectedDays })
   if (pct === null) {
-    return {
-      tone: 'good',
-      text: `Completó ${completedDays} entreno${completedDays === 1 ? '' : 's'} en el período.`,
-    }
+    return { tone: 'good', key: MOTIVATION + 'count', params: { count: completedDays } }
   }
-  if (pct >= 90) {
-    return {
-      tone: 'great',
-      text: `Excelente adherencia (${pct}%). La constancia está pagando.`,
-    }
-  }
-  if (pct >= 60) {
-    return {
-      tone: 'good',
-      text: `Buena constancia (${pct}%). Hay margen para subir.`,
-    }
-  }
-  if (pct >= 30) {
-    return {
-      tone: 'meh',
-      text: `Adherencia parcial (${pct}%). Conviene revisar barreras del alumno.`,
-    }
-  }
-  return {
-    tone: 'bad',
-    text: `Adherencia baja (${pct}%). Es buen momento para conversar con el alumno.`,
-  }
+  if (pct >= 90) return { tone: 'great', key: MOTIVATION + 'great', params: { pct } }
+  if (pct >= 60) return { tone: 'good', key: MOTIVATION + 'good', params: { pct } }
+  if (pct >= 30) return { tone: 'meh', key: MOTIVATION + 'meh', params: { pct } }
+  return { tone: 'bad', key: MOTIVATION + 'bad', params: { pct } }
 }

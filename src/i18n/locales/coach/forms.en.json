@@ -1,0 +1,175 @@
+{
+  "languageMode": {
+    "autoTitle": "You have students in Spanish and English",
+    "manualTitle": "Bilingual mode turned on manually",
+    "body": "When you edit each question in your forms and each exercise in your library, you can add its English version (optional: anything you don't translate is shown in Spanish). Each student sees the content in their own language.",
+    "backToAuto": "Back to automatic mode",
+    "prepareTitle": "Turns on the translation fields (forms and exercises) even if you don't have students in English yet",
+    "prepareButton": "Prepare my content in English"
+  },
+  "intro": {
+    "placeholder": "Write the introduction your students will see...\nYou can use emojis 💪 and line breaks.",
+    "tip": "Tip: use emojis to give it your personal touch. Explain your approach, what you'll do with the info and any special instructions.",
+    "enLabel": "Introduction in English (optional; empty = the one above is shown)"
+  },
+  "templates": {
+    "title": "Form templates",
+    "tabLoad": "Load template",
+    "tabSave": "Save current",
+    "predefinedBadge": "Built-in",
+    "useThis": "Use this →",
+    "saveHint": "Save the current setup as a new template to reuse it.",
+    "nameLabel": "Template name",
+    "namePlaceholder": "E.g.: Advanced fitness",
+    "saveButton": "Save template",
+    "predefined": {
+      "tpl_general": {
+        "name": "General Fitness",
+        "description": "Full form for general fitness clients"
+      },
+      "tpl_rehabilitacion": {
+        "name": "Rehabilitation",
+        "description": "Focus on health, injuries and medical conditions"
+      },
+      "tpl_alto_rendimiento": {
+        "name": "High Performance",
+        "description": "For experienced athletes with competitive goals"
+      },
+      "tpl_minimalista": {
+        "name": "Minimal form",
+        "description": "Just the essentials: details, goals and health"
+      }
+    }
+  },
+  "questionTypes": {
+    "text": "Short text",
+    "textarea": "Long text",
+    "select": "Single choice",
+    "multiselect": "Multiple choice",
+    "boolean": "Yes / No",
+    "scale": "Scale",
+    "email": "Email",
+    "phone": "Phone",
+    "number": "Number",
+    "date": "Date"
+  },
+  "question": {
+    "labelPlaceholder": "Question text...",
+    "required": "Required",
+    "conditional": "Conditional",
+    "fixed": "Fixed",
+    "onlyEs": "Spanish only",
+    "onlyEn": "English only",
+    "enStale": "English out of date",
+    "enOk": "English ✓",
+    "untranslated": "Not translated",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "closeEdit": "Close editing",
+    "edit": "Edit question",
+    "confirmDelete": "Delete this question?",
+    "delete": "Delete question",
+    "answerType": "Answer type",
+    "placeholderLabel": "Placeholder (optional)",
+    "placeholderPlaceholder": "Hint text inside the field...",
+    "optionsLabel": "Options (one per line)",
+    "optionsPlaceholder": "Option 1\nOption 2\nOption 3",
+    "min": "Min",
+    "max": "Max",
+    "requiredToggle": "Required answer",
+    "showIfLabel": "Show only if... (optional)",
+    "alwaysVisible": "Always visible",
+    "triggerValue": "Value that shows this question:",
+    "enVersion": "English version",
+    "visibilityLabel": "This question is shown to...",
+    "visibilityBoth": "Students in both languages",
+    "visibilityOnlyEs": "Only students in Spanish",
+    "visibilityOnlyEn": "Only students in English",
+    "staleWarning": "You changed the Spanish options after translating them. Until you review them, students in English see the Spanish options.",
+    "staleReviewed": "I checked it, it's fine",
+    "enLabel": "Question in English (empty = shown in Spanish)",
+    "enPlaceholderLabel": "Placeholder in English (optional)",
+    "enOptionsLabel": "Options in English (same order as in Spanish; empty line = stays in Spanish)",
+    "enOptionsMismatch": "There are {{translated}} translations for {{total}} options; until they match, students in English see the Spanish options."
+  },
+  "module": {
+    "disable": "Turn off section",
+    "enable": "Turn on section",
+    "editTitle": "Click to edit the title",
+    "fixed": "Fixed",
+    "questionsCount": "{{count}} q.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "confirmDelete": "Delete the section \"{{title}}\"?",
+    "delete": "Delete section",
+    "editQuestions": "Edit questions",
+    "enTitleLabel": "Title in English:",
+    "enTitlePlaceholder": "Empty = shown in Spanish",
+    "empty": "No questions. Add one.",
+    "addQuestion": "+ Add question"
+  },
+  "builder": {
+    "titleIntake": "Form builder",
+    "titleFollowUp": "Follow-up form",
+    "subtitleIntake": "Customize the form your students get when they join",
+    "subtitleFollowUp": "Build a free-form questionnaire to send your students during or at the end of a plan",
+    "templates": "Templates",
+    "send": "Send",
+    "save": "Save",
+    "saving": "Saving...",
+    "tabEdit": "Edit",
+    "tabPreview": "Preview",
+    "emptyLangTitle": "As it stands, this form would reach your students in {{langs}} EMPTY.",
+    "emptyLangBody": "All questions are set to the other language. In each question, check the option “{{visibilityLabel}}” and choose “{{visibilityBoth}}”. If you send it like this, the student opens the form and the start button does nothing.",
+    "lang": {
+      "es": "Spanish",
+      "en": "English"
+    },
+    "langJoin": " and ",
+    "introTitle": "Introduction",
+    "introHint": "Text the student sees when opening the form. Supports emojis and formatting.",
+    "modulesTitle": "Sections",
+    "addModule": "+ Add custom section",
+    "consentTitle": "{{title}} (required, not editable)",
+    "consentBody": "This section always appears at the end and can't be removed. It includes the student's informed consent.",
+    "saveForm": "Save form",
+    "previewHint": "See how the form looks on a student's screen.",
+    "openPreview": "Open preview",
+    "closePreview": "Close preview"
+  },
+  "builderPage": {
+    "saved": "✅ Form saved",
+    "saveError": "❌ Couldn't save"
+  },
+  "followUpBuilder": {
+    "promptName": "Template name:",
+    "promptDefault": "Mid-plan check-in",
+    "limitReached": "You've reached the limit of 10 active templates. Archive one before creating another.",
+    "saved": "Saved ✓",
+    "saveError": "Couldn't save",
+    "back": "Back",
+    "nameLabel": "Form name",
+    "namePlaceholder": "E.g.: Mid-plan check-in",
+    "nameEnLabel": "Name in English (optional; students in English see it)",
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "Short description for yourself"
+  },
+  "followUpList": {
+    "title": "Follow-up forms",
+    "subtitle": "Free-form templates to send during or at the end of a plan. {{active}}/{{limit}} active.",
+    "createTitle": "Create new template",
+    "limitTitle": "You've reached the limit of {{limit}}. Archive one first.",
+    "new": "New",
+    "empty": "You don't have any follow-up forms yet.",
+    "createFirst": "Create the first one →",
+    "questions_one": "{{count}} question",
+    "questions_other": "{{count}} questions",
+    "send": "Send",
+    "edit": "Edit",
+    "archive": "Archive",
+    "confirmArchive": "Archive this template? It won't be deleted, but it will no longer show up for new sends.",
+    "archived": "Archived ({{count}})",
+    "reactivate": "Reactivate",
+    "limitAlert": "You already have {{limit}} active templates. Archive one to reactivate this one."
+  }
+}

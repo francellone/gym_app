@@ -12,6 +12,7 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { shouldOfferPlanExtension } from '../payments'
 
 export default function PaymentModal({
@@ -22,6 +23,7 @@ export default function PaymentModal({
   onCancel,
   onSave,
 }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     paid_on: proposal.paid_on,
     period_start: proposal.period_start,
@@ -44,20 +46,18 @@ export default function PaymentModal({
     >
       <div className="bg-white rounded-2xl p-5 max-w-md w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
         <div>
-          <h3 className="font-semibold text-gray-900">Registrar pago</h3>
-          <p className="text-xs text-gray-500 mt-1">
-            El vencimiento del pago se calcula solo: es el día siguiente al último día cubierto.
-          </p>
+          <h3 className="font-semibold text-gray-900">{t('coach.students.payment.title')}</h3>
+          <p className="text-xs text-gray-500 mt-1">{t('coach.students.payment.hint')}</p>
         </div>
 
         <div>
-          <label className="label text-xs">Fecha del pago</label>
+          <label className="label text-xs">{t('coach.students.payment.paidOn')}</label>
           <input type="date" className="input" value={form.paid_on} onChange={set('paid_on')} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label text-xs">Cubre desde</label>
+            <label className="label text-xs">{t('coach.students.payment.periodStart')}</label>
             <input
               type="date"
               className="input"
@@ -66,7 +66,7 @@ export default function PaymentModal({
             />
           </div>
           <div>
-            <label className="label text-xs">Hasta</label>
+            <label className="label text-xs">{t('coach.students.payment.periodEnd')}</label>
             <input
               type="date"
               className="input"
@@ -78,7 +78,7 @@ export default function PaymentModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label text-xs">Monto (opcional)</label>
+            <label className="label text-xs">{t('coach.students.payment.amount')}</label>
             <input
               type="number"
               min="0"
@@ -90,10 +90,10 @@ export default function PaymentModal({
             />
           </div>
           <div>
-            <label className="label text-xs">Medio (opcional)</label>
+            <label className="label text-xs">{t('coach.students.payment.method')}</label>
             <input
               className="input"
-              placeholder="Efectivo, transferencia..."
+              placeholder={t('coach.students.payment.methodPlaceholder')}
               value={form.method}
               onChange={set('method')}
             />
@@ -101,10 +101,10 @@ export default function PaymentModal({
         </div>
 
         <div>
-          <label className="label text-xs">Nota (solo la ve el coach)</label>
+          <label className="label text-xs">{t('coach.students.payment.note')}</label>
           <input
             className="input"
-            placeholder="Ej: pagó dos meses juntos"
+            placeholder={t('coach.students.payment.notePlaceholder')}
             value={form.notes}
             onChange={set('notes')}
           />
@@ -119,11 +119,13 @@ export default function PaymentModal({
               onChange={(e) => setExtendPlan(e.target.checked)}
             />
             <span className="text-xs text-gray-700">
-              Extender también la vigencia del plan hasta el{' '}
-              {format(parseISO(form.period_end), 'dd/MM/yyyy')}
+              {t('coach.students.payment.extendPlan', {
+                date: format(parseISO(form.period_end), t('dates.shortDate')),
+              })}
               <span className="block text-gray-500">
-                Hoy vence el {format(parseISO(activeAssignment.expected_end_date), 'dd/MM/yyyy')}.
-                Son dos cosas distintas: marcalo solo si además querés correr el plan.
+                {t('coach.students.payment.extendPlanHint', {
+                  date: format(parseISO(activeAssignment.expected_end_date), t('dates.shortDate')),
+                })}
               </span>
             </span>
           </label>
@@ -137,14 +139,14 @@ export default function PaymentModal({
 
         <div className="flex gap-2 justify-end">
           <button className="btn-ghost text-sm" disabled={saving} onClick={onCancel}>
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             className="btn-primary text-sm"
             disabled={saving || !form.period_start || !form.period_end}
             onClick={() => onSave(form, { extendPlan: extendPlan && offerExtension })}
           >
-            {saving ? 'Guardando...' : 'Registrar'}
+            {saving ? t('common.saving') : t('coach.students.payment.submit')}
           </button>
         </div>
       </div>

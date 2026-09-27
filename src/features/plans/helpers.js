@@ -843,7 +843,14 @@ export const EXERCISE_MODES = [
 ]
 
 // Etiquetas de bloque
-export function blockTypeLabel(type) {
+// `t` opcional (panel de la coach): si viene, la etiqueta sale traducida de
+// coach.planEditor.blockTypes.*; sin `t` devuelve el español de BLOCK_TYPES.
+export function blockTypeLabel(type, t) {
+  if (t) {
+    return BLOCK_TYPES[type]
+      ? t(`coach.planEditor.blockTypes.${type}.label`)
+      : t('coach.planEditor.blockTypes.fallback')
+  }
   return BLOCK_TYPES[type]?.label || 'Bloque'
 }
 
@@ -852,12 +859,18 @@ export function blockTypeIcon(type) {
 }
 
 // Genera un título legible para el bloque ("Fuerza A", "Aeróbico", etc.)
-export function blockDisplayTitle(block, strengthIndexInSection = 0) {
+// `t` opcional: igual que blockTypeLabel (el título que escribió la coach no se traduce).
+export function blockDisplayTitle(block, strengthIndexInSection = 0, t) {
   if (block.title) return block.title
   if (block.block_type === 'strength') {
+    if (t) {
+      return strengthIndexInSection > 0
+        ? t('coach.planEditor.blockTypes.strengthNumbered', { n: strengthIndexInSection + 1 })
+        : t('coach.planEditor.blockTypes.strength.label')
+    }
     return strengthIndexInSection > 0 ? `Fuerza ${strengthIndexInSection + 1}` : 'Fuerza'
   }
-  return blockTypeLabel(block.block_type)
+  return blockTypeLabel(block.block_type, t)
 }
 
 // ============================================================

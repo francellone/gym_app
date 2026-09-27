@@ -1,0 +1,10 @@
+{
+  "tab": {
+    "coachOnly": "Solo el coach puede abrir este panel.",
+    "openError": "No se pudo abrir el hilo de notas.",
+    "fetchError": "No se pudo obtener el hilo de notas.",
+    "unexpectedError": "Error inesperado al abrir el hilo.",
+    "errorTitle": "No pudimos abrir las notas",
+    "unavailable": "Hilo no disponible."
+  }
+}

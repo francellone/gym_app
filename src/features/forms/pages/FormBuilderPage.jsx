@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import FormBuilder from '@/features/forms/intake/components/coach/FormBuilder'
@@ -16,6 +17,7 @@ import SendToStudentModal from '@/components/SendToStudentModal'
 
 export default function FormBuilderPage() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const [formConfig, setFormConfig] = useState(null)
   const [templateId, setTemplateId] = useState(null) // id del template default guardado
   const [templates, setTemplates] = useState([])
@@ -85,7 +87,7 @@ export default function FormBuilderPage() {
           .from('intake_form_templates')
           .insert({
             coach_id: profile.id,
-            name: 'Formulario principal',
+            name: 'Formulario principal', // nombre interno guardado en la base
             config,
             is_default: true,
           })
@@ -121,12 +123,12 @@ export default function FormBuilderPage() {
       {/* Toast de confirmación */}
       {saveStatus === 'saved' && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-          ✅ Formulario guardado
+          {t('coach.forms.builderPage.saved')}
         </div>
       )}
       {saveStatus === 'error' && (
         <div className="fixed top-4 right-4 z-50 bg-red-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-          ❌ Error al guardar
+          {t('coach.forms.builderPage.saveError')}
         </div>
       )}
 

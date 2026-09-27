@@ -1,0 +1,375 @@
+{
+  "types": {
+    "one_rm": {
+      "description": "Estimación de 1RM por fórmula a partir de peso × reps"
+    },
+    "max_reps": {
+      "description": "Máximas repeticiones hasta el fallo o en tiempo fijo"
+    },
+    "mixed": {
+      "description": "Combina métodos por ejercicio (1RM, fuerza-resistencia, pruebas)"
+    },
+    "power": {
+      "description": "Potencia explosiva en saltos y sprints"
+    },
+    "cardio": {
+      "description": "Estimación de VO₂max por test de campo"
+    },
+    "body_comp": {
+      "description": "Porcentaje graso y masa magra por pliegues o perímetros"
+    },
+    "scored": {
+      "description": "Evaluación por puntajes (FMS, sit & reach, movilidad)"
+    },
+    "custom": {
+      "description": "Campos libres para cualquier métrica"
+    }
+  },
+  "methods": {
+    "one_rm": {
+      "brzycki": {
+        "label": "Brzycki",
+        "note": "Alta precisión 2–10 reps"
+      },
+      "epley": {
+        "label": "Epley",
+        "note": "Sobreestima en pocas reps"
+      },
+      "lander": {
+        "label": "Lander",
+        "note": "Buen rango general"
+      },
+      "lombardi": {
+        "label": "Lombardi",
+        "note": "Tiende a subestimar"
+      },
+      "mayhew": {
+        "label": "Mayhew",
+        "note": "Validada en fútbol americano"
+      }
+    },
+    "max_reps": {
+      "pushup": {
+        "label": "Push-up test",
+        "note": "Reps hasta el fallo"
+      },
+      "situp": {
+        "label": "Sit-up (1 min)",
+        "note": "Abdominales en 60 seg"
+      },
+      "pullup": {
+        "label": "Pull-up / Chin-up",
+        "note": "Dominadas ininterrumpidas"
+      },
+      "submax": {
+        "label": "Rep-max submáximo",
+        "note": "Ej. máx reps al 75%"
+      }
+    },
+    "power": {
+      "lewis": {
+        "label": "Lewis (salto)",
+        "note": "Potencia media. √(4.9 × m × h)"
+      },
+      "harman": {
+        "label": "Harman (salto)",
+        "note": "Potencia pico y media"
+      },
+      "broad_jump": {
+        "label": "Broad Jump",
+        "note": "Salto horizontal (distancia)"
+      },
+      "sprint": {
+        "label": "Sprint 10/20/30m",
+        "note": "Tiempo en distancias cortas"
+      }
+    },
+    "cardio": {
+      "cooper": {
+        "label": "Cooper (12 min)",
+        "note": "VO₂max = (d−504.9)/44.73"
+      },
+      "rockport": {
+        "label": "Rockport (1 milla)",
+        "note": "Tiempo + FC final"
+      },
+      "yoyo": {
+        "label": "Test Yo-Yo",
+        "note": "Nivel alcanzado → VO₂max"
+      },
+      "beep": {
+        "label": "Beep test (20m)",
+        "note": "Nivel + velocidad → VO₂max"
+      },
+      "harvard": {
+        "label": "Harvard step test",
+        "note": "FC de recuperación"
+      }
+    },
+    "body_comp": {
+      "jp3": {
+        "label": "Jackson-Pollock 3",
+        "note": "3 pliegues + edad"
+      },
+      "jp7": {
+        "label": "Jackson-Pollock 7",
+        "note": "7 pliegues, mayor precisión"
+      },
+      "dw": {
+        "label": "Durnin-Womersley",
+        "note": "4 pliegues, popular en Europa"
+      },
+      "navy": {
+        "label": "Perímetros (Navy/YMCA)",
+        "note": "Solo perímetros y talla"
+      }
+    },
+    "scored": {
+      "fms": {
+        "label": "FMS",
+        "note": "7 patrones 0–3, total /21"
+      },
+      "sit_reach": {
+        "label": "Sit & Reach",
+        "note": "Flexibilidad isquiosural (cm)"
+      },
+      "shoulder_mob": {
+        "label": "Shoulder Mobility",
+        "note": "Distancia manos detrás del cuerpo"
+      },
+      "y_balance": {
+        "label": "Y-Balance test",
+        "note": "3 vectores por lado"
+      }
+    },
+    "custom": {
+      "libre": {
+        "label": "Libre",
+        "note": "Campos personalizables"
+      }
+    }
+  },
+  "testTypes": {
+    "reps": "Repeticiones",
+    "tiempo": "Tiempo",
+    "distancia": "Distancia",
+    "peso": "Peso",
+    "movilidad": "Movilidad",
+    "tecnica": "Técnica",
+    "video": "Video (link)",
+    "libre": "Libre"
+  },
+  "common": {
+    "noData": "Sin datos",
+    "exerciseN": "Ejercicio {{n}}",
+    "exercise": "Ejercicio",
+    "dayN": "Día {{letter}}",
+    "assign": "Asignar",
+    "unarchive": "Desarchivar",
+    "unarchiveError": "No se pudo desarchivar.",
+    "assignError": "Error al asignar la evaluación",
+    "inactiveSuffix": " (inactiva)"
+  },
+  "dates": {
+    "weekdayDayMonthYear": "EEE d MMM yyyy",
+    "dayMonthYearShort": "d MMM yyyy",
+    "dayMonthNumeric": "dd/MM"
+  },
+  "methodBadge": {
+    "method": "Método: {{label}}"
+  },
+  "sex": {
+    "label": "Sexo",
+    "male": "Masculino",
+    "female": "Femenino"
+  },
+  "assignModal": {
+    "title": "Asignar evaluación",
+    "person": "Persona",
+    "noStudents": "No hay personas cargadas todavía.",
+    "selectPerson": "— Elegir persona —",
+    "showInactive": "Mostrar personas inactivas",
+    "linkHint": "Para vincularla a un plan de la persona (opcional), usá la pestaña Evaluaciones dentro de su perfil.",
+    "loadStudentsError": "Error cargando personas"
+  },
+  "list": {
+    "title": "Evaluaciones",
+    "count_one": "{{count}} plan de evaluación",
+    "count_other": "{{count}} planes de evaluación",
+    "archivedCount_one": " · {{count}} archivado",
+    "archivedCount_other": " · {{count}} archivados",
+    "new": "Nueva evaluación",
+    "searchPlaceholder": "Buscar evaluación...",
+    "allTypes": "Todos los tipos",
+    "archivedTitle": "Ver las evaluaciones archivadas",
+    "archived": "Archivadas",
+    "archivedWithCount": "Archivadas ({{count}})",
+    "emptyNone": "No hay planes de evaluación todavía",
+    "emptyFiltered": "Sin resultados para esos filtros",
+    "emptyHint": "Podés crear uno desde \"Planes\" usando el botón de duplicar",
+    "goToPlans": "Ir a Planes",
+    "archivedBadge": "Archivada",
+    "students_one": "{{count}} persona",
+    "students_other": "{{count}} personas",
+    "last": "Último: {{date}}",
+    "assignTitle": "Asignar a una persona",
+    "assignAria": "Asignar evaluación a una persona",
+    "deleteTitle": "Archivar o eliminar evaluación"
+  },
+  "detail": {
+    "notFound": "Evaluación no encontrada",
+    "assignTitle": "Asignar a una persona",
+    "deleteTitle": "Eliminar evaluación",
+    "edit": "Editar",
+    "archivedStrong": "Evaluación archivada.",
+    "archivedBody": "No aparece en el listado ni al asignar; los resultados se conservan.",
+    "statStudents": "Personas",
+    "statEvaluations": "Evaluaciones",
+    "statLast": "Última",
+    "resultsByStudent": "Resultados por persona",
+    "noStudents": "No hay personas asignadas a esta evaluación.",
+    "goToStudents": "Ir a personas",
+    "noResultsYet": "Todavía nadie registró esta evaluación",
+    "studentSummary_one": "{{count}} evaluación · última: {{date}}",
+    "studentSummary_other": "{{count}} evaluaciones · última: {{date}}",
+    "noStudentResults": "Sin evaluaciones registradas"
+  },
+  "views": {
+    "volume": "Vol: {{value}} kg",
+    "bodyMass": "Masa corporal",
+    "jumpHeight": "Altura de salto",
+    "distance": "Distancia",
+    "time": "Tiempo",
+    "meanPower": "Potencia media",
+    "peakPower": "Potencia pico · Media: {{value}} W",
+    "speed": "Velocidad: {{value}} m/s",
+    "finalHr": "FC final",
+    "bodyWeight": "Peso corporal",
+    "bodyFat": "Grasa corporal",
+    "fatMass": "Masa grasa",
+    "leanMass": "Masa magra",
+    "skinfoldSum": "Σ pliegues: {{value}} mm",
+    "pain": "Dolor",
+    "leftRightScores": "I:{{left}} D:{{right}}",
+    "asymmetry": "Asimetría",
+    "injuryRisk": "Riesgo de lesión (menos de 14)",
+    "scoreOk": "Puntaje aceptable",
+    "hamstringFlex": "Flexibilidad isquiosural",
+    "rightHandUp": "Mano D arriba",
+    "leftHandUp": "Mano I arriba",
+    "anterior": "Anterior",
+    "posteromedial": "Posteromedial",
+    "posterolateral": "Posterolateral",
+    "leftValue": "I: {{value}} cm",
+    "rightValue": "D: {{value}} cm",
+    "fieldN": "Campo {{n}}"
+  },
+  "studentTab": {
+    "title": "Evaluaciones",
+    "assign": "Asignar evaluación",
+    "empty": "No hay evaluaciones asignadas aún.",
+    "assignFirst": "Asignar primera evaluación",
+    "groupCurrent": "Del plan actual: {{title}}",
+    "groupIndependent": "Evaluaciones independientes",
+    "groupHistorical": "De planes anteriores",
+    "groupHistoricalHint": "El plan al que estaban vinculadas ya no es el vigente.",
+    "unassignError": "Error al desasignar la evaluación",
+    "form": {
+      "title": "Asignar evaluación a la persona",
+      "evaluation": "Evaluación",
+      "selectEvaluation": "— Elegir evaluación —",
+      "linkToPlan": "Asociar a un plan de la persona (opcional)",
+      "independent": "Independiente",
+      "autoSuggested": "Sugerido automáticamente: esta evaluación es parte del plan asociado.",
+      "notAssigned": "Esta evaluación es parte de un plan, pero la persona no lo tiene asignado."
+    },
+    "card": {
+      "linkedTo": "Ligada a {{title}}",
+      "last": "Última: {{date}}",
+      "noRecords": "Sin registros aún",
+      "records_one": "{{count}} registro",
+      "records_other": "{{count}} registros",
+      "load": "Cargar",
+      "loadTitle": "Cargar los resultados de esta evaluación por la persona",
+      "unassign": "Desasignar evaluación",
+      "latestTab": "Último registro",
+      "historyTab": "Historial y comparativa"
+    },
+    "latest": {
+      "notLoggedYet": "La persona todavía no registró esta evaluación.",
+      "assignedExercises_one": "{{count}} ejercicio asignado:",
+      "assignedExercises_other": "{{count}} ejercicios asignados:",
+      "unnamedExercise": "Ejercicio sin nombre",
+      "expectedInline": "Esperado: {{value}} {{unit}}",
+      "noExercises": "Esta evaluación no tiene ejercicios definidos.",
+      "mandatoryShort": "Oblig.",
+      "expected": "Esperado",
+      "result": "Resultado",
+      "noRecord": "Sin registro",
+      "studentNote": "Observación de la persona"
+    },
+    "comments": {
+      "edit": "Ver / editar comentarios del coach",
+      "add": "Agregar comentario del coach",
+      "publicLabel": "Comentario público (lo ve la persona)",
+      "publicPlaceholder": "Devolución que va a ver la persona...",
+      "privateLabel": "Nota privada (solo vos)",
+      "privatePlaceholder": "Nota interna, solo para vos...",
+      "save": "Guardar comentarios"
+    },
+    "comparison": {
+      "equal": "Igual al esperado",
+      "above": "Por encima del esperado",
+      "below": "Por debajo del esperado"
+    },
+    "history": {
+      "noRecords": "No hay registros para comparar.",
+      "showProgressOf": "Ver evolución de",
+      "noData": "Sin datos para este ejercicio.",
+      "progressOf": "{{name}} — evolución",
+      "allRecords": "Todos los registros",
+      "exercisesDone_one": "{{count}} ejercicio completado",
+      "exercisesDone_other": "{{count}} ejercicios completados"
+    },
+    "summary": {
+      "oneRm": "{{value}} kg (1RM)",
+      "fatPct": "% Grasa: {{value}}%",
+      "leanMass": "M. magra: {{value}}kg",
+      "seeDetail": "Datos guardados — ver detalle en la sección de evaluaciones."
+    },
+    "unassignModal": {
+      "title": "Desasignar evaluación",
+      "body": "La evaluación <b>{{title}}</b> va a quedar archivada para la persona y no la va a poder completar.",
+      "keep_one": "El registro ya cargado se conserva — solo se archiva la asignación.",
+      "keep_other": "Los {{count}} registros ya cargados se conservan — solo se archiva la asignación.",
+      "confirm": "Desasignar"
+    }
+  },
+  "forms": {
+    "watchVideo": "Ver video del ejercicio",
+    "suggested": "sug: {{values}}",
+    "reps": "Reps",
+    "reps60": "Reps (60 seg)",
+    "maxRepsShort": "Reps máx",
+    "weightKg": "Peso (kg)",
+    "addSet": "Agregar serie",
+    "notes": "Notas",
+    "maxRepsNotesPlaceholder": "Condiciones del test, fatiga, pausas...",
+    "repsIn60": "Repeticiones completadas (en 60 seg)",
+    "maxReps": "Repeticiones máximas",
+    "weightUsed": "Peso utilizado",
+    "weightRequiredHint": "Requerido para calcular volumen",
+    "totalVolume": "Volumen total",
+    "exerciseNamePlaceholder": "Nombre del ejercicio (ej: Sentadilla, Press banca...)",
+    "bestOneRm": "Mejor 1RM estimado ({{method}})",
+    "attemptsCalculated_one": "{{count}} intento calculado",
+    "attemptsCalculated_other": "{{count}} intentos calculados",
+    "weightLifted": "Peso levantado",
+    "repetitions": "Repeticiones",
+    "max30Reps": "Máx 30 reps",
+    "oneRmEstimated": "1RM estimado ({{method}})",
+    "oneRmCalculated": "Repetición máxima calculada",
+    "addExercise": "Agregar ejercicio",
+    "oneRmNotesPlaceholder": "Condiciones, observaciones..."
+  }
+}

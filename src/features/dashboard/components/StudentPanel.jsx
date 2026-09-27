@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import {
@@ -23,7 +24,7 @@ import {
   buildMotivationalMessage,
   computeExerciseProgress,
 } from '../studentPanelLogic'
-import { findPeriodLabel } from '../dashboardPeriods'
+import { normalizePeriodKey } from '../dashboardPeriods'
 import WellbeingSummaryBlock from '@/features/wellbeing/components/WellbeingSummaryBlock'
 import { computeWellbeingSummary, formatYMD } from '@/features/wellbeing/wellbeingSummaryLogic'
 import { ALERT_THRESHOLDS } from '../alerts'
@@ -64,6 +65,8 @@ export default function StudentPanel({
   periodKey,
   studentName,
 }) {
+  const { t } = useTranslation()
+  const periodLabel = t(`coach.dashboard.periods.${normalizePeriodKey(periodKey)}`)
   const [planExercises, setPlanExercises] = useState([])
   const [planBlocks, setPlanBlocks] = useState([])
   const [logs, setLogs] = useState([])
@@ -240,7 +243,7 @@ export default function StudentPanel({
   const adherencePct = computeAdherencePct({ completedDays, expectedDays })
   const motivation =
     adherence.weeks === 0
-      ? { tone: 'empty', text: 'Todavía no hay semanas cerradas completas en este período.' }
+      ? { tone: 'empty', key: 'coach.dashboard.panel.noClosedWeeks', params: {} }
       : buildMotivationalMessage({ completedDays, expectedDays })
 
   const exerciseProgress = useMemo(
@@ -253,6 +256,10 @@ export default function StudentPanel({
     [wellbeingLogs, periodStart, periodEnd]
   )
 
+  // "Día A" … a partir de la section (day_a → A).
+  const sectionLabel = (key) =>
+    t('coach.dashboard.sectionDay', { letter: String(key).slice(-1).toUpperCase() })
+
   // ── Early returns ────────────────────────────────────────
   if (!studentId) return null
   if (!assignment) {
@@ -260,13 +267,15 @@ export default function StudentPanel({
       <div className="card space-y-3">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm text-gray-500">
-            {studentName || 'El alumno'} no tiene plan de entrenamiento activo en este período.
+            {studentName
+              ? t('coach.dashboard.panel.noPlan', { name: studentName })
+              : t('coach.dashboard.panel.noPlanNoName')}
           </p>
           <Link
             to={`/coach/students/${studentId}/informe`}
             className="btn-primary inline-flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
           >
-            <FileBarChart size={16} /> Informe
+            <FileBarChart size={16} /> {t('coach.dashboard.panel.report')}
           </Link>
         </div>
         {/* El wellbeing no depende del plan: se muestra igual. */}
@@ -274,7 +283,7 @@ export default function StudentPanel({
           summary={wellbeingSummary}
           loading={wellbeingLoading}
           studentId={studentId}
-          periodLabel={findPeriodLabel(periodKey)}
+          periodLabel={periodLabel}
         />
       </div>
     )
@@ -285,9 +294,12 @@ export default function StudentPanel({
       {/* Header del panel */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-gray-900 truncate">{studentName || 'Alumno'}</h3>
+          <h3 className="text-base font-bold text-gray-900 truncate">
+            {studentName || t('coach.dashboard.panel.personFallback')}
+          </h3>
           <p className="text-xs text-gray-500 truncate">
-            {assignment.plan?.title || 'Plan activo'} · {findPeriodLabel(periodKey)}
+            {assignment.plan?.title || t('coach.dashboard.panel.activePlanFallback')} ·{' '}
+            {periodLabel}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -295,44 +307,44 @@ export default function StudentPanel({
             to={`/coach/students/${studentId}/informe`}
             className="btn-primary inline-flex items-center gap-1.5 text-sm px-3 py-2"
           >
-            <FileBarChart size={16} /> Informe
+            <FileBarChart size={16} /> {t('coach.dashboard.panel.report')}
           </Link>
           <Link
             to={`/coach/students/${studentId}`}
             className="btn-secondary inline-flex items-center gap-1.5 text-sm px-3 py-2"
           >
-            Ver alumno <ChevronRight size={14} />
+            {t('coach.dashboard.panel.viewPerson')} <ChevronRight size={14} />
           </Link>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-xs text-gray-400 italic">Cargando datos del alumno…</p>
+        <p className="text-xs text-gray-400 italic">{t('coach.dashboard.panel.loading')}</p>
       ) : (
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <KpiTile
               icon={<Target size={16} />}
-              label="Esperados"
+              label={t('coach.dashboard.panel.kpi.expected')}
               value={expectedDays || '—'}
               tone="gray"
             />
             <KpiTile
               icon={<Activity size={16} />}
-              label="Completados"
+              label={t('coach.dashboard.panel.kpi.completed')}
               value={completedDays}
               tone="green"
             />
             <KpiTile
               icon={<TrendingUp size={16} />}
-              label="Adherencia"
+              label={t('coach.dashboard.panel.kpi.adherence')}
               value={adherencePct !== null ? `${adherencePct}%` : '—'}
               tone={adherenceTone(adherencePct)}
             />
             <KpiTile
               icon={<Zap size={16} />}
-              label="PSE prom."
+              label={t('coach.dashboard.panel.kpi.pseAvg')}
               value={pseAvg !== null ? pseAvg : '—'}
               tone="purple"
             />
@@ -342,7 +354,7 @@ export default function StudentPanel({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div>
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Sesiones por día
+                {t('coach.dashboard.panel.sessionsPerDay')}
               </h4>
               {donutData.length > 0 ? (
                 <div className="flex items-center gap-3">
@@ -363,8 +375,8 @@ export default function StudentPanel({
                         </Pie>
                         <Tooltip
                           formatter={(value, name, props) => [
-                            `${value} día${value === 1 ? '' : 's'}`,
-                            props?.payload?.label || '',
+                            t('coach.dashboard.panel.days', { count: value }),
+                            props?.payload?.key ? sectionLabel(props.payload.key) : '',
                           ]}
                         />
                       </PieChart>
@@ -377,20 +389,22 @@ export default function StudentPanel({
                           className="w-2.5 h-2.5 rounded-sm"
                           style={{ backgroundColor: entry.color }}
                         />
-                        <span className="text-gray-700">{entry.label}</span>
+                        <span className="text-gray-700">{sectionLabel(entry.key)}</span>
                         <span className="text-gray-400">×{entry.value}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 italic">Sin sesiones en este período</p>
+                <p className="text-xs text-gray-400 italic">
+                  {t('coach.dashboard.panel.noSessions')}
+                </p>
               )}
             </div>
 
             <div>
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Tildes por día
+                {t('coach.dashboard.panel.tallies')}
               </h4>
               <DayTalliesBadge tallies={tallies} showLegend />
             </div>
@@ -400,7 +414,7 @@ export default function StudentPanel({
           <div
             className={`mt-2 rounded-xl px-3 py-2 text-sm ${motivationToneClass(motivation.tone)}`}
           >
-            {motivation.text}
+            {t(motivation.key, motivation.params)}
           </div>
 
           {/* Wellbeing del período (2026-08-27) */}
@@ -408,7 +422,7 @@ export default function StudentPanel({
             summary={wellbeingSummary}
             loading={wellbeingLoading}
             studentId={studentId}
-            periodLabel={findPeriodLabel(periodKey)}
+            periodLabel={periodLabel}
           />
 
           {/* Progreso por ejercicio (Fase C — refinamiento 2026-05-23 noche)
@@ -416,24 +430,32 @@ export default function StudentPanel({
           {exerciseProgress.length > 0 && (
             <div className="pt-2">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Progreso por ejercicio
+                {t('coach.dashboard.panel.progressTitle')}
               </h4>
               <div className="overflow-x-auto -mx-1">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-left text-gray-500 border-b border-gray-100">
-                      <th className="py-1.5 px-2 font-medium">Ejercicio</th>
-                      <th className="py-1.5 px-2 font-medium text-right">Antes</th>
-                      <th className="py-1.5 px-2 font-medium text-right">Ahora</th>
+                      <th className="py-1.5 px-2 font-medium">
+                        {t('coach.dashboard.panel.colExercise')}
+                      </th>
+                      <th className="py-1.5 px-2 font-medium text-right">
+                        {t('coach.dashboard.panel.colBefore')}
+                      </th>
+                      <th className="py-1.5 px-2 font-medium text-right">
+                        {t('coach.dashboard.panel.colNow')}
+                      </th>
                       <th className="py-1.5 px-2 font-medium text-right">Δ</th>
-                      <th className="py-1.5 px-2 font-medium text-right">Logs</th>
+                      <th className="py-1.5 px-2 font-medium text-right">
+                        {t('coach.dashboard.panel.colLogs')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {exerciseProgress.map((ex) => (
                       <tr key={ex.exerciseId} className="border-b border-gray-50">
                         <td className="py-1.5 px-2 text-gray-800 truncate max-w-[180px]">
-                          {ex.exerciseName}
+                          {ex.exerciseName || t('coach.dashboard.panel.exerciseFallback')}
                         </td>
                         <td className="py-1.5 px-2 text-right text-gray-600 tabular-nums">
                           {ex.firstMax !== null ? `${ex.firstMax} kg` : '—'}
@@ -453,7 +475,7 @@ export default function StudentPanel({
                 </table>
               </div>
               <p className="text-[10px] text-gray-400 mt-1">
-                Compara max(peso) primera mitad vs segunda mitad del período seleccionado.
+                {t('coach.dashboard.panel.progressHint')}
               </p>
             </div>
           )}

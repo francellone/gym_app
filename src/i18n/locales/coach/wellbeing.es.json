@@ -1,0 +1,67 @@
+{
+  "status": {
+    "good": "Bien",
+    "warn": "Atención",
+    "bad": "Alerta",
+    "none": "Sin datos"
+  },
+  "noEntries": "sin registros",
+  "reasons": {
+    "lowEnergy_one": "energía baja {{count}} día",
+    "lowEnergy_other": "energía baja {{count}} días",
+    "highFatigue_one": "fatiga alta {{count}} día",
+    "highFatigue_other": "fatiga alta {{count}} días",
+    "highStress_one": "estrés alto {{count}} día",
+    "highStress_other": "estrés alto {{count}} días"
+  },
+  "short": {
+    "sleep_quality": "Sueño",
+    "nutrition_quality": "Alimentación",
+    "hydration_quality": "Hidratación",
+    "energy_level": "Energía",
+    "stress_level": "Estrés",
+    "muscle_fatigue": "Fatiga"
+  },
+  "badge": {
+    "titleNone": "Wellbeing: sin registros en los últimos 14 días",
+    "title": "Wellbeing {{status}}{{reasons}} · último registro {{last}}",
+    "none": "sin wellbeing"
+  },
+  "block": {
+    "title": "Wellbeing",
+    "seeTrend": "Ver evolución",
+    "loading": "Cargando wellbeing…",
+    "empty": "Sin registros de wellbeing en este período",
+    "reasons_one": "· {{reasons}} (último {{count}} día)",
+    "reasons_other": "· {{reasons}} (últimos {{count}} días)",
+    "noSignals_one": "· sin señales de fatiga ni estrés en el último día",
+    "noSignals_other": "· sin señales de fatiga ni estrés en los últimos {{count}} días",
+    "last": "Último: {{date}} ({{ago}})",
+    "coachBadge": "Coach",
+    "entries_one": "{{count}} registro",
+    "entries_other": "{{count}} registros",
+    "lastNote": "Nota del último registro:",
+    "footnote": "Promedio del período · la flecha compara el último registro contra el promedio de los días previos.",
+    "lastShort": "últ."
+  },
+  "tab": {
+    "period2w": "2s",
+    "period1m": "1m",
+    "period3m": "3m",
+    "periodAll": "Todo",
+    "entries_one": "{{count}} registro",
+    "entries_other": "{{count}} registros",
+    "emptyTitle": "Sin datos de wellbeing",
+    "emptyBody": "La persona aún no completó ninguna encuesta de bienestar.",
+    "averages_one": "Promedios — último {{count}} día",
+    "averages_other": "Promedios — últimos {{count}} días",
+    "radarTitle": "Radar de bienestar",
+    "radarHint": "(estrés y fatiga invertidos — más alto = mejor)",
+    "radarSeries": "Bienestar",
+    "value": "Valor: {{value}}",
+    "trend": "Evolución",
+    "sessions_one": "{{count}} sesión",
+    "sessions_other": "{{count}} sesiones",
+    "recentNotes": "Observaciones recientes"
+  }
+}

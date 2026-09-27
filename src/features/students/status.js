@@ -40,24 +40,28 @@ export function getPlanStatus(planAssignments) {
 export const PAYMENT_STATUS = {
   overdue: {
     label: 'Pago vencido',
+    labelKey: 'coach.students.paymentStatus.overdue',
     badgeClass: 'bg-[#fee2e2] text-[#b91c1c]',
     dotClass: 'bg-[#dc2626]',
     icon: '🔴',
   },
   due_soon: {
     label: 'Vence pronto',
+    labelKey: 'coach.students.paymentStatus.due_soon',
     badgeClass: 'bg-[#fef3c7] text-[#92400e]',
     dotClass: 'bg-[#d97706]',
     icon: '🟡',
   },
   up_to_date: {
     label: 'Al día',
+    labelKey: 'coach.students.paymentStatus.up_to_date',
     badgeClass: 'bg-[#dcfce7] text-[#15803d]',
     dotClass: 'bg-[#16a34a]',
     icon: '🟢',
   },
   no_data: {
     label: 'Sin registro',
+    labelKey: 'coach.students.paymentStatus.no_data',
     badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',
     icon: '⚪',
@@ -66,11 +70,13 @@ export const PAYMENT_STATUS = {
 
 export const PLAN_STATUS = {
   active: {
+    labelKey: 'coach.students.planStatus.active',
     label: 'Con plan',
     badgeClass: 'bg-[#dcfce7] text-[#15803d]',
     dotClass: 'bg-[#16a34a]',
   },
   no_plan: {
+    labelKey: 'coach.students.planStatus.no_plan',
     label: 'Sin plan',
     badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',
@@ -150,30 +156,35 @@ export function getPlanExpiryInfo(planAssignments, today = new Date()) {
  */
 export const PLAN_EXPIRY_STATUS = {
   expired: {
+    labelKey: 'coach.students.planExpiry.expired',
     label: 'Plan vencido',
     badgeClass: 'bg-[#fee2e2] text-[#b91c1c]',
     dotClass: 'bg-[#dc2626]',
     icon: '📅',
   },
   expiring_soon: {
+    labelKey: 'coach.students.planExpiry.expiring_soon',
     label: 'Vence pronto',
     badgeClass: 'bg-[#fef3c7] text-[#92400e]',
     dotClass: 'bg-[#d97706]',
     icon: '📅',
   },
   on_track: {
+    labelKey: 'coach.students.planExpiry.on_track',
     label: 'Con plan',
     badgeClass: 'bg-[#dcfce7] text-[#15803d]',
     dotClass: 'bg-[#16a34a]',
     icon: '📅',
   },
   open: {
+    labelKey: 'coach.students.planExpiry.open',
     label: 'Con plan (sin vencimiento)',
     badgeClass: 'bg-[#dcfce7] text-[#15803d]',
     dotClass: 'bg-[#86efac]',
     icon: '📅',
   },
   no_plan: {
+    labelKey: 'coach.students.planExpiry.no_plan',
     label: 'Sin plan',
     badgeClass: 'bg-gray-100 text-texto2',
     dotClass: 'bg-gray-300',

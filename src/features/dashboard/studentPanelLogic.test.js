@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import {
   computeDonutData,
   computeCompletedDays,
@@ -422,7 +423,7 @@ describe('buildMotivationalMessage', () => {
   it('sin expected (null) pero con entrenos → tone good genérico', () => {
     const msg = buildMotivationalMessage({ completedDays: 3, expectedDays: null })
     expect(msg.tone).toBe('good')
-    expect(msg.text).toContain('3 entrenos')
+    expect(i18n.t(msg.key, msg.params)).toContain('3 entrenos')
   })
 
   it('90%+ → tone great', () => {
@@ -442,6 +443,8 @@ describe('buildMotivationalMessage', () => {
   })
 
   it('texto incluye el porcentaje', () => {
-    expect(buildMotivationalMessage({ completedDays: 9, expectedDays: 10 }).text).toContain('90%')
+    const msg = buildMotivationalMessage({ completedDays: 9, expectedDays: 10 })
+    expect(i18n.t(msg.key, msg.params)).toContain('90%')
+    expect(i18n.t(msg.key, { ...msg.params, lng: 'en' })).toContain('90%')
   })
 })

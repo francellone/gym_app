@@ -1,0 +1,149 @@
+{
+  "common": {
+    "loading": "Loading report…",
+    "loadError": "Couldn't load the data",
+    "back": "Back",
+    "print": "Print / PDF",
+    "download": "Download",
+    "custom": "Custom",
+    "weeks_one": "{{count}} week",
+    "weeks_other": "{{count}} weeks",
+    "personFallback": "Student"
+  },
+  "export": {
+    "print": "Print / PDF",
+    "sort": "Sort",
+    "toc": "Contents:",
+    "coachTitle": "Progress report — {{name}}"
+  },
+  "coach": {
+    "clientVersion": "Client version",
+    "clientVersionTitle": "Simple letter for the student, no charts in sight",
+    "title": "Progress report",
+    "preparedBy": "Prepared by {{name}}",
+    "noData": "No training logs in this period.",
+    "modality": {
+      "online": "Online",
+      "hybrid": "Hybrid",
+      "coach_only": "Coach only"
+    },
+    "delta": {
+      "same": "= same as before",
+      "vsPrevious": "{{arrow}} {{value}}{{unit}} vs previous period"
+    },
+    "stats": {
+      "daysTrained": "Days trained",
+      "fullAndPartial": "{{full}} full · {{partial}} activation only",
+      "perWeek": "{{value}} per week",
+      "bestStreak": "Best streak: {{count}} days in a row",
+      "compliance": "Plan adherence",
+      "complianceSub": "{{done}} of {{expected}} planned days",
+      "daysPerWeek": "Days per week",
+      "activation": "Activation",
+      "activationSub": "of the days trained",
+      "workSeries": "Working sets"
+    },
+    "attendance": {
+      "title": "Weekly consistency",
+      "full": "Full",
+      "partial": "Activation only",
+      "expected": "Planned",
+      "expectedNote": "The dotted line is what the current plan expected each week (it changes if the plan changes).",
+      "tipFull": "Week of {{week}}: {{count}} full days",
+      "tipPartial": "Week of {{week}}: {{count}} activation only"
+    },
+    "entries": {
+      "title": "How they logged",
+      "split": "<b>{{confirmed}} %</b> as prescribed and <b>{{edited}} %</b> with adjustments",
+      "splitNote": "Based on {{count}} logs made since confirmation logging exists. A very high share of \"as prescribed\" may mean the plan fits just right, or that they confirm without checking.",
+      "skipped_one": "{{count}} skipped",
+      "skipped_other": "{{count}} skipped",
+      "byTime": "{{count}} for time",
+      "byDiscomfort": "{{count}} for discomfort",
+      "byChoice": "{{count}} by choice",
+      "byUnknown": "{{count}} with no reason",
+      "listSeparator": ", ",
+      "lastSeparator": " and ",
+      "noReason": "No reason",
+      "more": "and {{count}} more",
+      "noSkips": "Nothing skipped in this period.",
+      "fallbackName": {
+        "aerobic": "Aerobic",
+        "circuit": "Circuit",
+        "exercise": "Exercise"
+      }
+    },
+    "patterns": {
+      "title": "Main work by movement pattern",
+      "note": "Sets done (activation not counted). One exercise can count toward more than one pattern.",
+      "untagged": "Untagged",
+      "thisPeriod": "This period",
+      "previous": "Previous",
+      "tipNow": "{{name}}: {{count}} sets",
+      "tipPrev": "{{name}}: {{count}} sets in the previous period"
+    },
+    "highlights": {
+      "records": "Records",
+      "before": "(before {{value}})",
+      "topChange": "Biggest change",
+      "stalled": "No change",
+      "stalledDetail": "({{count}} logs at {{value}} {{unit}})"
+    },
+    "units": {
+      "weight": "kg",
+      "reps": "reps"
+    },
+    "table": {
+      "title": "By exercise",
+      "exercise": "Exercise",
+      "measuredIn": "Measured in",
+      "logs": "Logs",
+      "periodMax": "Period max",
+      "startEnd": "Start → End",
+      "change": "Change"
+    },
+    "effort": {
+      "title": "Perceived effort per week",
+      "pse": "RPE",
+      "borg": "Borg",
+      "note": "RPE: average of what they logged per exercise · Borg: session intensity",
+      "periodAvg": "Period average:",
+      "tipPse": "Week of {{week}}: RPE {{value}}",
+      "tipBorg": "Week of {{week}}: Borg {{value}}"
+    },
+    "blocks": {
+      "title": "Aerobic blocks and circuits",
+      "types": {
+        "aerobic": "Aerobic",
+        "circuit": "Circuit",
+        "strength": "Strength"
+      },
+      "count_one": "{{count}} block",
+      "count_other": "{{count}} blocks"
+    },
+    "wellbeing": {
+      "title": "Wellbeing",
+      "labels": {
+        "sleep_quality": "Sleep",
+        "nutrition_quality": "Nutrition",
+        "hydration_quality": "Hydration",
+        "energy_level": "Energy",
+        "stress_level": "Stress",
+        "muscle_fatigue": "Muscle fatigue"
+      },
+      "before": "(before {{value}})",
+      "note": "Period averages · {{count}} logs"
+    },
+    "footerPreparedBy": "Report prepared by {{name}} · "
+  },
+  "client": {
+    "letterLanguage": "Language:",
+    "includeStalled": "Include “No change”",
+    "editableHint": "The text is editable: tap any line and fix it before downloading. Changing the period, language or options regenerates the draft (and discards your edits).",
+    "noData": "No data in the selected period.",
+    "removePoint": "Remove this point",
+    "goalPlaceholder": "Write a goal…",
+    "messagePlaceholder": "Write your message to close the period here…",
+    "challengePlaceholder": "E.g.: 🏋️ Squat: 105 kg"
+  }
+}

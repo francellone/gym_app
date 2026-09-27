@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
   Edit2,
@@ -16,15 +17,14 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import { buildFormConfig } from '@/features/forms/intake/schema/default-form.js'
 import {
   FIELD_LABELS,
-  GENDER_LABELS,
-  LANGUAGE_LABELS,
   MODALITY_LABELS,
   displayValue,
   PATOLOGIAS_OPTIONS,
+  patologiaLabel,
   validateLesionesConsistency,
   lesionesCheckErrorMessage,
 } from '../helpers'
@@ -68,6 +68,7 @@ export default function StudentInfoTab({
   onOpenNotesTab,
   onOpenPlansTab,
 }) {
+  const { t } = useTranslation()
   // ── Edición de perfil ────────────────────────────────────
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState({})
@@ -168,11 +169,14 @@ export default function StudentInfoTab({
       // Validación cliente del CHECK profiles_lesiones_requires_detail
       // (handoff 2.6). Evita rebote del back y le da feedback inmediato al coach.
       // Toma el valor final post-edición para los 3 campos relevantes.
-      const lesionesError = validateLesionesConsistency({
-        tiene_lesiones: editData.tiene_lesiones,
-        descripcion_lesiones: editData.descripcion_lesiones,
-        patologias: editData.patologias,
-      })
+      const lesionesError = validateLesionesConsistency(
+        {
+          tiene_lesiones: editData.tiene_lesiones,
+          descripcion_lesiones: editData.descripcion_lesiones,
+          patologias: editData.patologias,
+        },
+        t
+      )
       if (lesionesError) {
         setSaveError(lesionesError)
         setSaving(false)
@@ -216,10 +220,11 @@ export default function StudentInfoTab({
         if (updateError) {
           // El back podría tirar 23514 si la validación cliente falló por algún
           // motivo (ej. otro coach editó en paralelo). Lo traducimos a algo legible.
-          const friendly = lesionesCheckErrorMessage(updateError)
+          const friendly = lesionesCheckErrorMessage(updateError, t)
           throw friendly ? new Error(friendly) : updateError
         }
 
+        // old_value/new_value SIN t: el historial se guarda en español (dato).
         const historyInserts = changedFields.map((f) => ({
           student_id: studentId,
           changed_by: coachId,
@@ -239,7 +244,7 @@ export default function StudentInfoTab({
       const friendly =
         err instanceof Error && err.message && !err.code
           ? err.message
-          : errorHelpersGetFriendlyMessage(err) || err.message || 'Error al guardar los cambios'
+          : errorHelpersGetFriendlyMessage(err) || err.message || t('coach.students.info.saveError')
       setSaveError(friendly)
     } finally {
       setSaving(false)
@@ -253,7 +258,7 @@ export default function StudentInfoTab({
       setPayments(await fetchPayments(supabase, studentId))
     } catch (err) {
       console.error('[StudentInfoTab] loadPayments', err)
-      setPaySaveError('No se pudo cargar el historial de pagos')
+      setPaySaveError(t('coach.students.info.paymentsLoadError'))
     } finally {
       setPaymentsLoading(false)
     }
@@ -293,26 +298,26 @@ export default function StudentInfoTab({
       await loadPayments()
       onRefresh()
     } catch (err) {
-      setPaySaveError(err.message || 'Error al registrar el pago')
+      setPaySaveError(err.message || t('coach.students.payment.errors.generic'))
     } finally {
       setPaySaving(false)
     }
   }
 
   async function handleDeletePayment(payment) {
-    const label = `${format(parseISO(payment.period_start), 'dd/MM/yy')} a ${format(
-      parseISO(payment.period_end),
-      'dd/MM/yy'
-    )}`
-    if (!window.confirm(`¿Borrar el pago que cubre ${label}? El vencimiento se recalcula solo.`))
-      return
+    const fmt = t('coach.students.formats.shortDate')
+    const label = t('coach.students.info.periodRange', {
+      from: format(parseISO(payment.period_start), fmt),
+      to: format(parseISO(payment.period_end), fmt),
+    })
+    if (!window.confirm(t('coach.students.info.deletePaymentConfirm', { period: label }))) return
     setPaySaving(true)
     try {
       await deletePayment(supabase, payment.id)
       await loadPayments()
       onRefresh()
     } catch (err) {
-      setPaySaveError(err.message || 'Error al borrar el pago')
+      setPaySaveError(err.message || t('coach.students.info.deletePaymentError'))
     } finally {
       setPaySaving(false)
     }
@@ -353,7 +358,7 @@ export default function StudentInfoTab({
   // ── Helpers de display ───────────────────────────────────
   function formatIntakeResponse(value) {
     if (value === null || value === undefined || value === '') return '—'
-    if (typeof value === 'boolean') return value ? 'Sí' : 'No'
+    if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
     if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—'
     return String(value)
   }
@@ -375,7 +380,7 @@ export default function StudentInfoTab({
       {/* Toast – formulario enviado */}
       {formSentOk && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-          <CheckCircle2 size={16} /> Formulario enviado al alumno
+          <CheckCircle2 size={16} /> {t('coach.students.info.formSentToast')}
         </div>
       )}
 
@@ -383,7 +388,7 @@ export default function StudentInfoTab({
       {!editMode ? (
         <div className="flex justify-end">
           <button onClick={startEdit} className="btn-secondary flex items-center gap-1.5 text-sm">
-            <Edit2 size={14} /> Editar datos
+            <Edit2 size={14} /> {t('coach.students.info.editData')}
           </button>
         </div>
       ) : (
@@ -392,7 +397,7 @@ export default function StudentInfoTab({
             onClick={cancelEdit}
             className="btn-ghost flex items-center gap-1.5 text-sm text-gray-600"
           >
-            <X size={14} /> Cancelar
+            <X size={14} /> {t('common.cancel')}
           </button>
           <button
             onClick={saveEdit}
@@ -403,7 +408,7 @@ export default function StudentInfoTab({
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <Save size={14} /> Guardar
+                <Save size={14} /> {t('common.save')}
               </>
             )}
           </button>
@@ -418,11 +423,11 @@ export default function StudentInfoTab({
 
       {/* ── Datos personales ── */}
       <div className="card space-y-3">
-        <h3 className="font-semibold text-gray-900">Datos personales</h3>
+        <h3 className="font-semibold text-gray-900">{t('coach.students.info.personalData')}</h3>
         {editMode ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="label text-xs">Nombre</label>
+              <label className="label text-xs">{t('coach.students.fields.name')}</label>
               <input
                 className="input text-sm"
                 value={editData.name || ''}
@@ -430,7 +435,7 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Fecha de nacimiento</label>
+              <label className="label text-xs">{t('coach.students.fields.birth_date')}</label>
               <input
                 type="date"
                 className="input text-sm"
@@ -439,20 +444,20 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Sexo</label>
+              <label className="label text-xs">{t('coach.students.fields.gender')}</label>
               <select
                 className="input text-sm"
                 value={editData.gender || ''}
                 onChange={(e) => setEditData((p) => ({ ...p, gender: e.target.value }))}
               >
-                <option value="">Sin especificar</option>
-                <option value="male">Masculino</option>
-                <option value="female">Femenino</option>
-                <option value="other">Otro</option>
+                <option value="">{t('coach.students.info.unspecified')}</option>
+                <option value="male">{t('coach.students.genderOptions.male')}</option>
+                <option value="female">{t('coach.students.genderOptions.female')}</option>
+                <option value="other">{t('coach.students.genderOptions.other')}</option>
               </select>
             </div>
             <div>
-              <label className="label text-xs">Altura (cm)</label>
+              <label className="label text-xs">{t('coach.students.fields.height_cm')}</label>
               <input
                 type="number"
                 className="input text-sm"
@@ -461,7 +466,7 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Peso (kg)</label>
+              <label className="label text-xs">{t('coach.students.fields.weight_kg')}</label>
               <input
                 type="number"
                 step="0.1"
@@ -471,7 +476,7 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Peso objetivo (kg)</label>
+              <label className="label text-xs">{t('coach.students.info.targetWeightKg')}</label>
               <input
                 type="number"
                 step="0.1"
@@ -481,7 +486,7 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">DNI</label>
+              <label className="label text-xs">{t('coach.students.fields.dni')}</label>
               <input
                 className="input text-sm"
                 value={editData.dni || ''}
@@ -489,20 +494,22 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Nivel</label>
+              <label className="label text-xs">{t('coach.students.fields.level')}</label>
               <select
                 className="input text-sm"
                 value={editData.level || ''}
                 onChange={(e) => setEditData((p) => ({ ...p, level: e.target.value }))}
               >
-                <option value="">Sin especificar</option>
-                <option value="beginner">Principiante</option>
-                <option value="intermediate">Intermedio</option>
-                <option value="advanced">Avanzado</option>
+                <option value="">{t('coach.students.info.unspecified')}</option>
+                <option value="beginner">{t('coach.students.levelOptions.beginner')}</option>
+                <option value="intermediate">
+                  {t('coach.students.levelOptions.intermediate')}
+                </option>
+                <option value="advanced">{t('coach.students.levelOptions.advanced')}</option>
               </select>
             </div>
             <div>
-              <label className="label text-xs">Objetivo</label>
+              <label className="label text-xs">{t('coach.students.fields.goal')}</label>
               <input
                 className="input text-sm"
                 value={editData.goal || ''}
@@ -510,7 +517,7 @@ export default function StudentInfoTab({
               />
             </div>
             <div>
-              <label className="label text-xs">Frecuencia semanal</label>
+              <label className="label text-xs">{t('coach.students.fields.weekly_frequency')}</label>
               <input
                 type="number"
                 min="1"
@@ -522,27 +529,27 @@ export default function StudentInfoTab({
             </div>
             {/* Doc 46: idioma de la UI que ve este alumno */}
             <div>
-              <label className="label text-xs">Idioma de la app</label>
+              <label className="label text-xs">{t('coach.students.fields.language')}</label>
               <select
                 className="input text-sm"
                 value={editData.language || 'es'}
                 onChange={(e) => setEditData((p) => ({ ...p, language: e.target.value }))}
               >
-                <option value="es">Español</option>
-                <option value="en">Inglés</option>
+                <option value="es">{t('coach.students.languageOptions.es')}</option>
+                <option value="en">{t('coach.students.languageOptions.en')}</option>
               </select>
             </div>
             {/* v33: modalidad de uso (online / híbrido / solo coach) */}
             <div>
-              <label className="label text-xs">Modalidad</label>
+              <label className="label text-xs">{t('coach.students.fields.modality')}</label>
               <select
                 className="input text-sm"
                 value={editData.modality || 'online'}
                 onChange={(e) => setEditData((p) => ({ ...p, modality: e.target.value }))}
               >
-                {Object.entries(MODALITY_LABELS).map(([value, label]) => (
+                {Object.keys(MODALITY_LABELS).map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(`coach.students.modalityOptions.${value}`)}
                   </option>
                 ))}
               </select>
@@ -551,45 +558,64 @@ export default function StudentInfoTab({
                 vistas del coach (lista default, calendario, alertas,
                 selectores). La persona puede seguir entrando a su app. */}
             <div>
-              <label className="label text-xs">Estado</label>
+              <label className="label text-xs">{t('coach.students.fields.active')}</label>
               <select
                 className="input text-sm"
                 value={editData.active === false ? 'false' : 'true'}
                 onChange={(e) => setEditData((p) => ({ ...p, active: e.target.value === 'true' }))}
               >
-                <option value="true">Activo</option>
-                <option value="false">Inactivo</option>
+                <option value="true">{t('coach.students.activeStatus.active')}</option>
+                <option value="false">{t('coach.students.activeStatus.inactive')}</option>
               </select>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Altura', value: student.height_cm ? `${student.height_cm} cm` : '—' },
-              { label: 'Peso inicial', value: student.weight_kg ? `${student.weight_kg} kg` : '—' },
               {
-                label: 'Peso objetivo',
+                label: t('coach.students.info.height'),
+                value: student.height_cm ? `${student.height_cm} cm` : '—',
+              },
+              {
+                label: t('coach.students.info.initialWeight'),
+                value: student.weight_kg ? `${student.weight_kg} kg` : '—',
+              },
+              {
+                label: t('coach.students.fields.target_weight_kg'),
                 value: student.target_weight_kg ? `${student.target_weight_kg} kg` : '—',
               },
-              { label: 'DNI', value: student.dni || '—' },
+              { label: t('coach.students.fields.dni'), value: student.dni || '—' },
               {
-                label: 'Nacimiento',
+                label: t('coach.students.info.birth'),
                 value: student.birth_date
-                  ? format(parseISO(student.birth_date), 'dd/MM/yyyy')
+                  ? format(parseISO(student.birth_date), t('dates.shortDate'))
                   : '—',
               },
-              { label: 'Sexo', value: GENDER_LABELS[student.gender] || '—' },
               {
-                label: 'Frecuencia',
-                value: student.weekly_frequency ? `${student.weekly_frequency} días/sem` : '—',
+                label: t('coach.students.fields.gender'),
+                value: displayValue('gender', student.gender, t),
               },
-              { label: 'Objetivo', value: student.goal || '—' },
-              { label: 'Idioma de la app', value: LANGUAGE_LABELS[student.language] || 'Español' },
               {
-                label: 'Modalidad',
-                value: MODALITY_LABELS[student.modality] || MODALITY_LABELS.online,
+                label: t('coach.students.info.frequency'),
+                value: student.weekly_frequency
+                  ? t('coach.students.info.daysPerWeek', {
+                      count: Number(student.weekly_frequency),
+                    })
+                  : '—',
               },
-              { label: 'Estado', value: displayValue('active', student.active) },
+              { label: t('coach.students.fields.goal'), value: student.goal || '—' },
+              {
+                label: t('coach.students.fields.language'),
+                value: displayValue('language', student.language || 'es', t),
+              },
+              {
+                label: t('coach.students.fields.modality'),
+                value: displayValue('modality', student.modality || 'online', t),
+              },
+              {
+                label: t('coach.students.fields.active'),
+                value: displayValue('active', student.active, t),
+              },
             ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-500">{item.label}</p>
@@ -606,11 +632,13 @@ export default function StudentInfoTab({
           distintas de solo ['Ninguna']. La UI bloquea el guardado si no
           se cumple para evitar rebote. */}
       <div className="card space-y-3">
-        <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">🩺 Salud</h3>
+        <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+          🩺 {t('coach.students.info.health')}
+        </h3>
         {editMode ? (
           <div className="space-y-3">
             <div>
-              <label className="label text-xs">¿Tiene lesiones actuales o recientes?</label>
+              <label className="label text-xs">{t('coach.students.info.injuriesQuestion')}</label>
               <select
                 className="input text-sm"
                 value={
@@ -628,15 +656,17 @@ export default function StudentInfoTab({
                   }))
                 }}
               >
-                <option value="">Sin especificar</option>
-                <option value="true">Sí</option>
-                <option value="false">No</option>
+                <option value="">{t('coach.students.info.unspecified')}</option>
+                <option value="true">{t('common.yes')}</option>
+                <option value="false">{t('common.no')}</option>
               </select>
             </div>
 
             {editData.tiene_lesiones === true && (
               <div>
-                <label className="label text-xs">Descripción de lesiones</label>
+                <label className="label text-xs">
+                  {t('coach.students.fields.descripcion_lesiones')}
+                </label>
                 <textarea
                   className="input resize-none text-sm"
                   rows={3}
@@ -644,16 +674,16 @@ export default function StudentInfoTab({
                   onChange={(e) =>
                     setEditData((p) => ({ ...p, descripcion_lesiones: e.target.value }))
                   }
-                  placeholder="Ej: dolor en rodilla derecha, molestia en hombro al levantar..."
+                  placeholder={t('coach.students.info.injuriesPlaceholder')}
                 />
                 <p className="text-[11px] text-gray-400 mt-1">
-                  Obligatorio si no marcaste ninguna patología real abajo.
+                  {t('coach.students.info.injuriesRequiredHint')}
                 </p>
               </div>
             )}
 
             <div>
-              <label className="label text-xs">Patologías</label>
+              <label className="label text-xs">{t('coach.students.fields.patologias')}</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {PATOLOGIAS_OPTIONS.map((opt) => {
                   const selected =
@@ -686,7 +716,7 @@ export default function StudentInfoTab({
                           })
                         }}
                       />
-                      <span>{opt}</span>
+                      <span>{patologiaLabel(opt, t)}</span>
                     </label>
                   )
                 })}
@@ -696,23 +726,29 @@ export default function StudentInfoTab({
         ) : (
           <div className="space-y-2 text-sm">
             <div className="flex items-baseline gap-2">
-              <span className="text-xs text-gray-500 w-32 flex-shrink-0">¿Tiene lesiones?</span>
+              <span className="text-xs text-gray-500 w-32 flex-shrink-0">
+                {t('coach.students.info.hasInjuries')}
+              </span>
               <span className="font-medium text-gray-900">
-                {displayValue('tiene_lesiones', student.tiene_lesiones)}
+                {displayValue('tiene_lesiones', student.tiene_lesiones, t)}
               </span>
             </div>
             {student.tiene_lesiones && student.descripcion_lesiones && (
               <div className="flex items-baseline gap-2">
-                <span className="text-xs text-gray-500 w-32 flex-shrink-0">Descripción</span>
+                <span className="text-xs text-gray-500 w-32 flex-shrink-0">
+                  {t('coach.students.info.description')}
+                </span>
                 <span className="font-medium text-gray-900 flex-1 whitespace-pre-wrap">
                   {student.descripcion_lesiones}
                 </span>
               </div>
             )}
             <div className="flex items-baseline gap-2">
-              <span className="text-xs text-gray-500 w-32 flex-shrink-0">Patologías</span>
+              <span className="text-xs text-gray-500 w-32 flex-shrink-0">
+                {t('coach.students.fields.patologias')}
+              </span>
               <span className="font-medium text-gray-900 flex-1">
-                {displayValue('patologias', student.patologias)}
+                {displayValue('patologias', student.patologias, t)}
               </span>
             </div>
           </div>
@@ -727,7 +763,9 @@ export default function StudentInfoTab({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquare size={15} className="text-primary-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">Notas con el alumno</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              {t('coach.students.info.notesTitle')}
+            </h3>
           </div>
           {onOpenNotesTab && (
             <button
@@ -735,7 +773,7 @@ export default function StudentInfoTab({
               onClick={onOpenNotesTab}
               className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-0.5"
             >
-              Ver y escribir <ChevronRight size={12} />
+              {t('coach.students.info.notesOpen')} <ChevronRight size={12} />
             </button>
           )}
         </div>
@@ -743,36 +781,37 @@ export default function StudentInfoTab({
         {/* Observación pública (última) */}
         <div className="border-l-4 border-l-blue-400 pl-3 py-1">
           <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
-            Última observación pública
+            {t('coach.students.info.lastPublicNote')}
           </p>
           {notesPreviewLoading ? (
-            <p className="text-xs text-gray-400 italic">Cargando…</p>
+            <p className="text-xs text-gray-400 italic">{t('common.loading')}</p>
           ) : lastObs ? (
             <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">{lastObs.body}</p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Sin observaciones aún.</p>
+            <p className="text-sm text-gray-400 italic">{t('coach.students.info.noPublicNotes')}</p>
           )}
         </div>
 
         {/* Nota privada (última) */}
         <div className="border-l-4 border-l-primary-400 pl-3 py-1">
           <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5 flex items-center gap-1">
-            <Lock size={10} /> Última nota privada
+            <Lock size={10} /> {t('coach.students.info.lastPrivateNote')}
           </p>
           {notesPreviewLoading ? (
-            <p className="text-xs text-gray-400 italic">Cargando…</p>
+            <p className="text-xs text-gray-400 italic">{t('common.loading')}</p>
           ) : lastPriv ? (
             <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
               {lastPriv.body}
             </p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Sin notas privadas aún.</p>
+            <p className="text-sm text-gray-400 italic">
+              {t('coach.students.info.noPrivateNotes')}
+            </p>
           )}
         </div>
 
         <p className="text-[10px] text-gray-400 pt-1 border-t border-gray-100">
-          Las observaciones y notas privadas viven en el panel de Notas. Desde ahí podés escribir,
-          responder, filtrar, editar y borrar.
+          {t('coach.students.info.notesFootnote')}
         </p>
       </div>
 
@@ -780,18 +819,20 @@ export default function StudentInfoTab({
       <div className="card">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900 text-sm">Vigencia del plan</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              {t('coach.students.info.planValidity')}
+            </h3>
             <span className={`badge text-xs ${planExpiryConfig.badgeClass}`}>
-              {planExpiryConfig.icon} {planExpiryConfig.label}
+              {planExpiryConfig.icon} {t(planExpiryConfig.labelKey)}
             </span>
           </div>
           {onOpenPlansTab && (
             <button
               onClick={onOpenPlansTab}
               className="text-xs text-primary-600 hover:underline"
-              title="Ver y editar los planes de esta persona"
+              title={t('coach.students.info.seePlansTitle')}
             >
-              Ver planes
+              {t('coach.students.info.seePlans')}
             </button>
           )}
         </div>
@@ -800,7 +841,7 @@ export default function StudentInfoTab({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-gray-500 flex items-center gap-1">
-                <Calendar size={11} /> Plan
+                <Calendar size={11} /> {t('coach.students.info.plan')}
               </p>
               <p className="text-sm text-gray-900 break-words">
                 {planExpiry.assignment.plan?.title || '—'}
@@ -808,7 +849,7 @@ export default function StudentInfoTab({
             </div>
             <div>
               <p className="text-xs text-gray-500 flex items-center gap-1">
-                <Calendar size={11} /> Vence
+                <Calendar size={11} /> {t('coach.students.info.ends')}
               </p>
               <p
                 className={`text-sm font-medium ${
@@ -820,21 +861,19 @@ export default function StudentInfoTab({
                 }`}
               >
                 {planExpiry.expectedEndDate
-                  ? format(parseISO(planExpiry.expectedEndDate), 'dd/MM/yyyy')
-                  : 'Sin vencimiento'}
+                  ? format(parseISO(planExpiry.expectedEndDate), t('dates.shortDate'))
+                  : t('coach.students.info.noEndDate')}
               </p>
               {planExpiry.isEstimated && (
-                <p className="text-[11px] text-gray-400">
-                  Estimado con la duración del plan
-                </p>
+                <p className="text-[11px] text-gray-400">{t('coach.students.info.estimatedEnd')}</p>
               )}
               {planExpiry.isManual && (
-                <p className="text-[11px] text-gray-400">Fecha fijada a mano</p>
+                <p className="text-[11px] text-gray-400">{t('coach.students.info.manualEnd')}</p>
               )}
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-500">Esta persona no tiene un plan activo.</p>
+          <p className="text-sm text-gray-500">{t('coach.students.info.noActivePlan')}</p>
         )}
       </div>
 
@@ -843,9 +882,11 @@ export default function StudentInfoTab({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CreditCard size={15} className="text-primary-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">Pagos</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              {t('coach.students.info.payments')}
+            </h3>
             <span className={`badge text-xs ${paymentConfig.badgeClass}`}>
-              {paymentConfig.label}
+              {t(paymentConfig.labelKey)}
             </span>
           </div>
           <button
@@ -855,28 +896,26 @@ export default function StudentInfoTab({
             }}
             disabled={paymentsLoading}
             className="text-xs text-primary-600 hover:underline font-medium disabled:opacity-40 disabled:no-underline"
-            title={
-              paymentsLoading ? 'Esperando el historial para proponer el período' : undefined
-            }
+            title={paymentsLoading ? t('coach.students.info.waitingPayments') : undefined}
           >
-            Registrar pago
+            {t('coach.students.payment.title')}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-gray-500 flex items-center gap-1">
-              <Calendar size={11} /> Último pago
+              <Calendar size={11} /> {t('coach.students.info.lastPayment')}
             </p>
             <p className="text-sm font-medium text-gray-900">
               {student.last_payment_date
-                ? format(parseISO(student.last_payment_date), 'dd/MM/yyyy')
+                ? format(parseISO(student.last_payment_date), t('dates.shortDate'))
                 : '—'}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 flex items-center gap-1">
-              <Calendar size={11} /> Vence el pago
+              <Calendar size={11} /> {t('coach.students.info.paymentDue')}
             </p>
             <p
               className={`text-sm font-medium ${
@@ -888,7 +927,7 @@ export default function StudentInfoTab({
               }`}
             >
               {student.next_payment_due
-                ? format(parseISO(student.next_payment_due), 'dd/MM/yyyy')
+                ? format(parseISO(student.next_payment_due), t('dates.shortDate'))
                 : '—'}
             </p>
           </div>
@@ -897,11 +936,9 @@ export default function StudentInfoTab({
         {/* Historial */}
         <div className="pt-2 border-t border-gray-100">
           {paymentsLoading ? (
-            <p className="text-xs text-gray-400">Cargando historial...</p>
+            <p className="text-xs text-gray-400">{t('coach.students.info.loadingHistory')}</p>
           ) : payments.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              Todavía no hay pagos registrados para esta persona.
-            </p>
+            <p className="text-xs text-gray-500">{t('coach.students.info.noPayments')}</p>
           ) : (
             <div className="space-y-2">
               {(showAllPayments ? payments : payments.slice(0, 3)).map((pay) => {
@@ -910,9 +947,22 @@ export default function StudentInfoTab({
                   <div key={pay.id} className="flex items-start gap-2 text-xs">
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-900">
-                        {format(parseISO(pay.period_start), 'dd/MM/yy')} a{' '}
-                        {format(parseISO(pay.period_end), 'dd/MM/yy')}
-                        {dias ? <span className="text-gray-400"> · {dias} días</span> : null}
+                        {t('coach.students.info.periodRange', {
+                          from: format(
+                            parseISO(pay.period_start),
+                            t('coach.students.formats.shortDate')
+                          ),
+                          to: format(
+                            parseISO(pay.period_end),
+                            t('coach.students.formats.shortDate')
+                          ),
+                        })}
+                        {dias ? (
+                          <span className="text-gray-400">
+                            {' · '}
+                            {t('coach.students.info.days', { count: dias })}
+                          </span>
+                        ) : null}
                         {formatAmount(pay.amount, pay.currency) && (
                           <span className="ml-1 font-medium">
                             · {formatAmount(pay.amount, pay.currency)}
@@ -920,9 +970,16 @@ export default function StudentInfoTab({
                         )}
                       </p>
                       <p className="text-gray-500">
-                        Pagado el {format(parseISO(pay.paid_on), 'dd/MM/yy')}
+                        {t('coach.students.info.paidOn', {
+                          date: format(
+                            parseISO(pay.paid_on),
+                            t('coach.students.formats.shortDate')
+                          ),
+                        })}
                         {pay.method ? ` · ${pay.method}` : ''}
-                        {pay.source === 'backfill' ? ' · cargado antes del historial' : ''}
+                        {pay.source === 'backfill'
+                          ? ` · ${t('coach.students.info.backfilled')}`
+                          : ''}
                       </p>
                       {pay.notes && <p className="text-gray-600 italic break-words">{pay.notes}</p>}
                     </div>
@@ -930,7 +987,7 @@ export default function StudentInfoTab({
                       onClick={() => handleDeletePayment(pay)}
                       disabled={paySaving}
                       className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
-                      title="Borrar este pago"
+                      title={t('coach.students.info.deletePaymentTitle')}
                     >
                       <X size={13} />
                     </button>
@@ -943,8 +1000,8 @@ export default function StudentInfoTab({
                   className="text-xs text-primary-600 hover:underline"
                 >
                   {showAllPayments
-                    ? 'Ver menos'
-                    : `Ver los ${payments.length} pagos`}
+                    ? t('coach.students.info.showLess')
+                    : t('coach.students.info.showAllPayments', { count: payments.length })}
                 </button>
               )}
             </div>
@@ -974,23 +1031,25 @@ export default function StudentInfoTab({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ClipboardList size={15} className="text-primary-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">Formulario de ingreso</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              {t('coach.students.info.intakeTitle')}
+            </h3>
           </div>
           {formSubmission && (
             <span className="badge bg-green-100 text-green-700 text-xs flex items-center gap-1">
-              <FileCheck size={11} /> Completado
+              <FileCheck size={11} /> {t('coach.students.info.completed')}
             </span>
           )}
           {formAssignment && !formSubmission && (
-            <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pendiente</span>
+            <span className="badge bg-yellow-100 text-yellow-700 text-xs">
+              {t('coach.students.info.pending')}
+            </span>
           )}
         </div>
 
         {!formAssignment && (
           <div className="text-center py-3 space-y-3">
-            <p className="text-sm text-gray-500">
-              El alumno todavía no recibió el formulario de ingreso.
-            </p>
+            <p className="text-sm text-gray-500">{t('coach.students.info.intakeNotSent')}</p>
             <button
               onClick={sendForm}
               disabled={sendingForm}
@@ -1001,19 +1060,20 @@ export default function StudentInfoTab({
               ) : (
                 <Send size={14} />
               )}
-              Enviar formulario
+              {t('coach.students.info.sendForm')}
             </button>
           </div>
         )}
 
         {formAssignment && !formSubmission && (
           <div className="space-y-1">
-            <p className="text-sm text-gray-600">
-              El formulario fue enviado y está esperando respuesta del alumno.
-            </p>
+            <p className="text-sm text-gray-600">{t('coach.students.info.intakeWaiting')}</p>
             <p className="text-xs text-gray-400">
-              Enviado el{' '}
-              {format(parseISO(formAssignment.sent_at), "d 'de' MMMM yyyy", { locale: es })}
+              {t('coach.students.info.sentOn', {
+                date: format(parseISO(formAssignment.sent_at), t('dates.dayMonthYear'), {
+                  locale: dateLocale(),
+                }),
+              })}
             </p>
           </div>
         )}
@@ -1021,8 +1081,11 @@ export default function StudentInfoTab({
         {formSubmission && (
           <div className="space-y-4">
             <p className="text-xs text-gray-400">
-              Completado el{' '}
-              {format(parseISO(formSubmission.submitted_at), "d 'de' MMMM yyyy", { locale: es })}
+              {t('coach.students.info.completedOn', {
+                date: format(parseISO(formSubmission.submitted_at), t('dates.dayMonthYear'), {
+                  locale: dateLocale(),
+                }),
+              })}
             </p>
             {formModules.map((module) => {
               const answered = (module.questions || []).filter((q) => {

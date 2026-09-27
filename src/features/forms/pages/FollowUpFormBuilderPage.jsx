@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -20,6 +21,7 @@ export default function FollowUpFormBuilderPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const isNew = id === 'new' || !id
 
   const { bilingual } = useCoachFormLanguages()
@@ -28,7 +30,7 @@ export default function FollowUpFormBuilderPage() {
   const [description, setDescription] = useState('')
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState(null) // 'saved' | 'error' | string
+  const [saveStatus, setSaveStatus] = useState(null) // 'saved' | 'error' | 'limit'
   const [otherTemplates, setOtherTemplates] = useState([])
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function FollowUpFormBuilderPage() {
       .eq('coach_id', profile.id)
       .eq('form_kind', 'follow_up')
       .eq('is_active', true)
-    setOtherTemplates(tpls?.filter((t) => t.id !== id) || [])
+    setOtherTemplates(tpls?.filter((tpl) => tpl.id !== id) || [])
 
     if (isNew) {
       setConfig(buildFollowUpFormConfig())
@@ -81,7 +83,10 @@ export default function FollowUpFormBuilderPage() {
     // Si todavía no hay nombre, pedirlo
     let finalName = name
     if (!finalName?.trim()) {
-      const promptName = window.prompt('Nombre de la plantilla:', 'Check-in mitad de plan')
+      const promptName = window.prompt(
+        t('coach.forms.followUpBuilder.promptName'),
+        t('coach.forms.followUpBuilder.promptDefault')
+      )
       if (!promptName?.trim()) return
       finalName = promptName.trim()
       setName(finalName)
@@ -109,12 +114,8 @@ export default function FollowUpFormBuilderPage() {
           .single()
 
         if (error) {
-          // El trigger DB lanza si hay >10
-          setSaveStatus(
-            error.message?.includes('Límite alcanzado')
-              ? 'Llegaste al límite de 10 plantillas activas. Archivá una antes de crear otra.'
-              : 'error'
-          )
+          // El trigger DB lanza si hay >10 (se compara contra su mensaje, en español)
+          setSaveStatus(error.message?.includes('Límite alcanzado') ? 'limit' : 'error')
           return
         }
 
@@ -162,17 +163,17 @@ export default function FollowUpFormBuilderPage() {
       {/* Toast */}
       {saveStatus === 'saved' && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
-          Guardado ✓
+          {t('coach.forms.followUpBuilder.saved')}
         </div>
       )}
       {saveStatus === 'error' && (
         <div className="fixed top-4 right-4 z-50 bg-red-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
-          Error al guardar
+          {t('coach.forms.followUpBuilder.saveError')}
         </div>
       )}
-      {typeof saveStatus === 'string' && saveStatus !== 'saved' && saveStatus !== 'error' && (
+      {saveStatus === 'limit' && (
         <div className="fixed top-4 right-4 z-50 bg-amber-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-xs">
-          {saveStatus}
+          {t('coach.forms.followUpBuilder.limitReached')}
         </div>
       )}
 
@@ -182,24 +183,26 @@ export default function FollowUpFormBuilderPage() {
           onClick={() => navigate('/coach/follow-up-forms')}
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
-          <ArrowLeft size={14} /> Volver
+          <ArrowLeft size={14} /> {t('coach.forms.followUpBuilder.back')}
         </button>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Nombre del formulario</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              {t('coach.forms.followUpBuilder.nameLabel')}
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Check-in mitad de plan"
+              placeholder={t('coach.forms.followUpBuilder.namePlaceholder')}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           {bilingual && (
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Nombre en inglés (opcional — lo ven tus alumnos en inglés)
+                {t('coach.forms.followUpBuilder.nameEnLabel')}
               </label>
               <input
                 type="text"
@@ -211,12 +214,14 @@ export default function FollowUpFormBuilderPage() {
             </div>
           )}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Descripción (opcional)</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              {t('coach.forms.followUpBuilder.descriptionLabel')}
+            </label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Breve descripción para vos"
+              placeholder={t('coach.forms.followUpBuilder.descriptionPlaceholder')}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

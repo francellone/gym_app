@@ -1,0 +1,418 @@
+{
+  "completionMessage": {
+    "label": "Message when the plan ends",
+    "autoHint": "This is the automatic message: each student sees it in their own language, with a tone that matches how the plan went. If you change it, it's shown exactly as you write it.",
+    "customHint": "It's shown as is on the plan's closing screen, whatever the result.",
+    "backToAuto": "Back to automatic"
+  },
+  "daySelector": {
+    "groupAria": "Training days",
+    "mismatch": "The plan suggests {{sessions}} and you picked {{days}}. You can save it anyway.",
+    "sessionsPerWeek_one": "{{count}} session per week",
+    "sessionsPerWeek_other": "{{count}} sessions per week",
+    "daysCount_one": "{{count}} day",
+    "daysCount_other": "{{count}} days"
+  },
+  "days": {
+    "short": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "long": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    }
+  },
+  "historyLine": {
+    "thisPerson": "This student",
+    "noLogs": "{{name}} hasn't logged this exercise yet.",
+    "didOnce": "did {{range}}",
+    "comesIn": "has been doing {{range}}",
+    "max": " · max {{value}}",
+    "lastTime": " · last time {{date}}"
+  },
+  "prescriptionFields": {
+    "sets": "Sets",
+    "reps": "Reps",
+    "weight": "Weight",
+    "rest": "Rest",
+    "pse": "RPE"
+  },
+  "prescriptionTimeline": {
+    "dateFormat": "MMM dd, yyyy"
+  },
+  "addBlock": {
+    "button": "Add block",
+    "question": "What type of block do you want to add?"
+  },
+  "blockTypes": {
+    "strength": {
+      "label": "Strength",
+      "description": "Sets, reps and weight. Classic format."
+    },
+    "aerobic": {
+      "label": "Aerobic",
+      "description": "Cardio: duration, intensity, intervals."
+    },
+    "circuit": {
+      "label": "Circuit",
+      "description": "HIIT / AMRAP / EMOM / free, with several exercises."
+    },
+    "fallback": "Block",
+    "strengthNumbered": "Strength {{n}}"
+  },
+  "strengthBlock": {
+    "empty": "No exercises yet. Add one below 👇",
+    "addExercise": "Add exercise"
+  },
+  "prescriptionNote": {
+    "title": "You changed the plan's targets",
+    "body": "It's saved in the plan's history. You can add a reason (optional) to keep track of why it changed.",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "E.g. progression, doing great, adjusted for discomfort…",
+    "skip": "Skip",
+    "saveReason": "Save reason"
+  },
+  "deletePlan": {
+    "loadUsageError": "Couldn't read how the plan is being used.",
+    "genericError": "Couldn't complete it. Please try again.",
+    "noPermission": "Couldn't delete the plan: you don't have permission to.",
+    "titleDeletePlan": "Delete plan",
+    "titleDeleteEval": "Delete evaluation",
+    "titleArchivePlan": "Archive plan",
+    "titleArchiveEval": "Archive evaluation",
+    "titleBlocked": "Can't archive",
+    "titleLoading": "One moment…",
+    "blocked": "<b>\"{{title}}\"</b> has <strong>{{assignments}}</strong>. To archive it, first replace or close that assignment from the student's profile. That way no one is left without a plan unless you decide so.",
+    "activeAssignments_one": "{{count}} active assignment",
+    "activeAssignments_other": "{{count}} active assignments",
+    "archiveBody": "<b>\"{{title}}\"</b> has history, so it isn't deleted: it gets <strong>archived</strong>. It stops showing in your library and when assigning, and everything logged is kept. You can unarchive it anytime.",
+    "kept": "What's kept",
+    "clonesStillActive_one": "One student is still training with their copy of this template; they're not affected.",
+    "clonesStillActive_other": "{{count}} students are still training with their copy of this template; they're not affected.",
+    "confirmDelete": "Are you sure you want to delete <b>\"{{title}}\"</b>?",
+    "deleteNote": "It has no logs, assignments or copies. This can't be undone.",
+    "understood": "Got it"
+  },
+  "usage": {
+    "clones_one": "{{count}} assigned copy",
+    "clones_other": "{{count}} assigned copies",
+    "toPeople_one": " to {{count}} student",
+    "toPeople_other": " to {{count}} students",
+    "childEvaluations_one": "{{count}} linked evaluation",
+    "childEvaluations_other": "{{count}} linked evaluations",
+    "assignments_one": "{{count}} assignment ({{people}})",
+    "assignments_other": "{{count}} assignments ({{people}})",
+    "people_one": "{{count}} student",
+    "people_other": "{{count}} students",
+    "workoutLogs_one": "{{count}} logged workout",
+    "workoutLogs_other": "{{count}} logged workouts",
+    "sessions_one": "{{count}} session",
+    "sessions_other": "{{count}} sessions",
+    "evalResults_one": "{{count}} evaluation result",
+    "evalResults_other": "{{count}} evaluation results",
+    "prescriptionChanges_one": "{{count}} prescription change",
+    "prescriptionChanges_other": "{{count}} prescription changes"
+  },
+  "duplicate": {
+    "copySuffix": "{{title}} (copy)",
+    "pickEvalType": "Choose an evaluation type",
+    "error": "Error duplicating the plan",
+    "title": "Duplicate plan",
+    "stepNameType": "Name and type",
+    "stepCategory": "Category",
+    "newPlanName": "New plan name",
+    "namePlaceholder": "Plan name...",
+    "planType": "Plan type",
+    "training": "Training",
+    "trainingDesc": "Regular exercise routine",
+    "evaluation": "Evaluation",
+    "evaluationDesc": "Evaluation protocol",
+    "evalType": "Evaluation type",
+    "back": "Back",
+    "enterName": "Enter a name",
+    "next": "Next",
+    "duplicate": "Duplicate"
+  },
+  "parentPlan": {
+    "label": "Linked plan (optional)",
+    "independent": "Standalone (not part of a plan)",
+    "hint": "If the evaluation is part of a specific plan, link it here. When you assign that plan to a student, we'll suggest assigning this evaluation too."
+  },
+  "linkedEvals": {
+    "title": "Linked evaluations",
+    "empty": "This plan has no linked evaluations yet. To link one, edit the evaluation and pick this plan under “Linked plan”."
+  },
+  "pct1rmGap": {
+    "exerciseFallback": "Exercise",
+    "checking": "Checking 1RM evaluations...",
+    "allCovered_one": "The exercise prescribed as % of max has an evaluation: they'll see the calculated weight.",
+    "allCovered_other": "All {{count}} exercises prescribed as % of max have an evaluation: they'll see the calculated weight.",
+    "thisPerson": "This student",
+    "missingEval": "<b>{{name}}</b> has no 1RM evaluation for <b>{{exercises}}</b>: on those exercises they'll see the percentage instead of the weight.",
+    "missingPct": "Also, the percentage is missing on <b>{{exercises}}</b>.",
+    "help": "You can assign it anyway and sort it out later: add a 1RM evaluation (you can fill it in for them from their profile) or enter the weight by hand in their plan once it's assigned.",
+    "goToEvals": "Go to their evaluations"
+  },
+  "reassign": {
+    "error": "Error reassigning",
+    "title": "Changes saved to the template",
+    "body": "The changes are <strong>not</strong> applied to copies already assigned. If you want them to get the new version of \"{{title}}\", reassign it.",
+    "bodyNoTitle": "The changes are <strong>not</strong> applied to copies already assigned. If you want them to get the new version of this template, reassign it.",
+    "trainingWarning": "Heads up: for <strong>training</strong> plans, reassigning restarts that student's current plan. Their progress (logs, check-offs) stays in the previous plan and the new copy starts from scratch. If you only want to adjust one student's plan, edit their plan directly instead of reassigning.",
+    "affected_one": "{{count}} student affected",
+    "affected_other": "{{count}} students affected",
+    "logsKept_one": "{{count}} log is kept in history · the new copy starts empty",
+    "logsKept_other": "{{count}} logs are kept in history · the new copy starts empty",
+    "notNow": "Not now",
+    "reassign": "Reassign",
+    "done_one": "{{count}} student reassigned with the new version.",
+    "done_other": "{{count}} students reassigned with the new version.",
+    "failed_one": "{{count}} couldn't be reassigned",
+    "failed_other": "{{count}} couldn't be reassigned",
+    "finish": "Done"
+  },
+  "replace": {
+    "title": "Replace active plan",
+    "subtitle": "This student already has a current plan. Decide what to do with it.",
+    "current": "Current",
+    "currentFallback": "Current plan",
+    "activeSince": "Active since {{date}}",
+    "new": "New",
+    "newFallback": "New plan",
+    "startsToday": "Starts today",
+    "question": "What should we do with the current plan?",
+    "replace": "Replace",
+    "replaceHint": "It's marked as “Replaced by {{title}}”. Recommended.",
+    "theNewOne": "the new one",
+    "pause": "Pause",
+    "pauseHint": "It's paused; you can reactivate it later.",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "E.g. moved on to max strength, injury, etc.",
+    "shortcut": "Shortcut",
+    "shortcutBody": "Want to use the current plan as the base for the new one? It opens the duplicator with the same exercises; edit it and come back here to assign it.",
+    "duplicateCurrent": "Duplicate current plan",
+    "linkedEvals": "Linked evaluations",
+    "linkedEvalsCount_one": "The outgoing plan has {{count}} linked evaluation.",
+    "linkedEvalsCount_other": "The outgoing plan has {{count}} linked evaluations.",
+    "evalsKeptReplaced": "They stay as history in the Evaluations tab (they're not deleted).",
+    "evalsKeptPaused": "You can still see them in the Evaluations tab.",
+    "confirm": "Confirm replacement"
+  },
+  "schedule": {
+    "modeAria": "Schedule mode",
+    "modes": {
+      "fixed": {
+        "label": "Fixed schedule",
+        "description": "Specific days of the week. Adherence is measured day by day."
+      },
+      "flexible": {
+        "label": "Flexible",
+        "description": "Only the number of sessions per week counts, whatever the day."
+      }
+    },
+    "saveError": "Error saving the schedule",
+    "title": "Training schedule",
+    "assignmentFallback": "Assignment",
+    "suggestedPerWeek": " · {{count}} sessions/week suggested"
+  },
+  "blockCard": {
+    "exercisesCount_one": " · {{count}} exercise",
+    "exercisesCount_other": " · {{count}} exercises",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Delete block",
+    "titleLabel": "Block title (optional)",
+    "titlePlaceholder": "E.g. Main {{type}}",
+    "notesLabel": "Block technique notes",
+    "notesPlaceholder": "Notes for the student..."
+  },
+  "orderWarning": {
+    "title": "Some blocks should be reordered",
+    "disordered_one": "{{names}} has its letters (A, B, C...) out of order.",
+    "disordered_other": "{{names}} have their letters (A, B, C...) out of order.",
+    "gaps_one": "{{names}} has skipped numbers (e.g. A1, A2, A4). They'll be renumbered to be consecutive.",
+    "gaps_other": "{{names}} have skipped numbers (e.g. A1, A2, A4). They'll be renumbered to be consecutive.",
+    "unlettered_one": "1 exercise without a letter will stay in place.",
+    "unlettered_other": "{{count}} exercises without a letter will stay in place.",
+    "closeAria": "Close notice",
+    "leaveAsIs": "Leave as is",
+    "reorderDay": "Reorder day"
+  },
+  "aerobicBlock": {
+    "exerciseLabel": "Exercise (optional)",
+    "exercisePlaceholder": "No specific exercise",
+    "format": "Format",
+    "formatDesc": {
+      "continuous": "Steady pace",
+      "intervals": "Work / rest",
+      "progressive": "Intensity builds up"
+    },
+    "totalMinutes": "Total duration (min)",
+    "minutesPlaceholder": "E.g. 25",
+    "intensity": "Intensity",
+    "targetZone": "Target zone",
+    "intervalStructure": "Interval structure",
+    "workSeconds": "Work (s)",
+    "restSeconds": "Rest (s)",
+    "rounds": "Rounds",
+    "extraNote": "Extra note",
+    "optional": "(optional)",
+    "extraNotePlaceholder": "E.g. due to an injury, go easier than usual...",
+    "extraNoteHint": "Only for specific cases (injuries, particular instructions). The zone already describes the overall feel."
+  },
+  "weightModes": {
+    "with_weight": {
+      "label": "With weight",
+      "short": "With weight"
+    },
+    "barbell_only": {
+      "label": "Barbell only",
+      "short": "Barbell only"
+    },
+    "bodyweight": {
+      "label": "No weight",
+      "short": "BW"
+    },
+    "pct_1rm": {
+      "label": "% of max (RM)",
+      "short": "%RM"
+    },
+    "inherit": "Inherit",
+    "inheritWith": "Inherit ({{mode}})"
+  },
+  "exerciseModes": {
+    "reps": "By reps",
+    "time": "By time"
+  },
+  "pctPreview": {
+    "derived": "<b>{{name}}:</b> <b>{{kg}} kg</b> · {{pct}}% of {{oneRm}} kg, evaluated on {{date}}",
+    "derivedRef": "<b>{{name}}:</b> <b>{{kg}} kg</b> · {{pct}}% of {{oneRm}} kg ({{exercise}} max), evaluated on {{date}}",
+    "stale": " · that evaluation is outdated",
+    "missing1rm": "<b>{{name}}</b> has no 1RM evaluation for this exercise: they'll see the percentage instead of the weight. Add an evaluation, pick a reference exercise, or enter the weight by hand in their plan once it's assigned.",
+    "missing1rmShort": "{{name}} has no evaluation for this exercise: they'll see the percentage.",
+    "missingPct": "The percentage is missing.",
+    "missingPctCircuit": "The percentage is missing: enter it here or at circuit level.",
+    "autoKg": "The weight is calculated automatically: {{pct}}% of each student's max."
+  },
+  "exerciseRow": {
+    "exercise": "Exercise",
+    "block": "Block",
+    "sub": "Sub",
+    "weightMode": "Weight mode",
+    "unilateral": "Unilateral",
+    "repsPerSide": "Reps are per side",
+    "forceBilateral": "Override: force bilateral",
+    "inheritTitle": "Remove override and inherit from the exercise",
+    "inheritLink": "inherit",
+    "pctOfMax": "% of max",
+    "refExerciseLabel": "Use another exercise's max (optional)",
+    "refExercisePlaceholder": "Use this exercise's own max",
+    "pctExplain": "You don't enter the weight: it's calculated as <strong>{{pct}} of max</strong> for each student, so the plan goes up by itself when their max goes up. If they have no evaluation yet, they'll see the percentage.",
+    "pctExplainRef": "You don't enter the weight: it's calculated as <strong>{{pct}} of {{exercise}} max</strong> for each student, so the plan goes up by itself when their max goes up. If they have no evaluation yet, they'll see the percentage.",
+    "thePct": "the %",
+    "groupNotice": "Block {{letter}}: exercises with the same letter are done back to back, <strong>with no rest between them</strong>. The rest you enter is the group's rest (after each round), not between sets. The student sees it only once.",
+    "sets": "Sets",
+    "rest": "Rest",
+    "suggestedPse": "Suggested RPE",
+    "unspecified": "Not specified",
+    "reps": "Reps",
+    "repsPerSide2": "Reps (per side)",
+    "repsWeightPerSet": "Reps and weight per set",
+    "repsPerSet": "Reps per set",
+    "repsWeight": "Reps and weight",
+    "repsOnly": "Reps",
+    "perSideTag": "· PER SIDE",
+    "differential": "Different per set",
+    "weightKg": "Weight (kg)",
+    "cascadeHint": "The set 1 value fills in the empty sets.",
+    "pctWeightNote": "Weight prescribed as a percentage · the kilos come from the max.",
+    "bodyweightNote": "No-weight exercise · only reps are logged.",
+    "notes": "Technique notes",
+    "notesPlaceholder": "Technique cues for the exercise..."
+  },
+  "circuitBlock": {
+    "type": "Circuit type",
+    "typeDesc": {
+      "hiit": "Work / rest / rounds",
+      "amrap": "As many rounds as possible",
+      "emom": "Every minute on the minute",
+      "free": "No fixed structure"
+    },
+    "hiitStructure": "HIIT structure",
+    "intensityOptional": "Intensity (optional)",
+    "blockPct": "Whole circuit at % of max (optional)",
+    "blockPctPlaceholder": "E.g. 50",
+    "blockPctHint": "Applies to exercises in <strong>% of max</strong> mode that don't have their own percentage. Each exercise can override it.",
+    "exercises": "Circuit exercises",
+    "empty": "No exercises yet",
+    "addExercise": "Add exercise to circuit",
+    "selectExercise": "Select exercise...",
+    "mode": "Type",
+    "durationSeconds": "Duration (sec)",
+    "weight": "Weight",
+    "fromBlock": "{{pct}} (from block)",
+    "bodyweightNote": "No weight · reps only"
+  },
+  "targetPerson": {
+    "planFor": "Plan for",
+    "loading": "Loading...",
+    "lockedHint": "This is that student's personal plan, so the data you see on each exercise is theirs.",
+    "question": "Who is this plan for?",
+    "generic": "Generic — for several students",
+    "inactiveSuffix": " (inactive)",
+    "showInactive": "Show inactive students",
+    "selectedHint": "While you build, you'll see <b>{{name}}</b>'s data on each exercise: the weight they've been using, their max, and the kilos they get if you prescribe as % of max. Picking them here doesn't assign the plan — that's still a separate step.",
+    "genericHint": "If it's for someone in particular, pick them and you'll see their actual weights next to each exercise."
+  },
+  "evalDays": {
+    "sameMethod": "Same method for all",
+    "methodPerExercise": "Method per exercise",
+    "filterByTag": "Filter exercises by tag",
+    "allExercises": "All exercises",
+    "emptyDay": "This day has no exercises yet.",
+    "addExercise": "Add exercise",
+    "evalType": "Evaluation type",
+    "evalTypeShort": {
+      "one_rm": "Strength",
+      "max_reps": "Endurance",
+      "custom": "Custom"
+    },
+    "method": "Method",
+    "testType": "Test type",
+    "newExercise": "New exercise",
+    "mandatoryShort": "Req.",
+    "exercise": "Exercise",
+    "selectExercise": "— Select exercise —",
+    "seeVideo": "Watch reference video",
+    "suggestedSets": "Sugg. sets",
+    "suggestedReps": "Sugg. reps",
+    "suggestedWeight": "Sugg. weight (kg)",
+    "repsPlaceholder": "e.g. 5",
+    "weightPlaceholder": "e.g. 60",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "Describe how to perform the test...",
+    "expectedValue": "Expected value (optional)",
+    "expectedPlaceholder": "e.g. 10",
+    "unit": "Unit",
+    "unitPlaceholder": "e.g. reps, kg, sec",
+    "mandatory": "Required exercise"
+  },
+  "assignErrors": {
+    "templateDirect": "A template can't be assigned directly. Try again — if the problem persists, report this case.",
+    "notTemplate": "That plan isn't a template; it can't be cloned from here.",
+    "notFound": "The plan or student wasn't found (invalid reference).",
+    "alreadyActive": "That student already has an active plan with those conditions. Replace the current one from their profile.",
+    "generic": "Error assigning the plan"
+  }
+}

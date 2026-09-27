@@ -8,6 +8,7 @@
 // a cómo le fue. Si lo cambia, se muestra tal cual, sea cual sea el
 // resultado del plan.
 // ============================================================
+import { useTranslation } from 'react-i18next'
 import { autoCompletionMessage, normalizeCompletionMessage } from '../completionMessage'
 
 export default function CompletionMessageField({
@@ -15,12 +16,13 @@ export default function CompletionMessageField({
   onChange,
   id = 'plan-completion-message',
 }) {
-  const shown = value ?? autoCompletionMessage()
+  const { t, i18n } = useTranslation()
+  const shown = value ?? autoCompletionMessage(i18n.language)
   const isAuto = normalizeCompletionMessage(shown) === null
   return (
     <div className="sm:col-span-2">
       <label className="label" htmlFor={id}>
-        Mensaje al terminar el plan
+        {t('coach.planEditor.completionMessage.label')}
       </label>
       <textarea
         id={id}
@@ -32,8 +34,8 @@ export default function CompletionMessageField({
       />
       <p className="mt-1 text-xs text-gray-500">
         {isAuto
-          ? 'Es el mensaje automático: cada persona lo ve en su idioma y con un tono acorde a cómo le fue. Si lo cambiás, se muestra tal cual lo escribas.'
-          : 'Se muestra tal cual en la pantalla de cierre del plan, sea cual sea el resultado.'}
+          ? t('coach.planEditor.completionMessage.autoHint')
+          : t('coach.planEditor.completionMessage.customHint')}
         {!isAuto && (
           <>
             {' '}
@@ -42,7 +44,7 @@ export default function CompletionMessageField({
               className="font-semibold text-primary-600"
               onClick={() => onChange(null)}
             >
-              Volver al automático
+              {t('coach.planEditor.completionMessage.backToAuto')}
             </button>
           </>
         )}

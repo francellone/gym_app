@@ -7,17 +7,19 @@
 
 const blank = (v) => v == null || (typeof v === 'string' && v.trim() === '')
 
+// labelKey: clave i18n (coach.exercises.mergeFields.*); el componente la traduce.
+const F = 'coach.exercises.mergeFields.'
 export const MERGE_FIELDS = [
-  { key: 'muscle_group', label: 'Grupo muscular' },
-  { key: 'description', label: 'Descripción' },
-  { key: 'video_url', label: 'Video' },
-  { key: 'technique_notes', label: 'Nota técnica' },
-  { key: 'en.name', label: 'Nombre en inglés', i18n: ['en', 'name'] },
-  { key: 'en.description', label: 'Descripción en inglés', i18n: ['en', 'description'] },
-  { key: 'en.technique_notes', label: 'Nota técnica en inglés', i18n: ['en', 'technique_notes'] },
-  { key: 'default_sets', label: 'Series por defecto' },
-  { key: 'default_reps', label: 'Reps por defecto' },
-  { key: 'default_weight', label: 'Peso por defecto' },
+  { key: 'muscle_group', labelKey: F + 'muscle_group' },
+  { key: 'description', labelKey: F + 'description' },
+  { key: 'video_url', labelKey: F + 'video_url' },
+  { key: 'technique_notes', labelKey: F + 'technique_notes' },
+  { key: 'en.name', labelKey: F + 'enName', i18n: ['en', 'name'] },
+  { key: 'en.description', labelKey: F + 'enDescription', i18n: ['en', 'description'] },
+  { key: 'en.technique_notes', labelKey: F + 'enTechniqueNotes', i18n: ['en', 'technique_notes'] },
+  { key: 'default_sets', labelKey: F + 'default_sets' },
+  { key: 'default_reps', labelKey: F + 'default_reps' },
+  { key: 'default_weight', labelKey: F + 'default_weight' },
 ]
 
 function read(ex, field) {
@@ -48,17 +50,19 @@ export function compareForMerge(from, into) {
   }).filter(Boolean)
 }
 
-const FILLED_LABELS = {
-  description: 'descripción',
-  muscle_group: 'grupo muscular',
-  video_url: 'video',
-  technique_notes: 'nota técnica',
-  default_sets: 'series por defecto',
-  default_reps: 'reps por defecto',
-  default_weight: 'peso por defecto',
-  i18n: 'traducción al inglés',
-}
+// Campos que devuelve merge_exercises en counts.filled → coach.exercises.filled.*
+const FILLED_KEYS = new Set([
+  'description',
+  'muscle_group',
+  'video_url',
+  'technique_notes',
+  'default_sets',
+  'default_reps',
+  'default_weight',
+  'i18n',
+])
 
-export function filledSummary(filled) {
-  return (filled || []).map((k) => FILLED_LABELS[k] || k)
+/** Nombres legibles de los campos completados. `t` = función de i18next. */
+export function filledSummary(filled, t) {
+  return (filled || []).map((k) => (FILLED_KEYS.has(k) ? t(`coach.exercises.filled.${k}`) : k))
 }

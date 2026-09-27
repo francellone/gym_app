@@ -324,14 +324,15 @@ export function buildReport({
     .map((l) => ({
       date: l.logged_date,
       reason: l.skip_reason || null,
-      name:
-        l.plan_exercise?.exercise?.name ||
-        l.plan_block?.title ||
-        (l.plan_block?.block_type === 'aerobic'
-          ? 'Aeróbico'
+      // Sin nombre (bloque sin título) → null + `kind`: la pantalla pone el
+      // genérico traducido ("Aeróbico" / "Aerobic").
+      name: l.plan_exercise?.exercise?.name || l.plan_block?.title || null,
+      kind:
+        l.plan_block?.block_type === 'aerobic'
+          ? 'aerobic'
           : l.plan_block?.block_type === 'circuit'
-            ? 'Circuito'
-            : 'Ejercicio'),
+            ? 'circuit'
+            : 'exercise',
     }))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
   const prevBlockLogs = sliceByPeriod(trainingBlockLogs, prev.from, prev.to)

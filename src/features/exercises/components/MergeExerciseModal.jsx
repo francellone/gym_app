@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, GitMerge, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fetchUsage, usageSummary } from '../exerciseUsage'
@@ -17,11 +18,12 @@ import { compareForMerge } from '../mergeFill'
 // identidad (nombre, video, nota técnica) y se une el historial.
 // ============================================================
 
+// Etiqueta: coach.exercises.merge.outcome.<clave>
 const OUTCOME = {
-  same: { label: 'Igual', cls: 'bg-gray-100 text-gray-600' },
-  keep: { label: 'Se mantiene', cls: 'bg-gray-100 text-gray-600' },
-  fill: { label: 'Se completa', cls: 'bg-emerald-50 text-emerald-700' },
-  drop: { label: 'Gana el que queda', cls: 'bg-amber-50 text-amber-700' },
+  same: { cls: 'bg-gray-100 text-gray-600' },
+  keep: { cls: 'bg-gray-100 text-gray-600' },
+  fill: { cls: 'bg-emerald-50 text-emerald-700' },
+  drop: { cls: 'bg-amber-50 text-amber-700' },
 }
 
 export default function MergeExerciseModal({
@@ -31,6 +33,7 @@ export default function MergeExerciseModal({
   onClose,
   onMerged,
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [into, setInto] = useState(initialInto)
   const [fromUsage, setFromUsage] = useState(null)
@@ -82,12 +85,13 @@ export default function MergeExerciseModal({
       if (e) throw e
       onMerged?.({ from, into, counts: data })
     } catch (err) {
-      setError(err.message || 'No se pudo fusionar. Intentá de nuevo.')
+      setError(err.message || t('coach.exercises.merge.error'))
       setLoading(false)
     }
   }
 
-  const fromParts = usageSummary(fromUsage)
+  const fromParts = usageSummary(fromUsage, t)
+  const intoParts = usageSummary(intoUsageReady, t)
   const comparison = useMemo(() => (into ? compareForMerge(from, into) : []), [from, into])
 
   return (
@@ -101,7 +105,7 @@ export default function MergeExerciseModal({
         <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GitMerge size={16} className="text-indigo-500" />
-            <h2 className="font-bold text-gray-900 text-sm">Fusionar ejercicio</h2>
+            <h2 className="font-bold text-gray-900 text-sm">{t('coach.exercises.merge.title')}</h2>
           </div>
           <button onClick={onClose} className="btn-ghost p-1.5" disabled={loading}>
             <X size={16} />
@@ -110,31 +114,29 @@ export default function MergeExerciseModal({
 
         <div className="p-5 space-y-4">
           <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
-            <p className="text-xs text-gray-500 mb-0.5">
-              Este ejercicio va a desaparecer del catálogo
-            </p>
+            <p className="text-xs text-gray-500 mb-0.5">{t('coach.exercises.merge.fromHeading')}</p>
             <p className="font-semibold text-sm text-gray-900 break-words">{from.name}</p>
             <p className="text-xs text-gray-600 mt-1">
               {fromUsage === null
-                ? 'Calculando impacto…'
+                ? t('coach.exercises.merge.calculatingImpact')
                 : fromParts.length === 0
-                  ? 'No tiene planes ni registros asociados.'
-                  : `Usado en ${fromParts.join(', ')}.`}
+                  ? t('coach.exercises.merge.fromUnused')
+                  : t('coach.exercises.merge.fromUsedIn', { parts: fromParts.join(', ') })}
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="label">Fusionar en</label>
+            <label className="label">{t('coach.exercises.merge.intoLabel')}</label>
             {into ? (
               <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 p-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-sm text-gray-900 break-words">{into.name}</p>
                   <p className="text-xs text-gray-600">
                     {intoUsageReady === null
-                      ? 'Calculando…'
-                      : usageSummary(intoUsageReady).length === 0
-                        ? 'Todavía sin planes ni registros.'
-                        : `Ya usado en ${usageSummary(intoUsageReady).join(', ')}.`}
+                      ? t('coach.exercises.merge.calculating')
+                      : intoParts.length === 0
+                        ? t('coach.exercises.merge.intoUnused')
+                        : t('coach.exercises.merge.intoUsedIn', { parts: intoParts.join(', ') })}
                   </p>
                 </div>
                 <button
@@ -143,7 +145,7 @@ export default function MergeExerciseModal({
                   onClick={() => setInto(null)}
                   disabled={loading}
                 >
-                  Cambiar
+                  {t('coach.exercises.merge.change')}
                 </button>
               </div>
             ) : (
@@ -155,7 +157,7 @@ export default function MergeExerciseModal({
                   />
                   <input
                     className="input pl-9"
-                    placeholder="Buscar el ejercicio que queda…"
+                    placeholder={t('coach.exercises.merge.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     autoFocus
@@ -163,7 +165,9 @@ export default function MergeExerciseModal({
                 </div>
                 <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100">
                   {candidates.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">Sin resultados</p>
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      {t('coach.exercises.merge.noResults')}
+                    </p>
                   ) : (
                     candidates.map((e) => (
                       <button
@@ -184,17 +188,17 @@ export default function MergeExerciseModal({
           {into && comparison.length > 0 && (
             <div className="rounded-xl border border-gray-200 overflow-hidden">
               <p className="text-xs font-semibold text-gray-700 px-3 py-2 bg-gray-50 border-b border-gray-100">
-                Qué datos quedan
+                {t('coach.exercises.merge.whatStays')}
               </p>
               <ul className="divide-y divide-gray-100">
                 {comparison.map((row) => (
                   <li key={row.key} className="px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-gray-700">{row.label}</span>
+                      <span className="font-medium text-gray-700">{t(row.labelKey)}</span>
                       <span
                         className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${OUTCOME[row.outcome].cls}`}
                       >
-                        {OUTCOME[row.outcome].label}
+                        {t(`coach.exercises.merge.outcome.${row.outcome}`)}
                       </span>
                     </div>
                     <p className="text-gray-600 mt-0.5 break-words line-clamp-2">
@@ -215,11 +219,11 @@ export default function MergeExerciseModal({
             <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 leading-relaxed">
-                Los registros de las dos versiones van a pasar a leerse como{' '}
-                <strong>un solo ejercicio</strong> en el progreso de cada alumna, y de ahora en más
-                van a ver los datos de <strong>"{into.name}"</strong>. Lo que a ese le falte se
-                completa con el que desaparece, sin pisar nada. Lo prescripto en cada plan (series,
-                reps, kilos, descanso) no cambia. Confirmá solo si es el mismo movimiento.
+                <Trans
+                  i18nKey="coach.exercises.merge.warning"
+                  values={{ name: into.name }}
+                  components={{ b: <strong /> }}
+                />
               </p>
             </div>
           )}
@@ -228,7 +232,7 @@ export default function MergeExerciseModal({
 
           <div className="flex gap-2 justify-end pt-1">
             <button className="btn-secondary" onClick={onClose} disabled={loading}>
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               className="btn-primary flex items-center gap-2"
@@ -236,7 +240,7 @@ export default function MergeExerciseModal({
               disabled={!into || loading || fromUsage === null}
             >
               <GitMerge size={15} />
-              {loading ? 'Fusionando…' : 'Fusionar'}
+              {loading ? t('coach.exercises.merge.merging') : t('coach.exercises.merge.confirm')}
             </button>
           </div>
         </div>

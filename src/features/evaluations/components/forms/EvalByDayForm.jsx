@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare, PlayCircle, CheckCircle, Save, Pencil } from 'lucide-react'
-import { calc1RM, METHODS, pruebaTypeInfo } from '../../helpers'
+import { calc1RM, evalMethodLabelT, pruebaTypeInfo } from '../../helpers'
 import { getDynamicSections } from '@/features/plans/helpers'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
@@ -160,10 +160,9 @@ export default function EvalByDayForm({
   )
 }
 
-function methodLabel(evalType, methodKey) {
-  if (evalType === 'custom') return pruebaTypeInfo(methodKey).label
-  const m = (METHODS[evalType] || []).find((x) => x.key === methodKey)
-  return m?.label || methodKey || ''
+// Nombre del método en el idioma de quien mira (la persona, o la coach en modo coach).
+function methodLabel(t, evalType, methodKey) {
+  return evalMethodLabelT(t, evalType, methodKey) || methodKey || ''
 }
 
 function ExerciseEvalCard({ pe, resp, onChange, coachMode = false }) {
@@ -198,7 +197,7 @@ function ExerciseEvalCard({ pe, resp, onChange, coachMode = false }) {
               </a>
             )}
             <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-              {methodLabel(evalType, pe.eval_method)}
+              {methodLabel(t, evalType, pe.eval_method)}
             </span>
             {pe.mandatory && (
               <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
@@ -315,7 +314,7 @@ function ExerciseInput({ evalType, method, resp, onChange }) {
               {oneRm} <span className="text-xs font-normal">kg</span>
             </p>
             <p className="text-xs text-red-500">
-              {t('evalForms.byDayOneRmEstimated', { method: methodLabel('one_rm', m) })}
+              {t('evalForms.byDayOneRmEstimated', { method: methodLabel(t, 'one_rm', m) })}
             </p>
           </div>
         )}

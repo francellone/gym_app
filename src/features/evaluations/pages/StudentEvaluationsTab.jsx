@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
-  evalTypeLabel,
+  evalTypeLabelT,
   evalTypeColor,
   isExerciseBasedEval,
-  evalMethodLabel,
+  evalMethodLabelT,
   formatExerciseResponseValue,
   exerciseResponseNumericValue,
   groupEvalExercisesByDay,
@@ -32,7 +33,7 @@ import {
   ClipboardEdit,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import {
   groupEvaluationAssignments,
   statusConfig,
@@ -56,6 +57,7 @@ import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 //   onRefresh   - callback para recargar datos en el padre
 // ─────────────────────────────────────────────────────────────
 export default function StudentEvaluationsTab({ studentId, assignments, allPlans, onRefresh }) {
+  const { t } = useTranslation()
   // Bug 2 doc 32 iteración 2 (2026-05-26 PM): las evals desasignadas
   // (status='archived') deben desaparecer del tab. El SELECT en
   // StudentDetailPage trae todas las asignaciones; filtramos acá.
@@ -137,7 +139,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       onRefresh()
     } catch (err) {
       console.error(err)
-      alert(err.message || 'Error al asignar la evaluación')
+      alert(err.message || t('coach.evaluations.common.assignError'))
     } finally {
       setAssignLoading(false)
     }
@@ -149,13 +151,13 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
           <ClipboardList size={18} className="text-purple-500" />
-          Evaluaciones
+          {t('coach.evaluations.studentTab.title')}
         </h2>
         <button
           onClick={() => setAssigning(true)}
           className="btn-secondary text-sm flex items-center gap-1.5"
         >
-          <Plus size={15} /> Asignar evaluación
+          <Plus size={15} /> {t('coach.evaluations.studentTab.assign')}
         </button>
       </div>
 
@@ -182,12 +184,12 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       {evalAssignments.length === 0 && !assigning && (
         <div className="card text-center py-8">
           <ClipboardList size={32} className="text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No hay evaluaciones asignadas aún.</p>
+          <p className="text-sm text-gray-500">{t('coach.evaluations.studentTab.empty')}</p>
           <button
             onClick={() => setAssigning(true)}
             className="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
           >
-            Asignar primera evaluación
+            {t('coach.evaluations.studentTab.assignFirst')}
           </button>
         </div>
       )}
@@ -195,7 +197,9 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       {/* Sección 1: del plan vigente */}
       {grouped.ofCurrentPlan.length > 0 && (
         <EvalGroup
-          title={`Del plan actual: ${grouped.activeTraining?.plan?.title || ''}`}
+          title={t('coach.evaluations.studentTab.groupCurrent', {
+            title: grouped.activeTraining?.plan?.title || '',
+          })}
           accent="purple"
         >
           {grouped.ofCurrentPlan.map((a) => (
@@ -212,7 +216,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
 
       {/* Sección 2: independientes */}
       {grouped.independent.length > 0 && (
-        <EvalGroup title="Evaluaciones independientes" accent="gray">
+        <EvalGroup title={t('coach.evaluations.studentTab.groupIndependent')} accent="gray">
           {grouped.independent.map((a) => (
             <EvaluationCard key={a.id} assignment={a} studentId={studentId} onRefresh={onRefresh} />
           ))}
@@ -222,10 +226,10 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       {/* Sección 3: históricas (planes anteriores) */}
       {grouped.historical.length > 0 && (
         <EvalGroup
-          title="De planes anteriores"
+          title={t('coach.evaluations.studentTab.groupHistorical')}
           accent="gray"
           subtle
-          subtitle="El plan al que estaban vinculadas ya no es el vigente."
+          subtitle={t('coach.evaluations.studentTab.groupHistoricalHint')}
         >
           {grouped.historical.map((a) => (
             <EvaluationCard
@@ -278,6 +282,7 @@ function AssignEvaluationForm({
   onCancel,
   onConfirm,
 }) {
+  const { t } = useTranslation()
   // Solo plantillas de evaluación se pueden asignar — las instancias
   // clonadas son personales y no deben aparecer en la biblioteca.
   const evalPlanOptions = (allPlans || []).filter(
@@ -288,16 +293,18 @@ function AssignEvaluationForm({
 
   return (
     <div className="card border-2 border-purple-200 bg-purple-50 space-y-3">
-      <p className="text-sm font-semibold text-purple-800">Asignar evaluación al alumno</p>
+      <p className="text-sm font-semibold text-purple-800">
+        {t('coach.evaluations.studentTab.form.title')}
+      </p>
 
       <div>
-        <label className="label text-xs">Evaluación</label>
+        <label className="label text-xs">{t('coach.evaluations.studentTab.form.evaluation')}</label>
         <select
           className="input text-sm"
           value={selectedPlanId}
           onChange={(e) => onSelectedPlanChange(e.target.value)}
         >
-          <option value="">— Seleccionar evaluación —</option>
+          <option value="">{t('coach.evaluations.studentTab.form.selectEvaluation')}</option>
           {evalPlanOptions.map((p) => (
             <option key={p.id} value={p.id}>
               {p.title}
@@ -311,32 +318,34 @@ function AssignEvaluationForm({
         <div>
           <label className="label text-xs flex items-center gap-1">
             <Link2 size={12} className="text-purple-500" />
-            Asociar a plan del alumno (opcional)
+            {t('coach.evaluations.studentTab.form.linkToPlan')}
           </label>
           <select
             className="input text-sm"
             value={linkedAssignmentId || ''}
             onChange={(e) => onLinkedAssignmentChange(e.target.value || '')}
           >
-            <option value="">Independiente</option>
+            <option value="">{t('coach.evaluations.studentTab.form.independent')}</option>
             {trainingAssignments.map((a) => {
               const status = getAssignmentStatus(a)
               const cfg = statusConfig(status)
               return (
                 <option key={a.id} value={a.id}>
-                  {a.plan?.title} · {cfg.shortLabel}
+                  {`${a.plan?.title} · ${t(`coach.assignment.status.${status}.short`, {
+                    defaultValue: cfg.shortLabel,
+                  })}`}
                 </option>
               )
             })}
           </select>
           {suggestedFromTemplate && linkedAssignmentId && (
             <p className="text-xs text-purple-700 mt-1">
-              Sugerido automáticamente: esta evaluación es parte del plan asociado.
+              {t('coach.evaluations.studentTab.form.autoSuggested')}
             </p>
           )}
           {suggestedFromTemplate && !linkedAssignmentId && (
             <p className="text-xs text-amber-600 mt-1">
-              Esta evaluación es parte de un plan, pero el alumno no lo tiene asignado.
+              {t('coach.evaluations.studentTab.form.notAssigned')}
             </p>
           )}
         </div>
@@ -344,7 +353,7 @@ function AssignEvaluationForm({
 
       <div className="flex gap-2">
         <button onClick={onCancel} className="btn-secondary flex-1 text-sm">
-          Cancelar
+          {t('common.cancel')}
         </button>
         <button
           onClick={onConfirm}
@@ -355,7 +364,7 @@ function AssignEvaluationForm({
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <Check size={14} /> Asignar
+              <Check size={14} /> {t('coach.evaluations.common.assign')}
             </>
           )}
         </button>
@@ -374,6 +383,7 @@ function EvaluationCard({
   historical = false,
   onRefresh = () => {},
 }) {
+  const { t } = useTranslation()
   const plan = assignment.plan
   const [expanded, setExpanded] = useState(false)
   const [view, setView] = useState('ultimo') // 'ultimo' | 'historial'
@@ -415,7 +425,7 @@ function EvaluationCard({
       onRefresh()
     } catch (err) {
       console.error(err)
-      alert(err.message || 'Error al desasignar la evaluación')
+      alert(err.message || t('coach.evaluations.studentTab.unassignError'))
     } finally {
       setUnassigning(false)
     }
@@ -567,34 +577,41 @@ function EvaluationCard({
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 break-words">{plan?.title}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            <span className={`badge text-xs ${colorClass}`}>{evalTypeLabel(plan?.eval_type)}</span>
-            {tags.map((t) => (
-              <span key={t} className="badge text-xs bg-purple-100 text-purple-700">
-                {t}
+            <span className={`badge text-xs ${colorClass}`}>
+              {evalTypeLabelT(t, plan?.eval_type)}
+            </span>
+            {tags.map((tag) => (
+              <span key={tag} className="badge text-xs bg-purple-100 text-purple-700">
+                {tag}
               </span>
             ))}
             {linkedTo && (
               <span className="badge text-xs bg-blue-50 text-blue-700 border border-blue-100 inline-flex items-center gap-1">
-                Ligada a {linkedTo.plan?.title}
+                {t('coach.evaluations.studentTab.card.linkedTo', { title: linkedTo.plan?.title })}
               </span>
             )}
             {latestResult && (
               <span className="text-xs text-gray-400">
-                Última:{' '}
-                {format(parseISO(latestResult.eval_date + 'T12:00:00'), 'd MMM yyyy', {
-                  locale: es,
+                {t('coach.evaluations.studentTab.card.last', {
+                  date: format(
+                    parseISO(latestResult.eval_date + 'T12:00:00'),
+                    t('coach.evaluations.dates.dayMonthYearShort'),
+                    { locale: dateLocale() }
+                  ),
                 })}
               </span>
             )}
             {!latestResult && loaded && (
-              <span className="text-xs text-gray-400">Sin registros aún</span>
+              <span className="text-xs text-gray-400">
+                {t('coach.evaluations.studentTab.card.noRecords')}
+              </span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {resultados.length > 0 && (
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-              {resultados.length} {resultados.length === 1 ? 'registro' : 'registros'}
+              {t('coach.evaluations.studentTab.card.records', { count: resultados.length })}
             </span>
           )}
           {/* v44 — cargar la evaluación por el alumno. Antes esta acción no
@@ -606,9 +623,9 @@ function EvaluationCard({
               to={`/coach/students/${studentId}/eval/${plan?.id}`}
               onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
-              title="Cargar los resultados de esta evaluación por la persona"
+              title={t('coach.evaluations.studentTab.card.loadTitle')}
             >
-              <ClipboardEdit size={14} /> Cargar
+              <ClipboardEdit size={14} /> {t('coach.evaluations.studentTab.card.load')}
             </Link>
           )}
           {canUnassign && (
@@ -619,8 +636,8 @@ function EvaluationCard({
                 setShowUnassign(true)
               }}
               className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-              title="Desasignar evaluación"
-              aria-label="Desasignar evaluación"
+              title={t('coach.evaluations.studentTab.card.unassign')}
+              aria-label={t('coach.evaluations.studentTab.card.unassign')}
             >
               <X size={16} />
             </button>
@@ -664,7 +681,7 @@ function EvaluationCard({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Último registro
+                  {t('coach.evaluations.studentTab.card.latestTab')}
                 </button>
                 <button
                   onClick={() => setView('historial')}
@@ -674,7 +691,7 @@ function EvaluationCard({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Historial y comparativa
+                  {t('coach.evaluations.studentTab.card.historyTab')}
                 </button>
               </div>
 
@@ -717,6 +734,7 @@ function UltimoRegistro({
   studentId: _studentId,
   onSaved,
 }) {
+  const { t } = useTranslation()
   // multi-coach v31: necesitamos profile.id como coachId al postear comentarios.
   const { profile } = useAuth()
   // doc 41: map keyado por plan_exercise_id (o test_id en legacy custom).
@@ -825,15 +843,21 @@ function UltimoRegistro({
         <div className="p-4 space-y-3">
           <div className="text-center text-xs text-gray-400 py-2 border-b border-gray-100">
             <ClipboardList size={20} className="mx-auto mb-1 text-gray-300" />
-            El alumno todavía no registró esta evaluación.
+            {t('coach.evaluations.studentTab.latest.notLoggedYet')}
             <br />
-            <span className="text-gray-400">{planExercises.length} ejercicios asignados:</span>
+            <span className="text-gray-400">
+              {t('coach.evaluations.studentTab.latest.assignedExercises', {
+                count: planExercises.length,
+              })}
+            </span>
           </div>
           {dayKeys.map((sec) => (
             <div key={sec} className="space-y-1.5">
               {multiDay && (
                 <p className="text-xs font-bold text-gray-400 uppercase">
-                  Día {sec.replace('day_', '').toUpperCase()}
+                  {t('coach.evaluations.common.dayN', {
+                    letter: sec.replace('day_', '').toUpperCase(),
+                  })}
                 </p>
               )}
               {(byDay[sec] || []).map((pe) => (
@@ -843,9 +867,10 @@ function UltimoRegistro({
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800 break-words">
-                      {pe.exercises?.name || 'Ejercicio sin nombre'}
+                      {pe.exercises?.name ||
+                        t('coach.evaluations.studentTab.latest.unnamedExercise')}
                       <span className="ml-1.5 text-xs font-normal text-gray-400">
-                        {evalMethodLabel(pe.eval_type || 'custom', pe.eval_method)}
+                        {evalMethodLabelT(t, pe.eval_type || 'custom', pe.eval_method)}
                       </span>
                     </p>
                     {pe.instructions && (
@@ -853,7 +878,10 @@ function UltimoRegistro({
                     )}
                     {(pe.expected_value || pe.expected_unit) && (
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Esperado: {pe.expected_value || '—'} {pe.expected_unit || ''}
+                        {t('coach.evaluations.studentTab.latest.expectedInline', {
+                          value: pe.expected_value || '—',
+                          unit: pe.expected_unit || '',
+                        })}
                       </p>
                     )}
                   </div>
@@ -867,13 +895,13 @@ function UltimoRegistro({
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-8">
         <ClipboardList size={28} className="mx-auto mb-2 text-gray-300" />
-        El alumno aún no registró esta evaluación.
+        {t('coach.evaluations.studentTab.latest.notLoggedYet')}
       </div>
     )
   }
 
-  const fechaStr = format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", {
-    locale: es,
+  const fechaStr = format(parseISO(resultado.eval_date + 'T12:00:00'), t('dates.dayMonthYear'), {
+    locale: dateLocale(),
   })
 
   return (
@@ -891,7 +919,7 @@ function UltimoRegistro({
 
       {(planExercises || []).length === 0 && (
         <p className="text-sm text-gray-400 text-center py-4">
-          Esta evaluación no tiene ejercicios definidos.
+          {t('coach.evaluations.studentTab.latest.noExercises')}
         </p>
       )}
 
@@ -901,10 +929,17 @@ function UltimoRegistro({
           <div key={sec} className="space-y-3">
             {multiDay && (
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                Día {sec.replace('day_', '').toUpperCase()}
+                {t('coach.evaluations.common.dayN', {
+                  letter: sec.replace('day_', '').toUpperCase(),
+                })}
                 {dayDate && (
                   <span className="normal-case font-normal text-gray-400">
-                    · {format(parseISO(dayDate + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
+                    ·{' '}
+                    {format(
+                      parseISO(dayDate + 'T12:00:00'),
+                      t('coach.evaluations.dates.dayMonthYearShort'),
+                      { locale: dateLocale() }
+                    )}
                   </span>
                 )}
               </p>
@@ -934,11 +969,11 @@ function UltimoRegistro({
                       )}
                     </div>
                     <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
-                      {evalMethodLabel(evalType, pe.eval_method)}
+                      {evalMethodLabelT(t, evalType, pe.eval_method)}
                     </span>
                     {pe.mandatory && (
                       <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                        Oblig.
+                        {t('coach.evaluations.studentTab.latest.mandatoryShort')}
                       </span>
                     )}
                   </div>
@@ -948,7 +983,9 @@ function UltimoRegistro({
                     <div className="grid grid-cols-2 gap-3">
                       {(pe.expected_value || pe.expected_unit) && (
                         <div className="bg-blue-50 rounded-xl p-2.5 text-center">
-                          <p className="text-xs text-blue-500 font-medium mb-0.5">Esperado</p>
+                          <p className="text-xs text-blue-500 font-medium mb-0.5">
+                            {t('coach.evaluations.studentTab.latest.expected')}
+                          </p>
                           <p className="text-base font-bold text-blue-700">
                             {pe.expected_value ? (
                               <>
@@ -971,12 +1008,14 @@ function UltimoRegistro({
                         <p
                           className={`text-xs font-medium mb-0.5 ${valueStr ? 'text-green-500' : 'text-gray-400'}`}
                         >
-                          Resultado
+                          {t('coach.evaluations.studentTab.latest.result')}
                         </p>
                         {valueStr ? (
                           <p className="text-base font-bold text-green-700">{valueStr}</p>
                         ) : (
-                          <p className="text-sm text-gray-400 italic">Sin registro</p>
+                          <p className="text-sm text-gray-400 italic">
+                            {t('coach.evaluations.studentTab.latest.noRecord')}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -996,7 +1035,8 @@ function UltimoRegistro({
                     {resp?.student_comment && (
                       <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                         <p className="text-xs text-amber-600 font-medium mb-0.5 flex items-center gap-1">
-                          <MessageSquare size={11} /> Observación del alumno
+                          <MessageSquare size={11} />{' '}
+                          {t('coach.evaluations.studentTab.latest.studentNote')}
                         </p>
                         <p className="text-sm text-amber-800">{resp.student_comment}</p>
                       </div>
@@ -1035,6 +1075,7 @@ function CoachCommentEditor({
   onSave,
   saving,
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const hasContent = publicComment?.trim() || privateComment?.trim()
 
@@ -1049,7 +1090,9 @@ function CoachCommentEditor({
         }`}
       >
         <MessageSquare size={13} />
-        {hasContent ? 'Ver / editar comentarios del coach' : 'Agregar comentario del coach'}
+        {hasContent
+          ? t('coach.evaluations.studentTab.comments.edit')
+          : t('coach.evaluations.studentTab.comments.add')}
         {open ? (
           <ChevronUp size={13} className="ml-auto" />
         ) : (
@@ -1062,12 +1105,13 @@ function CoachCommentEditor({
           {/* Comentario público */}
           <div>
             <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-              <Eye size={12} className="text-green-500" /> Comentario público (visible al alumno)
+              <Eye size={12} className="text-green-500" />{' '}
+              {t('coach.evaluations.studentTab.comments.publicLabel')}
             </label>
             <textarea
               className="input text-xs resize-none"
               rows={2}
-              placeholder="Retroalimentación que verá el alumno..."
+              placeholder={t('coach.evaluations.studentTab.comments.publicPlaceholder')}
               value={publicComment}
               onChange={(e) => onUpdatePublic(e.target.value)}
             />
@@ -1076,12 +1120,13 @@ function CoachCommentEditor({
           {/* Comentario privado */}
           <div>
             <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-              <Lock size={12} className="text-gray-500" /> Nota privada (solo vos)
+              <Lock size={12} className="text-gray-500" />{' '}
+              {t('coach.evaluations.studentTab.comments.privateLabel')}
             </label>
             <textarea
               className="input text-xs resize-none"
               rows={2}
-              placeholder="Nota interna solo para el coach..."
+              placeholder={t('coach.evaluations.studentTab.comments.privatePlaceholder')}
               value={privateComment}
               onChange={(e) => onUpdatePrivate(e.target.value)}
             />
@@ -1096,7 +1141,7 @@ function CoachCommentEditor({
               <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <Save size={12} /> Guardar comentarios
+                <Save size={12} /> {t('coach.evaluations.studentTab.comments.save')}
               </>
             )}
           </button>
@@ -1110,6 +1155,7 @@ function CoachCommentEditor({
 // ComparisonBadge — mejoró / igual / bajó
 // ─────────────────────────────────────────────────────────────
 function ComparisonBadge({ actual, expected, testType }) {
+  const { t } = useTranslation()
   // Para tiempo: menor es mejor. Para el resto: mayor es mejor.
   const lowerIsBetter = testType === 'tiempo'
   const diff = actual - expected
@@ -1119,20 +1165,20 @@ function ComparisonBadge({ actual, expected, testType }) {
   if (equal) {
     return (
       <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full w-fit">
-        <Minus size={12} /> Igual al esperado
+        <Minus size={12} /> {t('coach.evaluations.studentTab.comparison.equal')}
       </div>
     )
   }
   if (improved) {
     return (
       <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
-        <TrendingUp size={12} /> Por encima del esperado
+        <TrendingUp size={12} /> {t('coach.evaluations.studentTab.comparison.above')}
       </div>
     )
   }
   return (
     <div className="flex items-center gap-1 text-xs text-red-500 bg-red-50 px-2 py-1 rounded-full w-fit">
-      <TrendingDown size={12} /> Por debajo del esperado
+      <TrendingDown size={12} /> {t('coach.evaluations.studentTab.comparison.below')}
     </div>
   )
 }
@@ -1141,12 +1187,13 @@ function ComparisonBadge({ actual, expected, testType }) {
 // HistorialComparativo
 // ─────────────────────────────────────────────────────────────
 function HistorialComparativo({ planExercises, resultados }) {
+  const { t } = useTranslation()
   const [selectedPeId, setSelectedPeId] = useState(planExercises[0]?.id || null)
 
   if (resultados.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-8">
-        No hay registros para comparar.
+        {t('coach.evaluations.studentTab.history.noRecords')}
       </div>
     )
   }
@@ -1180,7 +1227,9 @@ function HistorialComparativo({ planExercises, resultados }) {
       {/* Selector de ejercicio */}
       {planExercises.length > 1 && (
         <div>
-          <label className="label text-xs">Ver evolución de</label>
+          <label className="label text-xs">
+            {t('coach.evaluations.studentTab.history.showProgressOf')}
+          </label>
           <select
             className="input text-sm"
             value={selectedPeId || ''}
@@ -1188,8 +1237,8 @@ function HistorialComparativo({ planExercises, resultados }) {
           >
             {planExercises.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.exercises?.name || 'Ejercicio'} —{' '}
-                {evalMethodLabel(p.eval_type || 'custom', p.eval_method)}
+                {p.exercises?.name || t('coach.evaluations.common.exercise')} —{' '}
+                {evalMethodLabelT(t, p.eval_type || 'custom', p.eval_method)}
               </option>
             ))}
           </select>
@@ -1198,11 +1247,15 @@ function HistorialComparativo({ planExercises, resultados }) {
 
       {/* Timeline de valores */}
       {historico.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-4">Sin datos para este ejercicio.</p>
+        <p className="text-sm text-gray-400 text-center py-4">
+          {t('coach.evaluations.studentTab.history.noData')}
+        </p>
       ) : (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            {selectedPe?.exercises?.name || 'Ejercicio'} — evolución
+            {t('coach.evaluations.studentTab.history.progressOf', {
+              name: selectedPe?.exercises?.name || t('coach.evaluations.common.exercise'),
+            })}
           </p>
           {historico.map((h, i) => {
             const prev = historico[i - 1]
@@ -1225,7 +1278,11 @@ function HistorialComparativo({ planExercises, resultados }) {
                 className="flex items-center gap-3 p-3 rounded-xl bg-gray-50"
               >
                 <div className="text-xs text-gray-400 w-20 flex-shrink-0">
-                  {format(parseISO(h.fecha + 'T12:00:00'), 'd MMM yyyy', { locale: es })}
+                  {format(
+                    parseISO(h.fecha + 'T12:00:00'),
+                    t('coach.evaluations.dates.dayMonthYearShort'),
+                    { locale: dateLocale() }
+                  )}
                 </div>
                 <div className="flex-1">
                   <span className="text-base font-bold text-gray-900">{h.label}</span>
@@ -1252,7 +1309,7 @@ function HistorialComparativo({ planExercises, resultados }) {
       {/* Tabla resumen de todos los resultados */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Todos los registros
+          {t('coach.evaluations.studentTab.history.allRecords')}
         </p>
         {resultados.map((resultado) => (
           <div
@@ -1260,12 +1317,14 @@ function HistorialComparativo({ planExercises, resultados }) {
             className="flex items-center justify-between p-3 rounded-xl border border-gray-100"
           >
             <span className="text-xs text-gray-600">
-              {format(parseISO(resultado.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", {
-                locale: es,
+              {format(parseISO(resultado.eval_date + 'T12:00:00'), t('dates.dayMonthYear'), {
+                locale: dateLocale(),
               })}
             </span>
             <span className="text-xs text-gray-400">
-              {(resultado._responses || []).length} ejercicios completados
+              {t('coach.evaluations.studentTab.history.exercisesDone', {
+                count: (resultado._responses || []).length,
+              })}
             </span>
           </div>
         ))}
@@ -1278,11 +1337,12 @@ function HistorialComparativo({ planExercises, resultados }) {
 // ResultadosCientificos — vista simple para tipos no-custom
 // ─────────────────────────────────────────────────────────────
 function ResultadosCientificos({ resultados, plan }) {
+  const { t } = useTranslation()
   if (resultados.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-8">
         <BarChart2 size={28} className="mx-auto mb-2 text-gray-300" />
-        El alumno aún no registró esta evaluación.
+        {t('coach.evaluations.studentTab.latest.notLoggedYet')}
       </div>
     )
   }
@@ -1293,7 +1353,9 @@ function ResultadosCientificos({ resultados, plan }) {
         <div key={r.id} className="border border-gray-200 rounded-xl p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-700">
-              {format(parseISO(r.eval_date + 'T12:00:00'), "d 'de' MMMM yyyy", { locale: es })}
+              {format(parseISO(r.eval_date + 'T12:00:00'), t('dates.dayMonthYear'), {
+                locale: dateLocale(),
+              })}
             </span>
           </div>
           {r.notes && <p className="text-xs text-gray-500 italic">"{r.notes}"</p>}
@@ -1306,6 +1368,7 @@ function ResultadosCientificos({ resultados, plan }) {
 
 // Resumen compacto de resultados científicos
 function ResultadoResumen({ results, evalType }) {
+  const { t } = useTranslation()
   if (!results) return null
 
   switch (evalType) {
@@ -1316,7 +1379,9 @@ function ResultadoResumen({ results, evalType }) {
             <div key={i} className="flex items-center justify-between text-xs">
               <span className="text-gray-600">{ex.name}</span>
               <span className="font-semibold text-gray-900">
-                {ex.one_rm ? `${ex.one_rm} kg (1RM)` : `${ex.weight_kg}kg × ${ex.reps}reps`}
+                {ex.one_rm
+                  ? t('coach.evaluations.studentTab.summary.oneRm', { value: ex.one_rm })
+                  : `${ex.weight_kg}kg × ${ex.reps}reps`}
               </span>
             </div>
           ))}
@@ -1335,17 +1400,23 @@ function ResultadoResumen({ results, evalType }) {
       return (
         <div className="text-xs">
           {results.result?.fat_pct != null && (
-            <span className="font-semibold text-green-700">% Grasa: {results.result.fat_pct}%</span>
+            <span className="font-semibold text-green-700">
+              {t('coach.evaluations.studentTab.summary.fatPct', { value: results.result.fat_pct })}
+            </span>
           )}
           {results.result?.lean_kg != null && (
-            <span className="ml-2 text-gray-600">M. magra: {results.result.lean_kg}kg</span>
+            <span className="ml-2 text-gray-600">
+              {t('coach.evaluations.studentTab.summary.leanMass', {
+                value: results.result.lean_kg,
+              })}
+            </span>
           )}
         </div>
       )
     default:
       return (
         <p className="text-xs text-gray-400">
-          Datos guardados — ver detalle en la sección de evaluaciones.
+          {t('coach.evaluations.studentTab.summary.seeDetail')}
         </p>
       )
   }
@@ -1357,6 +1428,7 @@ function ResultadoResumen({ results, evalType }) {
 // evaluation_results parciales se conservan (no se borran).
 // ─────────────────────────────────────────────────────────────
 function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, onConfirm }) {
+  const { t } = useTranslation()
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
@@ -1371,17 +1443,19 @@ function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, on
             <AlertTriangle size={20} className="text-rose-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900">Desasignar evaluación</h3>
+            <h3 className="font-semibold text-gray-900">
+              {t('coach.evaluations.studentTab.unassignModal.title')}
+            </h3>
             <p className="text-sm text-gray-600 mt-1">
-              La evaluación <span className="font-medium">{planTitle}</span> quedará archivada para
-              el alumno y no la podrá completar.
+              <Trans
+                i18nKey="coach.evaluations.studentTab.unassignModal.body"
+                values={{ title: planTitle }}
+                components={{ b: <span className="font-medium" /> }}
+              />
             </p>
             {resultCount > 0 && (
               <p className="text-xs text-gray-500 mt-2">
-                {resultCount === 1
-                  ? 'El registro ya cargado se conserva'
-                  : `Los ${resultCount} registros ya cargados se conservan`}{' '}
-                — sólo se archiva la asignación.
+                {t('coach.evaluations.studentTab.unassignModal.keep', { count: resultCount })}
               </p>
             )}
           </div>
@@ -1393,7 +1467,7 @@ function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, on
             className="btn-secondary flex-1 text-sm"
             type="button"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -1405,7 +1479,7 @@ function UnassignEvaluationModal({ planTitle, resultCount, loading, onCancel, on
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <X size={14} /> Desasignar
+                <X size={14} /> {t('coach.evaluations.studentTab.unassignModal.confirm')}
               </>
             )}
           </button>

@@ -1,0 +1,16 @@
+{
+  "bests": {
+    "title": "Personal bests",
+    "voidError": "Couldn't void the record. Try again.",
+    "before": "previous",
+    "voided": "Voided",
+    "void": "Void",
+    "confirm": "Void this record? That log will no longer count as a reference for future records. The log itself doesn't change.",
+    "confirmButton": "Void record",
+    "reason": {
+      "student_void": "voided by the student",
+      "corrected": "the log was corrected",
+      "coach_void": "voided by you"
+    }
+  }
+}

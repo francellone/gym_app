@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { X, Save, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
-import { WEIGHT_MODES_LOGGABLE, WEIGHT_MODE_BY_KEY } from '@/features/plans/helpers'
+import { WEIGHT_MODES_LOGGABLE } from '@/features/plans/helpers'
 import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 import { findDuplicateByName } from '../exercise-name'
 
@@ -29,6 +30,7 @@ export default function ExerciseFormModal({
   onSave,
   onClose,
 }) {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const { bilingual } = useCoachFormLanguages()
   const [form, setForm] = useState(
@@ -72,13 +74,13 @@ export default function ExerciseFormModal({
 
   function toggleTag(tagId) {
     setSelectedTags((prev) =>
-      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
     )
   }
 
   async function handleSave() {
     if (!form.name.trim()) {
-      setError('El nombre es obligatorio')
+      setError(t('coach.exercises.form.nameRequired'))
       return
     }
     if (duplicate && !dupConfirmed) {
@@ -147,7 +149,7 @@ export default function ExerciseFormModal({
       <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">
-            {form.id ? 'Editar ejercicio' : 'Nuevo ejercicio'}
+            {form.id ? t('coach.exercises.form.editTitle') : t('coach.exercises.form.newTitle')}
           </h2>
           <button onClick={onClose} className="btn-ghost p-1.5">
             <X size={18} />
@@ -156,7 +158,7 @@ export default function ExerciseFormModal({
 
         <div className="p-4 space-y-3">
           <div>
-            <label className="label">Nombre *</label>
+            <label className="label">{t('coach.exercises.form.name')}</label>
             <input
               className="input"
               value={form.name}
@@ -164,7 +166,7 @@ export default function ExerciseFormModal({
                 setForm((p) => ({ ...p, name: e.target.value }))
                 setDupConfirmed(false)
               }}
-              placeholder="Sentadilla con barra"
+              placeholder={t('coach.exercises.form.namePlaceholder')}
               autoFocus={!form.id}
             />
           </div>
@@ -175,8 +177,11 @@ export default function ExerciseFormModal({
               <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
               <div className="space-y-1.5">
                 <p>
-                  Ya existe un ejercicio con ese nombre: <strong>{duplicate.name}</strong>. Si es el
-                  mismo, cerrá y elegilo de la lista.
+                  <Trans
+                    i18nKey="coach.exercises.form.duplicateWarning"
+                    values={{ name: duplicate.name }}
+                    components={{ b: <strong /> }}
+                  />
                 </p>
                 {!dupConfirmed && (
                   <button
@@ -184,7 +189,7 @@ export default function ExerciseFormModal({
                     onClick={() => setDupConfirmed(true)}
                     className="text-xs font-semibold underline"
                   >
-                    Es otro ejercicio, crearlo igual
+                    {t('coach.exercises.form.createAnyway')}
                   </button>
                 )}
               </div>
@@ -194,10 +199,10 @@ export default function ExerciseFormModal({
           {/* Configuración del ejercicio: modo de peso + unilateral */}
           <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
-              Configuración del ejercicio
+              {t('coach.exercises.form.config')}
             </p>
             <div>
-              <label className="label">Modo de peso (default)</label>
+              <label className="label">{t('coach.exercises.form.weightMode')}</label>
               <select
                 className="input text-sm"
                 value={form.default_weight_mode || 'with_weight'}
@@ -205,12 +210,12 @@ export default function ExerciseFormModal({
               >
                 {WEIGHT_MODES_LOGGABLE.map((m) => (
                   <option key={m.key} value={m.key}>
-                    {m.label}
+                    {t(`coach.exercises.weightModes.${m.key}`)}
                   </option>
                 ))}
               </select>
               <p className="text-[11px] text-gray-500 mt-1">
-                {WEIGHT_MODE_BY_KEY[form.default_weight_mode || 'with_weight']?.description}
+                {t(`coach.exercises.weightModeHints.${form.default_weight_mode || 'with_weight'}`)}
               </p>
             </div>
             <label className="flex items-start gap-2 cursor-pointer select-none">
@@ -221,9 +226,9 @@ export default function ExerciseFormModal({
                 onChange={(e) => setForm((p) => ({ ...p, default_unilateral: e.target.checked }))}
               />
               <span className="text-sm text-gray-700">
-                Unilateral (cada lado)
+                {t('coach.exercises.form.unilateral')}
                 <span className="block text-[11px] text-gray-500 font-normal">
-                  Si está activo, las reps se cuentan POR LADO, no como total.
+                  {t('coach.exercises.form.unilateralHint')}
                 </span>
               </span>
             </label>
@@ -231,11 +236,9 @@ export default function ExerciseFormModal({
 
           {/* Etiquetas personalizadas */}
           <div>
-            <label className="label">Etiquetas</label>
+            <label className="label">{t('coach.exercises.form.tags')}</label>
             {tags.length === 0 ? (
-              <p className="text-xs text-gray-400">
-                No tenés etiquetas creadas. Podés crearlas desde la pestaña Ejercicios.
-              </p>
+              <p className="text-xs text-gray-400">{t('coach.exercises.form.noTags')}</p>
             ) : (
               <div className="flex flex-wrap gap-2 mt-1">
                 {tags.map((tag) => (
@@ -261,7 +264,7 @@ export default function ExerciseFormModal({
           </div>
 
           <div>
-            <label className="label">Video URL</label>
+            <label className="label">{t('coach.exercises.form.videoUrl')}</label>
             <input
               className="input"
               value={form.video_url || ''}
@@ -271,32 +274,33 @@ export default function ExerciseFormModal({
           </div>
 
           <div>
-            <label className="label">Descripción</label>
+            <label className="label">{t('coach.exercises.form.description')}</label>
             <p className="text-[11px] text-gray-500 mb-1">
-              <strong>Qué es</strong>: qué trabaja, para qué sirve, equipamiento. El alumno la ve
-              solo si toca "ver más". Opcional.
+              <Trans
+                i18nKey="coach.exercises.form.descriptionHint"
+                components={{ b: <strong /> }}
+              />
             </p>
             <textarea
               className="input resize-none"
               rows={2}
               value={form.description || ''}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="Ej: Empuje horizontal con mancuernas desde el piso. Trabaja pecho y tríceps con menor demanda de hombro."
+              placeholder={t('coach.exercises.form.descriptionPlaceholder')}
             />
           </div>
 
           <div>
-            <label className="label">Nota técnica</label>
+            <label className="label">{t('coach.exercises.form.techniqueNotes')}</label>
             <p className="text-[11px] text-gray-500 mb-1">
-              <strong>Cómo se hace</strong>: posición inicial, ejecución, errores a evitar. El
-              alumno la ve siempre al abrir el ejercicio mientras entrena.
+              <Trans i18nKey="coach.exercises.form.techniqueHint" components={{ b: <strong /> }} />
             </p>
             <textarea
               className="input resize-none"
               rows={3}
               value={form.technique_notes || ''}
               onChange={(e) => setForm((p) => ({ ...p, technique_notes: e.target.value }))}
-              placeholder="Ej: Acostate boca arriba con rodillas flexionadas. Bajá controlado hasta que los codos toquen el piso..."
+              placeholder={t('coach.exercises.form.techniquePlaceholder')}
             />
           </div>
 
@@ -304,13 +308,13 @@ export default function ExerciseFormModal({
           {bilingual && (
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-2.5">
               <p className="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">
-                🇬🇧 Versión en inglés (opcional)
+                {t('coach.exercises.form.englishVersion')}
               </p>
               <p className="text-[11px] text-gray-500 -mt-1.5">
-                Los alumnos en inglés ven estos textos. Si dejás un campo vacío, ven el español.
+                {t('coach.exercises.form.englishVersionHint')}
               </p>
               <div>
-                <label className="label">Name</label>
+                <label className="label">{t('coach.exercises.form.enName')}</label>
                 <input
                   className="input"
                   value={en.name}
@@ -319,7 +323,7 @@ export default function ExerciseFormModal({
                 />
               </div>
               <div>
-                <label className="label">Description (qué es)</label>
+                <label className="label">{t('coach.exercises.form.enDescription')}</label>
                 <textarea
                   className="input resize-none"
                   rows={2}
@@ -329,7 +333,7 @@ export default function ExerciseFormModal({
                 />
               </div>
               <div>
-                <label className="label">Technique notes (cómo se hace)</label>
+                <label className="label">{t('coach.exercises.form.enTechniqueNotes')}</label>
                 <textarea
                   className="input resize-none"
                   rows={3}
@@ -350,7 +354,7 @@ export default function ExerciseFormModal({
 
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -362,7 +366,7 @@ export default function ExerciseFormModal({
               ) : (
                 <>
                   <Save size={14} />
-                  Guardar
+                  {t('common.save')}
                 </>
               )}
             </button>

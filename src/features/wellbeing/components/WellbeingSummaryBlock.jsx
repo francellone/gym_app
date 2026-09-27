@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import { ArrowUp, ArrowDown, Minus, ChevronRight } from 'lucide-react'
-import { WELLBEING_METRICS, WELLBEING_SHORT_LABELS, wellbeingColor } from '../wellbeingMetrics'
-import { wellbeingStatusConfig, describeLastEntry } from '../wellbeingSummaryLogic'
+import { WELLBEING_METRICS, wellbeingColor } from '../wellbeingMetrics'
+import {
+  wellbeingStatusConfig,
+  describeLastEntry,
+  formatStatusReasons,
+} from '../wellbeingSummaryLogic'
 
 // ============================================================
 // WellbeingSummaryBlock
@@ -23,28 +28,31 @@ import { wellbeingStatusConfig, describeLastEntry } from '../wellbeingSummaryLog
 //   periodLabel  texto del período, sólo informativo
 // ============================================================
 export default function WellbeingSummaryBlock({ summary, loading, studentId, periodLabel }) {
+  const { t } = useTranslation()
   const cfg = wellbeingStatusConfig(summary?.status)
+  const reasons = summary ? formatStatusReasons(summary, t) : []
 
   return (
     <div className="pt-2">
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Wellbeing {periodLabel ? <span className="normal-case">· {periodLabel}</span> : null}
+          {t('coach.wellbeing.block.title')}{' '}
+          {periodLabel ? <span className="normal-case">· {periodLabel}</span> : null}
         </h4>
         {studentId && (
           <Link
             to={`/coach/students/${studentId}?tab=wellbeing`}
             className="text-xs text-primary-600 font-medium inline-flex items-center gap-1 hover:underline"
           >
-            Ver evolución <ChevronRight size={13} />
+            {t('coach.wellbeing.block.seeTrend')} <ChevronRight size={13} />
           </Link>
         )}
       </div>
 
       {loading ? (
-        <p className="text-xs text-gray-400 italic">Cargando wellbeing…</p>
+        <p className="text-xs text-gray-400 italic">{t('coach.wellbeing.block.loading')}</p>
       ) : !summary?.hasData ? (
-        <p className="text-xs text-gray-400 italic">Sin registros de wellbeing en este período</p>
+        <p className="text-xs text-gray-400 italic">{t('coach.wellbeing.block.empty')}</p>
       ) : (
         <div className="space-y-2">
           {/* Semáforo + último registro */}
@@ -52,19 +60,26 @@ export default function WellbeingSummaryBlock({ summary, loading, studentId, per
             className={`flex items-center gap-2 flex-wrap rounded-xl border px-3 py-2 text-xs ${cfg.badgeClass}`}
           >
             <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dotClass}`} />
-            <span className="font-semibold">{cfg.label}</span>
+            <span className="font-semibold">{t(cfg.labelKey)}</span>
             <span className="opacity-80">
-              {summary.statusReasons.length
-                ? `· ${summary.statusReasons.join(' · ')} (últimos ${summary.windowDays} días)`
-                : `· sin señales de fatiga ni estrés en los últimos ${summary.windowDays} días`}
+              {reasons.length
+                ? t('coach.wellbeing.block.reasons', {
+                    reasons: reasons.join(' · '),
+                    count: summary.windowDays,
+                  })
+                : t('coach.wellbeing.block.noSignals', { count: summary.windowDays })}
             </span>
             {summary.last && (
               <span className="ml-auto opacity-80 whitespace-nowrap">
-                Último: {format(parseISO(summary.last.date), "d 'de' MMM", { locale: es })} (
-                {describeLastEntry(summary.last.daysAgo)})
+                {t('coach.wellbeing.block.last', {
+                  date: format(parseISO(summary.last.date), t('dates.dayMonthShort'), {
+                    locale: dateLocale(),
+                  }),
+                  ago: describeLastEntry(summary.last.daysAgo, t),
+                })}
                 {summary.last.source === 'coach' && (
                   <span className="ml-1 badge bg-purple-100 text-purple-700 text-[10px]">
-                    Coach
+                    {t('coach.wellbeing.block.coachBadge')}
                   </span>
                 )}
               </span>
@@ -81,7 +96,7 @@ export default function WellbeingSummaryBlock({ summary, loading, studentId, per
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-base leading-none">{metric.emoji}</span>
                     <span className="text-[11px] text-gray-500 truncate">
-                      {WELLBEING_SHORT_LABELS[metric.key] || metric.label}
+                      {t(`coach.wellbeing.short.${metric.key}`)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
@@ -96,7 +111,7 @@ export default function WellbeingSummaryBlock({ summary, loading, studentId, per
                     <TrendChip lastMetric={lastMetric} />
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    {stat.count} registro{stat.count === 1 ? '' : 's'}
+                    {t('coach.wellbeing.block.entries', { count: stat.count })}
                   </p>
                 </div>
               )
@@ -105,15 +120,12 @@ export default function WellbeingSummaryBlock({ summary, loading, studentId, per
 
           {summary.last?.notes && (
             <p className="text-xs text-gray-600 bg-gray-50 rounded-xl px-3 py-2">
-              <span className="text-gray-400">Nota del último registro: </span>
+              <span className="text-gray-400">{t('coach.wellbeing.block.lastNote')} </span>
               {summary.last.notes}
             </p>
           )}
 
-          <p className="text-[10px] text-gray-400">
-            Promedio del período · la flecha compara el último registro contra el promedio de los
-            días previos.
-          </p>
+          <p className="text-[10px] text-gray-400">{t('coach.wellbeing.block.footnote')}</p>
         </div>
       )}
     </div>
@@ -127,8 +139,11 @@ export default function WellbeingSummaryBlock({ summary, loading, studentId, per
 // bajar es mejorar), así que acá sólo se pinta.
 // ============================================================
 function TrendChip({ lastMetric }) {
+  const { t } = useTranslation()
   if (!lastMetric || lastMetric.value === null) {
-    return <span className="text-[11px] text-gray-400">últ. —</span>
+    return (
+      <span className="text-[11px] text-gray-400">{t('coach.wellbeing.block.lastShort')} —</span>
+    )
   }
   const { value, direction, delta } = lastMetric
   const arrow =
@@ -148,7 +163,7 @@ function TrendChip({ lastMetric }) {
 
   return (
     <span className={`text-[11px] inline-flex items-center gap-0.5 tabular-nums ${toneClass}`}>
-      últ. <span className="font-semibold">{value}</span>
+      {t('coach.wellbeing.block.lastShort')} <span className="font-semibold">{value}</span>
       {arrow}
     </span>
   )

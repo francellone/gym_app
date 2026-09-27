@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Archive, Trash2, X } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   deletePlan,
   fetchPlanUsage,
@@ -22,6 +23,7 @@ import {
  *   onDone   – ({ mode: 'archived' | 'deleted', plan }) tras la acción
  */
 export default function DeletePlanModal({ plan, onClose, onDone }) {
+  const { t } = useTranslation()
   const [usage, setUsage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -30,18 +32,19 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
     let alive = true
     fetchPlanUsage(plan.id)
       .then((u) => alive && setUsage(u))
-      .catch((err) => alive && setError(err.message || 'No se pudo leer el uso del plan.'))
+      .catch(
+        (err) => alive && setError(err.message || t('coach.planEditor.deletePlan.loadUsageError'))
+      )
     return () => {
       alive = false
     }
-  }, [plan.id])
+  }, [plan.id, t])
 
   if (!plan) return null
 
   const isEval = plan?.plan_type === 'evaluation'
-  const noun = isEval ? 'evaluación' : 'plan'
   const mode = planLifecycleMode(usage)
-  const partes = planUsageSummary(usage)
+  const partes = planUsageSummary(usage, t)
 
   async function handleConfirm() {
     setLoading(true)
@@ -55,17 +58,30 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
         onDone?.({ mode: 'deleted', plan })
       }
     } catch (err) {
-      setError(err.message || 'No se pudo completar. Intentá de nuevo.')
+      setError(
+        err.i18nKey ? t(err.i18nKey) : err.message || t('coach.planEditor.deletePlan.genericError')
+      )
       setLoading(false)
     }
   }
 
+  const deleteLabel = t(
+    isEval
+      ? 'coach.planEditor.deletePlan.titleDeleteEval'
+      : 'coach.planEditor.deletePlan.titleDeletePlan'
+  )
+  const archiveLabel = t(
+    isEval
+      ? 'coach.planEditor.deletePlan.titleArchiveEval'
+      : 'coach.planEditor.deletePlan.titleArchivePlan'
+  )
   const title =
     mode === 'delete'
-      ? `Eliminar ${noun}`
+      ? deleteLabel
       : mode === 'blocked'
-        ? `No se puede archivar`
-        : `Archivar ${noun}`
+        ? t('coach.planEditor.deletePlan.titleBlocked')
+        : archiveLabel
+  const boldTitle = { b: <span className="font-semibold" />, strong: <strong /> }
 
   return (
     <div
@@ -83,7 +99,9 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
             ) : (
               <Archive size={16} className="text-gray-600" />
             )}
-            <h2 className="font-bold text-gray-900 text-sm">{mode ? title : 'Un momento…'}</h2>
+            <h2 className="font-bold text-gray-900 text-sm">
+              {mode ? title : t('coach.planEditor.deletePlan.titleLoading')}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -107,13 +125,16 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
             <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
               <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800 leading-relaxed">
-                <span className="font-semibold">"{plan.title}"</span> tiene{' '}
-                <strong>
-                  {usage.active_assignments} asignación{usage.active_assignments > 1 ? 'es' : ''}{' '}
-                  activa{usage.active_assignments > 1 ? 's' : ''}
-                </strong>
-                . Para archivarlo, primero reemplazá o cerrá esa asignación desde la ficha de la
-                persona. Así nadie se queda sin plan sin que lo hayas decidido.
+                <Trans
+                  i18nKey="coach.planEditor.deletePlan.blocked"
+                  values={{
+                    title: plan.title,
+                    assignments: t('coach.planEditor.deletePlan.activeAssignments', {
+                      count: usage.active_assignments,
+                    }),
+                  }}
+                  components={boldTitle}
+                />
               </p>
             </div>
           )}
@@ -121,13 +142,17 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
           {mode === 'archive' && (
             <>
               <p className="text-sm text-gray-700">
-                <span className="font-semibold">"{plan.title}"</span> tiene historial, así que no se
-                elimina: se <strong>archiva</strong>. Deja de aparecer en el recetario y al asignar,
-                y todo lo registrado se conserva. Se puede desarchivar cuando quieras.
+                <Trans
+                  i18nKey="coach.planEditor.deletePlan.archiveBody"
+                  values={{ title: plan.title }}
+                  components={boldTitle}
+                />
               </p>
               {partes.length > 0 && (
                 <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Se conserva</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t('coach.planEditor.deletePlan.kept')}
+                  </p>
                   <ul className="text-xs text-gray-700 space-y-0.5">
                     {partes.map((p) => (
                       <li key={p}>· {p}</li>
@@ -137,9 +162,9 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
               )}
               {usage.is_template && usage.clone_active_assignments > 0 && (
                 <p className="text-xs text-gray-500">
-                  {usage.clone_active_assignments === 1
-                    ? 'Una persona sigue entrenando con su copia de esta plantilla; no se ve afectada.'
-                    : `${usage.clone_active_assignments} personas siguen entrenando con su copia de esta plantilla; no se ven afectadas.`}
+                  {t('coach.planEditor.deletePlan.clonesStillActive', {
+                    count: usage.clone_active_assignments,
+                  })}
                 </p>
               )}
             </>
@@ -148,11 +173,13 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
           {mode === 'delete' && (
             <>
               <p className="text-sm text-gray-700">
-                ¿Seguro que querés eliminar <span className="font-semibold">"{plan.title}"</span>?
+                <Trans
+                  i18nKey="coach.planEditor.deletePlan.confirmDelete"
+                  values={{ title: plan.title }}
+                  components={boldTitle}
+                />
               </p>
-              <p className="text-xs text-gray-400">
-                No tiene registros, asignaciones ni copias. Esta acción no se puede deshacer.
-              </p>
+              <p className="text-xs text-gray-400">{t('coach.planEditor.deletePlan.deleteNote')}</p>
             </>
           )}
 
@@ -161,7 +188,9 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
           {/* Botones */}
           <div className="flex gap-3">
             <button onClick={onClose} disabled={loading} className="btn-secondary flex-1 text-sm">
-              {mode === 'blocked' ? 'Entendido' : 'Cancelar'}
+              {mode === 'blocked'
+                ? t('coach.planEditor.deletePlan.understood')
+                : t('common.cancel')}
             </button>
             {mode === 'archive' && (
               <button
@@ -174,7 +203,7 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
                 ) : (
                   <>
                     <Archive size={13} />
-                    Archivar {noun}
+                    {archiveLabel}
                   </>
                 )}
               </button>
@@ -190,7 +219,7 @@ export default function DeletePlanModal({ plan, onClose, onDone }) {
                 ) : (
                   <>
                     <Trash2 size={13} />
-                    Eliminar {noun}
+                    {deleteLabel}
                   </>
                 )}
               </button>

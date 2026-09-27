@@ -1,10 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react'
-import {
-  isBlockOrderValid,
-  hasNumberGaps,
-  countUnlettered,
-  blockDisplayTitle,
-} from '../../helpers'
+import { useTranslation } from 'react-i18next'
+import { isBlockOrderValid, hasNumberGaps, countUnlettered, blockDisplayTitle } from '../../helpers'
 
 /**
  * Q7 — Banner por día del editor de planes.
@@ -23,6 +19,7 @@ import {
  *   - onDismiss: () => void — oculta el banner por esta sesión de edición
  */
 export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, onDismiss }) {
+  const { t, i18n } = useTranslation()
   // Numerar los bloques strength para mostrar "Fuerza", "Fuerza 2"
   let strengthCounter = 0
   const disorderedBlocks = []
@@ -34,7 +31,7 @@ export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, on
     const strengthIndex = strengthCounter
     strengthCounter += 1
     const exercises = block.exercises || []
-    const title = blockDisplayTitle(block, strengthIndex)
+    const title = blockDisplayTitle(block, strengthIndex, t)
 
     if (!isBlockOrderValid(exercises)) {
       disorderedBlocks.push({ title })
@@ -50,9 +47,8 @@ export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, on
 
   const joinNames = (arr) => {
     const names = arr.map((b) => `"${b.title}"`)
-    if (names.length === 1) return names[0]
-    if (names.length === 2) return `${names[0]} y ${names[1]}`
-    return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`
+    // "A", "B" y "C" / "A", "B", and "C" según el idioma activo.
+    return new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(names)
   }
 
   return (
@@ -61,27 +57,27 @@ export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, on
         <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0 space-y-1">
           <p className="text-sm font-semibold text-amber-900">
-            Hay bloques que conviene reordenar
+            {t('coach.planEditor.orderWarning.title')}
           </p>
           {disorderedBlocks.length > 0 && (
             <p className="text-xs text-amber-800">
-              {joinNames(disorderedBlocks)}{' '}
-              {disorderedBlocks.length === 1 ? 'tiene' : 'tienen'} las letras (A, B, C...) fuera
-              de orden.
+              {t('coach.planEditor.orderWarning.disordered', {
+                count: disorderedBlocks.length,
+                names: joinNames(disorderedBlocks),
+              })}
             </p>
           )}
           {gappedBlocks.length > 0 && (
             <p className="text-xs text-amber-800">
-              {joinNames(gappedBlocks)}{' '}
-              {gappedBlocks.length === 1 ? 'tiene' : 'tienen'} números salteados (ej: A1, A2, A4).
-              Se renumerarán para que queden consecutivos.
+              {t('coach.planEditor.orderWarning.gaps', {
+                count: gappedBlocks.length,
+                names: joinNames(gappedBlocks),
+              })}
             </p>
           )}
           {totalUnlettered > 0 && (
             <p className="text-xs text-amber-700">
-              {totalUnlettered === 1
-                ? '1 ejercicio sin letra quedará en su lugar.'
-                : `${totalUnlettered} ejercicios sin letra quedarán en su lugar.`}
+              {t('coach.planEditor.orderWarning.unlettered', { count: totalUnlettered })}
             </p>
           )}
         </div>
@@ -89,8 +85,8 @@ export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, on
           type="button"
           onClick={onDismiss}
           className="p-1 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded-lg flex-shrink-0"
-          aria-label="Cerrar aviso"
-          title="Dejar como está"
+          aria-label={t('coach.planEditor.orderWarning.closeAria')}
+          title={t('coach.planEditor.orderWarning.leaveAsIs')}
         >
           <X size={16} />
         </button>
@@ -101,14 +97,14 @@ export default function DayBlocksOrderWarning({ dayBlocks = [], onReorderDay, on
           onClick={onReorderDay}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors"
         >
-          Reordenar día
+          {t('coach.planEditor.orderWarning.reorderDay')}
         </button>
         <button
           type="button"
           onClick={onDismiss}
           className="text-xs font-medium px-3 py-1.5 rounded-lg text-amber-700 hover:bg-amber-100 transition-colors"
         >
-          Dejar como está
+          {t('coach.planEditor.orderWarning.leaveAsIs')}
         </button>
       </div>
     </div>

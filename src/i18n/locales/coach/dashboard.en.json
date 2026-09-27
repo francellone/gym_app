@@ -1,0 +1,306 @@
+{
+  "home": {
+    "subtitleNone": "Nobody needs your attention right now.",
+    "subtitle_one": "{{count}} student needs your attention.",
+    "subtitle_other": "{{count}} students need your attention.",
+    "statActive": "active students",
+    "statTrainedToday": "trained today",
+    "trainedOf": "{{done}} of {{total}}",
+    "statLastWeek": "last week's adherence",
+    "adherenceByPerson": "Adherence by student",
+    "recentSessions": "Recent sessions",
+    "noSessions": "No sessions in this period.",
+    "personFallback": "Student",
+    "lateLog": "Late log",
+    "sessionExercises": "{{done}} of {{total}} exercises",
+    "noExercises": "No exercises logged",
+    "pse": "RPE {{value}}",
+    "minutes": "{{count}} min",
+    "dayMonthNumeric": "MM/dd"
+  },
+  "sectionDay": "Day {{letter}}",
+  "listAnd": " and ",
+  "attention": {
+    "title": "Need attention",
+    "noneForPerson": "Nothing to follow up with this student.",
+    "none": "Nobody needs attention right now.",
+    "showLess": "Show less",
+    "showMore": "Show {{count}} more",
+    "missedLastWeek": "Missed a session last week:"
+  },
+  "alerts": {
+    "overdueDays_one": "Payment overdue by {{count}} day",
+    "overdueDays_other": "Payment overdue by {{count}} days",
+    "overdue": "Payment overdue",
+    "noLogs": "No workouts logged",
+    "inactiveDays_one": "Hasn't trained in {{count}} day",
+    "inactiveDays_other": "Hasn't trained in {{count}} days",
+    "painQuote": "Reported pain: \"{{snippet}}\"",
+    "pain": "Reported pain",
+    "skipDiscomfort": "Skipped due to discomfort",
+    "skipDiscomfortOne": "Skipped {{name}} due to discomfort",
+    "skipDiscomfortMany": "Skipped due to discomfort: {{names}}",
+    "skipDiscomfortManyMore": "Skipped due to discomfort: {{names}} and {{count}} more",
+    "planExpiredDays_one": "Plan expired {{count}} day ago",
+    "planExpiredDays_other": "Plan expired {{count}} days ago",
+    "planExpired": "Plan expired",
+    "formUnanswered_one": "Form unanswered for {{count}} day",
+    "formUnanswered_other": "Form unanswered for {{count}} days",
+    "formUnansweredMore_one": " (and {{count}} more)",
+    "formUnansweredMore_other": " (and {{count}} more)",
+    "adherenceDecline": "Adherence dropping: {{trend}} %",
+    "fatigue": "Signs of fatigue",
+    "lowMotivation": "Low motivation",
+    "highRpe_one": "High effort {{count}} time",
+    "highRpe_other": "High effort {{count}} times",
+    "stagnationIn": "No progress in {{names}}",
+    "stagnation": "No progress",
+    "noActivePlan": "No active plan"
+  },
+  "alertKinds": {
+    "overdue": "Overdue payments",
+    "planExpiringSoon": "Plans ending soon",
+    "planExpired": "Plan expired",
+    "dueSoon": "Payments due soon",
+    "adherenceDecline": "Declining adherence",
+    "lowAdherence": "Low adherence (last week)",
+    "inactiveStudents": "No training for several days",
+    "highRpeStudents": "Sustained high effort",
+    "noActivePlan": "No active plan",
+    "fatigueStudents": "Fatigue / poor recovery",
+    "lowMotivationStudents": "Low motivation",
+    "skipDiscomfort": "Skipped due to discomfort",
+    "painStudents": "Repeated pain",
+    "formUnanswered": "Unanswered form",
+    "stagnationStudents": "Plateau"
+  },
+  "adherence": {
+    "empty": "No students with an active training plan yet.",
+    "behind_one": "{{count}} student did less than planned last week",
+    "behind_other": "{{count}} students did less than planned last week",
+    "ok_one": "On track: {{count}} student",
+    "ok_other": "On track: {{count}} students",
+    "none": "No workouts logged: {{count}}",
+    "behindPill": "{{done}} of {{target}} last week",
+    "noLogs": "No workouts logged"
+  },
+  "filters": {
+    "student": "Student",
+    "plan": "Plan",
+    "period": "Period",
+    "allStudents": "All",
+    "allPlansOfStudent": "All of this student's plans",
+    "pickStudent": "Pick a student",
+    "untitled": "Untitled",
+    "clear": "Clear",
+    "status": {
+      "paused": "paused",
+      "completed": "completed",
+      "replaced": "replaced",
+      "cancelled": "cancelled",
+      "archived": "archived"
+    }
+  },
+  "periods": {
+    "vigente": "Current plan",
+    "7d": "Last 7 days",
+    "14d": "Last 14 days",
+    "30d": "Last 30 days",
+    "90d": "Last 90 days",
+    "all": "All time"
+  },
+  "agenda": {
+    "title": "Next 7 days",
+    "empty": "Nothing coming up: no payments, plans, evaluations, forms or birthdays this week.",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "dayFormat": "EEEE d",
+    "dayFormatOtherMonth": "EEEE, MMM d"
+  },
+  "phrase": {
+    "paymentLate": "Payment overdue for",
+    "payment": "Payment due for",
+    "planEndLate": "Plan ended for",
+    "planEnd": "Plan ends for",
+    "planStart": "Plan starts for",
+    "evaluationLate": "Overdue evaluation for",
+    "evaluation": "Evaluation for",
+    "evaluationDone": "Evaluation done:",
+    "birthday": "Birthday:",
+    "formScheduled": "Form goes out to",
+    "formUnanswered": "Form not answered by",
+    "formWaiting_one": "{{title}} · {{count}} day ago",
+    "formWaiting_other": "{{title}} · {{count}} days ago",
+    "formAnswered": "Form answered by",
+    "paymentDone": "Payment received from"
+  },
+  "fallback": {
+    "plan": "Plan",
+    "evaluation": "Evaluation",
+    "intakeForm": "Intake form",
+    "followUpForm": "Follow-up form",
+    "activity": "Activity"
+  },
+  "milestones": {
+    "weekComplete": "Week complete",
+    "planComplete": "Plan finished",
+    "streak_one": "{{count}}-week streak",
+    "streak_other": "{{count}}-week streak",
+    "streakGeneric": "Weekly streak",
+    "personalBestIn": "Personal best in {{exercise}}",
+    "personalBest": "Personal best",
+    "generic": "Celebration"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "seeCalendarOf": "Show the calendar for",
+    "allPeople": "All students",
+    "today": "Today",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "more": "+{{count}} more",
+    "trained": "{{count}} trained",
+    "trainedShort": "{{count}} tr.",
+    "closeDetail": "Close details",
+    "trainedPeople_one": "{{count}} student trained",
+    "trainedPeople_other": "{{count}} students trained",
+    "nothing": "Nothing on this day.",
+    "dayDetailFormat": "EEEE, LLLL d",
+    "legendHint": "Tap a type to show or hide it",
+    "reset": "Reset",
+    "late": "Overdue",
+    "lateForm": "Unanswered for {{count}} days or more",
+    "trainedChip": "Trained",
+    "trainedExample": "“5 trained”",
+    "trainedExampleShort": "“5 tr.”",
+    "trainedLegend": ": students who logged a workout that day (tap the day to see who)",
+    "summary": {
+      "done_one": "{{count}} done",
+      "done_other": "{{count}} done",
+      "partial_one": "{{count}} partial",
+      "partial_other": "{{count}} partial",
+      "missed": "{{count}} missed",
+      "extra_one": "{{count}} extra day",
+      "extra_other": "{{count}} extra days",
+      "planDays": "Plan: {{days}}",
+      "planPerWeek": "Plan: {{count}} per week, on days of their choice",
+      "planFree": "Plan with flexible days",
+      "noPlan": "No active plan"
+    },
+    "groups": {
+      "plans": "Plans",
+      "evaluations": "Evaluations",
+      "forms": "Forms",
+      "payments": "Payments",
+      "person": "Student"
+    },
+    "dayStatus": {
+      "planned_done": "Done",
+      "planned_partial": "Partial",
+      "planned_missed": "Missed",
+      "planned_future": "Planned",
+      "unplanned_done": "Extra day",
+      "unplanned_partial": "Partial extra",
+      "rest": "Rest"
+    },
+    "kinds": {
+      "plan_start": {
+        "label": "Plan start",
+        "legend": "Plan start",
+        "short": "Start"
+      },
+      "plan_end": {
+        "label": "Plan end",
+        "legend": "Plan end",
+        "short": "End"
+      },
+      "payment_due": {
+        "label": "Payment",
+        "legend": "Payment",
+        "short": "Pay"
+      },
+      "evaluation": {
+        "label": "Evaluation",
+        "legend": "Pending evaluation",
+        "short": "Eval."
+      },
+      "evaluation_done": {
+        "label": "✓ Evaluated",
+        "legend": "✓ Evaluation done",
+        "short": "✓ Eval."
+      },
+      "form_scheduled": {
+        "label": "Scheduled form",
+        "legend": "Scheduled form",
+        "short": "Form"
+      },
+      "form_unanswered": {
+        "label": "Unanswered form",
+        "legend": "Unanswered form",
+        "short": "Unans."
+      },
+      "form_answered": {
+        "label": "✓ Form answered",
+        "legend": "✓ Form answered",
+        "short": "✓ Form"
+      },
+      "payment_done": {
+        "label": "✓ Payment received",
+        "legend": "✓ Payment received",
+        "short": "✓ Paid"
+      },
+      "activity": {
+        "label": "Extra activity",
+        "legend": "Extra activity",
+        "short": "⚽"
+      },
+      "milestone": {
+        "label": "🎉 Celebration",
+        "legend": "🎉 Celebration",
+        "short": "🎉"
+      },
+      "birthday": {
+        "label": "🎂 Birthday",
+        "legend": "🎂 Birthday",
+        "short": "🎂"
+      }
+    }
+  },
+  "panel": {
+    "noPlan": "{{name}} has no active training plan in this period.",
+    "noPlanNoName": "This student has no active training plan in this period.",
+    "report": "Report",
+    "personFallback": "Student",
+    "activePlanFallback": "Active plan",
+    "viewPerson": "View student",
+    "loading": "Loading student's data…",
+    "kpi": {
+      "expected": "Expected",
+      "completed": "Completed",
+      "adherence": "Adherence",
+      "pseAvg": "Avg RPE"
+    },
+    "sessionsPerDay": "Sessions per day",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "noSessions": "No sessions in this period",
+    "tallies": "Check-offs per day",
+    "progressTitle": "Progress by exercise",
+    "colExercise": "Exercise",
+    "colBefore": "Before",
+    "colNow": "Now",
+    "colLogs": "Logs",
+    "progressHint": "Compares max(weight) in the first vs second half of the selected period.",
+    "exerciseFallback": "Exercise",
+    "noClosedWeeks": "No full closed weeks in this period yet."
+  },
+  "motivation": {
+    "empty": "No workouts logged in the selected period.",
+    "count_one": "Completed {{count}} workout in the period.",
+    "count_other": "Completed {{count}} workouts in the period.",
+    "great": "Excellent adherence ({{pct}}%). Consistency is paying off.",
+    "good": "Good consistency ({{pct}}%). There is room to improve.",
+    "meh": "Partial adherence ({{pct}}%). Worth reviewing what's getting in the way.",
+    "bad": "Low adherence ({{pct}}%). A good moment to talk with the student."
+  }
+}

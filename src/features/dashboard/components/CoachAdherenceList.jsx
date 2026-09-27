@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/fetchAllRows'
@@ -50,6 +51,7 @@ export default function CoachAdherenceList({
   behind = null, // [{ studentId, completed, target, pct }] (alerts.lowAdherence)
   className = '',
 }) {
+  const { t } = useTranslation()
   const [openGroups, setOpenGroups] = useState({})
   const [loading, setLoading] = useState(true)
   // rows: [{ assignment, student, talliesBySection }]
@@ -247,7 +249,7 @@ export default function CoachAdherenceList({
   if (loading) {
     return (
       <div className={className}>
-        <p className="text-sm text-texto3 py-2">Cargando…</p>
+        <p className="text-sm text-texto3 py-2">{t('common.loading')}</p>
       </div>
     )
   }
@@ -255,9 +257,7 @@ export default function CoachAdherenceList({
   if (rows.length === 0) {
     return (
       <div className={className}>
-        <p className="text-sm text-texto2 py-2">
-          Todavía no hay personas con plan de entrenamiento activo.
-        </p>
+        <p className="text-sm text-texto2 py-2">{t('coach.dashboard.adherence.empty')}</p>
       </div>
     )
   }
@@ -280,9 +280,7 @@ export default function CoachAdherenceList({
       {groups.late.length > 0 && (
         <div>
           <p className="text-[13px] font-medium text-[#92400e] mb-0.5">
-            {groups.late.length === 1
-              ? '1 persona hizo menos de lo planificado la semana pasada'
-              : `${groups.late.length} personas hicieron menos de lo planificado la semana pasada`}
+            {t('coach.dashboard.adherence.behind', { count: groups.late.length })}
           </p>
           <div className="divide-y divide-linea">
             {groups.late.map((r) => (
@@ -294,15 +292,13 @@ export default function CoachAdherenceList({
       <FoldedGroup
         open={!!openGroups.ok}
         onToggle={() => toggle('ok')}
-        label={
-          groups.ok.length === 1 ? 'Al día: 1 persona' : `Al día: ${groups.ok.length} personas`
-        }
+        label={t('coach.dashboard.adherence.ok', { count: groups.ok.length })}
         rows={groups.ok}
       />
       <FoldedGroup
         open={!!openGroups.none}
         onToggle={() => toggle('none')}
-        label={`Sin entrenamientos registrados: ${groups.none.length}`}
+        label={t('coach.dashboard.adherence.none', { count: groups.none.length })}
         rows={groups.none}
       />
     </div>
@@ -342,6 +338,7 @@ function FoldedGroup({ open, onToggle, label, rows }) {
 // Fila de una persona
 // ─────────────────────────────────────────────────────────────
 function AdherenceRow({ assignment, student, tallies, hasAnyTally, behind = null }) {
+  const { t } = useTranslation()
   return (
     <Link to={`/coach/students/${student.id}`} className="flex items-center gap-3 py-2.5 group">
       <div className="w-9 h-9 rounded-full bg-durazno-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -360,14 +357,17 @@ function AdherenceRow({ assignment, student, tallies, hasAnyTally, behind = null
         </div>
         {behind && (
           <span className="pill-warn mt-1 inline-block tabular-nums">
-            {behind.completed} de {behind.target} la semana pasada
+            {t('coach.dashboard.adherence.behindPill', {
+              done: behind.completed,
+              target: behind.target,
+            })}
           </span>
         )}
         <div className="mt-1">
           {hasAnyTally ? (
             <DayTalliesBadge tallies={tallies} variant="compact" />
           ) : (
-            <p className="text-[13px] text-texto2">Sin entrenamientos registrados</p>
+            <p className="text-[13px] text-texto2">{t('coach.dashboard.adherence.noLogs')}</p>
           )}
         </div>
       </div>

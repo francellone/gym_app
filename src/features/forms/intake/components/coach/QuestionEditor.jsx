@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ChevronUp, Settings, X } from 'lucide-react'
 import { QUESTION_TYPES, QUESTION_TYPE_META } from '../../schema/question-types.js'
 
@@ -26,11 +27,17 @@ export default function QuestionEditor({
   onMoveDown,
   bilingual = false, // modo bilingüe (docs/plan-formularios-bilingues.md)
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [optionsText, setOptionsText] = useState((question.options || []).join('\n'))
   const [enOptionsText, setEnOptionsText] = useState((question.i18n?.en?.options || []).join('\n'))
 
   const meta = QUESTION_TYPE_META[question.type] || {}
+  // Etiqueta visible del tipo (el valor canónico `question.type` no cambia).
+  const typeLabel = (type) =>
+    t(`coach.forms.questionTypes.${type}`, {
+      defaultValue: QUESTION_TYPE_META[type]?.label || type,
+    })
 
   // ── Versión en inglés ────────────────────────────────────
   const en = question.i18n?.en || {}
@@ -129,7 +136,7 @@ export default function QuestionEditor({
       <div className="flex items-start gap-2 p-3">
         {/* Tipo de pregunta (badge) */}
         <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">
-          {meta.icon} {meta.label}
+          {meta.icon} {typeLabel(question.type)}
         </span>
 
         {/* Label editable */}
@@ -139,7 +146,7 @@ export default function QuestionEditor({
               value={question.label}
               onChange={handleLabelChange}
               className="w-full text-sm text-gray-800 border-0 focus:outline-none focus:ring-0 bg-transparent"
-              placeholder="Texto de la pregunta..."
+              placeholder={t('coach.forms.question.labelPlaceholder')}
             />
           ) : (
             <p className="text-sm text-gray-700">{question.label}</p>
@@ -147,24 +154,30 @@ export default function QuestionEditor({
 
           {/* Indicadores */}
           <div className="flex flex-wrap gap-1.5 mt-1">
-            {question.required && <span className="pill-neutral text-[11px]">Obligatoria</span>}
+            {question.required && (
+              <span className="pill-neutral text-[11px]">{t('coach.forms.question.required')}</span>
+            )}
             {question.conditional && (
               <span className="text-[11px] rounded-full px-2 py-0.5 bg-niebla-100 text-niebla-700">
-                Condicional
+                {t('coach.forms.question.conditional')}
               </span>
             )}
-            {!question.removable && <span className="pill-neutral text-[11px]">Fija</span>}
+            {!question.removable && (
+              <span className="pill-neutral text-[11px]">{t('coach.forms.question.fixed')}</span>
+            )}
             {bilingual &&
               (visibility === 'solo_es' ? (
-                <span className="pill-neutral text-[11px]">Solo español</span>
+                <span className="pill-neutral text-[11px]">{t('coach.forms.question.onlyEs')}</span>
               ) : visibility === 'solo_en' ? (
-                <span className="pill-neutral text-[11px]">Solo inglés</span>
+                <span className="pill-neutral text-[11px]">{t('coach.forms.question.onlyEn')}</span>
               ) : en.stale ? (
-                <span className="pill-warn text-[11px]">Inglés desactualizado</span>
+                <span className="pill-warn text-[11px]">{t('coach.forms.question.enStale')}</span>
               ) : en.label?.trim() ? (
-                <span className="pill-ok text-[11px]">Inglés ✓</span>
+                <span className="pill-ok text-[11px]">{t('coach.forms.question.enOk')}</span>
               ) : (
-                <span className="pill-neutral text-[11px]">Sin traducir</span>
+                <span className="pill-neutral text-[11px]">
+                  {t('coach.forms.question.untranslated')}
+                </span>
               ))}
           </div>
         </div>
@@ -174,6 +187,7 @@ export default function QuestionEditor({
           <button
             onClick={onMoveUp}
             disabled={isFirst}
+            aria-label={t('coach.forms.question.moveUp')}
             className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs"
           >
             ▲
@@ -181,6 +195,7 @@ export default function QuestionEditor({
           <button
             onClick={onMoveDown}
             disabled={isLast}
+            aria-label={t('coach.forms.question.moveDown')}
             className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-20 text-xs"
           >
             ▼
@@ -190,7 +205,9 @@ export default function QuestionEditor({
             <button
               onClick={() => setExpanded(!expanded)}
               className="p-1 text-gray-400 hover:text-gray-600 text-xs ml-1"
-              aria-label={expanded ? 'Cerrar edición' : 'Editar pregunta'}
+              aria-label={
+                expanded ? t('coach.forms.question.closeEdit') : t('coach.forms.question.edit')
+              }
             >
               {expanded ? <ChevronUp size={16} /> : <Settings size={16} />}
             </button>
@@ -199,10 +216,10 @@ export default function QuestionEditor({
           {onRemove && (
             <button
               onClick={() => {
-                if (confirm('¿Eliminar esta pregunta?')) onRemove()
+                if (confirm(t('coach.forms.question.confirmDelete'))) onRemove()
               }}
               className="p-1 text-red-300 hover:text-red-500 text-xs"
-              aria-label="Eliminar pregunta"
+              aria-label={t('coach.forms.question.delete')}
             >
               <X size={16} />
             </button>
@@ -216,7 +233,7 @@ export default function QuestionEditor({
           {/* Tipo */}
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">
-              Tipo de respuesta
+              {t('coach.forms.question.answerType')}
             </label>
             <select
               value={question.type}
@@ -225,7 +242,7 @@ export default function QuestionEditor({
             >
               {Object.entries(QUESTION_TYPES).map(([_key, val]) => (
                 <option key={val} value={val}>
-                  {QUESTION_TYPE_META[val]?.icon} {QUESTION_TYPE_META[val]?.label}
+                  {QUESTION_TYPE_META[val]?.icon} {typeLabel(val)}
                 </option>
               ))}
             </select>
@@ -237,14 +254,14 @@ export default function QuestionEditor({
           ) && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">
-                Placeholder (opcional)
+                {t('coach.forms.question.placeholderLabel')}
               </label>
               <input
                 type="text"
                 value={question.placeholder || ''}
                 onChange={(e) => onChange({ ...question, placeholder: e.target.value })}
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
-                placeholder="Texto de ayuda dentro del campo..."
+                placeholder={t('coach.forms.question.placeholderPlaceholder')}
               />
             </div>
           )}
@@ -253,7 +270,7 @@ export default function QuestionEditor({
           {meta.hasOptions && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">
-                Opciones (una por línea)
+                {t('coach.forms.question.optionsLabel')}
               </label>
               <textarea
                 value={optionsText}
@@ -261,7 +278,7 @@ export default function QuestionEditor({
                 onBlur={handleOptionsBlur}
                 rows={4}
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
-                placeholder="Opción 1&#10;Opción 2&#10;Opción 3"
+                placeholder={t('coach.forms.question.optionsPlaceholder')}
               />
             </div>
           )}
@@ -270,7 +287,9 @@ export default function QuestionEditor({
           {question.type === QUESTION_TYPES.SCALE && (
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs font-medium text-gray-600 block mb-1">Mín</label>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  {t('coach.forms.question.min')}
+                </label>
                 <input
                   type="number"
                   value={question.min || 1}
@@ -279,7 +298,9 @@ export default function QuestionEditor({
                 />
               </div>
               <div className="flex-1">
-                <label className="text-xs font-medium text-gray-600 block mb-1">Máx</label>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  {t('coach.forms.question.max')}
+                </label>
                 <input
                   type="number"
                   value={question.max || 10}
@@ -304,21 +325,23 @@ export default function QuestionEditor({
                 }`}
               />
             </button>
-            <span className="text-xs text-gray-600">Respuesta obligatoria</span>
+            <span className="text-xs text-gray-600">
+              {t('coach.forms.question.requiredToggle')}
+            </span>
           </div>
 
           {/* Lógica condicional */}
           {possibleParents.length > 0 && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">
-                Mostrar solo si... (opcional)
+                {t('coach.forms.question.showIfLabel')}
               </label>
               <select
                 value={question.conditional?.dependsOn || ''}
                 onChange={handleConditionalParentChange}
                 className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400 mb-2"
               >
-                <option value="">Siempre visible</option>
+                <option value="">{t('coach.forms.question.alwaysVisible')}</option>
                 {possibleParents.map((pq) => (
                   <option key={pq.id} value={pq.id}>
                     {pq.label.length > 50 ? pq.label.slice(0, 50) + '...' : pq.label}
@@ -329,7 +352,7 @@ export default function QuestionEditor({
               {question.conditional && parentQuestion && (
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">
-                    Valor que activa esta pregunta:
+                    {t('coach.forms.question.triggerValue')}
                   </label>
                   {parentQuestion.type === QUESTION_TYPES.BOOLEAN ? (
                     <select
@@ -337,8 +360,8 @@ export default function QuestionEditor({
                       onChange={handleConditionalValueChange}
                       className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                     >
-                      <option value="true">Sí</option>
-                      <option value="false">No</option>
+                      <option value="true">{t('common.yes')}</option>
+                      <option value="false">{t('common.no')}</option>
                     </select>
                   ) : parentQuestion.options ? (
                     <select
@@ -361,21 +384,23 @@ export default function QuestionEditor({
           {/* ── Versión en inglés (modo bilingüe) ─────────── */}
           {bilingual && (
             <div className="border-t border-gray-200 pt-3 space-y-3">
-              <label className="text-xs font-semibold text-gray-700 block">Versión en inglés</label>
+              <label className="text-xs font-semibold text-gray-700 block">
+                {t('coach.forms.question.enVersion')}
+              </label>
 
               {/* Visibilidad por idioma */}
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">
-                  Esta pregunta se muestra a...
+                  {t('coach.forms.question.visibilityLabel')}
                 </label>
                 <select
                   value={visibility}
                   onChange={handleVisibilityChange}
                   className="text-sm border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                 >
-                  <option value="both">Alumnos en ambos idiomas</option>
-                  <option value="solo_es">Solo alumnos en español</option>
-                  <option value="solo_en">Solo alumnos en inglés</option>
+                  <option value="both">{t('coach.forms.question.visibilityBoth')}</option>
+                  <option value="solo_es">{t('coach.forms.question.visibilityOnlyEs')}</option>
+                  <option value="solo_en">{t('coach.forms.question.visibilityOnlyEn')}</option>
                 </select>
               </div>
 
@@ -387,14 +412,13 @@ export default function QuestionEditor({
                       <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-xs text-amber-700">
-                          Cambiaste las opciones en español después de traducirlas. Mientras tanto,
-                          los alumnos en inglés ven las opciones en español.
+                          {t('coach.forms.question.staleWarning')}
                         </p>
                         <button
                           onClick={() => updateEn({ stale: false })}
                           className="text-xs text-amber-800 underline mt-1"
                         >
-                          Ya la revisé, está bien así
+                          {t('coach.forms.question.staleReviewed')}
                         </button>
                       </div>
                     </div>
@@ -402,7 +426,7 @@ export default function QuestionEditor({
 
                   <div>
                     <label className="text-xs font-medium text-gray-600 block mb-1">
-                      Pregunta en inglés (vacío = se muestra en español)
+                      {t('coach.forms.question.enLabel')}
                     </label>
                     <input
                       type="text"
@@ -418,7 +442,7 @@ export default function QuestionEditor({
                   ) && (
                     <div>
                       <label className="text-xs font-medium text-gray-600 block mb-1">
-                        Placeholder en inglés (opcional)
+                        {t('coach.forms.question.enPlaceholderLabel')}
                       </label>
                       <input
                         type="text"
@@ -432,8 +456,7 @@ export default function QuestionEditor({
                   {meta.hasOptions && (
                     <div>
                       <label className="text-xs font-medium text-gray-600 block mb-1">
-                        Opciones en inglés (mismo orden que en español; línea vacía = queda en
-                        español)
+                        {t('coach.forms.question.enOptionsLabel')}
                       </label>
                       <textarea
                         value={enOptionsText}
@@ -446,9 +469,10 @@ export default function QuestionEditor({
                       {(en.options?.length || 0) > 0 &&
                         en.options.length !== (question.options || []).length && (
                           <p className="text-xs text-amber-600 mt-1">
-                            Hay {en.options.length} traducciones para{' '}
-                            {(question.options || []).length} opciones — hasta que coincidan, los
-                            alumnos en inglés ven las opciones en español.
+                            {t('coach.forms.question.enOptionsMismatch', {
+                              translated: en.options.length,
+                              total: (question.options || []).length,
+                            })}
                           </p>
                         )}
                     </div>

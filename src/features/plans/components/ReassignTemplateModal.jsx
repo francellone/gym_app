@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { RefreshCw, X, AlertTriangle, Check, Users } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { reassignTemplate } from '../assignmentHelpers'
 import { supabase } from '@/lib/supabase'
 
@@ -25,6 +26,7 @@ export default function ReassignTemplateModal({
   onClose,
   onDone,
 }) {
+  const { t } = useTranslation()
   // Por default todas marcadas: lo más común es querer propagar el cambio.
   const [selected, setSelected] = useState(() => new Set(assignees.map((a) => a.assignmentId)))
   const [running, setRunning] = useState(false)
@@ -51,7 +53,7 @@ export default function ReassignTemplateModal({
         await reassignTemplate(supabase, { templateId, assignee })
         acc[assignee.assignmentId] = 'ok'
       } catch (err) {
-        acc[assignee.assignmentId] = { error: err.message || 'Error al re-asignar' }
+        acc[assignee.assignmentId] = { error: err.message || t('coach.planEditor.reassign.error') }
       }
       setResults({ ...acc })
     }
@@ -75,11 +77,19 @@ export default function ReassignTemplateModal({
               <AlertTriangle size={20} className="text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900">Cambios guardados en la plantilla</h3>
+              <h3 className="font-semibold text-gray-900">
+                {t('coach.planEditor.reassign.title')}
+              </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Los cambios <strong>no</strong> se aplican a las copias ya asignadas. Si querés que
-                reciban la versión nueva de
-                {templateTitle ? ` "${templateTitle.trim()}"` : ' esta plantilla'}, re-asignala.
+                <Trans
+                  i18nKey={
+                    templateTitle
+                      ? 'coach.planEditor.reassign.body'
+                      : 'coach.planEditor.reassign.bodyNoTitle'
+                  }
+                  values={{ title: templateTitle?.trim() }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
             </div>
           </div>
@@ -87,10 +97,10 @@ export default function ReassignTemplateModal({
           {/* #4 (doc 41): aviso reforzado para planes de entrenamiento */}
           {!finished && hasTraining && (
             <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
-              Ojo: en planes de <strong>entrenamiento</strong>, re-asignar reinicia el plan en curso
-              de esa persona. Su avance (logs, tildes) queda en el plan anterior y la copia nueva
-              arranca desde cero. Si solo querés ajustar el plan de una persona puntual, editá su
-              plan directamente en vez de re-asignar.
+              <Trans
+                i18nKey="coach.planEditor.reassign.trainingWarning"
+                components={{ strong: <strong /> }}
+              />
             </div>
           )}
 
@@ -99,8 +109,8 @@ export default function ReassignTemplateModal({
               {/* Lista de alumnas */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
-                  <Users size={13} /> {assignees.length}{' '}
-                  {assignees.length === 1 ? 'persona afectada' : 'personas afectadas'}
+                  <Users size={13} />{' '}
+                  {t('coach.planEditor.reassign.affected', { count: assignees.length })}
                 </div>
                 {assignees.map((a) => {
                   const checked = selected.has(a.assignmentId)
@@ -128,11 +138,7 @@ export default function ReassignTemplateModal({
                         </p>
                         {a.resultCount > 0 && (
                           <p className="text-xs text-amber-600 mt-0.5">
-                            {a.resultCount}{' '}
-                            {a.resultCount === 1
-                              ? 'registro se conserva'
-                              : 'registros se conservan'}{' '}
-                            en histórico · la copia nueva arranca vacía
+                            {t('coach.planEditor.reassign.logsKept', { count: a.resultCount })}
                           </p>
                         )}
                       </div>
@@ -149,7 +155,7 @@ export default function ReassignTemplateModal({
                   className="btn-secondary flex-1 text-sm"
                   type="button"
                 >
-                  Ahora no
+                  {t('coach.planEditor.reassign.notNow')}
                 </button>
                 <button
                   onClick={handleReassign}
@@ -161,7 +167,7 @@ export default function ReassignTemplateModal({
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <RefreshCw size={14} /> Re-asignar
+                      <RefreshCw size={14} /> {t('coach.planEditor.reassign.reassign')}
                       {selectedCount > 0 ? ` (${selectedCount})` : ''}
                     </>
                   )}
@@ -175,17 +181,14 @@ export default function ReassignTemplateModal({
                 {okCount > 0 && (
                   <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-xl p-3">
                     <Check size={16} />
-                    <span>
-                      {okCount} {okCount === 1 ? 'persona re-asignada' : 'personas re-asignadas'}{' '}
-                      con la versión nueva.
-                    </span>
+                    <span>{t('coach.planEditor.reassign.done', { count: okCount })}</span>
                   </div>
                 )}
                 {errCount > 0 && (
                   <div className="text-sm text-red-700 bg-red-50 rounded-xl p-3 space-y-1">
                     <div className="flex items-center gap-2 font-medium">
-                      <AlertTriangle size={16} /> {errCount}{' '}
-                      {errCount === 1 ? 'no se pudo re-asignar' : 'no se pudieron re-asignar'}
+                      <AlertTriangle size={16} />{' '}
+                      {t('coach.planEditor.reassign.failed', { count: errCount })}
                     </div>
                     {assignees
                       .filter((a) => results[a.assignmentId] && results[a.assignmentId] !== 'ok')
@@ -198,7 +201,7 @@ export default function ReassignTemplateModal({
                 )}
               </div>
               <button onClick={onDone} className="btn-primary w-full text-sm" type="button">
-                Listo
+                {t('coach.planEditor.reassign.finish')}
               </button>
             </>
           )}
@@ -209,7 +212,7 @@ export default function ReassignTemplateModal({
           <button
             onClick={onClose}
             className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
             type="button"
           >
             <X size={18} />

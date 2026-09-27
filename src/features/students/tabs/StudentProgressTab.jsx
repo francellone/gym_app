@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { TrendingUp, BarChart3, Table as TableIcon, Tag } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
@@ -38,19 +39,19 @@ import {
   isLogSkipped,
   isTrainingActivity,
   summarizeEntries,
-  describeSkips,
 } from '@/features/workouts/completionRules'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes estáticas fuera del componente
 // ─────────────────────────────────────────────────────────────
+// Textos en coach.students.progress.charts.<id>
 const CHARTS = [
-  { id: 'weight', label: 'Peso' },
-  { id: 'volume', label: 'Volumen' },
-  { id: 'pse', label: 'PSE' },
-  { id: 'borg', label: 'Intensidad' },
-  { id: 'duration', label: 'Duración' },
-  { id: 'compare', label: 'Plan vs Real' },
+  { id: 'weight' },
+  { id: 'volume' },
+  { id: 'pse' },
+  { id: 'borg' },
+  { id: 'duration' },
+  { id: 'compare' },
 ]
 
 // "Todo" arranca en 2020: antes eran 365 días y se comía el historial viejo
@@ -58,15 +59,15 @@ const CHARTS = [
 const ALL_TIME_FROM = '2020-01-01'
 
 const PERIODS = [
-  { label: '1m', days: 30 },
-  { label: '3m', days: 90 },
-  { label: '6m', days: 180 },
-  { label: 'Todo', days: 'all' },
+  { labelKey: 'coach.students.progress.period1m', days: 30 },
+  { labelKey: 'coach.students.progress.period3m', days: 90 },
+  { labelKey: 'coach.students.progress.period6m', days: 180 },
+  { labelKey: 'coach.students.progress.periodAll', days: 'all' },
 ]
 
 const VIEW_MODES = [
-  { id: 'charts', label: 'Gráficos', icon: BarChart3 },
-  { id: 'table', label: 'Tabla', icon: TableIcon },
+  { id: 'charts', labelKey: 'coach.students.progress.viewCharts', icon: BarChart3 },
+  { id: 'table', labelKey: 'coach.students.progress.viewTable', icon: TableIcon },
 ]
 
 function TooltipCard({ active, payload, label }) {
@@ -118,6 +119,7 @@ function logExerciseId(log) {
 // StudentProgressTab
 // ─────────────────────────────────────────────────────────────
 export default function StudentProgressTab({ studentId }) {
+  const { t } = useTranslation()
   const [progressLogs, setProgressLogs] = useState([])
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
@@ -678,7 +680,7 @@ export default function StudentProgressTab({ studentId }) {
               }`}
             >
               <Icon size={13} />
-              {m.label}
+              {t(m.labelKey)}
             </button>
           )
         })}
@@ -699,7 +701,7 @@ export default function StudentProgressTab({ studentId }) {
                 : 'text-gray-500'
             }`}
           >
-            {p.label}
+            {t(p.labelKey)}
           </button>
         ))}
         <button
@@ -708,7 +710,7 @@ export default function StudentProgressTab({ studentId }) {
             useCustomRange ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
           }`}
         >
-          Personalizado
+          {t('coach.students.progress.custom')}
         </button>
       </div>
 
@@ -724,7 +726,9 @@ export default function StudentProgressTab({ studentId }) {
           }}
           className="text-xs text-primary-600 hover:underline self-start"
         >
-          Desde el plan anterior ({format(parseISO(prevPlanStart), 'dd/MM/yy')})
+          {t('coach.students.progress.fromPrevPlan', {
+            date: format(parseISO(prevPlanStart), t('coach.students.formats.shortDate')),
+          })}
         </button>
       )}
 
@@ -732,7 +736,7 @@ export default function StudentProgressTab({ studentId }) {
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-2">
           <div className="flex-1">
             <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
-              Desde
+              {t('coach.students.progress.from')}
             </label>
             <input
               type="date"
@@ -744,7 +748,7 @@ export default function StudentProgressTab({ studentId }) {
           </div>
           <div className="flex-1">
             <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
-              Hasta
+              {t('coach.students.payment.periodEnd')}
             </label>
             <input
               type="date"
@@ -767,7 +771,7 @@ export default function StudentProgressTab({ studentId }) {
         // Si sale por acá se esconde el heatmap y el coach ve "sin datos".
         <div className="card text-center py-8 text-gray-400">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Sin datos de progreso en este período</p>
+          <p className="text-sm">{t('coach.students.progress.empty')}</p>
         </div>
       ) : (
         <>
@@ -776,7 +780,7 @@ export default function StudentProgressTab({ studentId }) {
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                 <Tag className="w-3.5 h-3.5" />
-                Filtrar por etiqueta
+                {t('coach.students.progress.filterByTag')}
               </div>
               <div className="overflow-x-auto -mx-5 px-5">
                 <div className="flex gap-2 w-max pb-0.5">
@@ -788,7 +792,7 @@ export default function StudentProgressTab({ studentId }) {
                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    Todas
+                    {t('coach.students.progress.allTags')}
                   </button>
                   {tagsInLogs.map((tag) => (
                     <button
@@ -836,9 +840,9 @@ export default function StudentProgressTab({ studentId }) {
               {/* Stats resumen */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { val: stats.totalSessions, label: 'Sesiones' },
-                  { val: stats.totalCompleted, label: 'Completados' },
-                  { val: stats.avgPSE ?? '—', label: 'PSE prom.' },
+                  { val: stats.totalSessions, label: t('coach.students.progress.statSessions') },
+                  { val: stats.totalCompleted, label: t('coach.students.progress.statCompleted') },
+                  { val: stats.avgPSE ?? '—', label: t('coach.students.progress.statAvgPse') },
                 ].map((s) => (
                   <div key={s.label} className="card text-center py-2">
                     <p className="text-2xl font-bold text-gray-900">{s.val}</p>
@@ -850,8 +854,12 @@ export default function StudentProgressTab({ studentId }) {
               {stats.avgBorg !== null && (
                 <div className="card flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Intensidad promedio</p>
-                    <p className="text-xs text-gray-500">Escala de Borg (0–10)</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {t('coach.students.progress.avgIntensity')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {t('coach.students.progress.borgScale')}
+                    </p>
                   </div>
                   <span
                     className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(stats.avgBorg))}`}
@@ -864,7 +872,9 @@ export default function StudentProgressTab({ studentId }) {
               {chartMetric === 'weight' && stats.maxWeight > 0 && (
                 <div className="card flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Peso máximo del período</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {t('coach.students.progress.maxWeight')}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {progressExercises.find((e) => e.id === selectedExercise)?.name}
                     </p>
@@ -876,10 +886,12 @@ export default function StudentProgressTab({ studentId }) {
               {chartMetric === 'reps' && stats.maxReps > 0 && (
                 <div className="card flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Reps máximas del período</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {t('coach.students.progress.maxReps')}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      {progressExercises.find((e) => e.id === selectedExercise)?.name} · peso
-                      corporal
+                      {progressExercises.find((e) => e.id === selectedExercise)?.name} ·{' '}
+                      {t('coach.students.progress.bodyweight')}
                     </p>
                   </div>
                   <span className="text-2xl font-bold text-primary-600">{stats.maxReps}</span>
@@ -889,18 +901,20 @@ export default function StudentProgressTab({ studentId }) {
               {/* Heatmap asistencia */}
               <div className="card space-y-3">
                 <p className="text-sm font-semibold text-gray-900">
-                  Asistencia (últimas {ATTENDANCE_WEEKS} semanas)
+                  {t('coach.students.progress.attendance', { count: ATTENDANCE_WEEKS })}
                 </p>
                 <p className="-mt-2 text-xs text-gray-500">
-                  Rango fijo, no sigue el filtro de período
+                  {t('coach.students.progress.attendanceHint')}
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex gap-1">
-                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
-                      <div key={d} className="flex-1 text-center text-xs text-gray-400">
-                        {d}
-                      </div>
-                    ))}
+                    {t('dates.dayInitials')
+                      .split(',')
+                      .map((d, i) => (
+                        <div key={i} className="flex-1 text-center text-xs text-gray-400">
+                          {d}
+                        </div>
+                      ))}
                   </div>
                   {weeks.map((week, wi) => (
                     <div key={wi} className="flex gap-1">
@@ -923,8 +937,10 @@ export default function StudentProgressTab({ studentId }) {
                     </div>
                   ))}
                   <div className="flex items-center gap-2 text-xs text-gray-400 justify-end">
-                    <div className="w-3 h-3 rounded bg-gray-100" /> Sin entrenamiento
-                    <div className="w-3 h-3 rounded bg-primary-500" /> Con entrenamiento
+                    <div className="w-3 h-3 rounded bg-gray-100" />{' '}
+                    {t('coach.students.progress.noTraining')}
+                    <div className="w-3 h-3 rounded bg-primary-500" />{' '}
+                    {t('coach.students.progress.withTraining')}
                   </div>
                 </div>
               </div>
@@ -955,7 +971,7 @@ export default function StudentProgressTab({ studentId }) {
                         activeChart === c.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                       }`}
                     >
-                      {c.label}
+                      {t(`coach.students.progress.charts.${c.id}`)}
                     </button>
                   ))}
                 </div>
@@ -967,12 +983,14 @@ export default function StudentProgressTab({ studentId }) {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-sm text-gray-900">
-                        {chartMetric === 'weight' ? 'Progresión de peso' : 'Progresión de reps'}
+                        {chartMetric === 'weight'
+                          ? t('coach.students.progress.weightProgression')
+                          : t('coach.students.progress.repsProgression')}
                       </p>
                       <p className="text-xs text-gray-500">
                         {chartMetric === 'weight'
-                          ? 'Peso máximo levantado por sesión'
-                          : 'Máximo de reps por sesión · ejercicio de peso corporal'}
+                          ? t('coach.students.progress.weightProgressionHint')
+                          : t('coach.students.progress.repsProgressionHint')}
                       </p>
                     </div>
                     {progression && (
@@ -991,8 +1009,14 @@ export default function StudentProgressTab({ studentId }) {
                         </span>
                         <span className="text-[10px] text-gray-400 text-right leading-tight">
                           {progression.basis === 'weeks'
-                            ? `prom. 1ª vs última semana (${progression.firstAvg} → ${progression.lastAvg})`
-                            : `primer vs último registro (${progression.firstAvg} → ${progression.lastAvg})`}
+                            ? t('coach.students.progress.basisWeeks', {
+                                first: progression.firstAvg,
+                                last: progression.lastAvg,
+                              })
+                            : t('coach.students.progress.basisLogs', {
+                                first: progression.firstAvg,
+                                last: progression.lastAvg,
+                              })}
                         </span>
                       </div>
                     )}
@@ -1025,7 +1049,9 @@ export default function StudentProgressTab({ studentId }) {
                             stroke="#d97706"
                             strokeDasharray="4 3"
                             label={{
-                              value: c.title ? shortPlanTitle(c.title) : 'plan nuevo',
+                              value: c.title
+                                ? shortPlanTitle(c.title)
+                                : t('coach.students.progress.newPlan'),
                               position: 'insideTopRight',
                               fontSize: 9,
                               fill: '#92400e',
@@ -1036,6 +1062,11 @@ export default function StudentProgressTab({ studentId }) {
                           yAxisId="left"
                           type="monotone"
                           dataKey={chartMetric === 'weight' ? 'Peso' : 'Reps'}
+                          name={
+                            chartMetric === 'weight'
+                              ? t('coach.students.progress.series.weight')
+                              : t('coach.students.progress.series.reps')
+                          }
                           fill="#fde68a"
                           stroke="#ea580c"
                           strokeWidth={2.5}
@@ -1046,6 +1077,7 @@ export default function StudentProgressTab({ studentId }) {
                           yAxisId="right"
                           type="monotone"
                           dataKey="PSE"
+                          name={t('coach.students.progress.series.pse')}
                           stroke="#76675d"
                           strokeWidth={1.5}
                           dot={false}
@@ -1055,7 +1087,7 @@ export default function StudentProgressTab({ studentId }) {
                     </ResponsiveContainer>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      Sin datos de peso ni reps para este ejercicio
+                      {t('coach.students.progress.emptyWeight')}
                     </p>
                   )}
                 </div>
@@ -1066,20 +1098,21 @@ export default function StudentProgressTab({ studentId }) {
                 <div className="card space-y-3">
                   {bwUncomputable && !studentWeightKg && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                      <strong>Peso corporal del alumno sin registrar.</strong> Los ejercicios de
-                      peso corporal (BW) no entran al cálculo del volumen hasta que se cargue el
-                      peso del alumno desde su perfil.
+                      <strong>{t('coach.students.progress.bwMissingTitle')}</strong>{' '}
+                      {t('coach.students.progress.bwMissingBody')}
                     </div>
                   )}
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-semibold text-sm text-gray-900">
-                        Volumen total por sesión
+                        {t('coach.students.progress.volumeTitle')}
                       </p>
                       <p className="text-xs text-gray-500">
                         {selectedTag
-                          ? `Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
-                          : 'Reps × peso (peso corporal en BW). Unilateral × 2.'}
+                          ? t('coach.students.progress.tagLabel', {
+                              tag: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
+                            })
+                          : t('coach.students.progress.volumeHint')}
                       </p>
                     </div>
                     {tagsWithVolume.length > 1 && !selectedTag && (
@@ -1092,7 +1125,7 @@ export default function StudentProgressTab({ studentId }) {
                         }`}
                       >
                         <Tag className="w-3 h-3" />
-                        Por etiqueta
+                        {t('coach.students.progress.byTag')}
                       </button>
                     )}
                   </div>
@@ -1122,7 +1155,9 @@ export default function StudentProgressTab({ studentId }) {
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen</p>
+                      <p className="text-center text-sm text-gray-400 py-6">
+                        {t('coach.students.progress.emptyVolume')}
+                      </p>
                     )
                   ) : volumeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
@@ -1131,11 +1166,18 @@ export default function StudentProgressTab({ studentId }) {
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
-                        <Bar dataKey="Volumen" fill="#834f72" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="Volumen"
+                          name={t('coach.students.progress.series.volume')}
+                          fill="#834f72"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen</p>
+                    <p className="text-center text-sm text-gray-400 py-6">
+                      {t('coach.students.progress.emptyVolume')}
+                    </p>
                   )}
                 </div>
               )}
@@ -1144,11 +1186,18 @@ export default function StudentProgressTab({ studentId }) {
               {activeChart === 'pse' && (
                 <div className="card space-y-3">
                   <div>
-                    <p className="font-semibold text-sm text-gray-900">PSE promedio por sesión</p>
+                    <p className="font-semibold text-sm text-gray-900">
+                      {t('coach.students.progress.pseTitle')}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {selectedTag
-                        ? `Esfuerzo percibido · Etiqueta: ${tagsInLogs.find((t) => t.id === selectedTag)?.name}`
-                        : 'Esfuerzo percibido (1–10)'}
+                        ? `${t('coach.students.progress.pseHintShort')} · ${t(
+                            'coach.students.progress.tagLabel',
+                            {
+                              tag: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
+                            }
+                          )}`
+                        : t('coach.students.progress.pseHint')}
                     </p>
                   </div>
                   {pseData.length > 0 ? (
@@ -1161,6 +1210,7 @@ export default function StudentProgressTab({ studentId }) {
                         <Area
                           type="monotone"
                           dataKey="PSE promedio"
+                          name={t('coach.students.progress.series.avgPse')}
                           stroke="#76675d"
                           fill="#f5f0eb"
                           strokeWidth={2}
@@ -1169,7 +1219,9 @@ export default function StudentProgressTab({ studentId }) {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-center text-sm text-gray-400 py-6">Sin datos de PSE</p>
+                    <p className="text-center text-sm text-gray-400 py-6">
+                      {t('coach.students.progress.emptyPse')}
+                    </p>
                   )}
                 </div>
               )}
@@ -1178,8 +1230,10 @@ export default function StudentProgressTab({ studentId }) {
               {activeChart === 'borg' && (
                 <div className="card space-y-3">
                   <div>
-                    <p className="font-semibold text-sm text-gray-900">Intensidad general</p>
-                    <p className="text-xs text-gray-500">Escala de Borg por sesión</p>
+                    <p className="font-semibold text-sm text-gray-900">
+                      {t('coach.students.progress.borgTitle')}
+                    </p>
+                    <p className="text-xs text-gray-500">{t('coach.students.progress.borgHint')}</p>
                   </div>
                   {borgData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
@@ -1188,12 +1242,17 @@ export default function StudentProgressTab({ studentId }) {
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                         <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
-                        <Bar dataKey="Intensidad" fill="#fdba74" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="Intensidad"
+                          name={t('coach.students.progress.series.intensity')}
+                          fill="#fdba74"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      Sin datos de Borg registrados
+                      {t('coach.students.progress.emptyBorg')}
                     </p>
                   )}
                 </div>
@@ -1204,15 +1263,21 @@ export default function StudentProgressTab({ studentId }) {
                 <div className="card space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-semibold text-sm text-gray-900">Duración de sesiones</p>
-                      <p className="text-xs text-gray-500">En minutos · solo sesiones del día</p>
+                      <p className="font-semibold text-sm text-gray-900">
+                        {t('coach.students.progress.durationTitle')}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {t('coach.students.progress.durationHint')}
+                      </p>
                     </div>
                     {medianDuration !== null && (
                       <div className="flex flex-col items-end">
                         <span className="text-2xl font-bold text-emerald-600">
                           {medianDuration}
                         </span>
-                        <span className="text-xs text-gray-400">min · mediana</span>
+                        <span className="text-xs text-gray-400">
+                          {t('coach.students.progress.median')}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1226,6 +1291,7 @@ export default function StudentProgressTab({ studentId }) {
                         <Area
                           type="monotone"
                           dataKey="Minutos"
+                          name={t('coach.students.progress.series.minutes')}
                           stroke="#4a6b80"
                           fill="#e3ecf1"
                           strokeWidth={2}
@@ -1233,7 +1299,9 @@ export default function StudentProgressTab({ studentId }) {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-center text-sm text-gray-400 py-6">Sin datos de duración</p>
+                    <p className="text-center text-sm text-gray-400 py-6">
+                      {t('coach.students.progress.emptyDuration')}
+                    </p>
                   )}
                 </div>
               )}
@@ -1242,8 +1310,12 @@ export default function StudentProgressTab({ studentId }) {
               {activeChart === 'compare' && (
                 <div className="card space-y-3">
                   <div>
-                    <p className="font-semibold text-sm text-gray-900">Plan vs Real</p>
-                    <p className="text-xs text-gray-500">Series planificadas vs ejecutadas</p>
+                    <p className="font-semibold text-sm text-gray-900">
+                      {t('coach.students.progress.charts.compare')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {t('coach.students.progress.compareHint')}
+                    </p>
                   </div>
                   {compareData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
@@ -1253,13 +1325,23 @@ export default function StudentProgressTab({ studentId }) {
                         <YAxis tick={{ fontSize: 10 }} />
                         <Tooltip content={<TooltipCard />} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="Series sugeridas" fill="#e3d8cf" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Series reales" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="Series sugeridas"
+                          name={t('coach.students.progress.series.suggestedSets')}
+                          fill="#e3d8cf"
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          dataKey="Series reales"
+                          name={t('coach.students.progress.series.actualSets')}
+                          fill="#ea580c"
+                          radius={[4, 4, 0, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      Sin datos para este ejercicio
+                      {t('coach.students.progress.emptyExercise')}
                     </p>
                   )}
                 </div>
@@ -1277,20 +1359,37 @@ export default function StudentProgressTab({ studentId }) {
 // registros tal cual vs con ajustes. Solo cuenta los registros posteriores
 // a v54 (los anteriores no guardaban cómo se cargaron).
 // ─────────────────────────────────────────────────────────────
+// Misma lógica que describeSkips de completionRules, pero traducida.
+function describeSkipsT(summary, t) {
+  const n = summary?.skipped || 0
+  if (n === 0) return ''
+  const by = summary.byReason || {}
+  const parts = ['time', 'discomfort', 'choice', 'unknown']
+    .filter((r) => by[r])
+    .map((r) => t(`coach.students.progress.skipReason.${r}`, { count: by[r] }))
+  const joined =
+    parts.length <= 1
+      ? parts.join('')
+      : `${parts.slice(0, -1).join(', ')}${t('coach.students.progress.skipAnd')}${parts.at(-1)}`
+  const head = t('coach.students.progress.skipped', { count: n })
+  return joined ? `${head}: ${joined}` : head
+}
+
 function EntrySummaryLine({ summary }) {
+  const { t } = useTranslation()
   if (!summary) return null
-  const skipsText = describeSkips(summary)
+  const skipsText = describeSkipsT(summary, t)
   const hasMode = summary.withMode > 0
   if (!skipsText && !hasMode) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-[13px]">
       {skipsText && <span className="pill-warn">{skipsText}</span>}
       {hasMode && (
-        <span
-          className="pill-neutral"
-          title="De los registros hechos desde que existe el registro por confirmación (22/9)"
-        >
-          {summary.confirmedPct} % tal cual · {100 - summary.confirmedPct} % con ajustes
+        <span className="pill-neutral" title={t('coach.students.progress.entryModeTitle')}>
+          {t('coach.students.progress.entryMode', {
+            asIs: summary.confirmedPct,
+            adjusted: 100 - summary.confirmedPct,
+          })}
         </span>
       )}
     </div>

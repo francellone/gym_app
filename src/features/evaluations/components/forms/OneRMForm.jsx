@@ -1,4 +1,5 @@
 import { Plus, Trash2, PlayCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { parseReps } from '@/features/plans/helpers'
 import { calc1RM, buildSuggestedWeightsArr } from '../../helpers'
 import MethodBadge from '../MethodBadge'
@@ -12,6 +13,7 @@ import ResultBox from '../ResultBox'
 // para cada ejercicio del plan. Soporta múltiples sets por ejercicio,
 // múltiples ejercicios. Mantiene el "best 1RM" del set ganador.
 export default function OneRMForm({ results, onChange, planMethod, planExercises }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'brzycki'
   const usePlanExercises = planExercises && planExercises.length > 0
 
@@ -100,7 +102,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
               <span
                 className={`font-semibold break-words ${usePlanExercises ? 'text-sm text-gray-900' : 'text-xs text-gray-500'}`}
               >
-                {ex.name || `Ejercicio ${i + 1}`}
+                {ex.name || t('coach.evaluations.common.exerciseN', { n: i + 1 })}
               </span>
               {ex.video_url && ex.video_url.startsWith('http') && (
                 <a
@@ -109,7 +111,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                  title="Ver video del ejercicio"
+                  title={t('coach.evaluations.forms.watchVideo')}
                 >
                   <PlayCircle size={16} />
                 </a>
@@ -128,7 +130,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
             {!usePlanExercises && (
               <input
                 className="input text-sm"
-                placeholder="Nombre del ejercicio (ej: Sentadilla, Press banca...)"
+                placeholder={t('coach.evaluations.forms.exerciseNamePlaceholder')}
                 value={ex.name || ''}
                 onChange={(e) => updateExercise(i, 'name', e.target.value)}
               />
@@ -146,18 +148,22 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
                 <div className="grid grid-cols-[1.5rem_1fr_1fr_3.5rem] gap-1.5 mb-1 px-0.5">
                   <div />
                   <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                    Reps
+                    {t('coach.evaluations.forms.reps')}
                     {sugRepsArr.some(Boolean) && (
                       <span className="block font-normal normal-case text-primary-400">
-                        sug: {sugRepsArr.filter(Boolean).join(', ')}
+                        {t('coach.evaluations.forms.suggested', {
+                          values: sugRepsArr.filter(Boolean).join(', '),
+                        })}
                       </span>
                     )}
                   </div>
                   <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                    Peso (kg)
+                    {t('coach.evaluations.forms.weightKg')}
                     {sugWeightsArr.some(Boolean) && (
                       <span className="block font-normal normal-case text-primary-400">
-                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                        {t('coach.evaluations.forms.suggested', {
+                          values: sugWeightsArr.filter(Boolean).join(', '),
+                        })}
                       </span>
                     )}
                   </div>
@@ -210,13 +216,13 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
                   onClick={() => addSet(i)}
                   className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
                 >
-                  <Plus size={11} /> Agregar serie
+                  <Plus size={11} /> {t('coach.evaluations.forms.addSet')}
                 </button>
 
                 {/* Mejor 1RM destacado */}
                 {(ex.best_one_rm != null || sets_arr.some((s) => s.one_rm != null)) && (
                   <ResultBox
-                    label={`Mejor 1RM estimado (${method})`}
+                    label={t('coach.evaluations.forms.bestOneRm', { method })}
                     value={
                       ex.best_one_rm ??
                       sets_arr.reduce(
@@ -225,7 +231,9 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
                       )
                     }
                     unit="kg"
-                    sub={`${sets_arr.filter((s) => s.one_rm != null).length} intento(s) calculado(s)`}
+                    sub={t('coach.evaluations.forms.attemptsCalculated', {
+                      count: sets_arr.filter((s) => s.one_rm != null).length,
+                    })}
                   />
                 )}
               </div>
@@ -234,7 +242,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <NumInput
-                    label="Peso levantado"
+                    label={t('coach.evaluations.forms.weightLifted')}
                     unit="kg"
                     step="0.5"
                     placeholder="80"
@@ -242,19 +250,19 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
                     onChange={(v) => updateExercise(i, 'weight_kg', v)}
                   />
                   <NumInput
-                    label="Repeticiones"
+                    label={t('coach.evaluations.forms.repetitions')}
                     placeholder="6"
                     value={ex.reps || ''}
                     onChange={(v) => updateExercise(i, 'reps', v)}
-                    hint="Máx 30 reps"
+                    hint={t('coach.evaluations.forms.max30Reps')}
                   />
                 </div>
                 {ex.one_rm !== null && ex.one_rm !== undefined && (
                   <ResultBox
-                    label={`1RM estimado (${method})`}
+                    label={t('coach.evaluations.forms.oneRmEstimated', { method })}
                     value={ex.one_rm}
                     unit="kg"
-                    sub="Repetición máxima calculada"
+                    sub={t('coach.evaluations.forms.oneRmCalculated')}
                   />
                 )}
               </>
@@ -269,16 +277,16 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
           onClick={addExercise}
           className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
         >
-          <Plus size={14} /> Agregar ejercicio
+          <Plus size={14} /> {t('coach.evaluations.forms.addExercise')}
         </button>
       )}
 
       <div>
-        <label className="label">Notas</label>
+        <label className="label">{t('coach.evaluations.forms.notes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Condiciones, observaciones..."
+          placeholder={t('coach.evaluations.forms.oneRmNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

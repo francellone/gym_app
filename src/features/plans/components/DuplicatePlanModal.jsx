@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
-import { EVAL_TYPES } from '@/features/evaluations/helpers'
+import { EVAL_TYPES, evalTypeDescriptionT, evalTypeLabelT } from '@/features/evaluations/helpers'
 import { X, Copy, Dumbbell, BarChart2, ArrowRight, Loader } from 'lucide-react'
 import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
@@ -9,8 +10,11 @@ import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 // Step 2 (if evaluation): choose eval_type category
 
 export default function DuplicatePlanModal({ plan, onClose, onDone }) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
-  const [title, setTitle] = useState(`${plan.title} (copia)`)
+  const [title, setTitle] = useState(() =>
+    t('coach.planEditor.duplicate.copySuffix', { title: plan.title })
+  )
   const [planType, setPlanType] = useState('training')
   const [evalType, setEvalType] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +22,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
 
   async function handleDuplicate() {
     if (planType === 'evaluation' && !evalType) {
-      setError('Seleccioná un tipo de evaluación')
+      setError(t('coach.planEditor.duplicate.pickEvalType'))
       return
     }
     setError(null)
@@ -30,7 +34,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
       //    si la asocia. Así evitamos duplicar y “heredar” linkeo viejo.
       const isEval = planType === 'evaluation'
       const newPlanData = {
-        title: title.trim() || `${plan.title} (copia)`,
+        title: title.trim() || t('coach.planEditor.duplicate.copySuffix', { title: plan.title }),
         description: plan.description ?? null,
         // v55: el mensaje de cierre viaja con el duplicado
         completion_message: plan.completion_message ?? null,
@@ -120,8 +124,8 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         if (testsErr) throw testsErr
 
         if (tests?.length) {
-          const payload = tests.map((t) => {
-            const { id, plan_id, created_at, updated_at, ...rest } = t
+          const payload = tests.map((test) => {
+            const { id, plan_id, created_at, updated_at, ...rest } = test
             return { ...rest, plan_id: newPlan.id }
           })
           const { error: insTestsErr } = await supabase.from('evaluation_tests').insert(payload)
@@ -131,7 +135,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
 
       onDone(newPlan)
     } catch (err) {
-      setError(err.message || 'Error al duplicar el plan')
+      setError(err.message || t('coach.planEditor.duplicate.error'))
     } finally {
       setLoading(false)
     }
@@ -149,7 +153,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Copy size={18} className="text-primary-600" />
-            <h2 className="font-bold text-gray-900">Duplicar plan</h2>
+            <h2 className="font-bold text-gray-900">{t('coach.planEditor.duplicate.title')}</h2>
           </div>
           <button onClick={onClose} className="btn-ghost p-1.5">
             <X size={18} />
@@ -166,7 +170,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
             >
               1
             </span>
-            Nombre y tipo
+            {t('coach.planEditor.duplicate.stepNameType')}
           </div>
           <div className="flex-1 h-px bg-gray-200" />
           <div
@@ -177,7 +181,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
             >
               2
             </span>
-            Categoría
+            {t('coach.planEditor.duplicate.stepCategory')}
           </div>
         </div>
 
@@ -187,19 +191,19 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
             <>
               {/* Title */}
               <div>
-                <label className="label">Nombre del nuevo plan</label>
+                <label className="label">{t('coach.planEditor.duplicate.newPlanName')}</label>
                 <input
                   className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Nombre del plan..."
+                  placeholder={t('coach.planEditor.duplicate.namePlaceholder')}
                   autoFocus
                 />
               </div>
 
               {/* Type selector */}
               <div>
-                <label className="label">Tipo de plan</label>
+                <label className="label">{t('coach.planEditor.duplicate.planType')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -218,9 +222,11 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                       <p
                         className={`text-sm font-semibold ${planType === 'training' ? 'text-primary-700' : 'text-gray-700'}`}
                       >
-                        Entrenamiento
+                        {t('coach.planEditor.duplicate.training')}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">Rutina de ejercicios regular</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {t('coach.planEditor.duplicate.trainingDesc')}
+                      </p>
                     </div>
                   </button>
 
@@ -241,9 +247,11 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                       <p
                         className={`text-sm font-semibold ${planType === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}
                       >
-                        Evaluación
+                        {t('coach.planEditor.duplicate.evaluation')}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">Protocolo de evaluación</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {t('coach.planEditor.duplicate.evaluationDesc')}
+                      </p>
                     </div>
                   </button>
                 </div>
@@ -254,7 +262,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
           {/* Step 2 */}
           {step === 2 && (
             <div>
-              <label className="label">Tipo de evaluación</label>
+              <label className="label">{t('coach.planEditor.duplicate.evalType')}</label>
               <div className="space-y-2">
                 {EVAL_TYPES.map((et) => (
                   <button
@@ -272,9 +280,9 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                       <p
                         className={`text-sm font-semibold ${evalType === et.key ? 'text-purple-700' : 'text-gray-700'}`}
                       >
-                        {et.label}
+                        {evalTypeLabelT(t, et.key)}
                       </p>
-                      <p className="text-xs text-gray-400">{et.description}</p>
+                      <p className="text-xs text-gray-400">{evalTypeDescriptionT(t, et.key)}</p>
                     </div>
                     {evalType === et.key && (
                       <div className="ml-auto w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center">
@@ -301,7 +309,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                 }}
                 className="btn-secondary flex-1"
               >
-                Atrás
+                {t('coach.planEditor.duplicate.back')}
               </button>
             )}
             {step === 1 && planType === 'evaluation' ? (
@@ -309,7 +317,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                 type="button"
                 onClick={() => {
                   if (!title.trim()) {
-                    setError('Ingresá un nombre')
+                    setError(t('coach.planEditor.duplicate.enterName'))
                     return
                   }
                   setError(null)
@@ -317,7 +325,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                 }}
                 className="btn-primary flex-1 flex items-center justify-center gap-2"
               >
-                Siguiente
+                {t('coach.planEditor.duplicate.next')}
                 <ArrowRight size={16} />
               </button>
             ) : (
@@ -331,7 +339,7 @@ export default function DuplicatePlanModal({ plan, onClose, onDone }) {
                   <Loader size={16} className="animate-spin" />
                 ) : (
                   <>
-                    <Copy size={16} /> Duplicar
+                    <Copy size={16} /> {t('coach.planEditor.duplicate.duplicate')}
                   </>
                 )}
               </button>

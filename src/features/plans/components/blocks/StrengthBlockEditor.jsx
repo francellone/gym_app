@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import PlanExerciseRow from '../PlanExerciseRow'
 import { emptyPlanExercise, inheritFromFirstBlockmate } from '../../helpers'
 
@@ -7,6 +8,7 @@ import { emptyPlanExercise, inheritFromFirstBlockmate } from '../../helpers'
  * Mantiene el formato clásico: ejercicios con series, reps y peso por serie.
  */
 export default function StrengthBlockEditor({ block, onUpdateExercises }) {
+  const { t } = useTranslation()
   const list = block.exercises || []
 
   // Q7: Al crear un nuevo ejercicio, arrancamos con la última letra usada
@@ -73,7 +75,7 @@ export default function StrengthBlockEditor({ block, onUpdateExercises }) {
     <div className="space-y-3">
       {list.length === 0 && (
         <p className="text-xs text-gray-400 text-center py-2">
-          Sin ejercicios todavía. Agregá uno abajo 👇
+          {t('coach.planEditor.strengthBlock.empty')}
         </p>
       )}
 
@@ -94,7 +96,7 @@ export default function StrengthBlockEditor({ block, onUpdateExercises }) {
         className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
       >
         <Plus size={16} />
-        Agregar ejercicio
+        {t('coach.planEditor.strengthBlock.addExercise')}
       </button>
     </div>
   )

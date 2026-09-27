@@ -14,14 +14,15 @@
 //
 // `changes` (jsonb) tiene la forma { <fieldKey>: { old, new } } donde
 // fieldKey ∈ PRESCRIPTION_FIELD_KEYS. La etiqueta visible se deriva en la UI
-// (i18n del lado alumna; español hardcodeado del lado coach).
+// (i18n en los dos lados; la coach usa coach.planEditor.prescriptionFields.*).
 // ============================================================
 
 import { displayReps } from './helpers'
 
 export const PRESCRIPTION_FIELD_KEYS = ['sets', 'reps', 'weight', 'rest', 'pse']
 
-// Etiquetas en español para la vista del coach (la vista alumna usa i18n).
+// Etiquetas en español (legado: la UI ya no las usa, traduce con
+// coach.planEditor.prescriptionFields.*). Se conservan por compatibilidad.
 export const PRESCRIPTION_FIELD_LABELS_ES = {
   sets: 'Series',
   reps: 'Reps',

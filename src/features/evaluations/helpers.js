@@ -811,6 +811,47 @@ export function evalTypeLabel(key) {
   return EVAL_TYPES.find((e) => e.key === key)?.label || key
 }
 
+// ── i18n del panel de la coach (2026-09-27) ─────────────────────────────
+// Los labels en español de EVAL_TYPES / METHODS / PRUEBA_TYPES quedan como
+// fallback; lo que se MUESTRA pasa por estas funciones con el `t` del
+// componente. Las keys (one_rm, brzycki, tiempo…) son canónicas: se guardan
+// en la base y no se traducen. Claves en locales/coach/evaluations.*.json
+// (tipos: evalType.* del diccionario principal).
+export function evalTypeLabelT(t, key) {
+  if (!key) return ''
+  return t(`evalType.${key}`, { defaultValue: evalTypeLabel(key) })
+}
+
+export function evalTypeDescriptionT(t, key) {
+  const fallback = EVAL_TYPES.find((e) => e.key === key)?.description || ''
+  if (!fallback) return ''
+  return t(`coach.evaluations.types.${key}.description`, { defaultValue: fallback })
+}
+
+export function methodLabelT(t, evalType, methodKey) {
+  const m = (METHODS[evalType] || []).find((x) => x.key === methodKey)
+  if (!m) return methodKey || ''
+  return t(`coach.evaluations.methods.${evalType}.${methodKey}.label`, { defaultValue: m.label })
+}
+
+export function methodNoteT(t, evalType, methodKey) {
+  const m = (METHODS[evalType] || []).find((x) => x.key === methodKey)
+  if (!m?.note) return ''
+  return t(`coach.evaluations.methods.${evalType}.${methodKey}.note`, { defaultValue: m.note })
+}
+
+export function pruebaTypeLabelT(t, key) {
+  const info = pruebaTypeInfo(key)
+  if (!PRUEBA_TYPES.some((p) => p.key === key)) return info.label
+  return t(`coach.evaluations.testTypes.${key}`, { defaultValue: info.label })
+}
+
+// Versión traducida de evalMethodLabel.
+export function evalMethodLabelT(t, evalType, methodKey) {
+  if (evalType === 'custom') return pruebaTypeLabelT(t, methodKey)
+  return methodLabelT(t, evalType, methodKey)
+}
+
 export function evalTypeDuo(key) {
   return EVAL_TYPES.find((e) => e.key === key)?.duo || 'clipboard-text'
 }

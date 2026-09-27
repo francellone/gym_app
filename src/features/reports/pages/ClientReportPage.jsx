@@ -12,8 +12,11 @@
 // Mismo motor que el informe coach: fetchReportData + buildReport (fetch UNA
 // vez, período en memoria) + buildClientContent (claves i18n + params).
 // El contenido se renderiza en el idioma del ALUMNO (profiles.language) vía
-// getFixedT; el chrome de la página queda en español como todo el panel del
-// coach. El texto libre de la coach no se traduce (criterio plan-description).
+// getFixedT; el chrome de la página (botones, avisos, placeholders que no
+// salen en el export) va en el idioma del panel de la coach (`tc`, claves
+// coach.reports.*). El texto libre de la coach no se traduce.
+// Los textos propios del archivo exportado (botón imprimir) van en el idioma
+// de la carta.
 //
 // PREVIEW EDITABLE: todo el borrador llega generado y la coach lo corrige
 // tocando el texto (contentEditable no controlado: React nunca pisa las
@@ -29,6 +32,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { format, subDays } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { es as esLocale, enUS } from 'date-fns/locale'
 import { ArrowLeft, Download, Printer, X } from 'lucide-react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
@@ -41,9 +45,9 @@ import { buildClientContent } from '../clientReportContent'
 import { downloadReportHtml } from '../exportReportHtml'
 
 const PERIODS = [
-  { days: 28, label: '4 semanas' },
-  { days: 56, label: '8 semanas' },
-  { days: 84, label: '12 semanas' },
+  { weeks: 4, days: 28 },
+  { weeks: 8, days: 56 },
+  { weeks: 12, days: 84 },
 ]
 
 // Motor (snake_case) → claves i18n ya existentes del formulario de wellbeing.
@@ -102,6 +106,8 @@ export default function ClientReportPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile: coachProfile } = useAuth()
+  // Chrome de la coach (idioma del panel). `t` más abajo es el de la carta.
+  const { t: tc } = useTranslation()
 
   const [student, setStudent] = useState(null)
   const [data, setData] = useState(null)
@@ -138,7 +144,7 @@ export default function ClientReportPage() {
         setLang(profile?.language === 'en' ? 'en' : 'es')
         setData(reportData)
       } catch (e) {
-        if (alive) setError(e.message || 'No se pudieron cargar los datos')
+        if (alive) setError({ message: e.message }) // sin mensaje → texto genérico al render
       } finally {
         if (alive) setLoading(false)
       }
@@ -186,13 +192,16 @@ export default function ClientReportPage() {
     )
   const fmtShort = (d) => format(new Date(`${d}T00:00:00`), 'dd/MM')
 
-  if (loading) return <div className="p-6 text-sm text-gray-500">Cargando informe…</div>
+  if (loading)
+    return <div className="p-6 text-sm text-gray-500">{tc('coach.reports.common.loading')}</div>
   if (error) {
     return (
       <div className="p-6">
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-600">
+          {error.message || tc('coach.reports.common.loadError')}
+        </p>
         <button onClick={() => navigate(-1)} className="btn-secondary mt-3 text-sm">
-          Volver
+          {tc('coach.reports.common.back')}
         </button>
       </div>
     )
@@ -227,12 +236,7 @@ export default function ClientReportPage() {
     partial: w.partialDays,
   }))
   const volumeRows = report.mainWork.byPattern.map((p) => ({
-    name:
-      p.pattern === UNTAGGED_KEY
-        ? effectiveLang === 'en'
-          ? 'Untagged'
-          : 'Sin categoría'
-        : p.pattern,
+    name: p.pattern === UNTAGGED_KEY ? tGlobal('coach.reports.coach.patterns.untagged') : p.pattern,
     now: p.series,
     prev: p.prevSeries ?? 0,
   }))
@@ -375,32 +379,34 @@ export default function ClientReportPage() {
         title: `${t('badge')} — ${student?.name || ''}`,
         filePrefix: 'informe-cliente',
         prepare: prepareClientExport,
+        // Botón imprimir del archivo: idioma de la carta (lo abre la persona).
+        labels: { print: tGlobal('coach.reports.export.print') },
       }
     )
   }
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-4">
-      {/* Barra de acciones (chrome del coach, en español; no sale en export) */}
+      {/* Barra de acciones (chrome de la coach, idioma del panel; no sale en export) */}
       <div className="flex items-center justify-between print:hidden">
         <button
           onClick={() => navigate(`/coach/students/${id}`)}
           className="btn-ghost flex items-center gap-1.5 text-sm"
         >
-          <ArrowLeft size={16} /> Volver
+          <ArrowLeft size={16} /> {tc('coach.reports.common.back')}
         </button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.print()}
             className="btn-secondary flex items-center gap-1.5 text-sm"
           >
-            <Printer size={16} /> Imprimir / PDF
+            <Printer size={16} /> {tc('coach.reports.common.print')}
           </button>
           <button
             onClick={handleDownload}
             className="btn-primary flex items-center gap-1.5 text-sm"
           >
-            <Download size={16} /> Descargar
+            <Download size={16} /> {tc('coach.reports.common.download')}
           </button>
         </div>
       </div>
@@ -420,14 +426,14 @@ export default function ClientReportPage() {
                 : 'btn-secondary text-sm'
             }
           >
-            {p.label}
+            {tc('coach.reports.common.weeks', { count: p.weeks })}
           </button>
         ))}
         <button
           onClick={() => setUseCustomRange(true)}
           className={useCustomRange ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
         >
-          Personalizado
+          {tc('coach.reports.common.custom')}
         </button>
         {useCustomRange && (
           <>
@@ -448,7 +454,7 @@ export default function ClientReportPage() {
       </div>
       <div className="flex items-center gap-4 flex-wrap print:hidden text-sm">
         <label className="flex items-center gap-1.5">
-          Idioma:
+          {tc('coach.reports.client.letterLanguage')}
           <select
             value={effectiveLang}
             onChange={(e) => setLang(e.target.value)}
@@ -464,16 +470,15 @@ export default function ClientReportPage() {
             checked={includeStalled}
             onChange={(e) => setIncludeStalled(e.target.checked)}
           />
-          Incluir «Sin cambios»
+          {tc('coach.reports.client.includeStalled')}
         </label>
       </div>
       <p className="text-xs text-gray-400 print:hidden">
-        El texto es editable: tocá cualquier línea y corregila antes de descargar. Cambiar período,
-        idioma u opciones regenera el borrador (y descarta lo editado).
+        {tc('coach.reports.client.editableHint')}
       </p>
 
       {noData ? (
-        <p className="text-sm text-gray-500 p-4">Sin datos en el período elegido.</p>
+        <p className="text-sm text-gray-500 p-4">{tc('coach.reports.client.noData')}</p>
       ) : (
         <div
           id="client-report-root"
@@ -530,7 +535,7 @@ export default function ClientReportPage() {
                       setRemoved({ key: regenKey, ids: new Set([...removedIds, p.id]) })
                     }
                     className="print:hidden text-gray-300 hover:text-red-500 mt-1"
-                    title="Sacar este punto"
+                    title={tc('coach.reports.client.removePoint')}
                   >
                     <X size={14} />
                   </button>
@@ -578,7 +583,11 @@ export default function ClientReportPage() {
                   className="flex-1 min-w-[140px] border border-gray-200 rounded-xl p-3 text-center text-sm"
                 >
                   <span className="block text-2xl mb-1">🎯</span>
-                  <Editable html="" placeholder="Escribí un objetivo…" className="text-gray-800" />
+                  <Editable
+                    html=""
+                    placeholder={tc('coach.reports.client.goalPlaceholder')}
+                    className="text-gray-800"
+                  />
                 </div>
               ))}
             </div>
@@ -590,7 +599,7 @@ export default function ClientReportPage() {
             <div data-optional>
               <Editable
                 html=""
-                placeholder="Escribí acá tu mensaje para cerrar el período…"
+                placeholder={tc('coach.reports.client.messagePlaceholder')}
                 className="text-[15px] text-gray-800 min-h-[3rem]"
               />
               {coachProfile?.name && (
@@ -608,7 +617,7 @@ export default function ClientReportPage() {
               <div data-optional>
                 <Editable
                   html=""
-                  placeholder="Ej.: 🏋️ Sentadilla: 105 kg"
+                  placeholder={tc('coach.reports.client.challengePlaceholder')}
                   className="text-2xl font-extrabold mt-1 text-gray-900"
                 />
               </div>

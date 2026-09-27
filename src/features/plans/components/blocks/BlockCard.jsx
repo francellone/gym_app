@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
-import { BLOCK_TYPES, blockDisplayTitle, blockTypeIcon } from '../../helpers'
+import { useTranslation } from 'react-i18next'
+import { blockDisplayTitle, blockTypeIcon, blockTypeLabel } from '../../helpers'
 
 import StrengthBlockEditor from './StrengthBlockEditor'
 import AerobicBlockEditor from './AerobicBlockEditor'
@@ -22,9 +23,10 @@ export default function BlockCard({
   canMoveDown,
   defaultOpen = false,
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(defaultOpen || blockIndexInSection === 0)
-  const meta = BLOCK_TYPES[block.block_type] || BLOCK_TYPES.strength
-  const title = blockDisplayTitle(block, strengthIndexInSection)
+  const typeLabel = blockTypeLabel(block.block_type || 'strength', t)
+  const title = blockDisplayTitle(block, strengthIndexInSection, t)
 
   const exCount = block.exercises?.length || 0
 
@@ -40,8 +42,8 @@ export default function BlockCard({
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
             <p className="text-[11px] text-gray-400">
-              {meta.label}
-              {exCount > 0 && ` · ${exCount} ejercicio${exCount !== 1 ? 's' : ''}`}
+              {typeLabel}
+              {exCount > 0 && t('coach.planEditor.blockCard.exercisesCount', { count: exCount })}
             </p>
           </div>
           {open ? (
@@ -57,7 +59,7 @@ export default function BlockCard({
             onClick={() => onMove(-1)}
             disabled={!canMoveUp}
             className="p-1 text-gray-400 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Subir"
+            title={t('coach.planEditor.blockCard.moveUp')}
           >
             <ArrowUp size={14} />
           </button>
@@ -65,14 +67,14 @@ export default function BlockCard({
             onClick={() => onMove(1)}
             disabled={!canMoveDown}
             className="p-1 text-gray-400 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Bajar"
+            title={t('coach.planEditor.blockCard.moveDown')}
           >
             <ArrowDown size={14} />
           </button>
           <button
             onClick={onRemove}
             className="p-1 text-red-400 hover:bg-red-50 rounded"
-            title="Eliminar bloque"
+            title={t('coach.planEditor.blockCard.remove')}
           >
             <Trash2 size={14} />
           </button>
@@ -84,10 +86,12 @@ export default function BlockCard({
         <div className="p-3 space-y-3">
           {/* Título opcional del bloque */}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Título del bloque (opcional)</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              {t('coach.planEditor.blockCard.titleLabel')}
+            </label>
             <input
               className="input text-sm"
-              placeholder={`Ej: ${meta.label} principal`}
+              placeholder={t('coach.planEditor.blockCard.titlePlaceholder', { type: typeLabel })}
               value={block.title || ''}
               onChange={(e) => onUpdate({ title: e.target.value })}
             />
@@ -119,11 +123,13 @@ export default function BlockCard({
 
           {/* Notas técnicas del bloque */}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Notas técnicas del bloque</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              {t('coach.planEditor.blockCard.notesLabel')}
+            </label>
             <textarea
               className="input text-sm resize-none"
               rows={2}
-              placeholder="Observaciones para el alumno..."
+              placeholder={t('coach.planEditor.blockCard.notesPlaceholder')}
               value={block.notes || ''}
               onChange={(e) => onUpdate({ notes: e.target.value })}
             />

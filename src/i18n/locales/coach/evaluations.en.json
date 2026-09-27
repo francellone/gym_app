@@ -1,0 +1,375 @@
+{
+  "types": {
+    "one_rm": {
+      "description": "1RM estimated by formula from weight × reps"
+    },
+    "max_reps": {
+      "description": "Max reps to failure or within a fixed time"
+    },
+    "mixed": {
+      "description": "Combines methods per exercise (1RM, strength endurance, tests)"
+    },
+    "power": {
+      "description": "Explosive power in jumps and sprints"
+    },
+    "cardio": {
+      "description": "VO₂max estimate from a field test"
+    },
+    "body_comp": {
+      "description": "Body fat % and lean mass from skinfolds or circumferences"
+    },
+    "scored": {
+      "description": "Score-based assessment (FMS, sit & reach, mobility)"
+    },
+    "custom": {
+      "description": "Free fields for any metric"
+    }
+  },
+  "methods": {
+    "one_rm": {
+      "brzycki": {
+        "label": "Brzycki",
+        "note": "High accuracy at 2–10 reps"
+      },
+      "epley": {
+        "label": "Epley",
+        "note": "Overestimates at low reps"
+      },
+      "lander": {
+        "label": "Lander",
+        "note": "Good general range"
+      },
+      "lombardi": {
+        "label": "Lombardi",
+        "note": "Tends to underestimate"
+      },
+      "mayhew": {
+        "label": "Mayhew",
+        "note": "Validated in American football"
+      }
+    },
+    "max_reps": {
+      "pushup": {
+        "label": "Push-up test",
+        "note": "Reps to failure"
+      },
+      "situp": {
+        "label": "Sit-up (1 min)",
+        "note": "Sit-ups in 60 sec"
+      },
+      "pullup": {
+        "label": "Pull-up / Chin-up",
+        "note": "Unbroken pull-ups"
+      },
+      "submax": {
+        "label": "Submaximal rep max",
+        "note": "E.g. max reps at 75%"
+      }
+    },
+    "power": {
+      "lewis": {
+        "label": "Lewis (jump)",
+        "note": "Mean power. √(4.9 × m × h)"
+      },
+      "harman": {
+        "label": "Harman (jump)",
+        "note": "Peak and mean power"
+      },
+      "broad_jump": {
+        "label": "Broad Jump",
+        "note": "Horizontal jump (distance)"
+      },
+      "sprint": {
+        "label": "Sprint 10/20/30m",
+        "note": "Time over short distances"
+      }
+    },
+    "cardio": {
+      "cooper": {
+        "label": "Cooper (12 min)",
+        "note": "VO₂max = (d−504.9)/44.73"
+      },
+      "rockport": {
+        "label": "Rockport (1 mile)",
+        "note": "Time + final HR"
+      },
+      "yoyo": {
+        "label": "Yo-Yo test",
+        "note": "Level reached → VO₂max"
+      },
+      "beep": {
+        "label": "Beep test (20m)",
+        "note": "Level + speed → VO₂max"
+      },
+      "harvard": {
+        "label": "Harvard step test",
+        "note": "Recovery HR"
+      }
+    },
+    "body_comp": {
+      "jp3": {
+        "label": "Jackson-Pollock 3",
+        "note": "3 skinfolds + age"
+      },
+      "jp7": {
+        "label": "Jackson-Pollock 7",
+        "note": "7 skinfolds, higher accuracy"
+      },
+      "dw": {
+        "label": "Durnin-Womersley",
+        "note": "4 skinfolds, popular in Europe"
+      },
+      "navy": {
+        "label": "Circumferences (Navy/YMCA)",
+        "note": "Circumferences and height only"
+      }
+    },
+    "scored": {
+      "fms": {
+        "label": "FMS",
+        "note": "7 patterns scored 0–3, total /21"
+      },
+      "sit_reach": {
+        "label": "Sit & Reach",
+        "note": "Hamstring flexibility (cm)"
+      },
+      "shoulder_mob": {
+        "label": "Shoulder Mobility",
+        "note": "Distance between hands behind the back"
+      },
+      "y_balance": {
+        "label": "Y-Balance test",
+        "note": "3 vectors per side"
+      }
+    },
+    "custom": {
+      "libre": {
+        "label": "Free",
+        "note": "Customizable fields"
+      }
+    }
+  },
+  "testTypes": {
+    "reps": "Reps",
+    "tiempo": "Time",
+    "distancia": "Distance",
+    "peso": "Weight",
+    "movilidad": "Mobility",
+    "tecnica": "Technique",
+    "video": "Video (link)",
+    "libre": "Free"
+  },
+  "common": {
+    "noData": "No data",
+    "exerciseN": "Exercise {{n}}",
+    "exercise": "Exercise",
+    "dayN": "Day {{letter}}",
+    "assign": "Assign",
+    "unarchive": "Unarchive",
+    "unarchiveError": "Could not unarchive.",
+    "assignError": "Could not assign the evaluation",
+    "inactiveSuffix": " (inactive)"
+  },
+  "dates": {
+    "weekdayDayMonthYear": "EEE, MMM d, yyyy",
+    "dayMonthYearShort": "MMM d, yyyy",
+    "dayMonthNumeric": "MM/dd"
+  },
+  "methodBadge": {
+    "method": "Method: {{label}}"
+  },
+  "sex": {
+    "label": "Sex",
+    "male": "Male",
+    "female": "Female"
+  },
+  "assignModal": {
+    "title": "Assign evaluation",
+    "person": "Student",
+    "noStudents": "No students yet.",
+    "selectPerson": "— Choose a student —",
+    "showInactive": "Show inactive students",
+    "linkHint": "To link it to one of the student's plans (optional), use the Evaluations tab in their profile.",
+    "loadStudentsError": "Could not load students"
+  },
+  "list": {
+    "title": "Evaluations",
+    "count_one": "{{count}} evaluation plan",
+    "count_other": "{{count}} evaluation plans",
+    "archivedCount_one": " · {{count}} archived",
+    "archivedCount_other": " · {{count}} archived",
+    "new": "New evaluation",
+    "searchPlaceholder": "Search evaluations...",
+    "allTypes": "All types",
+    "archivedTitle": "Show archived evaluations",
+    "archived": "Archived",
+    "archivedWithCount": "Archived ({{count}})",
+    "emptyNone": "No evaluation plans yet",
+    "emptyFiltered": "No results for these filters",
+    "emptyHint": "You can create one from \"Plans\" with the duplicate button",
+    "goToPlans": "Go to Plans",
+    "archivedBadge": "Archived",
+    "students_one": "{{count}} student",
+    "students_other": "{{count}} students",
+    "last": "Last: {{date}}",
+    "assignTitle": "Assign to a student",
+    "assignAria": "Assign evaluation to a student",
+    "deleteTitle": "Archive or delete evaluation"
+  },
+  "detail": {
+    "notFound": "Evaluation not found",
+    "assignTitle": "Assign to a student",
+    "deleteTitle": "Delete evaluation",
+    "edit": "Edit",
+    "archivedStrong": "Evaluation archived.",
+    "archivedBody": "It no longer shows in the list or when assigning; results are kept.",
+    "statStudents": "Students",
+    "statEvaluations": "Evaluations",
+    "statLast": "Latest",
+    "resultsByStudent": "Results by student",
+    "noStudents": "No students are assigned to this evaluation.",
+    "goToStudents": "Go to students",
+    "noResultsYet": "No one has logged this evaluation yet",
+    "studentSummary_one": "{{count}} evaluation · latest: {{date}}",
+    "studentSummary_other": "{{count}} evaluations · latest: {{date}}",
+    "noStudentResults": "No evaluations logged"
+  },
+  "views": {
+    "volume": "Vol: {{value}} kg",
+    "bodyMass": "Body mass",
+    "jumpHeight": "Jump height",
+    "distance": "Distance",
+    "time": "Time",
+    "meanPower": "Mean power",
+    "peakPower": "Peak power · Mean: {{value}} W",
+    "speed": "Speed: {{value}} m/s",
+    "finalHr": "Final HR",
+    "bodyWeight": "Body weight",
+    "bodyFat": "Body fat",
+    "fatMass": "Fat mass",
+    "leanMass": "Lean mass",
+    "skinfoldSum": "Σ skinfolds: {{value}} mm",
+    "pain": "Pain",
+    "leftRightScores": "L:{{left}} R:{{right}}",
+    "asymmetry": "Asymmetry",
+    "injuryRisk": "Injury risk (below 14)",
+    "scoreOk": "Acceptable score",
+    "hamstringFlex": "Hamstring flexibility",
+    "rightHandUp": "Right hand up",
+    "leftHandUp": "Left hand up",
+    "anterior": "Anterior",
+    "posteromedial": "Posteromedial",
+    "posterolateral": "Posterolateral",
+    "leftValue": "L: {{value}} cm",
+    "rightValue": "R: {{value}} cm",
+    "fieldN": "Field {{n}}"
+  },
+  "studentTab": {
+    "title": "Evaluations",
+    "assign": "Assign evaluation",
+    "empty": "No evaluations assigned yet.",
+    "assignFirst": "Assign first evaluation",
+    "groupCurrent": "From the current plan: {{title}}",
+    "groupIndependent": "Standalone evaluations",
+    "groupHistorical": "From previous plans",
+    "groupHistoricalHint": "The plan they were linked to is no longer the current one.",
+    "unassignError": "Could not unassign the evaluation",
+    "form": {
+      "title": "Assign evaluation to this student",
+      "evaluation": "Evaluation",
+      "selectEvaluation": "— Choose an evaluation —",
+      "linkToPlan": "Link to one of the student's plans (optional)",
+      "independent": "Standalone",
+      "autoSuggested": "Suggested automatically: this evaluation is part of the linked plan.",
+      "notAssigned": "This evaluation is part of a plan, but the student doesn't have that plan assigned."
+    },
+    "card": {
+      "linkedTo": "Linked to {{title}}",
+      "last": "Latest: {{date}}",
+      "noRecords": "No logs yet",
+      "records_one": "{{count}} log",
+      "records_other": "{{count}} logs",
+      "load": "Log",
+      "loadTitle": "Log the results of this evaluation on behalf of the student",
+      "unassign": "Unassign evaluation",
+      "latestTab": "Latest log",
+      "historyTab": "History and comparison"
+    },
+    "latest": {
+      "notLoggedYet": "The student hasn't logged this evaluation yet.",
+      "assignedExercises_one": "{{count}} exercise assigned:",
+      "assignedExercises_other": "{{count}} exercises assigned:",
+      "unnamedExercise": "Unnamed exercise",
+      "expectedInline": "Expected: {{value}} {{unit}}",
+      "noExercises": "This evaluation has no exercises set up.",
+      "mandatoryShort": "Req.",
+      "expected": "Expected",
+      "result": "Result",
+      "noRecord": "Not logged",
+      "studentNote": "Student's note"
+    },
+    "comments": {
+      "edit": "View / edit coach comments",
+      "add": "Add coach comment",
+      "publicLabel": "Public comment (the student sees it)",
+      "publicPlaceholder": "Feedback the student will see...",
+      "privateLabel": "Private note (only you)",
+      "privatePlaceholder": "Internal note, only for you...",
+      "save": "Save comments"
+    },
+    "comparison": {
+      "equal": "Same as expected",
+      "above": "Above expected",
+      "below": "Below expected"
+    },
+    "history": {
+      "noRecords": "No logs to compare.",
+      "showProgressOf": "Show progress for",
+      "noData": "No data for this exercise.",
+      "progressOf": "{{name}} — progress",
+      "allRecords": "All logs",
+      "exercisesDone_one": "{{count}} exercise completed",
+      "exercisesDone_other": "{{count}} exercises completed"
+    },
+    "summary": {
+      "oneRm": "{{value}} kg (1RM)",
+      "fatPct": "Body fat: {{value}}%",
+      "leanMass": "Lean mass: {{value}}kg",
+      "seeDetail": "Data saved — see the details in the Evaluations section."
+    },
+    "unassignModal": {
+      "title": "Unassign evaluation",
+      "body": "The evaluation <b>{{title}}</b> will be archived for this student and they won't be able to complete it.",
+      "keep_one": "The log already saved is kept — only the assignment is archived.",
+      "keep_other": "The {{count}} logs already saved are kept — only the assignment is archived.",
+      "confirm": "Unassign"
+    }
+  },
+  "forms": {
+    "watchVideo": "Watch exercise video",
+    "suggested": "sug: {{values}}",
+    "reps": "Reps",
+    "reps60": "Reps (60 sec)",
+    "maxRepsShort": "Max reps",
+    "weightKg": "Weight (kg)",
+    "addSet": "Add set",
+    "notes": "Notes",
+    "maxRepsNotesPlaceholder": "Test conditions, fatigue, pauses...",
+    "repsIn60": "Reps completed (in 60 sec)",
+    "maxReps": "Max reps",
+    "weightUsed": "Weight used",
+    "weightRequiredHint": "Required to calculate volume",
+    "totalVolume": "Total volume",
+    "exerciseNamePlaceholder": "Exercise name (e.g. Squat, Bench press...)",
+    "bestOneRm": "Best estimated 1RM ({{method}})",
+    "attemptsCalculated_one": "{{count}} attempt calculated",
+    "attemptsCalculated_other": "{{count}} attempts calculated",
+    "weightLifted": "Weight lifted",
+    "repetitions": "Reps",
+    "max30Reps": "Max 30 reps",
+    "oneRmEstimated": "Estimated 1RM ({{method}})",
+    "oneRmCalculated": "Calculated one-rep max",
+    "addExercise": "Add exercise",
+    "oneRmNotesPlaceholder": "Conditions, observations..."
+  }
+}

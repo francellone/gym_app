@@ -18,20 +18,18 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { countVisibleQuestions } from '../features/forms/intake/schema/resolve-form-language.js'
 import { X, Send, CheckCircle, AlertCircle, Calendar, ChevronRight } from 'lucide-react'
 
-const LANG_LABEL = { es: 'español', en: 'inglés' }
+// Textos en coach.students.send.lang.* y coach.students.send.trigger.<id>.*
+const LANG_CODES = ['es', 'en']
 
 const TRIGGER_OPTIONS = [
-  { id: 'manual', label: 'Ahora mismo', hint: 'Se envía al instante' },
-  { id: 'on_week', label: 'En la semana N del plan', hint: 'Programado al cumplirse esa semana' },
-  {
-    id: 'on_plan_end',
-    label: 'Al cierre del plan',
-    hint: 'Se envía cuando termine el plan asignado',
-  },
+  { id: 'manual', key: 'manual' },
+  { id: 'on_week', key: 'onWeek' },
+  { id: 'on_plan_end', key: 'onPlanEnd' },
 ]
 
 export default function SendToStudentModal({
@@ -43,6 +41,7 @@ export default function SendToStudentModal({
   onClose,
   onSent,
 }) {
+  const { t } = useTranslation()
   const isFollowUp = formKind === 'follow_up'
 
   // ── Estado general ──
@@ -187,7 +186,7 @@ export default function SendToStudentModal({
       // Red de seguridad: aunque la UI ya lo bloquea, nunca insertar un envío
       // que a esa persona le llegaría sin una sola pregunta.
       if (isEmptyFor(student)) {
-        skipped.push(`${label} (el formulario le llegaría vacío en su idioma)`)
+        skipped.push(`${label} (${t('coach.students.send.skip.emptyForm')})`)
         continue
       }
 
@@ -196,7 +195,7 @@ export default function SendToStudentModal({
       if (triggerNeedsPlan) {
         const plans = plansByStudent[studentId] || []
         if (plans.length === 0) {
-          skipped.push(`${label} (sin plan activo)`)
+          skipped.push(`${label} (${t('coach.students.send.skip.noPlan')})`)
           continue
         }
         if (plans.length === 1) {
@@ -205,7 +204,7 @@ export default function SendToStudentModal({
           const chosenId = planChoice[studentId]
           planAssignment = plans.find((p) => p.id === chosenId)
           if (!planAssignment) {
-            skipped.push(`${label} (sin plan elegido)`)
+            skipped.push(`${label} (${t('coach.students.send.skip.noPlanChosen')})`)
             continue
           }
         }
@@ -213,7 +212,7 @@ export default function SendToStudentModal({
 
       const scheduled_for = computeScheduledFor(triggerType, weekN, planAssignment)
       if (triggerNeedsPlan && !scheduled_for) {
-        skipped.push(`${label} (plan sin fechas)`)
+        skipped.push(`${label} (${t('coach.students.send.skip.planNoDates')})`)
         continue
       }
 
@@ -262,13 +261,9 @@ export default function SendToStudentModal({
         {/* Cabecera */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 text-base">
-              {isFollowUp ? 'Enviar formulario' : 'Enviar formulario'}
-            </h2>
+            <h2 className="font-bold text-gray-900 text-base">{t('coach.students.send.title')}</h2>
             <p className="text-xs text-gray-400 mt-0.5 truncate">
-              {isFollowUp && templateName
-                ? templateName
-                : 'Seleccioná los alumnos que recibirán este formulario'}
+              {isFollowUp && templateName ? templateName : t('coach.students.send.subtitle')}
             </p>
           </div>
           <button
@@ -287,8 +282,9 @@ export default function SendToStudentModal({
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle size={15} className="text-green-600 flex-shrink-0" />
                   <span className="text-sm font-semibold text-green-800">
-                    {triggerType === 'manual' ? 'Enviado' : 'Programado'} para {results.sent.length}{' '}
-                    alumno{results.sent.length !== 1 ? 's' : ''}
+                    {triggerType === 'manual'
+                      ? t('coach.students.send.sentFor', { count: results.sent.length })
+                      : t('coach.students.send.scheduledFor', { count: results.sent.length })}
                   </span>
                 </div>
                 <ul className="text-xs text-green-700 space-y-0.5 pl-5 list-disc">
@@ -304,7 +300,7 @@ export default function SendToStudentModal({
                 <div className="flex items-center gap-2 mb-1.5">
                   <AlertCircle size={15} className="text-amber-600 flex-shrink-0" />
                   <span className="text-sm font-semibold text-amber-800">
-                    {results.skipped.length} omitido{results.skipped.length !== 1 ? 's' : ''}
+                    {t('coach.students.send.skipped', { count: results.skipped.length })}
                   </span>
                 </div>
                 <ul className="text-xs text-amber-700 space-y-0.5 pl-5 list-disc">
@@ -319,7 +315,7 @@ export default function SendToStudentModal({
               onClick={onClose}
               className="w-full py-3 bg-primary-600 text-white text-sm font-bold rounded-boton hover:bg-primary-700 transition-colors"
             >
-              Cerrar
+              {t('common.close')}
             </button>
           </div>
         ) : (
@@ -327,7 +323,7 @@ export default function SendToStudentModal({
             {/* PASO 1 (follow_up): elegir trigger */}
             {step === 'trigger' && (
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                <p className="text-xs text-gray-500 mb-2">¿Cuándo se manda?</p>
+                <p className="text-xs text-gray-500 mb-2">{t('coach.students.send.when')}</p>
                 {TRIGGER_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
@@ -343,16 +339,20 @@ export default function SendToStudentModal({
                         size={14}
                         className={triggerType === opt.id ? 'text-blue-600' : 'text-gray-400'}
                       />
-                      <span className="font-medium text-sm text-gray-900">{opt.label}</span>
+                      <span className="font-medium text-sm text-gray-900">
+                        {t(`coach.students.send.trigger.${opt.key}.label`)}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 ml-6">{opt.hint}</p>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      {t(`coach.students.send.trigger.${opt.key}.hint`)}
+                    </p>
                   </button>
                 ))}
 
                 {triggerType === 'on_week' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mt-2">
                     <label className="block text-xs font-medium text-blue-800 mb-1.5">
-                      Semana del plan
+                      {t('coach.students.send.planWeek')}
                     </label>
                     <input
                       type="number"
@@ -362,7 +362,9 @@ export default function SendToStudentModal({
                       onChange={(e) => setWeekN(Math.max(1, parseInt(e.target.value, 10) || 1))}
                       className="w-20 px-2 py-1.5 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-xs text-blue-700">desde el inicio del plan</span>
+                    <span className="ml-2 text-xs text-blue-700">
+                      {t('coach.students.send.fromPlanStart')}
+                    </span>
                   </div>
                 )}
 
@@ -371,7 +373,7 @@ export default function SendToStudentModal({
                     onClick={() => setStep('students')}
                     className="w-full py-3 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    Siguiente <ChevronRight size={14} />
+                    {t('coach.students.send.next')} <ChevronRight size={14} />
                   </button>
                 </div>
               </div>
@@ -384,7 +386,7 @@ export default function SendToStudentModal({
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Buscar alumno..."
+                    placeholder={t('coach.students.list.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -393,7 +395,7 @@ export default function SendToStudentModal({
                     onClick={selectAllVisible}
                     className="text-xs text-blue-600 hover:underline whitespace-nowrap"
                   >
-                    Todos
+                    {t('coach.students.send.selectAll')}
                   </button>
                 </div>
 
@@ -405,22 +407,29 @@ export default function SendToStudentModal({
                       onChange={(e) => setShowInactive(e.target.checked)}
                       className="rounded"
                     />
-                    Mostrar personas inactivas
+                    {t('coach.students.send.showInactive')}
                   </label>
                 )}
 
                 {triggerNeedsPlan && (
                   <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-800">
-                    Solo alumnos con plan activo. Si tienen más de uno, te pediré elegir.
+                    {t('coach.students.send.onlyWithPlan')}
                   </div>
                 )}
 
                 {emptyLangs.length > 0 && (
                   <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-800">
-                    ⚠ Este formulario no tiene ninguna pregunta para alumnos en{' '}
-                    <strong>{emptyLangs.map((l) => LANG_LABEL[l] || l).join(' ni ')}</strong>. Están
-                    deshabilitados abajo. Revisá en el editor la opción “Esta pregunta se muestra
-                    a...”.
+                    <Trans
+                      i18nKey="coach.students.send.emptyLangsWarning"
+                      values={{
+                        langs: emptyLangs
+                          .map((l) =>
+                            LANG_CODES.includes(l) ? t(`coach.students.send.lang.${l}`) : l
+                          )
+                          .join(t('coach.students.send.langJoiner')),
+                      }}
+                      components={{ b: <strong /> }}
+                    />
                   </div>
                 )}
 
@@ -431,7 +440,9 @@ export default function SendToStudentModal({
                     </div>
                   ) : filteredStudents.length === 0 ? (
                     <p className="text-center text-sm text-gray-400 py-8">
-                      {search ? 'Sin coincidencias' : 'Todavía no tenés alumnos'}
+                      {search
+                        ? t('coach.students.send.noMatches')
+                        : t('coach.students.send.noStudents')}
                     </p>
                   ) : (
                     filteredStudents.map((student) => {
@@ -481,7 +492,7 @@ export default function SendToStudentModal({
                                 {student.name}
                                 {student.active === false && (
                                   <span className="ml-1.5 text-[10px] text-gray-400 font-normal">
-                                    · Inactivo
+                                    · {t('coach.students.activeStatus.inactive')}
                                   </span>
                                 )}
                               </p>
@@ -489,9 +500,11 @@ export default function SendToStudentModal({
                                 className={`text-xs truncate ${emptyForm ? 'text-amber-600' : 'text-gray-400'}`}
                               >
                                 {noPlan
-                                  ? 'sin plan activo'
+                                  ? t('coach.students.send.skip.noPlan')
                                   : emptyForm
-                                    ? `⚠ este formulario no tiene preguntas en su idioma (${student.language || 'es'})`
+                                    ? t('coach.students.send.emptyForStudent', {
+                                        lang: student.language || 'es',
+                                      })
                                     : student.email}
                               </p>
                             </div>
@@ -501,7 +514,7 @@ export default function SendToStudentModal({
                           {needsChoice && (
                             <div className="ml-8 mb-2 bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
                               <p className="text-xs text-amber-800 font-medium">
-                                Elegí el plan para este trigger:
+                                {t('coach.students.send.choosePlan')}
                               </p>
                               {studentPlans.map((pa) => (
                                 <button
@@ -515,8 +528,9 @@ export default function SendToStudentModal({
                                       : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-100'
                                   }`}
                                 >
-                                  {pa.plans?.title || 'Plan'}{' '}
-                                  {pa.start_date && `(desde ${pa.start_date})`}
+                                  {pa.plans?.title || t('coach.students.info.plan')}{' '}
+                                  {pa.start_date &&
+                                    t('coach.students.send.since', { date: pa.start_date })}
                                 </button>
                               ))}
                             </div>
@@ -531,8 +545,9 @@ export default function SendToStudentModal({
                 <div className="p-4 border-t border-gray-100 space-y-2">
                   {studentsNeedingPlanChoice.length > 0 && (
                     <p className="text-xs text-amber-700 text-center">
-                      Falta elegir plan para {studentsNeedingPlanChoice.length} alumno
-                      {studentsNeedingPlanChoice.length !== 1 ? 's' : ''}
+                      {t('coach.students.send.missingPlanChoice', {
+                        count: studentsNeedingPlanChoice.length,
+                      })}
                     </p>
                   )}
                   <div className="flex gap-2">
@@ -554,16 +569,16 @@ export default function SendToStudentModal({
                       {sending ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Enviando...
+                          {t('coach.students.send.sending')}
                         </>
                       ) : (
                         <>
                           <Send size={14} />
                           {selectedIds.length > 0
                             ? triggerType === 'manual'
-                              ? `Enviar a ${selectedIds.length}`
-                              : `Programar para ${selectedIds.length}`
-                            : 'Seleccioná un alumno'}
+                              ? t('coach.students.send.sendTo', { count: selectedIds.length })
+                              : t('coach.students.send.scheduleFor', { count: selectedIds.length })
+                            : t('coach.students.send.selectOne')}
                         </>
                       )}
                     </button>

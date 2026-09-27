@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { fetchOneRmMap, resolvePrescribedWeight } from '@/features/evaluations/oneRm'
 
@@ -17,6 +18,7 @@ import { fetchOneRmMap, resolvePrescribedWeight } from '@/features/evaluations/o
 // cuando el plan no usa %RM o cuando está todo cubierto.
 // ============================================================
 export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '' }) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [gaps, setGaps] = useState([])
   const [covered, setCovered] = useState(0)
@@ -60,7 +62,7 @@ export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '
             weightMode: 'pct_1rm',
             today,
           })
-          const name = ex.exercise?.name || 'Ejercicio'
+          const name = ex.exercise?.name || t('coach.planEditor.pct1rmGap.exerciseFallback')
           if (r.status === 'derived') ok += 1
           else if (r.status === 'missing_pct') sinPct.push(name)
           else faltan.push(name)
@@ -83,13 +85,13 @@ export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '
     return () => {
       cancelled = true
     }
-  }, [planId, studentId])
+  }, [planId, studentId, t])
 
   if (loading) {
     return (
       <p className="flex items-center gap-2 text-[11px] text-gray-500">
         <Loader2 size={12} className="animate-spin" />
-        Revisando las evaluaciones de 1RM...
+        {t('coach.planEditor.pct1rmGap.checking')}
       </p>
     )
   }
@@ -101,15 +103,13 @@ export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '
     return (
       <p className="flex items-start gap-1.5 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-2">
         <CheckCircle2 size={13} className="mt-px flex-shrink-0" />
-        <span>
-          Los {covered} ejercicios prescriptos por % del máximo tienen evaluación: va a ver los
-          kilos calculados.
-        </span>
+        <span>{t('coach.planEditor.pct1rmGap.allCovered', { count: covered })}</span>
       </p>
     )
   }
 
-  const quien = studentName || 'Esta persona'
+  const quien = studentName || t('coach.planEditor.pct1rmGap.thisPerson')
+  const bold = { b: <strong className="font-semibold" /> }
 
   return (
     <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-2 space-y-1.5">
@@ -118,29 +118,31 @@ export default function Pct1rmEvalGapNotice({ planId, studentId, studentName = '
         <span>
           {gaps.length > 0 && (
             <>
-              <strong className="font-semibold">{quien}</strong> no tiene evaluación de 1RM de{' '}
-              <strong className="font-semibold">{gaps.join(', ')}</strong>: en esos ejercicios va a
-              ver el porcentaje en vez de los kilos.
+              <Trans
+                i18nKey="coach.planEditor.pct1rmGap.missingEval"
+                values={{ name: quien, exercises: gaps.join(', ') }}
+                components={bold}
+              />
             </>
           )}
           {missingPct.length > 0 && (
             <>
               {gaps.length > 0 && ' '}
-              Además, falta cargar el porcentaje en{' '}
-              <strong className="font-semibold">{missingPct.join(', ')}</strong>.
+              <Trans
+                i18nKey="coach.planEditor.pct1rmGap.missingPct"
+                values={{ exercises: missingPct.join(', ') }}
+                components={bold}
+              />
             </>
           )}
         </span>
       </p>
-      <p className="text-amber-700 leading-snug">
-        Podés asignar igual y resolverlo después: cargale una evaluación de 1RM (la podés completar
-        vos por esa persona desde su ficha) o ponele los kilos a mano en su plan una vez asignado.
-      </p>
+      <p className="text-amber-700 leading-snug">{t('coach.planEditor.pct1rmGap.help')}</p>
       <Link
         to={`/coach/students/${studentId}?tab=evaluaciones`}
         className="inline-block font-medium text-amber-800 underline underline-offset-2"
       >
-        Ir a sus evaluaciones
+        {t('coach.planEditor.pct1rmGap.goToEvals')}
       </Link>
     </div>
   )

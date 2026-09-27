@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import QuestionEditor from './QuestionEditor'
 
@@ -24,6 +25,7 @@ export default function ModuleCard({
   onRemove,
   bilingual = false, // modo bilingüe (docs/plan-formularios-bilingues.md)
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(module.title)
@@ -40,7 +42,7 @@ export default function ModuleCard({
     const newQuestion = {
       id: `q_custom_${Date.now()}`,
       type: 'text',
-      label: 'Nueva pregunta',
+      label: 'Nueva pregunta', // valor inicial del contenido (canónico en español)
       required: false,
       editable: true,
       removable: true,
@@ -86,7 +88,9 @@ export default function ModuleCard({
         {isRemovable && (
           <button
             onClick={onToggle}
-            title={module.enabled ? 'Desactivar módulo' : 'Activar módulo'}
+            title={
+              module.enabled ? t('coach.forms.module.disable') : t('coach.forms.module.enable')
+            }
             className={`w-10 h-5 rounded-full transition-colors flex-shrink-0 relative ${
               module.enabled ? 'bg-primary-600' : 'bg-gray-300'
             }`}
@@ -118,26 +122,30 @@ export default function ModuleCard({
                 module.editable ? 'cursor-pointer hover:text-primary-700' : 'text-gray-700'
               }`}
               onClick={() => module.editable && setEditingTitle(true)}
-              title={module.editable ? 'Clic para editar el título' : undefined}
+              title={module.editable ? t('coach.forms.module.editTitle') : undefined}
             >
               {module.title}
             </span>
           )}
 
           {!module.removable && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Fijo</span>
+            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+              {t('coach.forms.module.fixed')}
+            </span>
           )}
         </div>
 
         {/* Controles */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-xs text-gray-400 mr-1">{module.questions.length} pregs.</span>
+          <span className="text-xs text-gray-400 mr-1">
+            {t('coach.forms.module.questionsCount', { count: module.questions.length })}
+          </span>
 
           <button
             onClick={onMoveUp}
             disabled={isFirst || isDisabled}
             className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Subir"
+            title={t('coach.forms.module.moveUp')}
           >
             ▲
           </button>
@@ -145,7 +153,7 @@ export default function ModuleCard({
             onClick={onMoveDown}
             disabled={isLast || isDisabled}
             className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Bajar"
+            title={t('coach.forms.module.moveDown')}
           >
             ▼
           </button>
@@ -153,11 +161,12 @@ export default function ModuleCard({
           {onRemove && (
             <button
               onClick={() => {
-                if (confirm(`¿Eliminar el módulo "${module.title}"?`)) onRemove()
+                if (confirm(t('coach.forms.module.confirmDelete', { title: module.title })))
+                  onRemove()
               }}
               className="p-1 text-red-400 hover:text-red-600"
-              title="Eliminar módulo"
-              aria-label="Eliminar módulo"
+              title={t('coach.forms.module.delete')}
+              aria-label={t('coach.forms.module.delete')}
             >
               <Trash2 size={16} />
             </button>
@@ -166,7 +175,7 @@ export default function ModuleCard({
           <button
             onClick={() => setExpanded(!expanded)}
             className="p-1 text-gray-400 hover:text-gray-600 ml-1"
-            title="Editar preguntas"
+            title={t('coach.forms.module.editQuestions')}
           >
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
@@ -179,7 +188,9 @@ export default function ModuleCard({
           {/* Título del módulo en inglés (modo bilingüe) */}
           {bilingual && module.editable && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 flex-shrink-0">Título en inglés:</span>
+              <span className="text-xs text-gray-500 flex-shrink-0">
+                {t('coach.forms.module.enTitleLabel')}
+              </span>
               <input
                 type="text"
                 value={module.i18n?.en?.title || ''}
@@ -189,7 +200,7 @@ export default function ModuleCard({
                     i18n: { ...module.i18n, en: { ...module.i18n?.en, title: e.target.value } },
                   })
                 }
-                placeholder="Vacío = se muestra en español"
+                placeholder={t('coach.forms.module.enTitlePlaceholder')}
                 className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
@@ -197,7 +208,7 @@ export default function ModuleCard({
 
           {module.questions.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-2 italic">
-              Sin preguntas. Agregá una.
+              {t('coach.forms.module.empty')}
             </p>
           )}
 
@@ -221,7 +232,7 @@ export default function ModuleCard({
               onClick={handleAddQuestion}
               className="w-full text-center text-xs text-primary-700 hover:text-primary-800 border border-dashed border-durazno-200 rounded-lg py-2 hover:bg-durazno-50 transition-colors"
             >
-              + Agregar pregunta
+              {t('coach.forms.module.addQuestion')}
             </button>
           )}
         </div>

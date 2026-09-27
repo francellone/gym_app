@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import {
   computeLowAdherence,
   computeAdherenceDecline,
@@ -14,6 +15,9 @@ import {
   describeAlertItem,
   computeLastWeekCompliance,
 } from './alerts'
+
+// Los textos de los motivos salen de i18n (panel de la coach); los tests corren en español.
+const t = i18n.getFixedT('es')
 
 // Construye una semana cerrada {weekStart, completed, target, pct}
 const wk = (weekStart, completed, target) => ({
@@ -266,7 +270,7 @@ describe('groupAlertsByStudent (rediseño 2026-09-26)', () => {
   }
 
   it('una fila por persona con todos sus motivos, la más grave primero', () => {
-    const { rows } = groupAlertsByStudent(alerts)
+    const { rows } = groupAlertsByStudent(alerts, t)
     expect(rows.map((r) => r.name)).toEqual(['Tomás', 'Martín', 'Lucía'])
     expect(rows[0].items.map((i) => i.text)).toEqual([
       'No entrena hace 5 días',
@@ -275,14 +279,17 @@ describe('groupAlertsByStudent (rediseño 2026-09-26)', () => {
   })
 
   it('lo que ya está en la agenda no se repite y la baja adherencia va aparte', () => {
-    const { rows, quiet } = groupAlertsByStudent(alerts)
+    const { rows, quiet } = groupAlertsByStudent(alerts, t)
     expect(rows.find((r) => r.name === 'Xime')).toBeUndefined()
     expect(rows.find((r) => r.name === 'Vale')).toBeUndefined()
     expect(quiet).toEqual([{ studentId: 'v', name: 'Vale' }])
   })
 
   it('singular bien escrito', () => {
-    expect(describeAlertItem('overdue', { daysOverdue: 1 }).text).toBe('Pago vencido hace 1 día')
+    expect(describeAlertItem('overdue', { daysOverdue: 1 }, t).text).toBe('Pago vencido hace 1 día')
+    expect(describeAlertItem('overdue', { daysOverdue: 2 }, i18n.getFixedT('en')).text).toBe(
+      'Payment overdue by 2 days'
+    )
   })
 })
 
@@ -336,16 +343,19 @@ describe('computePlanExpired (2026-09-26)', () => {
   })
 
   it('en la lista por persona es un motivo "warn" que se suma a los otros', () => {
-    const { rows } = groupAlertsByStudent({
-      planExpired: [{ studentId: 'a', name: 'Ana', daysExpired: 8 }],
-      inactiveStudents: [{ studentId: 'a', name: 'Ana', daysSinceLastLog: 12 }],
-    })
+    const { rows } = groupAlertsByStudent(
+      {
+        planExpired: [{ studentId: 'a', name: 'Ana', daysExpired: 8 }],
+        inactiveStudents: [{ studentId: 'a', name: 'Ana', daysSinceLastLog: 12 }],
+      },
+      t
+    )
     expect(rows).toHaveLength(1)
     expect(rows[0].items.map((i) => i.text)).toEqual([
       'No entrena hace 12 días',
       'Plan vencido hace 8 días',
     ])
-    expect(describeAlertItem('planExpired', { daysExpired: 1 }).tone).toBe('warn')
+    expect(describeAlertItem('planExpired', { daysExpired: 1 }, t).tone).toBe('warn')
   })
 })
 
@@ -404,20 +414,23 @@ describe('computeSkipDiscomfort (etapa 5)', () => {
     )
     expect(out).toHaveLength(1)
     expect(out[0].exerciseNames).toEqual(['Sentadilla', 'Estocada'])
-    expect(describeAlertItem('skipDiscomfort', out[0]).text).toBe(
+    expect(describeAlertItem('skipDiscomfort', out[0], t).text).toBe(
       'Omitió por molestia: Sentadilla, Estocada'
     )
-    expect(describeAlertItem('skipDiscomfort', { exerciseNames: ['Remo'] })).toEqual({
+    expect(describeAlertItem('skipDiscomfort', { exerciseNames: ['Remo'] }, t)).toEqual({
       tone: 'warn',
       text: 'Omitió Remo por molestia',
     })
   })
 
   it('en la fila de la persona va junto a los otros motivos', () => {
-    const { rows } = groupAlertsByStudent({
-      painStudents: [{ studentId: 's1', name: 'Ana', lastNoteSnippet: 'rodilla' }],
-      skipDiscomfort: [{ studentId: 's1', name: 'Ana', exerciseNames: ['Sentadilla'] }],
-    })
+    const { rows } = groupAlertsByStudent(
+      {
+        painStudents: [{ studentId: 's1', name: 'Ana', lastNoteSnippet: 'rodilla' }],
+        skipDiscomfort: [{ studentId: 's1', name: 'Ana', exerciseNames: ['Sentadilla'] }],
+      },
+      t
+    )
     expect(rows[0].items.map((i) => i.kind)).toEqual(['painStudents', 'skipDiscomfort'])
   })
 })
@@ -448,7 +461,7 @@ describe('computeFormsUnanswered', () => {
     expect(out).toEqual([
       { studentId: 's1', name: 'Ana', daysWaiting: 27, count: 2, formTitle: null },
     ])
-    expect(describeItem('formUnanswered', out[0]).text).toBe(
+    expect(describeItem('formUnanswered', out[0], t).text).toBe(
       'Formulario sin responder hace 27 días (y 1 otro)'
     )
   })

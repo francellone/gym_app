@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, GitMerge, Video, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fetchUsage, usageSummary } from '../exerciseUsage'
@@ -25,6 +26,7 @@ function pickCanonical(ids, usageById, byId) {
 }
 
 export default function DuplicatesModal({ exercises, refreshKey, onClose, onMergeRequest }) {
+  const { t } = useTranslation()
   const [groups, setGroups] = useState(null)
   const [usageById, setUsageById] = useState({})
   const [canonical, setCanonical] = useState({}) // groupKey → exerciseId
@@ -57,7 +59,7 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
           return next
         })
       } catch (err) {
-        if (alive) setError(err.message || 'No se pudieron leer los duplicados.')
+        if (alive) setError(err.message || t('coach.exercises.duplicates.loadError'))
       }
     })()
     return () => {
@@ -79,7 +81,9 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
           <div className="flex items-center gap-2">
             <Copy size={16} className="text-indigo-500" />
             <h2 className="font-bold text-gray-900 text-sm">
-              Posibles duplicados{groups ? ` (${groups.length})` : ''}
+              {groups
+                ? t('coach.exercises.duplicates.titleCount', { count: groups.length })
+                : t('coach.exercises.duplicates.title')}
             </h2>
           </div>
           <button onClick={onClose} className="btn-ghost p-1.5">
@@ -88,10 +92,7 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
         </div>
 
         <div className="p-5 space-y-4">
-          <p className="text-xs text-gray-500">
-            Mismo nombre, o mismo video con distinto nombre. En cada grupo elegí cuál queda y
-            fusioná los otros de a uno; antes de confirmar vas a ver el impacto.
-          </p>
+          <p className="text-xs text-gray-500">{t('coach.exercises.duplicates.intro')}</p>
 
           {error && <div className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</div>}
 
@@ -103,7 +104,7 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
             </div>
           ) : groups.length === 0 ? (
             <div className="card text-center py-10">
-              <p className="text-gray-500 text-sm">No hay duplicados a la vista.</p>
+              <p className="text-gray-500 text-sm">{t('coach.exercises.duplicates.none')}</p>
             </div>
           ) : (
             groups.map((g) => {
@@ -113,14 +114,16 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
                 <div key={key} className="card space-y-2">
                   <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     {g.kind === 'video' ? <Video size={13} /> : <Copy size={13} />}
-                    {g.kind === 'video' ? 'Mismo video, distinto nombre' : 'Mismo nombre'}
+                    {g.kind === 'video'
+                      ? t('coach.exercises.duplicates.sameVideo')
+                      : t('coach.exercises.duplicates.sameName')}
                   </div>
                   <div className="divide-y divide-gray-100">
                     {g.exercise_ids.map((id) => {
                       const ex = byId[id]
                       if (!ex) return null
                       const u = usageById[id]
-                      const parts = usageSummary(u)
+                      const parts = usageSummary(u, t)
                       const isChosen = chosen === id
                       return (
                         <div key={id} className="flex items-center gap-3 py-2">
@@ -136,17 +139,17 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
                                 {ex.name}
                                 {isChosen && (
                                   <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                                    queda
+                                    {t('coach.exercises.duplicates.keeps')}
                                   </span>
                                 )}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {u === undefined
-                                  ? 'Calculando…'
+                                  ? t('coach.exercises.merge.calculating')
                                   : parts.length === 0
-                                    ? 'Sin planes ni registros'
+                                    ? t('coach.exercises.duplicates.unused')
                                     : parts.join(' · ')}
-                                {!ex.video_url && ' · sin video'}
+                                {!ex.video_url && t('coach.exercises.duplicates.noVideo')}
                               </p>
                             </div>
                           </label>
@@ -157,7 +160,7 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
                               onClick={() => onMergeRequest(ex, byId[chosen])}
                             >
                               <GitMerge size={13} />
-                              Fusionar
+                              {t('coach.exercises.duplicates.merge')}
                             </button>
                           )}
                         </div>

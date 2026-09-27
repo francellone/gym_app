@@ -12,6 +12,8 @@
 //   - 'archived' → finalización manual neutra (alta/baja, error, otros).
 // ============================================================
 
+import i18n from '@/i18n'
+
 // ============================================================
 // Asignación de plantilla → alumno (RPC `assign_template_to_student`)
 // ------------------------------------------------------------
@@ -68,22 +70,31 @@ export async function assignTemplateToStudent(
 
 // Convierte errores de Postgres/Supabase en mensajes legibles para la coach.
 // Conserva `code` y `details` originales para debugging.
+// i18n (panel de la coach): el mensaje sale en el idioma activo vía la
+// instancia global (mismo criterio que utils/errorHelpers). `i18nKey` queda en
+// el error por si el que lo muestra prefiere traducirlo con su propio `t`.
 export function enrichRpcError(error) {
   const code = error?.code
   const msg = error?.message || ''
-  const friendly =
+  const key =
     code === '23514' && /plantilla/i.test(msg)
-      ? 'No se puede asignar una plantilla directamente. Volvé a intentar — si el problema persiste, reportá este caso.'
+      ? 'templateDirect'
       : code === '23514' && /is_template/i.test(msg)
-        ? 'Ese plan no es una plantilla; no se puede clonar desde acá.'
+        ? 'notTemplate'
         : code === '23503'
-          ? 'No se encontró el plan o el alumno (referencia inválida).'
+          ? 'notFound'
           : code === '23505'
-            ? 'Ese alumno ya tiene un plan activo con esas condiciones. Reemplazá el actual desde el perfil del alumno.'
+            ? 'alreadyActive'
             : null
+  const i18nKey = key
+    ? `coach.planEditor.assignErrors.${key}`
+    : msg
+      ? null
+      : 'coach.planEditor.assignErrors.generic'
 
-  const wrapped = new Error(friendly || msg || 'Error al asignar el plan')
+  const wrapped = new Error(i18nKey ? i18n.t(i18nKey) : msg)
   wrapped.code = code
+  if (i18nKey) wrapped.i18nKey = i18nKey
   wrapped.original = error
   return wrapped
 }

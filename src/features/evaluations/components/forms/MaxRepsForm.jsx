@@ -1,4 +1,5 @@
 import { Plus, Trash2, PlayCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { parseReps } from '@/features/plans/helpers'
 import { buildSuggestedWeightsArr } from '../../helpers'
 import MethodBadge from '../MethodBadge'
@@ -11,6 +12,7 @@ import ResultBox from '../ResultBox'
 // Máximas repeticiones hasta el fallo o en tiempo fijo. Por ejercicio
 // del plan, múltiples sets con peso fijo y reps variables.
 export default function MaxRepsForm({ results, onChange, planMethod, planExercises }) {
+  const { t } = useTranslation()
   const method = planMethod || results.method || 'pushup'
   const usePlanExercises = planExercises && planExercises.length > 0
   const needsWeight = method === 'submax'
@@ -60,7 +62,7 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
               {/* Header */}
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold text-gray-800 break-words">
-                  {ex.name || `Ejercicio ${i + 1}`}
+                  {ex.name || t('coach.evaluations.common.exerciseN', { n: i + 1 })}
                 </p>
                 {ex.video_url && ex.video_url.startsWith('http') && (
                   <a
@@ -69,7 +71,7 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     className="p-1 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                    title="Ver video del ejercicio"
+                    title={t('coach.evaluations.forms.watchVideo')}
                   >
                     <PlayCircle size={16} />
                   </a>
@@ -82,19 +84,25 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
               <div className={`grid grid-cols-${colCount} gap-1.5 mb-1 px-0.5`}>
                 <div />
                 <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                  {needsTime ? 'Reps (60 seg)' : 'Reps máx'}
+                  {needsTime
+                    ? t('coach.evaluations.forms.reps60')
+                    : t('coach.evaluations.forms.maxRepsShort')}
                   {sugRepsArr.some(Boolean) && (
                     <span className="block font-normal normal-case text-primary-400">
-                      sug: {sugRepsArr.filter(Boolean).join(', ')}
+                      {t('coach.evaluations.forms.suggested', {
+                        values: sugRepsArr.filter(Boolean).join(', '),
+                      })}
                     </span>
                   )}
                 </div>
                 {needsWeight && (
                   <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                    Peso (kg)
+                    {t('coach.evaluations.forms.weightKg')}
                     {sugWeightsArr.some(Boolean) && (
                       <span className="block font-normal normal-case text-primary-400">
-                        sug: {sugWeightsArr.filter(Boolean).join(', ')}
+                        {t('coach.evaluations.forms.suggested', {
+                          values: sugWeightsArr.filter(Boolean).join(', '),
+                        })}
                       </span>
                     )}
                   </div>
@@ -139,18 +147,18 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
                 onClick={() => addSet(i)}
                 className="text-xs text-primary-500 hover:text-primary-700 flex items-center gap-1 mt-0.5 transition-colors"
               >
-                <Plus size={11} /> Agregar serie
+                <Plus size={11} /> {t('coach.evaluations.forms.addSet')}
               </button>
             </div>
           )
         })}
 
         <div>
-          <label className="label">Notas</label>
+          <label className="label">{t('coach.evaluations.forms.notes')}</label>
           <textarea
             className="input resize-none text-sm"
             rows={2}
-            placeholder="Condiciones del test, fatiga, pausas..."
+            placeholder={t('coach.evaluations.forms.maxRepsNotesPlaceholder')}
             value={results.notes || ''}
             onChange={(e) => onChange({ ...results, notes: e.target.value })}
           />
@@ -170,30 +178,32 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
 
       <div className="grid grid-cols-1 gap-3">
         <NumInput
-          label={needsTime ? 'Repeticiones completadas (en 60 seg)' : 'Repeticiones máximas'}
-          placeholder="Ej: 25"
+          label={
+            needsTime ? t('coach.evaluations.forms.repsIn60') : t('coach.evaluations.forms.maxReps')
+          }
+          placeholder={t('evalForms.egPlaceholder', { value: 25 })}
           value={results.reps || ''}
           onChange={(v) => onChange({ ...results, reps: v })}
         />
         {needsWeight && (
           <NumInput
-            label="Peso utilizado"
+            label={t('coach.evaluations.forms.weightUsed')}
             unit="kg"
             step="0.5"
-            placeholder="Ej: 60"
+            placeholder={t('evalForms.egPlaceholder', { value: 60 })}
             value={results.weight_kg || ''}
             onChange={(v) => onChange({ ...results, weight_kg: v })}
-            hint="Requerido para calcular volumen"
+            hint={t('coach.evaluations.forms.weightRequiredHint')}
           />
         )}
       </div>
 
       {totalReps > 0 && (
         <div className="grid gap-3">
-          <ResultBox label="Repeticiones máximas" value={totalReps} unit="reps" />
+          <ResultBox label={t('coach.evaluations.forms.maxReps')} value={totalReps} unit="reps" />
           {volume !== null && (
             <ResultBox
-              label="Volumen total"
+              label={t('coach.evaluations.forms.totalVolume')}
               value={volume}
               unit="kg"
               sub={`${totalReps} reps × ${weight} kg`}
@@ -203,11 +213,11 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
       )}
 
       <div>
-        <label className="label">Notas</label>
+        <label className="label">{t('coach.evaluations.forms.notes')}</label>
         <textarea
           className="input resize-none text-sm"
           rows={2}
-          placeholder="Condiciones del test, fatiga, pausas..."
+          placeholder={t('coach.evaluations.forms.maxRepsNotesPlaceholder')}
           value={results.notes || ''}
           onChange={(e) => onChange({ ...results, notes: e.target.value })}
         />

@@ -1,15 +1,21 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react'
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import useCoachCalendarData, {
   COACH_EVENT_KIND,
   STUDENT_DAY_STYLE,
   computeStudentDayStatus,
 } from '../hooks/useCoachCalendarData'
-import { agendaPhrase, CALENDAR_GROUPS, filterEventsByDate } from '../calendarLogic'
+import {
+  agendaPhrase,
+  CALENDAR_GROUPS,
+  eventTitle,
+  filterEventsByDate,
+  FORM_UNANSWERED_WARN_DAYS,
+} from '../calendarLogic'
 import useCalendarVisibility from '../hooks/useCalendarVisibility'
-import { DAYS_OF_WEEK } from '@/features/plans/assignmentHelpers'
 
 // ============================================================
 // MonthlyCalendar
@@ -71,16 +77,21 @@ function dayStatus(data, ymd, today) {
   })
 }
 
-function listJoin(items) {
+function listJoin(items, and) {
   if (items.length <= 1) return items.join('')
-  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
+  return `${items.slice(0, -1).join(', ')}${and}${items[items.length - 1]}`
 }
+
+// Un día de la semana cualquiera (0 = domingo … 6 = sábado) para nombrarlo
+// con date-fns en el idioma activo. 2024-01-07 fue domingo.
+const weekdayDate = (d) => new Date(2024, 0, 7 + d)
 
 export default function MonthlyCalendar({
   studentId = null,
   studentOptions = [],
   onSelectStudent = null,
 } = {}) {
+  const { t } = useTranslation()
   const today = useMemo(() => startOfDay(new Date()), [])
   const [monthAnchor, setMonthAnchor] = useState(today)
   const [openDay, setOpenDay] = useState(null) // YMD string
@@ -145,20 +156,22 @@ export default function MonthlyCalendar({
     if (a && studentData.scheduleMode === 'fixed' && (a.preferred_days || []).length > 0) {
       const names = [...a.preferred_days]
         .sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7))
-        .map((d) => DAYS_OF_WEEK[d]?.label?.toLowerCase())
-        .filter(Boolean)
-      planText = `Plan: ${listJoin(names)}`
+        .filter((d) => d >= 0 && d <= 6)
+        .map((d) => format(weekdayDate(d), 'EEEE', { locale: dateLocale() }))
+      planText = t('coach.dashboard.calendar.summary.planDays', {
+        days: listJoin(names, t('coach.dashboard.listAnd')),
+      })
     } else if (a) {
       const spw = Number(a.plan?.sessions_per_week)
       planText =
         Number.isFinite(spw) && spw > 0
-          ? `Plan: ${spw} por semana, en los días que elija`
-          : 'Plan con días libres'
+          ? t('coach.dashboard.calendar.summary.planPerWeek', { count: spw })
+          : t('coach.dashboard.calendar.summary.planFree')
     } else {
-      planText = 'Sin plan activo'
+      planText = t('coach.dashboard.calendar.summary.noPlan')
     }
     return { counts, planText }
-  }, [mode, studentData, days, monthAnchor, today])
+  }, [mode, studentData, days, monthAnchor, today, t])
 
   const hasTrainedCounts = mode === 'aggregate' && trainedCountByDate?.size > 0 && showTrained
 
@@ -167,9 +180,9 @@ export default function MonthlyCalendar({
       {/* ── Encabezado ─────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <p className="eyebrow">Calendario</p>
+          <p className="eyebrow">{t('coach.dashboard.calendar.title')}</p>
           <p className="text-xl font-bold text-tinta capitalize leading-tight">
-            {format(monthAnchor, 'LLLL yyyy', { locale: es })}
+            {format(monthAnchor, 'LLLL yyyy', { locale: dateLocale() })}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -182,13 +195,13 @@ export default function MonthlyCalendar({
                   : 'bg-white border-linea text-tinta',
               ].join(' ')}
             >
-              <span className="sr-only">Ver el calendario de</span>
+              <span className="sr-only">{t('coach.dashboard.calendar.seeCalendarOf')}</span>
               <select
                 value={studentId || ''}
                 onChange={(e) => onSelectStudent(e.target.value || null)}
                 className="appearance-none bg-transparent pl-3 pr-8 h-full w-full sm:w-auto sm:max-w-[220px] truncate focus:outline-none cursor-pointer"
               >
-                <option value="">Todas las personas</option>
+                <option value="">{t('coach.dashboard.calendar.allPeople')}</option>
                 {studentOptions.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -202,19 +215,19 @@ export default function MonthlyCalendar({
             onClick={goToday}
             className="h-9 px-3 rounded-full border border-linea text-sm font-medium text-primary-700 hover:bg-durazno-50"
           >
-            Hoy
+            {t('coach.dashboard.calendar.today')}
           </button>
           <button
             onClick={() => shiftMonth(-1)}
             className="w-9 h-9 grid place-items-center rounded-full border border-linea text-texto2 hover:bg-durazno-50"
-            aria-label="Mes anterior"
+            aria-label={t('coach.dashboard.calendar.prevMonth')}
           >
             <ChevronLeft size={18} />
           </button>
           <button
             onClick={() => shiftMonth(1)}
             className="w-9 h-9 grid place-items-center rounded-full border border-linea text-texto2 hover:bg-durazno-50"
-            aria-label="Mes siguiente"
+            aria-label={t('coach.dashboard.calendar.nextMonth')}
           >
             <ChevronRight size={18} />
           </button>
@@ -226,25 +239,29 @@ export default function MonthlyCalendar({
         <div className="flex flex-wrap items-center gap-1.5">
           {summary.counts.planned_done > 0 && (
             <span className="pill-ok">
-              {summary.counts.planned_done} cumplido{summary.counts.planned_done === 1 ? '' : 's'}
+              {t('coach.dashboard.calendar.summary.done', { count: summary.counts.planned_done })}
             </span>
           )}
           {(summary.counts.planned_partial || 0) + (summary.counts.unplanned_partial || 0) > 0 && (
             <span className="pill-warn">
-              {(summary.counts.planned_partial || 0) + (summary.counts.unplanned_partial || 0)}{' '}
-              parcial
-              {(summary.counts.planned_partial || 0) + (summary.counts.unplanned_partial || 0) === 1
-                ? ''
-                : 'es'}
+              {t('coach.dashboard.calendar.summary.partial', {
+                count:
+                  (summary.counts.planned_partial || 0) + (summary.counts.unplanned_partial || 0),
+              })}
             </span>
           )}
           {summary.counts.planned_missed > 0 && (
-            <span className="pill-bad">{summary.counts.planned_missed} no asistió</span>
+            <span className="pill-bad">
+              {t('coach.dashboard.calendar.summary.missed', {
+                count: summary.counts.planned_missed,
+              })}
+            </span>
           )}
           {summary.counts.unplanned_done > 0 && (
             <span className="pill-neutral">
-              {summary.counts.unplanned_done} día{summary.counts.unplanned_done === 1 ? '' : 's'}{' '}
-              extra
+              {t('coach.dashboard.calendar.summary.extra', {
+                count: summary.counts.unplanned_done,
+              })}
             </span>
           )}
           <span className="text-[13px] text-texto2">{summary.planText}</span>
@@ -255,7 +272,7 @@ export default function MonthlyCalendar({
       <div className="grid grid-cols-7 gap-0.5 sm:gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-texto3">
         {[1, 2, 3, 4, 5, 6, 0].map((d) => (
           <div key={d} className="text-center sm:text-left sm:pl-2">
-            {DAYS_OF_WEEK[d].short}
+            {format(weekdayDate(d), 'EEE', { locale: dateLocale() })}
           </div>
         ))}
       </div>
@@ -284,7 +301,7 @@ export default function MonthlyCalendar({
         })}
       </div>
 
-      {loading && <p className="text-xs text-texto3 text-center">Cargando…</p>}
+      {loading && <p className="text-xs text-texto3 text-center">{t('common.loading')}</p>}
 
       {/* ── Detalle del día tocado ─────────────────────────────── */}
       {openDay && (
@@ -318,16 +335,20 @@ export default function MonthlyCalendar({
 // EventTag — etiqueta con palabras (completa en compu, corta en teléfono)
 // ─────────────────────────────────────────────────────────────
 function EventTag({ ev, withName = true }) {
+  const { t } = useTranslation()
   const cfg = COACH_EVENT_KIND[ev.type]
   if (!cfg) return null
   const cls = ev.late ? cfg.lateClass : cfg.tagClass
+  const K = `coach.dashboard.calendar.kinds.${ev.type}.`
   // La actividad extra se nombra con su propio emoji ("⚽ Fútbol").
-  const label = ev.type === 'activity' ? `${ev.emoji} ${ev.planTitle}` : cfg.label
-  const short = ev.type === 'activity' ? ev.emoji : cfg.short
+  const label = ev.type === 'activity' ? `${ev.emoji} ${eventTitle(ev, t)}` : t(K + 'label')
+  const short = ev.type === 'activity' ? ev.emoji : t(K + 'short')
+  const p = agendaPhrase(ev, t)
+  const tooltip = [p.lead, p.name].filter(Boolean).join(' ') + (p.detail ? ` · ${p.detail}` : '')
   return (
     <span
       className={`block rounded-md px-0.5 sm:px-1.5 py-px sm:py-0.5 text-[9.5px] sm:text-[11.5px] leading-tight text-center sm:text-left truncate sm:whitespace-normal ${cls}`}
-      title={ev.title}
+      title={tooltip}
     >
       <span className="hidden sm:inline">
         {label}
@@ -342,6 +363,7 @@ function EventTag({ ev, withName = true }) {
 // DayCell
 // ─────────────────────────────────────────────────────────────
 function DayCell({ day, inMonth, isToday, isOpen, events, status, trainedCount, onClick }) {
+  const { t } = useTranslation()
   const style = STUDENT_DAY_STYLE[status]
   const painted = status !== 'rest' && inMonth
   const shown = events.slice(0, MAX_TAGS)
@@ -378,7 +400,7 @@ function DayCell({ day, inMonth, isToday, isOpen, events, status, trainedCount, 
           {style.icon && (
             <span className="text-base sm:text-sm font-bold leading-none">{style.icon}</span>
           )}
-          <span className="hidden sm:inline">{style.label}</span>
+          <span className="hidden sm:inline">{t(style.labelKey)}</span>
         </span>
       )}
 
@@ -387,14 +409,18 @@ function DayCell({ day, inMonth, isToday, isOpen, events, status, trainedCount, 
       ))}
       {rest > 0 && (
         <span className="text-[9.5px] sm:text-[11px] text-texto2 text-center sm:text-left leading-tight">
-          +{rest} más
+          {t('coach.dashboard.calendar.more', { count: rest })}
         </span>
       )}
 
       {trainedCount > 0 && (
         <span className="mt-auto text-[9.5px] sm:text-[11.5px] text-texto2 tabular-nums text-center sm:text-left leading-tight">
-          <span className="hidden sm:inline">{trainedCount} entrenaron</span>
-          <span className="sm:hidden">{trainedCount} entr.</span>
+          <span className="hidden sm:inline">
+            {t('coach.dashboard.calendar.trained', { count: trainedCount })}
+          </span>
+          <span className="sm:hidden">
+            {t('coach.dashboard.calendar.trainedShort', { count: trainedCount })}
+          </span>
         </span>
       )}
     </button>
@@ -405,9 +431,12 @@ function DayCell({ day, inMonth, isToday, isOpen, events, status, trainedCount, 
 // DayDetail — lo que pasó ese día, escrito en frases
 // ─────────────────────────────────────────────────────────────
 function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
+  const { t } = useTranslation()
   const trainedCount = trainedNames.length
   const [y, m, d] = ymd.split('-').map(Number)
-  const fmt = format(new Date(y, m - 1, d), "EEEE d 'de' LLLL", { locale: es })
+  const fmt = format(new Date(y, m - 1, d), t('coach.dashboard.calendar.dayDetailFormat'), {
+    locale: dateLocale(),
+  })
   const style = STUDENT_DAY_STYLE[status]
 
   return (
@@ -417,7 +446,7 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
         <button
           onClick={onClose}
           className="p-0.5 text-texto3 hover:text-texto2"
-          aria-label="Cerrar detalle"
+          aria-label={t('coach.dashboard.calendar.closeDetail')}
         >
           <X size={16} />
         </button>
@@ -425,14 +454,14 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
 
       {mode === 'individual' && status !== 'rest' && (
         <p className={`text-sm font-medium ${style.textClass}`}>
-          {style.icon} {style.label}
+          {style.icon} {t(style.labelKey)}
         </p>
       )}
 
       {mode === 'aggregate' && trainedCount > 0 && (
         <div className="space-y-1.5">
           <p className="text-sm text-texto2">
-            {trainedCount === 1 ? 'Entrenó 1 persona' : `Entrenaron ${trainedCount} personas`}
+            {t('coach.dashboard.calendar.trainedPeople', { count: trainedCount })}
           </p>
           <ul className="flex flex-wrap gap-1.5">
             {trainedNames.map((n, i) => (
@@ -450,7 +479,7 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
       {events.length > 0 && (
         <ul className="space-y-1.5">
           {events.map((ev, i) => {
-            const p = agendaPhrase(ev)
+            const p = agendaPhrase(ev, t)
             return (
               <li key={i} className="flex items-start gap-2 text-sm text-tinta">
                 <span className="w-24 flex-shrink-0">
@@ -468,7 +497,9 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
 
       {events.length === 0 &&
         !(mode === 'individual' && status !== 'rest') &&
-        trainedCount === 0 && <p className="text-sm text-texto2">Nada anotado este día.</p>}
+        trainedCount === 0 && (
+          <p className="text-sm text-texto2">{t('coach.dashboard.calendar.nothing')}</p>
+        )}
     </div>
   )
 }
@@ -483,7 +514,6 @@ function DayDetail({ ymd, events, mode, status, trainedNames = [], onClose }) {
 // una persona.
 // ─────────────────────────────────────────────────────────────
 const TRAINED_CHIP = {
-  label: 'Entrenaron',
   tagClass: 'bg-white border border-linea text-texto2',
 }
 
@@ -497,6 +527,7 @@ function Legend({
   onReset,
   isDefault,
 }) {
+  const { t } = useTranslation()
   // Atrasado (rojo) y formulario demorado (ámbar) solo si aparecen.
   const { hasLate, hasLateForm } = useMemo(() => {
     let late = false
@@ -529,13 +560,13 @@ function Legend({
   return (
     <div className="space-y-2 pt-2 border-t border-linea">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-texto2">Tocá un tipo para mostrarlo u ocultarlo</p>
+        <p className="text-xs text-texto2">{t('coach.dashboard.calendar.legendHint')}</p>
         {!isDefault && (
           <button
             onClick={onReset}
             className="text-xs font-medium text-primary-700 hover:underline flex-shrink-0"
           >
-            Restablecer
+            {t('coach.dashboard.calendar.reset')}
           </button>
         )}
       </div>
@@ -547,7 +578,7 @@ function Legend({
           return (
             <div key={g.key} className="flex flex-wrap items-center gap-1.5">
               <span className="w-full sm:w-24 text-[11px] font-bold uppercase tracking-wide text-texto3">
-                {g.label}
+                {t(`coach.dashboard.calendar.groups.${g.key}`)}
               </span>
               {kinds.map((k) => {
                 const cfg = k === 'trained' ? TRAINED_CHIP : COACH_EVENT_KIND[k]
@@ -565,7 +596,9 @@ function Legend({
                         : 'bg-white border border-dashed border-linea text-texto3 line-through',
                     ].join(' ')}
                   >
-                    {cfg.legend || cfg.label}
+                    {k === 'trained'
+                      ? t('coach.dashboard.calendar.trainedChip')
+                      : t(`coach.dashboard.calendar.kinds.${k}.legend`)}
                   </button>
                 )
               })}
@@ -578,12 +611,12 @@ function Legend({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-texto2">
           {hasLate && (
             <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fee2e2] text-[#b91c1c]">
-              Atrasado
+              {t('coach.dashboard.calendar.late')}
             </span>
           )}
           {hasLateForm && (
             <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fef3c7] text-[#92400e]">
-              Sin responder hace 7 días o más
+              {t('coach.dashboard.calendar.lateForm', { count: FORM_UNANSWERED_WARN_DAYS })}
             </span>
           )}
           {statuses.map((s) => {
@@ -594,15 +627,17 @@ function Legend({
                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${st.cellClass} ${st.textClass}`}
               >
                 <b>{st.icon}</b>
-                {st.label}
+                {t(st.labelKey)}
               </span>
             )
           })}
           {hasTrainedCounts && (
             <span>
-              <span className="hidden sm:inline">“5 entrenaron”</span>
-              <span className="sm:hidden">“5 entr.”</span>: personas que registraron entrenamiento
-              ese día (tocá el día para ver quiénes)
+              <span className="hidden sm:inline">
+                {t('coach.dashboard.calendar.trainedExample')}
+              </span>
+              <span className="sm:hidden">{t('coach.dashboard.calendar.trainedExampleShort')}</span>
+              {t('coach.dashboard.calendar.trainedLegend')}
             </span>
           )}
         </div>

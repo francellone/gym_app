@@ -19,28 +19,45 @@ import {
 
 const labelOf = (list, key) => list.find((x) => x.key === key)?.label || null
 
+// i18n: los helpers aceptan un `t` opcional (i18next). Sin `t` devuelven
+// español (tests y compat); con `t` resuelven en el idioma activo reusando
+// las claves de la vista de la persona (workout.*) y coach.students.blocks.*.
+const tr = (t, key, fallback, opts) => (t ? t(key, opts) : fallback)
+const labelOfT = (list, key, t, prefix) => {
+  const es = labelOf(list, key)
+  if (!es || !t) return es
+  return t(`${prefix}.${key}`, { defaultValue: es })
+}
+const roundsText = (n, t) => tr(t, 'coach.students.blocks.rounds', `${n} rondas`, { count: n })
+const typeLabel = (type, t) =>
+  t && ['strength', 'aerobic', 'circuit'].includes(type)
+    ? t(`workout.${type}`)
+    : t && !type
+      ? t('coach.students.blocks.block')
+      : blockTypeLabel(type)
+
 // ── Prescripción ─────────────────────────────────────────────
 // "Z2 · 30 min · Continuo" / "AMRAP · 4 rondas · 12 min · Intenso"
-export function blockPrescriptionSummary(block) {
+export function blockPrescriptionSummary(block, t) {
   if (!block) return ''
   const parts = []
   if (block.block_type === 'aerobic') {
     if (block.aerobic_zone) parts.push(block.aerobic_zone)
     if (block.aerobic_total_minutes) parts.push(`${block.aerobic_total_minutes} min`)
-    const fmt = labelOf(AEROBIC_FORMATS, block.aerobic_format)
+    const fmt = labelOfT(AEROBIC_FORMATS, block.aerobic_format, t, 'workout.aerobicFormats')
     if (fmt) parts.push(fmt)
     if (block.aerobic_format === 'intervals' && block.aerobic_rounds)
-      parts.push(`${block.aerobic_rounds} rondas`)
+      parts.push(roundsText(block.aerobic_rounds, t))
     if (block.aerobic_work_seconds && block.aerobic_rest_seconds)
       parts.push(`${block.aerobic_work_seconds}"/${block.aerobic_rest_seconds}"`)
   } else if (block.block_type === 'circuit') {
-    const type = labelOf(CIRCUIT_TYPES, block.circuit_type)
+    const type = labelOfT(CIRCUIT_TYPES, block.circuit_type, t, 'workout.circuitTypes')
     if (type) parts.push(type)
-    if (block.circuit_rounds) parts.push(`${block.circuit_rounds} rondas`)
+    if (block.circuit_rounds) parts.push(roundsText(block.circuit_rounds, t))
     if (block.circuit_total_minutes) parts.push(`${block.circuit_total_minutes} min`)
     if (block.circuit_work_seconds && block.circuit_rest_seconds)
       parts.push(`${block.circuit_work_seconds}"/${block.circuit_rest_seconds}"`)
-    const int = labelOf(INTENSITY_LEVELS, block.circuit_intensity)
+    const int = labelOfT(INTENSITY_LEVELS, block.circuit_intensity, t, 'workout.intensity')
     if (int) parts.push(int)
   }
   return parts.join(' · ')
@@ -62,20 +79,26 @@ export function blockPrescribedRounds(block) {
     : (block.circuit_rounds ?? null)
 }
 
-export function blockPrescribedZoneOrIntensity(block) {
+export function blockPrescribedZoneOrIntensity(block, t) {
   if (!block) return null
   if (block.block_type === 'aerobic') {
     const z = AEROBIC_ZONES.find((x) => x.key === block.aerobic_zone)
-    return z ? `${z.key} · ${z.short}` : labelOf(INTENSITY_LEVELS, block.aerobic_intensity)
+    if (z) {
+      const short = t
+        ? t(`workout.aerobicZones.${z.key}.short`, { defaultValue: z.short })
+        : z.short
+      return `${z.key} · ${short}`
+    }
+    return labelOfT(INTENSITY_LEVELS, block.aerobic_intensity, t, 'workout.intensity')
   }
-  return labelOf(INTENSITY_LEVELS, block.circuit_intensity)
+  return labelOfT(INTENSITY_LEVELS, block.circuit_intensity, t, 'workout.intensity')
 }
 
 // ── Nombre de la fila ────────────────────────────────────────
 // Título del bloque si la coach lo puso; si no, "Aeróbico · Bici" o "Circuito".
-export function blockRowName(block, exerciseName = null) {
-  if (!block) return 'Bloque'
-  const type = blockTypeLabel(block.block_type)
+export function blockRowName(block, exerciseName = null, t) {
+  if (!block) return tr(t, 'coach.students.blocks.block', 'Bloque')
+  const type = typeLabel(block.block_type, t)
   if (block.title) return block.title
   return exerciseName ? `${type} · ${exerciseName}` : type
 }
@@ -97,19 +120,21 @@ export function blockMetricOf(log) {
 }
 
 // "30 min" / "4 rondas" / "12 min · 4 rondas" / "—"
-export function displayBlockLogMain(log) {
+export function displayBlockLogMain(log, t) {
   const m = blockLogMinutes(log)
   const r = blockLogRounds(log)
   const parts = []
   if (m != null) parts.push(`${m} min`)
-  if (r != null) parts.push(`${r} rondas`)
+  if (r != null) parts.push(roundsText(r, t))
   return parts.length ? parts.join(' · ') : '—'
 }
 
 // ── Fila con la misma forma que buildRow() de la tabla ───────
 // block: plan_blocks (con block_type, section, order_index, prescripción)
 // blockLogs: workout_block_logs de ESE bloque (cualquier orden)
-export function buildBlockRow(block, blockLogs = [], overrides = {}) {
+// `t` opcional: textos visibles (nombre, prescripción, zona) en el idioma activo.
+// progressMetric queda como clave canónica ('Min' / 'Rondas'): la traduce la vista.
+export function buildBlockRow(block, blockLogs = [], overrides = {}, t) {
   const sorted = [...blockLogs].sort((a, b) =>
     (a.logged_date || '').localeCompare(b.logged_date || '')
   )
@@ -175,14 +200,14 @@ export function buildBlockRow(block, blockLogs = [], overrides = {}) {
     section: block.section,
     blockOrder: block.order_index ?? 0,
     block_label: '',
-    exerciseName: blockRowName(block, exerciseName),
-    muscleGroup: blockPrescriptionSummary(block),
+    exerciseName: blockRowName(block, exerciseName, t),
+    muscleGroup: blockPrescriptionSummary(block, t),
     suggested_sets: blockPrescribedRounds(block),
     suggested_reps: null,
     suggested_weightStr: blockPrescribedMinutes(block)
       ? `${blockPrescribedMinutes(block)} min`
       : '—',
-    suggested_pse: blockPrescribedZoneOrIntensity(block),
+    suggested_pse: blockPrescribedZoneOrIntensity(block, t),
     recentLogs: [...sorted].reverse(),
     sparklineValues,
     maxWeight: null,
@@ -224,10 +249,10 @@ export function sortRowsInSection(rows) {
 
 // ── Filtro por tipo ──────────────────────────────────────────
 export const ROW_TYPE_FILTERS = [
-  { id: 'all', label: 'Todos' },
-  { id: 'strength', label: 'Fuerza' },
-  { id: 'aerobic', label: 'Aeróbico' },
-  { id: 'circuit', label: 'Circuito' },
+  { id: 'all', label: 'Todos', labelKey: 'coach.students.blocks.filterAll' },
+  { id: 'strength', label: 'Fuerza', labelKey: 'workout.strength' },
+  { id: 'aerobic', label: 'Aeróbico', labelKey: 'workout.aerobic' },
+  { id: 'circuit', label: 'Circuito', labelKey: 'workout.circuit' },
 ]
 
 export function rowMatchesType(row, typeFilter) {

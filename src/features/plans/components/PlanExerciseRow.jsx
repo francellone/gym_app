@@ -2,6 +2,7 @@ import { cascadeSetValue } from '../seriesCascade'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Trash2, Info } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 import { resolvePrescribedWeight } from '@/features/evaluations/oneRm'
 import { formatShortDate } from '@/i18n/dateLocale'
@@ -12,6 +13,7 @@ import {
   BLOCK_LETTERS,
   BLOCK_NUMBERS,
   PSE_OPTIONS,
+  PSE_OPTION_KEY,
   WEIGHT_MODES,
   WEIGHT_MODE_BY_KEY,
   getEffectiveWeightMode,
@@ -46,6 +48,7 @@ export default function PlanExerciseRow({
   onLetterChange,
   onRemove,
 }) {
+  const { t } = useTranslation()
   const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
   const target = usePlanTargetPerson()
   const setsCount = parseInt(ex.suggested_sets) || 0
@@ -78,7 +81,13 @@ export default function PlanExerciseRow({
           today: format(new Date(), 'yyyy-MM-dd'),
         })
       : null
-  const repsLabel = effectiveUnilateral ? 'Reps (por lado)' : 'Reps'
+  const repsLabel = effectiveUnilateral
+    ? t('coach.planEditor.exerciseRow.repsPerSide2')
+    : t('coach.planEditor.exerciseRow.reps')
+  const bold = {
+    b: <strong className="font-semibold" />,
+    strong: <strong className="font-medium" />,
+  }
 
   // Modo "diferencial por serie": cada serie puede tener reps/peso distintos.
   // Por defecto OFF (simple: 1 valor para todas las series).
@@ -191,7 +200,7 @@ export default function PlanExerciseRow({
   const selectedExTags = ex.exercise_id
     ? tagAssignments
         .filter((ta) => ta.exercise_id === ex.exercise_id)
-        .map((ta) => exerciseTags.find((t) => t.id === ta.tag_id))
+        .map((ta) => exerciseTags.find((tag) => tag.id === ta.tag_id))
         .filter(Boolean)
     : []
 
@@ -205,19 +214,19 @@ export default function PlanExerciseRow({
               <ExercisePicker
                 value={ex.exercise_id}
                 onChange={(id) => onUpdate(index, 'exercise_id', id)}
-                label="Ejercicio"
+                label={t('coach.planEditor.exerciseRow.exercise')}
                 required
               >
                 {/* Tags del ejercicio elegido */}
                 {selectedExTags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedExTags.map((t) => (
+                    {selectedExTags.map((tag) => (
                       <span
-                        key={t.id}
+                        key={tag.id}
                         className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{ backgroundColor: t.color + '22', color: t.color }}
+                        style={{ backgroundColor: tag.color + '22', color: tag.color }}
                       >
-                        {t.name}
+                        {tag.name}
                       </span>
                     ))}
                   </div>
@@ -230,7 +239,9 @@ export default function PlanExerciseRow({
             {/* Bloque */}
             <div className="grid grid-cols-2 gap-1">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Bloque</label>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  {t('coach.planEditor.exerciseRow.block')}
+                </label>
                 <select
                   className="input text-sm"
                   value={ex.block_letter}
@@ -249,7 +260,9 @@ export default function PlanExerciseRow({
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Sub</label>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  {t('coach.planEditor.exerciseRow.sub')}
+                </label>
                 <select
                   className="input text-sm"
                   value={ex.block_number}
@@ -270,21 +283,26 @@ export default function PlanExerciseRow({
           {/* Modo de peso + Unilateral (overrides del plan_exercise sobre catálogo) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Modo de peso</label>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {t('coach.planEditor.exerciseRow.weightMode')}
+              </label>
               <select
                 className="input text-sm"
                 value={ex.weight_mode ?? ''}
                 onChange={(e) => onUpdate(index, 'weight_mode', e.target.value || null)}
               >
                 <option value="">
-                  Heredar
                   {selectedExercise
-                    ? ` (${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode || 'with_weight']?.short || 'Con peso'})`
-                    : ''}
+                    ? t('coach.planEditor.weightModes.inheritWith', {
+                        mode: t(
+                          `coach.planEditor.weightModes.${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode] ? selectedExercise.default_weight_mode : 'with_weight'}.short`
+                        ),
+                      })
+                    : t('coach.planEditor.weightModes.inherit')}
                 </option>
                 {WEIGHT_MODES.map((m) => (
                   <option key={m.key} value={m.key}>
-                    {m.label}
+                    {t(`coach.planEditor.weightModes.${m.key}.label`)}
                   </option>
                 ))}
               </select>
@@ -300,12 +318,12 @@ export default function PlanExerciseRow({
                   onChange={(e) => onUpdate(index, 'unilateral', e.target.checked)}
                 />
                 <span>
-                  Unilateral
+                  {t('coach.planEditor.exerciseRow.unilateral')}
                   <span className="block text-[11px] text-gray-500 font-normal">
                     {effectiveUnilateral
-                      ? 'Las reps van por lado'
+                      ? t('coach.planEditor.exerciseRow.repsPerSide')
                       : selectedExercise?.default_unilateral
-                        ? 'Override: forzar bilateral'
+                        ? t('coach.planEditor.exerciseRow.forceBilateral')
                         : ''}
                   </span>
                 </span>
@@ -315,9 +333,9 @@ export default function PlanExerciseRow({
                   type="button"
                   onClick={() => onUpdate(index, 'unilateral', null)}
                   className="ml-2 text-[11px] text-gray-400 hover:text-gray-600 underline"
-                  title="Quitar override y heredar del ejercicio"
+                  title={t('coach.planEditor.exerciseRow.inheritTitle')}
                 >
-                  heredar
+                  {t('coach.planEditor.exerciseRow.inheritLink')}
                 </button>
               )}
             </div>
@@ -329,7 +347,7 @@ export default function PlanExerciseRow({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] text-amber-800 font-semibold mb-1 block">
-                    % del máximo
+                    {t('coach.planEditor.exerciseRow.pctOfMax')}
                   </label>
                   <div className="relative">
                     <input
@@ -351,8 +369,8 @@ export default function PlanExerciseRow({
                   <ExercisePicker
                     value={ex.rm_reference_exercise_id || ''}
                     onChange={(id) => onUpdate(index, 'rm_reference_exercise_id', id || null)}
-                    label="Tomar el máximo de otro ejercicio (opcional)"
-                    placeholder="Usar el máximo de este mismo ejercicio"
+                    label={t('coach.planEditor.exerciseRow.refExerciseLabel')}
+                    placeholder={t('coach.planEditor.exerciseRow.refExercisePlaceholder')}
                   />
                 </div>
               </div>
@@ -360,39 +378,56 @@ export default function PlanExerciseRow({
                 <div className="rounded-lg bg-white border border-amber-200 px-2 py-1.5 text-[11px] leading-snug">
                   {previewWeight.status === 'derived' && (
                     <p className="text-emerald-700">
-                      <strong className="font-semibold">{target.studentName}:</strong>{' '}
-                      <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
-                      {previewWeight.pct}% de {previewWeight.oneRm} kg
-                      {previewWeight.usedReference && rmReferenceExercise
-                        ? ` (máximo de ${rmReferenceExercise.name})`
-                        : ''}
-                      , evaluado el {formatShortDate(previewWeight.oneRmDate)}
+                      <Trans
+                        i18nKey={
+                          previewWeight.usedReference && rmReferenceExercise
+                            ? 'coach.planEditor.pctPreview.derivedRef'
+                            : 'coach.planEditor.pctPreview.derived'
+                        }
+                        values={{
+                          name: target.studentName,
+                          kg: previewWeight.kg,
+                          pct: previewWeight.pct,
+                          oneRm: previewWeight.oneRm,
+                          exercise: rmReferenceExercise?.name,
+                          date: formatShortDate(previewWeight.oneRmDate),
+                        }}
+                        components={bold}
+                      />
                       {previewWeight.stale && (
-                        <span className="text-amber-700"> · esa evaluación ya está vieja</span>
+                        <span className="text-amber-700">
+                          {t('coach.planEditor.pctPreview.stale')}
+                        </span>
                       )}
                     </p>
                   )}
                   {previewWeight.status === 'missing_1rm' && (
                     <p className="text-amber-800">
-                      <strong className="font-semibold">{target.studentName}</strong> no tiene
-                      evaluación de 1RM de este ejercicio: va a ver el porcentaje en vez de los
-                      kilos. Cargale una evaluación, elegí un ejercicio de referencia, o ponele los
-                      kilos a mano en su plan una vez asignado.
+                      <Trans
+                        i18nKey="coach.planEditor.pctPreview.missing1rm"
+                        values={{ name: target.studentName }}
+                        components={bold}
+                      />
                     </p>
                   )}
                   {previewWeight.status === 'missing_pct' && (
-                    <p className="text-amber-800">Falta cargar el porcentaje.</p>
+                    <p className="text-amber-800">{t('coach.planEditor.pctPreview.missingPct')}</p>
                   )}
                 </div>
               )}
               <p className="text-[11px] text-amber-700 leading-snug">
-                Los kilos no se escriben: se calculan como{' '}
-                <strong className="font-medium">
-                  {pct1rmValue ? `${pct1rmValue}%` : 'el %'} del máximo
-                  {rmReferenceExercise ? ` de ${rmReferenceExercise.name}` : ''}
-                </strong>{' '}
-                de cada persona, así el plan sube solo cuando sube su máximo. Si todavía no tiene
-                evaluación, va a ver el porcentaje.
+                <Trans
+                  i18nKey={
+                    rmReferenceExercise
+                      ? 'coach.planEditor.exerciseRow.pctExplainRef'
+                      : 'coach.planEditor.exerciseRow.pctExplain'
+                  }
+                  values={{
+                    pct: pct1rmValue ? `${pct1rmValue}%` : t('coach.planEditor.exerciseRow.thePct'),
+                    exercise: rmReferenceExercise?.name,
+                  }}
+                  components={bold}
+                />
               </p>
             </div>
           )}
@@ -402,10 +437,11 @@ export default function PlanExerciseRow({
             <div className="flex items-start gap-1.5 text-[11px] text-primary-700 bg-primary-50 border border-primary-100 rounded-lg px-2 py-1.5">
               <Info size={13} className="mt-0.5 flex-shrink-0" />
               <span>
-                Bloque {ex.block_letter}: los ejercicios con la misma letra van encadenados,{' '}
-                <strong className="font-medium">sin pausa entre ellos</strong>. El descanso que
-                cargues es la pausa del grupo (al terminar la vuelta), no entre serie y serie. Se
-                muestra una sola vez al alumno.
+                <Trans
+                  i18nKey="coach.planEditor.exerciseRow.groupNotice"
+                  values={{ letter: ex.block_letter }}
+                  components={bold}
+                />
               </span>
             </div>
           )}
@@ -413,7 +449,9 @@ export default function PlanExerciseRow({
           {/* Series, descanso, PSE */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Series</label>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {t('coach.planEditor.exerciseRow.sets')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -425,7 +463,9 @@ export default function PlanExerciseRow({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Descanso</label>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {t('coach.planEditor.exerciseRow.rest')}
+              </label>
               <input
                 className="input text-sm"
                 placeholder="1m 30s"
@@ -434,16 +474,18 @@ export default function PlanExerciseRow({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">PSE sugerida</label>
+              <label className="text-xs text-gray-500 mb-1 block">
+                {t('coach.planEditor.exerciseRow.suggestedPse')}
+              </label>
               <select
                 className="input text-sm"
                 value={ex.suggested_pse}
                 onChange={(e) => onUpdate(index, 'suggested_pse', e.target.value)}
               >
-                <option value="">Sin especificar</option>
+                <option value="">{t('coach.planEditor.exerciseRow.unspecified')}</option>
                 {PSE_OPTIONS.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {t(`workout.suggestedPseValue.${PSE_OPTION_KEY[p]}`)}
                   </option>
                 ))}
               </select>
@@ -457,13 +499,15 @@ export default function PlanExerciseRow({
                 <label className="text-xs text-gray-500 font-medium">
                   {differential
                     ? showWeightInputs
-                      ? 'Repeticiones y peso por serie'
-                      : 'Repeticiones por serie'
+                      ? t('coach.planEditor.exerciseRow.repsWeightPerSet')
+                      : t('coach.planEditor.exerciseRow.repsPerSet')
                     : showWeightInputs
-                      ? 'Repeticiones y peso'
-                      : 'Repeticiones'}
+                      ? t('coach.planEditor.exerciseRow.repsWeight')
+                      : t('coach.planEditor.exerciseRow.repsOnly')}
                   {effectiveUnilateral && (
-                    <span className="ml-1 text-[10px] text-violet-600 font-bold">· POR LADO</span>
+                    <span className="ml-1 text-[10px] text-violet-600 font-bold">
+                      {t('coach.planEditor.exerciseRow.perSideTag')}
+                    </span>
                   )}
                 </label>
                 <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer select-none">
@@ -473,7 +517,7 @@ export default function PlanExerciseRow({
                     checked={differential}
                     onChange={(e) => handleToggleDifferential(e.target.checked)}
                   />
-                  Diferencial por serie
+                  {t('coach.planEditor.exerciseRow.differential')}
                 </label>
               </div>
 
@@ -494,7 +538,7 @@ export default function PlanExerciseRow({
                   {showWeightInputs && (
                     <div>
                       <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide mb-1">
-                        Peso (kg)
+                        {t('coach.planEditor.exerciseRow.weightKg')}
                       </div>
                       <input
                         type="number"
@@ -520,7 +564,7 @@ export default function PlanExerciseRow({
                     </div>
                     {showWeightInputs && (
                       <div className="text-[10px] text-center text-gray-500 font-semibold uppercase tracking-wide">
-                        Peso (kg)
+                        {t('coach.planEditor.exerciseRow.weightKg')}
                       </div>
                     )}
                   </div>
@@ -551,7 +595,7 @@ export default function PlanExerciseRow({
                     </div>
                   ))}
                   <p className="text-[10px] text-gray-400 mt-1 px-0.5">
-                    El valor de la serie 1 autocompleta las series vacías.
+                    {t('coach.planEditor.exerciseRow.cascadeHint')}
                   </p>
                 </>
               )}
@@ -559,11 +603,11 @@ export default function PlanExerciseRow({
               {!showWeightInputs &&
                 (isPct1rm ? (
                   <p className="text-[11px] text-amber-700 mt-2 px-0.5">
-                    Peso prescripto por porcentaje · los kilos se derivan del máximo.
+                    {t('coach.planEditor.exerciseRow.pctWeightNote')}
                   </p>
                 ) : (
                   <p className="text-[11px] text-emerald-600 mt-2 px-0.5">
-                    Ejercicio sin peso · solo se cargan reps.
+                    {t('coach.planEditor.exerciseRow.bodyweightNote')}
                   </p>
                 ))}
             </div>
@@ -571,11 +615,13 @@ export default function PlanExerciseRow({
 
           {/* Notas técnicas */}
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Notas técnicas</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              {t('coach.planEditor.exerciseRow.notes')}
+            </label>
             <textarea
               className="input text-sm resize-none"
               rows={2}
-              placeholder="Indicaciones técnicas del ejercicio..."
+              placeholder={t('coach.planEditor.exerciseRow.notesPlaceholder')}
               value={ex.extra_notes}
               onChange={(e) => onUpdate(index, 'extra_notes', e.target.value)}
             />

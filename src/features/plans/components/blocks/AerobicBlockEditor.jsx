@@ -4,6 +4,7 @@ import {
   INTENSITY_LEVELS,
   AEROBIC_ZONES,
 } from '../../helpers'
+import { useTranslation } from 'react-i18next'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
 
 /**
@@ -12,6 +13,7 @@ import ExercisePicker from '@/features/exercises/components/ExercisePicker'
  * duración total, intensidad y — si es intervalos/HIIT — work/rest/rondas.
  */
 export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises }) {
+  const { t } = useTranslation()
   const showIntervals = AEROBIC_INTERVAL_FORMATS.includes(block.aerobic_format)
 
   // El bloque aeróbico admite 1 ejercicio opcional (ej: "Cinta" o "Bicicleta").
@@ -38,13 +40,15 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
       <ExercisePicker
         value={currentExerciseId}
         onChange={(id) => handleExerciseChange(id)}
-        label="Ejercicio (opcional)"
-        placeholder="Sin ejercicio específico"
+        label={t('coach.planEditor.aerobicBlock.exerciseLabel')}
+        placeholder={t('coach.planEditor.aerobicBlock.exercisePlaceholder')}
       />
 
       {/* Formato */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Formato</label>
+        <label className="text-xs text-gray-500 mb-1 block">
+          {t('coach.planEditor.aerobicBlock.format')}
+        </label>
         <div className="grid grid-cols-2 gap-1.5">
           {AEROBIC_FORMATS.map((f) => (
             <button
@@ -60,9 +64,11 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
               <p
                 className={`text-xs font-semibold ${block.aerobic_format === f.key ? 'text-sky-700' : 'text-gray-700'}`}
               >
-                {f.label}
+                {t(`workout.aerobicFormats.${f.key}`)}
               </p>
-              <p className="text-[10px] text-gray-400 leading-tight">{f.description}</p>
+              <p className="text-[10px] text-gray-400 leading-tight">
+                {t(`coach.planEditor.aerobicBlock.formatDesc.${f.key}`)}
+              </p>
             </button>
           ))}
         </div>
@@ -71,18 +77,22 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Duración total + intensidad */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Duración total (min)</label>
+          <label className="text-xs text-gray-500 mb-1 block">
+            {t('coach.planEditor.aerobicBlock.totalMinutes')}
+          </label>
           <input
             type="number"
             min="0"
             className="input text-sm"
-            placeholder="Ej: 25"
+            placeholder={t('coach.planEditor.aerobicBlock.minutesPlaceholder')}
             value={block.aerobic_total_minutes || ''}
             onChange={(e) => onUpdate({ aerobic_total_minutes: e.target.value })}
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Intensidad</label>
+          <label className="text-xs text-gray-500 mb-1 block">
+            {t('coach.planEditor.aerobicBlock.intensity')}
+          </label>
           <select
             className="input text-sm"
             value={block.aerobic_intensity || 'moderate'}
@@ -90,7 +100,7 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
           >
             {INTENSITY_LEVELS.map((i) => (
               <option key={i.key} value={i.key}>
-                {i.label}
+                {t(`workout.intensity.${i.key}`)}
               </option>
             ))}
           </select>
@@ -100,7 +110,7 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Zona objetivo (Z1-Z5) — OBLIGATORIA */}
       <div>
         <label className="text-xs text-gray-500 mb-1 block">
-          Zona objetivo <span className="text-red-500">*</span>
+          {t('coach.planEditor.aerobicBlock.targetZone')} <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-5 gap-1.5">
           {AEROBIC_ZONES.map((z) => {
@@ -113,7 +123,7 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
                 className={`rounded-xl border-2 p-2 text-center transition-all ${
                   selected ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
-                title={`${z.range} · ${z.short}`}
+                title={`${z.range} · ${t(`workout.aerobicZones.${z.key}.short`)}`}
               >
                 <p className={`text-sm font-bold ${selected ? 'text-sky-700' : 'text-gray-700'}`}>
                   {z.label}
@@ -132,9 +142,9 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
             >
               <span className="font-bold flex-shrink-0">{z.label}</span>
               <span className="leading-tight">
-                <strong>{z.short}</strong>
-                <span className="opacity-80"> · {z.desc}</span>
-                <span className="opacity-60"> · FC {z.pct}</span>
+                <strong>{t(`workout.aerobicZones.${z.key}.short`)}</strong>
+                <span className="opacity-80"> · {t(`workout.aerobicZones.${z.key}.desc`)}</span>
+                <span className="opacity-60"> · {t('workout.fcPct', { pct: z.pct })}</span>
               </span>
             </div>
           )
@@ -144,10 +154,14 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Intervalos: work/rest/rounds */}
       {showIntervals && (
         <div className="bg-sky-50 rounded-xl p-3 space-y-2">
-          <p className="text-xs font-semibold text-sky-700">Estructura de intervalos</p>
+          <p className="text-xs font-semibold text-sky-700">
+            {t('coach.planEditor.aerobicBlock.intervalStructure')}
+          </p>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Trabajo (s)</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.workSeconds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -158,7 +172,9 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
               />
             </div>
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Descanso (s)</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.restSeconds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -169,7 +185,9 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
               />
             </div>
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Rondas</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.rounds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -186,17 +204,19 @@ export default function AerobicBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Sensación esperada (opcional, complementa la zona) */}
       <div>
         <label className="text-xs text-gray-500 mb-1 block">
-          Aclaración extra <span className="text-gray-400 font-normal">(opcional)</span>
+          {t('coach.planEditor.aerobicBlock.extraNote')}{' '}
+          <span className="text-gray-400 font-normal">
+            {t('coach.planEditor.aerobicBlock.optional')}
+          </span>
         </label>
         <input
           className="input text-sm"
-          placeholder="Ej: por lesión, ir más suave de lo habitual..."
+          placeholder={t('coach.planEditor.aerobicBlock.extraNotePlaceholder')}
           value={block.aerobic_expected_sensation || ''}
           onChange={(e) => onUpdate({ aerobic_expected_sensation: e.target.value })}
         />
         <p className="text-[10px] text-gray-400 mt-0.5">
-          Sólo para casos puntuales (lesiones, indicaciones específicas). La zona ya describe la
-          sensación general.
+          {t('coach.planEditor.aerobicBlock.extraNoteHint')}
         </p>
       </div>
     </div>

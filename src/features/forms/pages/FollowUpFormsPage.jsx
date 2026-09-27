@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -19,6 +20,7 @@ const TEMPLATE_LIMIT = 10
 
 export default function FollowUpFormsPage() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,22 +43,19 @@ export default function FollowUpFormsPage() {
     setLoading(false)
   }
 
-  const activeTemplates = templates.filter((t) => t.is_active)
-  const archivedTemplates = templates.filter((t) => !t.is_active)
+  const activeTemplates = templates.filter((tpl) => tpl.is_active)
+  const archivedTemplates = templates.filter((tpl) => !tpl.is_active)
   const canCreate = activeTemplates.length < TEMPLATE_LIMIT
 
   async function handleArchive(id) {
-    if (
-      !confirm('¿Archivar esta plantilla? No se borrará, pero dejará de aparecer en envíos nuevos.')
-    )
-      return
+    if (!confirm(t('coach.forms.followUpList.confirmArchive'))) return
     await supabase.from('intake_form_templates').update({ is_active: false }).eq('id', id)
     load()
   }
 
   async function handleUnarchive(id) {
     if (!canCreate) {
-      alert(`Ya tenés ${TEMPLATE_LIMIT} plantillas activas. Archivá una para reactivar esta.`)
+      alert(t('coach.forms.followUpList.limitAlert', { limit: TEMPLATE_LIMIT }))
       return
     }
     await supabase.from('intake_form_templates').update({ is_active: true }).eq('id', id)
@@ -81,10 +80,14 @@ export default function FollowUpFormsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Formularios de seguimiento</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {t('coach.forms.followUpList.title')}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Plantillas libres para mandar durante o al cierre de un plan. {activeTemplates.length}/
-            {TEMPLATE_LIMIT} activas.
+            {t('coach.forms.followUpList.subtitle', {
+              active: activeTemplates.length,
+              limit: TEMPLATE_LIMIT,
+            })}
           </p>
         </div>
         <button
@@ -92,12 +95,12 @@ export default function FollowUpFormsPage() {
           disabled={!canCreate}
           title={
             canCreate
-              ? 'Crear nueva plantilla'
-              : `Llegaste al límite de ${TEMPLATE_LIMIT}. Archivá alguna primero.`
+              ? t('coach.forms.followUpList.createTitle')
+              : t('coach.forms.followUpList.limitTitle', { limit: TEMPLATE_LIMIT })
           }
           className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          <Plus size={16} /> Nueva
+          <Plus size={16} /> {t('coach.forms.followUpList.new')}
         </button>
       </div>
 
@@ -108,12 +111,12 @@ export default function FollowUpFormsPage() {
       {activeTemplates.length === 0 ? (
         <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-400">
           <FileText size={32} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm">Todavía no tenés formularios de seguimiento.</p>
+          <p className="text-sm">{t('coach.forms.followUpList.empty')}</p>
           <button
             onClick={() => navigate('/coach/follow-up-forms/new')}
             className="mt-3 text-sm text-blue-600 hover:underline"
           >
-            Crear el primero →
+            {t('coach.forms.followUpList.createFirst')}
           </button>
         </div>
       ) : (
@@ -130,7 +133,7 @@ export default function FollowUpFormsPage() {
                     <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{tpl.description}</p>
                   )}
                   <p className="text-xs text-gray-400 mt-2">
-                    {questionCount(tpl.config)} pregunta{questionCount(tpl.config) !== 1 ? 's' : ''}
+                    {t('coach.forms.followUpList.questions', { count: questionCount(tpl.config) })}
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
@@ -138,19 +141,19 @@ export default function FollowUpFormsPage() {
                     onClick={() => setSendingTemplate(tpl)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
                   >
-                    <Send size={12} /> Enviar
+                    <Send size={12} /> {t('coach.forms.followUpList.send')}
                   </button>
                   <Link
                     to={`/coach/follow-up-forms/${tpl.id}`}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
                   >
-                    <Edit2 size={12} /> Editar
+                    <Edit2 size={12} /> {t('coach.forms.followUpList.edit')}
                   </Link>
                   <button
                     onClick={() => handleArchive(tpl.id)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
                   >
-                    <Archive size={12} /> Archivar
+                    <Archive size={12} /> {t('coach.forms.followUpList.archive')}
                   </button>
                 </div>
               </div>
@@ -163,7 +166,7 @@ export default function FollowUpFormsPage() {
       {archivedTemplates.length > 0 && (
         <details className="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3">
           <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-            Archivadas ({archivedTemplates.length})
+            {t('coach.forms.followUpList.archived', { count: archivedTemplates.length })}
           </summary>
           <div className="mt-3 space-y-2">
             {archivedTemplates.map((tpl) => (
@@ -176,7 +179,7 @@ export default function FollowUpFormsPage() {
                   onClick={() => handleUnarchive(tpl.id)}
                   className="text-xs text-blue-600 hover:underline flex-shrink-0 ml-2"
                 >
-                  Reactivar
+                  {t('coach.forms.followUpList.reactivate')}
                 </button>
               </div>
             ))}

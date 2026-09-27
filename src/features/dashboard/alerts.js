@@ -797,7 +797,7 @@ export function computeStagnationByExercise(students, recentLogs, today = new Da
       firstMax: 0,
       secondMax: 0,
       count: 0,
-      exerciseName: exName || 'Ejercicio sin nombre',
+      exerciseName: exName || null, // sin nombre → la UI dice "Sin progreso" a secas
       studentId: log.student_id,
       exerciseId: exId,
     }
@@ -880,6 +880,8 @@ export function computeAllAlerts({
 // ============================================================
 // Tokens visuales por tipo de alerta — los consume la UI para evitar
 // repetir paletas en cada render.
+// `label` es el nombre interno (español); en pantalla se usa
+// coach.dashboard.alertKinds.<key> (i18n del panel de la coach).
 // ============================================================
 export const ALERT_KIND = {
   overdue: {
@@ -1041,30 +1043,30 @@ const PERSON_ALERT_ORDER = [
   'noActivePlan',
 ]
 
-const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
-
-export function describeAlertItem(kind, it) {
+// Texto de cada motivo: claves coach.dashboard.alerts.* (`t` = función de i18next).
+export function describeAlertItem(kind, it, t) {
+  const A = 'coach.dashboard.alerts.'
   switch (kind) {
     case 'overdue':
       return {
         tone: 'bad',
         text:
-          it.daysOverdue > 0
-            ? `Pago vencido hace ${plural(it.daysOverdue, 'día', 'días')}`
-            : 'Pago vencido',
+          it.daysOverdue > 0 ? t(A + 'overdueDays', { count: it.daysOverdue }) : t(A + 'overdue'),
       }
     case 'inactiveStudents':
       return {
         tone: 'bad',
         text:
           it.daysSinceLastLog === Infinity || it.daysSinceLastLog == null
-            ? 'Sin entrenamientos registrados'
-            : `No entrena hace ${plural(it.daysSinceLastLog, 'día', 'días')}`,
+            ? t(A + 'noLogs')
+            : t(A + 'inactiveDays', { count: it.daysSinceLastLog }),
       }
     case 'painStudents':
       return {
         tone: 'warn',
-        text: it.lastNoteSnippet ? `Contó dolor: "${it.lastNoteSnippet}"` : 'Contó dolor',
+        text: it.lastNoteSnippet
+          ? t(A + 'painQuote', { snippet: it.lastNoteSnippet })
+          : t(A + 'pain'),
       }
     case 'skipDiscomfort': {
       const names = it.exerciseNames || []
@@ -1072,10 +1074,15 @@ export function describeAlertItem(kind, it) {
         tone: 'warn',
         text:
           names.length === 0
-            ? 'Omitió por molestia'
+            ? t(A + 'skipDiscomfort')
             : names.length === 1
-              ? `Omitió ${names[0]} por molestia`
-              : `Omitió por molestia: ${names.slice(0, 2).join(', ')}${names.length > 2 ? ` y ${names.length - 2} más` : ''}`,
+              ? t(A + 'skipDiscomfortOne', { name: names[0] })
+              : names.length > 2
+                ? t(A + 'skipDiscomfortManyMore', {
+                    names: names.slice(0, 2).join(', '),
+                    count: names.length - 2,
+                  })
+                : t(A + 'skipDiscomfortMany', { names: names.join(', ') }),
       }
     }
     case 'planExpired':
@@ -1083,52 +1090,58 @@ export function describeAlertItem(kind, it) {
         tone: 'warn',
         text:
           it.daysExpired > 0
-            ? `Plan vencido hace ${plural(it.daysExpired, 'día', 'días')}`
-            : 'Plan vencido',
+            ? t(A + 'planExpiredDays', { count: it.daysExpired })
+            : t(A + 'planExpired'),
       }
     case 'formUnanswered': {
-      const more = it.count > 1 ? ` (y ${plural(it.count - 1, 'otro', 'otros')})` : ''
+      const more = it.count > 1 ? t(A + 'formUnansweredMore', { count: it.count - 1 }) : ''
       return {
         tone: 'warn',
-        text: `Formulario sin responder hace ${plural(it.daysWaiting, 'día', 'días')}${more}`,
+        text: t(A + 'formUnanswered', { count: it.daysWaiting }) + more,
       }
     }
     case 'adherenceDecline':
       return {
         tone: 'warn',
-        text: `Cumplimiento en baja: ${(it.trend || []).join(' → ')} %`,
+        text: t(A + 'adherenceDecline', { trend: (it.trend || []).join(' → ') }),
       }
     case 'fatigueStudents':
-      return { tone: 'warn', text: 'Señales de fatiga' }
+      return { tone: 'warn', text: t(A + 'fatigue') }
     case 'lowMotivationStudents':
-      return { tone: 'warn', text: 'Motivación baja' }
+      return { tone: 'warn', text: t(A + 'lowMotivation') }
     case 'highRpeStudents':
       return {
         tone: 'warn',
-        text: `Esfuerzo alto ${plural(it.highRpeCount || 0, 'vez', 'veces')}`,
+        text: t(A + 'highRpe', { count: it.highRpeCount || 0 }),
       }
     case 'stagnationStudents': {
       const names = (it.stagnantExercises || []).map((e) => e.exerciseName).filter(Boolean)
       return {
         tone: 'neutral',
-        text: names.length > 0 ? `Sin progreso en ${names.slice(0, 2).join(', ')}` : 'Sin progreso',
+        text:
+          names.length > 0
+            ? t(A + 'stagnationIn', { names: names.slice(0, 2).join(', ') })
+            : t(A + 'stagnation'),
       }
     }
     case 'noActivePlan':
-      return { tone: 'neutral', text: 'Sin plan activo' }
+      return { tone: 'neutral', text: t(A + 'noActivePlan') }
     default:
-      return { tone: 'neutral', text: ALERT_KIND[kind]?.label || kind }
+      return {
+        tone: 'neutral',
+        text: ALERT_KIND[kind] ? t(`coach.dashboard.alertKinds.${kind}`) : kind,
+      }
   }
 }
 
-export function groupAlertsByStudent(alerts) {
+export function groupAlertsByStudent(alerts, t) {
   const byId = new Map()
   for (const kind of PERSON_ALERT_ORDER) {
     for (const it of alerts?.[kind] || []) {
       if (!byId.has(it.studentId)) {
         byId.set(it.studentId, { studentId: it.studentId, name: it.name, items: [] })
       }
-      byId.get(it.studentId).items.push({ kind, ...describeAlertItem(kind, it) })
+      byId.get(it.studentId).items.push({ kind, ...describeAlertItem(kind, it, t) })
     }
   }
   const count = (row, tone) => row.items.filter((i) => i.tone === tone).length

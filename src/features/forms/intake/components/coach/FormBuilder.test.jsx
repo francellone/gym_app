@@ -49,7 +49,7 @@ function renderBuilder(initialConfig) {
 describe('FormBuilder — aviso de formulario vacío por idioma', () => {
   it('avisa cuando todas las preguntas quedaron para el otro idioma', () => {
     renderBuilder(config({ hiddenFor: ['es'] }))
-    expect(screen.getByText(/llegaría VACÍO a tus alumnas en español/i)).toBeInTheDocument()
+    expect(screen.getByText(/llegaría VACÍO a las personas en español/i)).toBeInTheDocument()
   })
 
   it('no molesta cuando las preguntas se muestran a todas', () => {

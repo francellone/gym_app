@@ -1,0 +1,16 @@
+{
+  "bests": {
+    "title": "Mejores marcas",
+    "voidError": "No se pudo anular la marca. Probá de nuevo.",
+    "before": "antes",
+    "voided": "Anulada",
+    "void": "Anular",
+    "confirm": "¿Anular esta marca? Ese registro deja de contar como referencia para las marcas que vengan. El registro en sí no cambia.",
+    "confirmButton": "Anular marca",
+    "reason": {
+      "student_void": "la anuló la persona",
+      "corrected": "se corrigió el registro",
+      "coach_void": "la anulaste vos"
+    }
+  }
+}

@@ -58,9 +58,7 @@ function renderModal(formConfig) {
 
 beforeEach(() => {
   resetSupabaseMock(supabaseMock)
-  supabaseMock._chain.then.mockImplementation((resolve) =>
-    resolve({ data: STUDENTS, error: null })
-  )
+  supabaseMock._chain.then.mockImplementation((resolve) => resolve({ data: STUDENTS, error: null }))
 })
 
 describe('SendToStudentModal — formulario vacío para un idioma', () => {
@@ -69,7 +67,7 @@ describe('SendToStudentModal — formulario vacío para un idioma', () => {
 
     await waitFor(() => expect(screen.getByText('Ana')).toBeInTheDocument())
 
-    expect(screen.getByText(/no tiene ninguna pregunta para alumnos en/i)).toBeInTheDocument()
+    expect(screen.getByText(/no tiene ninguna pregunta para personas en/i)).toBeInTheDocument()
     expect(screen.getByText(/no tiene preguntas en su idioma \(es\)/i)).toBeInTheDocument()
 
     expect(screen.getByText('Ana').closest('button')).toBeDisabled()

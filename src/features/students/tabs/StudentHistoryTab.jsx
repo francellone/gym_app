@@ -1,4 +1,5 @@
 import { History, Edit2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { format, parseISO } from 'date-fns'
 import { FIELD_LABELS } from '../helpers'
 
@@ -7,16 +8,17 @@ import { FIELD_LABELS } from '../helpers'
 // Props: editHistory
 // ─────────────────────────────────────────────────────────────
 export default function StudentHistoryTab({ editHistory }) {
+  const { t } = useTranslation()
   if (editHistory.length === 0) {
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <History size={16} className="text-gray-500" />
-          <h3 className="font-semibold text-gray-900">Historial de modificaciones</h3>
+          <h3 className="font-semibold text-gray-900">{t('coach.students.history.title')}</h3>
         </div>
         <div className="card text-center py-8 text-gray-400">
           <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Sin modificaciones registradas</p>
+          <p className="text-sm">{t('coach.students.history.empty')}</p>
         </div>
       </div>
     )
@@ -26,7 +28,7 @@ export default function StudentHistoryTab({ editHistory }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <History size={16} className="text-gray-500" />
-        <h3 className="font-semibold text-gray-900">Historial de modificaciones</h3>
+        <h3 className="font-semibold text-gray-900">{t('coach.students.history.title')}</h3>
       </div>
       <div className="space-y-2">
         {editHistory.map((h) => (
@@ -37,7 +39,9 @@ export default function StudentHistoryTab({ editHistory }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900">
-                  {FIELD_LABELS[h.field_name] || h.field_name}
+                  {FIELD_LABELS[h.field_name]
+                    ? t(`coach.students.fields.${h.field_name}`)
+                    : h.field_name}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5 text-xs">
                   <span className="text-red-500 line-through">{h.old_value || '—'}</span>
@@ -46,7 +50,7 @@ export default function StudentHistoryTab({ editHistory }) {
                 </div>
               </div>
               <p className="text-xs text-gray-400 flex-shrink-0">
-                {format(parseISO(h.changed_at), 'd/MM/yy HH:mm')}
+                {format(parseISO(h.changed_at), t('coach.students.formats.shortDateTime'))}
               </p>
             </div>
           </div>

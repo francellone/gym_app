@@ -1,4 +1,5 @@
-import { DAYS_OF_WEEK, normalizePreferredDays } from '../assignmentHelpers'
+import { useTranslation } from 'react-i18next'
+import { normalizePreferredDays } from '../assignmentHelpers'
 
 // ─────────────────────────────────────────────────────────────
 // DayOfWeekSelector
@@ -23,6 +24,7 @@ export default function DayOfWeekSelector({
   disabled = false,
   compact = false,
 }) {
+  const { t } = useTranslation()
   const selected = new Set(normalizePreferredDays(value))
 
   // Orden visual ISO: Lun..Dom (1..6, 0).
@@ -43,9 +45,12 @@ export default function DayOfWeekSelector({
 
   return (
     <div className="space-y-2">
-      <div role="group" aria-label="Días de entrenamiento" className="flex gap-1.5 flex-wrap">
+      <div
+        role="group"
+        aria-label={t('coach.planEditor.daySelector.groupAria')}
+        className="flex gap-1.5 flex-wrap"
+      >
         {order.map((d) => {
-          const day = DAYS_OF_WEEK[d]
           const isOn = selected.has(d)
           return (
             <button
@@ -53,7 +58,7 @@ export default function DayOfWeekSelector({
               type="button"
               role="checkbox"
               aria-checked={isOn}
-              aria-label={day.label}
+              aria-label={t(`coach.planEditor.days.long.${d}`)}
               onClick={() => toggle(d)}
               disabled={disabled}
               className={[
@@ -65,7 +70,7 @@ export default function DayOfWeekSelector({
                 disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
               ].join(' ')}
             >
-              {day.short}
+              {t(`coach.planEditor.days.short.${d}`)}
             </button>
           )
         })}
@@ -74,8 +79,10 @@ export default function DayOfWeekSelector({
       {/* Hint de mismatch contra sessions_per_week (no bloqueante) */}
       {countMismatch && (
         <p className="text-[11px] text-amber-600 leading-tight">
-          El plan sugiere {suggestedCount} sesion{suggestedCount === 1 ? '' : 'es'} por semana y
-          elegiste {selected.size} día{selected.size === 1 ? '' : 's'}. Podés guardarlo igual.
+          {t('coach.planEditor.daySelector.mismatch', {
+            sessions: t('coach.planEditor.daySelector.sessionsPerWeek', { count: suggestedCount }),
+            days: t('coach.planEditor.daySelector.daysCount', { count: selected.size }),
+          })}
         </p>
       )}
     </div>

@@ -552,7 +552,8 @@ function toActivityEvent(row) {
     student_id: row.student_id,
     date: row.date,
     emoji: t?.emoji || '✨',
-    name: (row.label && String(row.label).trim()) || typeName || 'Actividad',
+    // Sin nombre → la UI pone "Actividad" traducido (titleFallback).
+    name: (row.label && String(row.label).trim()) || typeName || null,
   }
 }
 

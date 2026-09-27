@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { BLOCK_TYPE_LIST } from '../../helpers'
 
 /**
@@ -7,6 +8,7 @@ import { BLOCK_TYPE_LIST } from '../../helpers'
  * Al elegir un tipo llama onAdd(type).
  */
 export default function AddBlockMenu({ onAdd }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   return (
@@ -17,26 +19,28 @@ export default function AddBlockMenu({ onAdd }) {
           className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
         >
           <Plus size={16} />
-          Agregar bloque
+          {t('coach.planEditor.addBlock.button')}
         </button>
       ) : (
         <div className="rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-3 space-y-2">
           <p className="text-xs font-semibold text-gray-600 text-center">
-            ¿Qué tipo de bloque querés agregar?
+            {t('coach.planEditor.addBlock.question')}
           </p>
           <div className="grid grid-cols-3 gap-2">
-            {BLOCK_TYPE_LIST.map((t) => (
+            {BLOCK_TYPE_LIST.map((bt) => (
               <button
-                key={t.key}
+                key={bt.key}
                 type="button"
                 onClick={() => {
-                  onAdd(t.key)
+                  onAdd(bt.key)
                   setOpen(false)
                 }}
                 className="rounded-xl border-2 border-gray-200 bg-white hover:border-primary-400 p-2 text-center transition-all"
               >
-                <span className="text-xl block mb-0.5">{t.icon}</span>
-                <span className="text-xs font-semibold text-gray-700">{t.label}</span>
+                <span className="text-xl block mb-0.5">{bt.icon}</span>
+                <span className="text-xs font-semibold text-gray-700">
+                  {t(`coach.planEditor.blockTypes.${bt.key}.label`)}
+                </span>
               </button>
             ))}
           </div>
@@ -44,7 +48,7 @@ export default function AddBlockMenu({ onAdd }) {
             onClick={() => setOpen(false)}
             className="w-full text-xs text-gray-400 hover:text-gray-600"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
         </div>
       )}

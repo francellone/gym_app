@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
   ClipboardList,
@@ -19,6 +20,7 @@ import { evalTypeColor } from '@/features/evaluations/helpers'
 import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 export default function PlansPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -87,7 +89,7 @@ export default function PlansPage() {
       await setPlanArchived(plan.id, false)
       fetchPlans()
     } catch (err) {
-      alert(err.message || 'No se pudo desarchivar.')
+      alert(err.message || t('coach.plans.unarchiveError'))
     }
   }
 
@@ -131,25 +133,25 @@ export default function PlansPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Planes</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('coach.plans.list.title')}</h1>
           <p className="text-sm text-gray-500">
-            {visible.length} planes en total
+            {t('coach.plans.list.total', { count: visible.length })}
             {archivedCount > 0 &&
-              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
+              ` · ${t('coach.plans.list.archivedCount', { count: archivedCount })}`}
           </p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
-          <span className="hidden sm:inline">Nuevo plan</span>
+          <span className="hidden sm:inline">{t('coach.plans.list.newPlan')}</span>
         </Link>
       </div>
 
       {/* Type filter tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
         {[
-          { key: 'all', label: 'Todos', count: visible.length },
-          { key: 'training', label: 'Entrenamiento', count: trainingCount },
-          { key: 'evaluation', label: 'Evaluación', count: evalCount },
+          { key: 'all', label: t('coach.plans.list.filterAll'), count: visible.length },
+          { key: 'training', label: t('coach.plans.list.filterTraining'), count: trainingCount },
+          { key: 'evaluation', label: t('coach.plans.list.filterEvaluation'), count: evalCount },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -163,7 +165,11 @@ export default function PlansPage() {
             {tab.key === 'evaluation' && <BarChart2 size={13} />}
             <span className="hidden sm:inline">{tab.label}</span>
             <span className="sm:hidden">
-              {tab.key === 'all' ? 'Todos' : tab.key === 'training' ? 'Entr.' : 'Eval.'}
+              {tab.key === 'all'
+                ? t('coach.plans.list.filterAll')
+                : tab.key === 'training'
+                  ? t('coach.plans.list.filterTrainingShort')
+                  : t('coach.plans.list.filterEvaluationShort')}
             </span>
             <span
               className={`text-xs ${filterType === tab.key ? 'text-gray-500' : 'text-gray-400'}`}
@@ -184,10 +190,11 @@ export default function PlansPage() {
               ? 'bg-durazno-50 border-durazno-200 text-primary-700'
               : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
           }`}
-          title="Ver los planes archivados"
+          title={t('coach.plans.list.showArchivedTitle')}
         >
           <Archive size={13} />
-          Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
+          {t('coach.plans.list.archived')}
+          {archivedCount > 0 ? ` (${archivedCount})` : ''}
         </button>
       </div>
       <div className="relative">
@@ -195,7 +202,7 @@ export default function PlansPage() {
         <input
           type="text"
           className="input pl-9"
-          placeholder="Buscar plan..."
+          placeholder={t('coach.plans.list.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -214,10 +221,10 @@ export default function PlansPage() {
       ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
           <ClipboardList className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No hay planes</p>
+          <p className="text-gray-500 font-medium">{t('coach.plans.list.empty')}</p>
           <Link to="/coach/plans/new" className="btn-primary inline-flex items-center gap-2 mt-4">
             <Plus size={16} />
-            Crear plan
+            {t('coach.plans.list.createPlan')}
           </Link>
         </div>
       ) : (
@@ -236,35 +243,43 @@ export default function PlansPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-gray-900 break-words">{plan.title}</p>
                       {plan.is_template && (
-                        <span className="badge bg-purple-100 text-purple-700">Plantilla</span>
+                        <span className="badge bg-purple-100 text-purple-700">
+                          {t('coach.plans.list.templateBadge')}
+                        </span>
                       )}
                       {plan.archived_at && (
-                        <span className="badge bg-gray-200 text-gray-700">Archivado</span>
+                        <span className="badge bg-gray-200 text-gray-700">
+                          {t('coach.plans.list.archivedBadge')}
+                        </span>
                       )}
                       {isEval && plan.eval_type && (
                         <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                          <EvalTypeIcon type={plan.eval_type} inline /> Evaluación
+                          <EvalTypeIcon type={plan.eval_type} inline />{' '}
+                          {t('coach.plans.list.filterEvaluation')}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {isEval
-                        ? 'Protocolo de evaluación'
-                        : `${plan.plan_exercises?.length || 0} ejercicios`}
+                        ? t('coach.plans.list.evalProtocol')
+                        : t('coach.plans.list.exercisesCount', {
+                            count: plan.plan_exercises?.length || 0,
+                          })}
                       {plan.sessions_per_week && !isEval
-                        ? ` · ${plan.sessions_per_week} días/sem`
+                        ? ` · ${t('coach.plans.list.daysPerWeekShort', { count: Number(plan.sessions_per_week) })}`
                         : ''}
                       {activeAssignments.length > 0
-                        ? ` · ${activeAssignments.length} alumno${activeAssignments.length > 1 ? 's' : ''}`
+                        ? ` · ${t('coach.plans.list.peopleCount', { count: activeAssignments.length })}`
                         : ''}
                       {!isEval && plan._linked_evals_count > 0 && (
                         <span className="ml-1 text-purple-600">
-                          · {plan._linked_evals_count}{' '}
-                          {plan._linked_evals_count === 1 ? 'eval.' : 'evals.'}
+                          · {t('coach.plans.list.evalsCount', { count: plan._linked_evals_count })}
                         </span>
                       )}
                       {isEval && plan.parent_plan_id && (
-                        <span className="ml-1 text-blue-600">· ligada a un plan</span>
+                        <span className="ml-1 text-blue-600">
+                          · {t('coach.plans.list.linkedToPlan')}
+                        </span>
                       )}
                     </p>
                     {plan.description && (
@@ -278,7 +293,7 @@ export default function PlansPage() {
                       <button
                         onClick={() => handleUnarchive(plan)}
                         className="btn-ghost p-2 text-gray-500"
-                        title="Desarchivar: vuelve al recetario"
+                        title={t('coach.plans.list.unarchiveTitle')}
                       >
                         <ArchiveRestore size={16} />
                       </button>
@@ -287,14 +302,14 @@ export default function PlansPage() {
                         <button
                           onClick={() => setDuplicatingPlan(plan)}
                           className="btn-ghost p-2 text-gray-500"
-                          title="Duplicar plan"
+                          title={t('coach.plans.list.duplicateTitle')}
                         >
                           <Copy size={16} />
                         </button>
                         <button
                           onClick={() => handleOpenDelete(plan)}
                           className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-                          title="Archivar o eliminar plan"
+                          title={t('coach.plans.list.archiveOrDeleteTitle')}
                         >
                           <Trash2 size={16} />
                         </button>

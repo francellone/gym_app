@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarClock, Loader, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
-import {
-  SCHEDULE_MODES,
-  normalizePreferredDays,
-  getScheduleMode,
-  getPreferredDays,
-} from '../assignmentHelpers'
+import { normalizePreferredDays, getScheduleMode, getPreferredDays } from '../assignmentHelpers'
 import DayOfWeekSelector from './DayOfWeekSelector'
 
 // ─────────────────────────────────────────────────────────────
@@ -25,6 +21,7 @@ import DayOfWeekSelector from './DayOfWeekSelector'
 //   disabled        boolean
 // ─────────────────────────────────────────────────────────────
 export function ScheduleEditorInline({ value, onChange, sessionsPerWeek, disabled = false }) {
+  const { t } = useTranslation()
   const mode = value?.schedule_mode === 'fixed' ? 'fixed' : 'flexible'
   const days = normalizePreferredDays(value?.preferred_days)
 
@@ -51,11 +48,10 @@ export function ScheduleEditorInline({ value, onChange, sessionsPerWeek, disable
       {/* Toggle segmentado flexible / fixed */}
       <div
         role="radiogroup"
-        aria-label="Modo de horario"
+        aria-label={t('coach.planEditor.schedule.modeAria')}
         className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-xl"
       >
         {['flexible', 'fixed'].map((key) => {
-          const cfg = SCHEDULE_MODES[key]
           const isOn = mode === key
           return (
             <button
@@ -71,13 +67,15 @@ export function ScheduleEditorInline({ value, onChange, sessionsPerWeek, disable
                 disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
               ].join(' ')}
             >
-              {cfg.label}
+              {t(`coach.planEditor.schedule.modes.${key}.label`)}
             </button>
           )
         })}
       </div>
 
-      <p className="text-[11px] text-gray-500 leading-snug">{SCHEDULE_MODES[mode].description}</p>
+      <p className="text-[11px] text-gray-500 leading-snug">
+        {t(`coach.planEditor.schedule.modes.${mode}.description`)}
+      </p>
 
       {mode === 'fixed' && (
         <DayOfWeekSelector
@@ -105,6 +103,7 @@ export function ScheduleEditorInline({ value, onChange, sessionsPerWeek, disable
 //                  que el padre refresque su lista
 // ─────────────────────────────────────────────────────────────
 export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
+  const { t } = useTranslation()
   const initial = useMemo(
     () => ({
       schedule_mode: getScheduleMode(assignment),
@@ -157,7 +156,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
       onClose()
     } catch (err) {
       console.error('[ScheduleEditorModal] save', err)
-      setError(err.message || 'Error al guardar el horario')
+      setError(err.message || t('coach.planEditor.schedule.saveError'))
     } finally {
       setSaving(false)
     }
@@ -178,10 +177,12 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
               <CalendarClock size={16} className="text-primary-600" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900">Horario de entrenamiento</h2>
+              <h2 className="font-bold text-gray-900">{t('coach.planEditor.schedule.title')}</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                {assignment?.plan?.title || 'Asignación'}
-                {sessionsPerWeek ? ` · ${sessionsPerWeek} ses/sem sugeridas` : ''}
+                {assignment?.plan?.title || t('coach.planEditor.schedule.assignmentFallback')}
+                {sessionsPerWeek
+                  ? t('coach.planEditor.schedule.suggestedPerWeek', { count: sessionsPerWeek })
+                  : ''}
               </p>
             </div>
           </div>
@@ -190,7 +191,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
             onClick={onClose}
             disabled={saving}
             className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>
@@ -220,7 +221,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
             disabled={saving}
             className="btn-secondary flex-1 text-sm"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -228,7 +229,7 @@ export function ScheduleEditorModal({ assignment, onClose, onSaved }) {
             disabled={!canSave}
             className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
           >
-            {saving ? <Loader size={14} className="animate-spin" /> : 'Guardar'}
+            {saving ? <Loader size={14} className="animate-spin" /> : t('common.save')}
           </button>
         </div>
       </div>

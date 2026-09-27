@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ArrowLeft, User, Dumbbell, Save, AlertCircle, AlertTriangle } from 'lucide-react'
@@ -7,44 +8,48 @@ import { ArrowLeft, User, Dumbbell, Save, AlertCircle, AlertTriangle } from 'luc
 // ============================================================
 // Validaciones de datos del alumno
 // ============================================================
-function validateStudentData(form) {
+function validateStudentData(form, t) {
   const errors = {}
 
-  if (!form.name.trim()) errors.name = 'El nombre es obligatorio'
-  if (!form.email.trim()) errors.email = 'El email es obligatorio'
-  if (!form.password || form.password.length < 6) errors.password = 'Mínimo 6 caracteres'
+  if (!form.name.trim()) errors.name = t('coach.students.create.errors.nameRequired')
+  if (!form.email.trim()) errors.email = t('coach.students.create.errors.emailRequired')
+  if (!form.password || form.password.length < 6)
+    errors.password = t('coach.students.create.errors.passwordMin')
 
   if (form.height_cm) {
     const h = parseFloat(form.height_cm)
-    if (isNaN(h) || h < 50 || h > 250) errors.height_cm = 'Altura inválida (50–250 cm)'
+    if (isNaN(h) || h < 50 || h > 250)
+      errors.height_cm = t('coach.students.create.errors.heightInvalid')
   }
   if (form.weight_kg) {
     const w = parseFloat(form.weight_kg)
-    if (isNaN(w) || w < 20 || w > 200) errors.weight_kg = 'Peso inválido (20–200 kg)'
+    if (isNaN(w) || w < 20 || w > 200)
+      errors.weight_kg = t('coach.students.create.errors.weightInvalid')
   }
   if (form.target_weight_kg) {
     const w = parseFloat(form.target_weight_kg)
     if (isNaN(w) || w < 20 || w > 200)
-      errors.target_weight_kg = 'Peso objetivo inválido (20–200 kg)'
+      errors.target_weight_kg = t('coach.students.create.errors.targetWeightInvalid')
   }
   if (form.birth_date) {
     const birth = new Date(form.birth_date)
     const now = new Date()
     const age = (now - birth) / (365.25 * 24 * 3600 * 1000)
-    if (age < 5 || age > 110) errors.birth_date = 'Fecha de nacimiento inválida'
+    if (age < 5 || age > 110) errors.birth_date = t('coach.students.create.errors.birthDateInvalid')
   }
   if (form.weekly_frequency) {
     const f = parseInt(form.weekly_frequency)
-    if (isNaN(f) || f < 1 || f > 7) errors.weekly_frequency = 'Frecuencia entre 1 y 7 días'
+    if (isNaN(f) || f < 1 || f > 7)
+      errors.weekly_frequency = t('coach.students.create.errors.frequencyInvalid')
   }
 
   return errors
 }
 
 // ============================================================
-// Traducción de errores de Supabase Auth al español
+// Traducción de errores de Supabase Auth al idioma de la coach
 // ============================================================
-function translateAuthError(msg = '') {
+function translateAuthError(msg = '', t) {
   const m = msg.toLowerCase()
 
   if (
@@ -52,39 +57,38 @@ function translateAuthError(msg = '') {
     m.includes('over_email_send_rate_limit') ||
     m.includes('email rate limit')
   )
-    return 'Límite de envío de emails alcanzado. Para evitar esto, desactivá la confirmación de email en Supabase → Authentication → Settings → "Enable email confirmations".'
+    return t('coach.students.create.errors.rateLimit')
 
   if (
     m.includes('user already registered') ||
     m.includes('already been registered') ||
     m.includes('email already')
   )
-    return 'Ya existe un alumno registrado con ese email.'
+    return t('coach.students.create.errors.alreadyExists')
 
   if (m.includes('email address not authorized') || m.includes('not_authorized'))
-    return 'Email no autorizado. Revisá la configuración de dominios permitidos en Supabase.'
+    return t('coach.students.create.errors.notAuthorized')
 
   if (
     m.includes('invalid email') ||
     m.includes('invalid_email') ||
     m.includes('unable to validate email')
   )
-    return 'El email ingresado no es válido.'
+    return t('coach.students.create.errors.invalidEmail')
 
   if (m.includes('weak password') || m.includes('password should be'))
-    return 'La contraseña es demasiado débil. Usá al menos 6 caracteres.'
+    return t('coach.students.create.errors.weakPassword')
 
   if (m.includes('identities') || m.includes('ya existe un alumno'))
-    return 'Ya existe un alumno registrado con ese email.'
+    return t('coach.students.create.errors.alreadyExists')
 
   if (m.includes('confirmación de email') || m.includes('email not confirmed'))
-    return 'No se pudo crear el usuario. Asegurate de desactivar la confirmación de email en Supabase → Authentication → Settings.'
+    return t('coach.students.create.errors.emailNotConfirmed')
 
-  if (m.includes('network') || m.includes('fetch'))
-    return 'Error de red. Verificá tu conexión a internet.'
+  if (m.includes('network') || m.includes('fetch')) return t('coach.students.create.errors.network')
 
   // Si no matchea nada, devolver el mensaje original
-  return msg || 'Error desconocido al crear el alumno.'
+  return msg || t('coach.students.create.errors.unknown')
 }
 
 function FieldError({ msg }) {
@@ -98,6 +102,7 @@ function FieldError({ msg }) {
 
 export default function CreateStudentPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -137,7 +142,7 @@ export default function CreateStudentPage() {
     setError(null)
 
     // Validar
-    const errors = validateStudentData(form)
+    const errors = validateStudentData(form, t)
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
       return
@@ -187,12 +192,12 @@ export default function CreateStudentPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al crear el alumno')
+        throw new Error(result.error || t('coach.students.create.errors.createFailed'))
       }
 
       navigate('/coach/students')
     } catch (err) {
-      setError(translateAuthError(err.message))
+      setError(translateAuthError(err.message, t))
     } finally {
       setLoading(false)
     }
@@ -205,8 +210,8 @@ export default function CreateStudentPage() {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Nuevo alumno</h1>
-          <p className="text-sm text-gray-500">Completá los datos del alumno</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('coach.students.create.title')}</h1>
+          <p className="text-sm text-gray-500">{t('coach.students.create.subtitle')}</p>
         </div>
       </div>
 
@@ -217,24 +222,24 @@ export default function CreateStudentPage() {
             <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
               <User size={14} className="text-blue-600" />
             </div>
-            <h2 className="font-semibold text-gray-900">Datos personales</h2>
+            <h2 className="font-semibold text-gray-900">{t('coach.students.info.personalData')}</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="label">Nombre completo *</label>
+              <label className="label">{t('coach.students.create.fullName')}</label>
               <input
                 name="name"
                 value={form.name}
                 onChange={handleChange}
                 className={`input ${fieldErrors.name ? 'border-red-400' : ''}`}
                 required
-                placeholder="Juan Pérez"
+                placeholder={t('coach.students.create.namePlaceholder')}
               />
               <FieldError msg={fieldErrors.name} />
             </div>
             <div>
-              <label className="label">Email *</label>
+              <label className="label">{t('coach.students.create.email')}</label>
               <input
                 name="email"
                 type="email"
@@ -242,12 +247,12 @@ export default function CreateStudentPage() {
                 onChange={handleChange}
                 className={`input ${fieldErrors.email ? 'border-red-400' : ''}`}
                 required
-                placeholder="juan@email.com"
+                placeholder={t('coach.students.create.emailPlaceholder')}
               />
               <FieldError msg={fieldErrors.email} />
             </div>
             <div>
-              <label className="label">Contraseña *</label>
+              <label className="label">{t('coach.students.create.password')}</label>
               <input
                 name="password"
                 type="password"
@@ -255,22 +260,22 @@ export default function CreateStudentPage() {
                 onChange={handleChange}
                 className={`input ${fieldErrors.password ? 'border-red-400' : ''}`}
                 required
-                placeholder="Mínimo 6 caracteres"
+                placeholder={t('coach.students.create.errors.passwordMin')}
               />
               <FieldError msg={fieldErrors.password} />
             </div>
             <div>
-              <label className="label">DNI / ID</label>
+              <label className="label">{t('coach.students.create.dni')}</label>
               <input
                 name="dni"
                 value={form.dni}
                 onChange={handleChange}
                 className="input"
-                placeholder="Opcional"
+                placeholder={t('coach.students.create.optional')}
               />
             </div>
             <div>
-              <label className="label">Fecha de nacimiento</label>
+              <label className="label">{t('coach.students.fields.birth_date')}</label>
               <input
                 name="birth_date"
                 type="date"
@@ -281,16 +286,16 @@ export default function CreateStudentPage() {
               <FieldError msg={fieldErrors.birth_date} />
             </div>
             <div>
-              <label className="label">Sexo</label>
+              <label className="label">{t('coach.students.fields.gender')}</label>
               <select name="gender" value={form.gender} onChange={handleChange} className="input">
-                <option value="">Sin especificar</option>
-                <option value="male">Masculino</option>
-                <option value="female">Femenino</option>
-                <option value="other">Otro</option>
+                <option value="">{t('coach.students.info.unspecified')}</option>
+                <option value="male">{t('coach.students.genderOptions.male')}</option>
+                <option value="female">{t('coach.students.genderOptions.female')}</option>
+                <option value="other">{t('coach.students.genderOptions.other')}</option>
               </select>
             </div>
             <div>
-              <label className="label">Altura (cm)</label>
+              <label className="label">{t('coach.students.fields.height_cm')}</label>
               <input
                 name="height_cm"
                 type="number"
@@ -305,7 +310,7 @@ export default function CreateStudentPage() {
               <FieldError msg={fieldErrors.height_cm} />
             </div>
             <div>
-              <label className="label">Peso actual (kg)</label>
+              <label className="label">{t('coach.students.create.currentWeight')}</label>
               <input
                 name="weight_kg"
                 type="number"
@@ -320,7 +325,7 @@ export default function CreateStudentPage() {
               <FieldError msg={fieldErrors.weight_kg} />
             </div>
             <div>
-              <label className="label">Peso objetivo (kg)</label>
+              <label className="label">{t('coach.students.info.targetWeightKg')}</label>
               <input
                 name="target_weight_kg"
                 type="number"
@@ -330,7 +335,7 @@ export default function CreateStudentPage() {
                 value={form.target_weight_kg}
                 onChange={handleChange}
                 className={`input ${fieldErrors.target_weight_kg ? 'border-red-400' : ''}`}
-                placeholder="Opcional"
+                placeholder={t('coach.students.create.optional')}
               />
               <FieldError msg={fieldErrors.target_weight_kg} />
             </div>
@@ -343,20 +348,22 @@ export default function CreateStudentPage() {
             <div className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center">
               <Dumbbell size={14} className="text-orange-600" />
             </div>
-            <h2 className="font-semibold text-gray-900">Entrenamiento</h2>
+            <h2 className="font-semibold text-gray-900">{t('coach.students.create.training')}</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Nivel</label>
+              <label className="label">{t('coach.students.fields.level')}</label>
               <select name="level" value={form.level} onChange={handleChange} className="input">
-                <option value="beginner">Principiante</option>
-                <option value="intermediate">Intermedio</option>
-                <option value="advanced">Avanzado</option>
+                <option value="beginner">{t('coach.students.levelOptions.beginner')}</option>
+                <option value="intermediate">
+                  {t('coach.students.levelOptions.intermediate')}
+                </option>
+                <option value="advanced">{t('coach.students.levelOptions.advanced')}</option>
               </select>
             </div>
             <div>
-              <label className="label">Frecuencia semanal (días)</label>
+              <label className="label">{t('coach.students.create.frequency')}</label>
               <input
                 name="weekly_frequency"
                 type="number"
@@ -369,27 +376,27 @@ export default function CreateStudentPage() {
               <FieldError msg={fieldErrors.weekly_frequency} />
             </div>
             <div className="sm:col-span-2">
-              <label className="label">Objetivo</label>
+              <label className="label">{t('coach.students.fields.goal')}</label>
               <input
                 name="goal"
                 value={form.goal}
                 onChange={handleChange}
                 className="input"
-                placeholder="Ej: Hipertrofia, fuerza, salud..."
+                placeholder={t('coach.students.create.goalPlaceholder')}
               />
             </div>
             {/* Doc 46: idioma de la UI que va a ver el alumno (la vista del
                 alumno está traducida; el panel del coach queda en español) */}
             <div>
-              <label className="label">Idioma de la app</label>
+              <label className="label">{t('coach.students.fields.language')}</label>
               <select
                 name="language"
                 value={form.language}
                 onChange={handleChange}
                 className="input"
               >
-                <option value="es">Español</option>
-                <option value="en">Inglés</option>
+                <option value="es">{t('coach.students.languageOptions.es')}</option>
+                <option value="en">{t('coach.students.languageOptions.en')}</option>
               </select>
             </div>
           </div>
@@ -408,7 +415,7 @@ export default function CreateStudentPage() {
 
         <div className="flex gap-3 pb-8">
           <button type="button" onClick={() => navigate(-1)} className="btn-secondary flex-1">
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -420,7 +427,7 @@ export default function CreateStudentPage() {
             ) : (
               <>
                 <Save size={16} />
-                Guardar alumno
+                {t('coach.students.create.submit')}
               </>
             )}
           </button>

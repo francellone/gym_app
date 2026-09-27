@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { TrendingUp, BarChart3, Table as TableIcon, Users } from 'lucide-react'
 import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
@@ -31,25 +32,26 @@ import AvatarImage from '@/features/avatars/AvatarImage'
 // ─────────────────────────────────────────────────────────────
 // Constantes
 // ─────────────────────────────────────────────────────────────
+// Las etiquetas se resuelven con t() en el render: coach.plans.progress.chart.<id>
 const CHARTS = [
-  { id: 'weight', label: 'Peso' },
-  { id: 'volume', label: 'Volumen' },
-  { id: 'pse', label: 'PSE' },
-  { id: 'borg', label: 'Intensidad' },
-  { id: 'duration', label: 'Duración' },
-  { id: 'compare', label: 'Plan vs Real' },
+  { id: 'weight' },
+  { id: 'volume' },
+  { id: 'pse' },
+  { id: 'borg' },
+  { id: 'duration' },
+  { id: 'compare' },
 ]
 
 const PERIODS = [
   { label: '1m', days: 30 },
   { label: '3m', days: 90 },
   { label: '6m', days: 180 },
-  { label: 'Todo', days: 365 },
+  { label: null, days: 365 }, // "Todo": coach.plans.progress.periodAll
 ]
 
 const VIEW_MODES = [
-  { id: 'charts', label: 'Gráficos', icon: BarChart3 },
-  { id: 'table', label: 'Tabla', icon: TableIcon },
+  { id: 'charts', icon: BarChart3 },
+  { id: 'table', icon: TableIcon },
 ]
 
 // ─────────────────────────────────────────────────────────────
@@ -77,6 +79,7 @@ function TooltipCard({ active, payload, label }) {
 //   assignments – array de { id, student_id, student: { id, name } }
 // ─────────────────────────────────────────────────────────────
 export default function PlanProgressTab({ planId, assignments }) {
+  const { t } = useTranslation()
   // ── Alumno seleccionado ──────────────────────────────────
   const [selectedStudentId, setSelectedStudentId] = useState(
     () => assignments[0]?.student_id ?? null
@@ -182,12 +185,12 @@ export default function PlanProgressTab({ planId, assignments }) {
       progressLogs
         .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
         .map((l) => ({
-          date: format(parseISO(l.logged_date), 'dd/MM'),
+          date: format(parseISO(l.logged_date), t('coach.plans.progress.chartDate')),
           Peso: maxWeightOfLog(l),
           PSE: l.perceived_difficulty,
         }))
         .filter((d) => d.Peso > 0),
-    [progressLogs, selectedExercise]
+    [progressLogs, selectedExercise, t]
   )
 
   // Volumen respetando weight_mode + unilateral + BW
@@ -213,7 +216,7 @@ export default function PlanProgressTab({ planId, assignments }) {
         return
       }
       if (vol > 0) {
-        const date = format(parseISO(l.logged_date), 'dd/MM')
+        const date = format(parseISO(l.logged_date), t('coach.plans.progress.chartDate'))
         byDate[date] = (byDate[date] || 0) + Math.round(vol)
       }
     })
@@ -221,13 +224,13 @@ export default function PlanProgressTab({ planId, assignments }) {
       volumeData: Object.entries(byDate).map(([date, Volumen]) => ({ date, Volumen })),
       bwUncomputable: uncomp,
     }
-  }, [progressLogs, studentWeightKg])
+  }, [progressLogs, studentWeightKg, t])
 
   const pseData = useMemo(() => {
     const byDate = {}
     progressLogs.forEach((l) => {
       if (l.perceived_difficulty) {
-        const date = format(parseISO(l.logged_date), 'dd/MM')
+        const date = format(parseISO(l.logged_date), t('coach.plans.progress.chartDate'))
         if (!byDate[date]) byDate[date] = []
         byDate[date].push(l.perceived_difficulty)
       }
@@ -236,18 +239,18 @@ export default function PlanProgressTab({ planId, assignments }) {
       date,
       'PSE promedio': Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10,
     }))
-  }, [progressLogs])
+  }, [progressLogs, t])
 
   const borgData = useMemo(
     () =>
       sessions
         .filter((s) => s.borg_value != null)
         .map((s) => ({
-          date: format(parseISO(s.logged_date), 'dd/MM'),
+          date: format(parseISO(s.logged_date), t('coach.plans.progress.chartDate')),
           Intensidad: Number(s.borg_value),
           label: BORG_LABELS?.[Math.round(Number(s.borg_value))] || '',
         })),
-    [sessions]
+    [sessions, t]
   )
 
   const durationData = useMemo(
@@ -256,11 +259,11 @@ export default function PlanProgressTab({ planId, assignments }) {
         .filter((s) => s.started_at && s.finished_at)
         .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
         .map((s) => ({
-          date: format(parseISO(s.logged_date), 'dd/MM'),
+          date: format(parseISO(s.logged_date), t('coach.plans.progress.chartDate')),
           Minutos: Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000),
         }))
         .filter((d) => d.Minutos > 0),
-    [sessions]
+    [sessions, t]
   )
 
   const medianDuration = useMemo(() => {
@@ -275,12 +278,12 @@ export default function PlanProgressTab({ planId, assignments }) {
       progressLogs
         .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
         .map((l) => ({
-          date: format(parseISO(l.logged_date), 'dd/MM'),
+          date: format(parseISO(l.logged_date), t('coach.plans.progress.chartDate')),
           'Series reales': l.actual_sets || 0,
           'Series sugeridas': l.plan_exercise?.suggested_sets || 0,
           'Peso real': maxWeightOfLog(l),
         })),
-    [progressLogs, selectedExercise]
+    [progressLogs, selectedExercise, t]
   )
 
   const stats = useMemo(() => {
@@ -320,7 +323,7 @@ export default function PlanProgressTab({ planId, assignments }) {
     return (
       <div className="card text-center py-12 text-gray-400">
         <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Este plan no tiene alumnos asignados todavía.</p>
+        <p className="text-sm">{t('coach.plans.progress.noAssignments')}</p>
       </div>
     )
   }
@@ -332,7 +335,7 @@ export default function PlanProgressTab({ planId, assignments }) {
       {assignments.length > 1 && (
         <div className="card">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2.5">
-            Alumno
+            {t('coach.plans.progress.person')}
           </p>
           <div className="flex flex-wrap gap-2">
             {assignments.map((a) => {
@@ -392,7 +395,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               }`}
             >
               <Icon size={13} />
-              {m.label}
+              {t(`coach.plans.progress.view.${m.id}`)}
             </button>
           )
         })}
@@ -413,7 +416,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                 : 'text-gray-500'
             }`}
           >
-            {p.label}
+            {p.label ?? t('coach.plans.progress.periodAll')}
           </button>
         ))}
         <button
@@ -422,7 +425,7 @@ export default function PlanProgressTab({ planId, assignments }) {
             useCustomRange ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
           }`}
         >
-          Personalizado
+          {t('coach.plans.progress.periodCustom')}
         </button>
       </div>
 
@@ -431,7 +434,7 @@ export default function PlanProgressTab({ planId, assignments }) {
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-2">
           <div className="flex-1">
             <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
-              Desde
+              {t('coach.plans.progress.from')}
             </label>
             <input
               type="date"
@@ -443,7 +446,7 @@ export default function PlanProgressTab({ planId, assignments }) {
           </div>
           <div className="flex-1">
             <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
-              Hasta
+              {t('coach.plans.progress.to')}
             </label>
             <input
               type="date"
@@ -466,16 +469,16 @@ export default function PlanProgressTab({ planId, assignments }) {
       ) : progressLogs.length === 0 ? (
         <div className="card text-center py-8 text-gray-400">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Sin registros en este plan para el período seleccionado</p>
+          <p className="text-sm">{t('coach.plans.progress.noLogs')}</p>
         </div>
       ) : (
         <>
           {/* Stats resumen */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { val: stats.totalSessions, label: 'Sesiones' },
-              { val: stats.totalCompleted, label: 'Completados' },
-              { val: stats.avgPSE ?? '—', label: 'PSE prom.' },
+              { val: stats.totalSessions, label: t('coach.plans.progress.statSessions') },
+              { val: stats.totalCompleted, label: t('coach.plans.progress.statCompleted') },
+              { val: stats.avgPSE ?? '—', label: t('coach.plans.progress.statAvgPse') },
             ].map((s) => (
               <div key={s.label} className="card text-center py-2">
                 <p className="text-2xl font-bold text-gray-900">{s.val}</p>
@@ -487,8 +490,10 @@ export default function PlanProgressTab({ planId, assignments }) {
           {stats.avgBorg !== null && (
             <div className="card flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Intensidad promedio</p>
-                <p className="text-xs text-gray-500">Escala de Borg (0–10)</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {t('coach.plans.progress.avgIntensity')}
+                </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.borgScale')}</p>
               </div>
               <span
                 className={`text-2xl font-bold px-3 py-1 rounded-xl ${borgColor(Math.round(stats.avgBorg))}`}
@@ -501,7 +506,9 @@ export default function PlanProgressTab({ planId, assignments }) {
           {stats.maxWeight > 0 && (
             <div className="card flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Peso máximo registrado</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {t('coach.plans.progress.maxWeightLogged')}
+                </p>
                 <p className="text-xs text-gray-500">
                   {progressExercises.find((e) => e.id === selectedExercise)?.name}
                 </p>
@@ -513,15 +520,17 @@ export default function PlanProgressTab({ planId, assignments }) {
           {/* Heatmap de asistencia */}
           <div className="card space-y-3">
             <p className="text-sm font-semibold text-gray-900">
-              Asistencia a este plan (últ. 8 semanas)
+              {t('coach.plans.progress.attendance')}
             </p>
             <div className="space-y-1.5">
               <div className="flex gap-1">
-                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
-                  <div key={d} className="flex-1 text-center text-xs text-gray-400">
-                    {d}
-                  </div>
-                ))}
+                {t('dates.dayInitials')
+                  .split(',')
+                  .map((d, i) => (
+                    <div key={i} className="flex-1 text-center text-xs text-gray-400">
+                      {d}
+                    </div>
+                  ))}
               </div>
               {weeks.map((week, wi) => (
                 <div key={wi} className="flex gap-1">
@@ -544,8 +553,9 @@ export default function PlanProgressTab({ planId, assignments }) {
                 </div>
               ))}
               <div className="flex items-center gap-2 text-xs text-gray-400 justify-end">
-                <div className="w-3 h-3 rounded bg-gray-100" /> Sin registro
-                <div className="w-3 h-3 rounded bg-primary-500" /> Con registro
+                <div className="w-3 h-3 rounded bg-gray-100" /> {t('coach.plans.progress.noLog')}
+                <div className="w-3 h-3 rounded bg-primary-500" />{' '}
+                {t('coach.plans.progress.withLog')}
               </div>
             </div>
           </div>
@@ -576,7 +586,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                     activeChart === c.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                   }`}
                 >
-                  {c.label}
+                  {t(`coach.plans.progress.chart.${c.id}`)}
                 </button>
               ))}
             </div>
@@ -586,8 +596,10 @@ export default function PlanProgressTab({ planId, assignments }) {
           {activeChart === 'weight' && (
             <div className="card space-y-3">
               <div>
-                <p className="font-semibold text-sm text-gray-900">Progresión de peso</p>
-                <p className="text-xs text-gray-500">Peso máximo levantado por sesión</p>
+                <p className="font-semibold text-sm text-gray-900">
+                  {t('coach.plans.progress.weightTitle')}
+                </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.weightSubtitle')}</p>
               </div>
               {weightData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
@@ -607,6 +619,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                       yAxisId="left"
                       type="monotone"
                       dataKey="Peso"
+                      name={t('coach.plans.progress.series.weight')}
                       fill="#fde68a"
                       stroke="#ea580c"
                       strokeWidth={2.5}
@@ -617,6 +630,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                       yAxisId="right"
                       type="monotone"
                       dataKey="PSE"
+                      name={t('coach.plans.progress.series.pse')}
                       stroke="#76675d"
                       strokeWidth={1.5}
                       dot={false}
@@ -626,7 +640,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                 </ResponsiveContainer>
               ) : (
                 <p className="text-center text-sm text-gray-400 py-6">
-                  Sin datos de peso para este ejercicio
+                  {t('coach.plans.progress.noWeightData')}
                 </p>
               )}
             </div>
@@ -637,15 +651,15 @@ export default function PlanProgressTab({ planId, assignments }) {
             <div className="card space-y-3">
               {bwUncomputable && !studentWeightKg && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                  <strong>Peso corporal del alumno sin registrar.</strong> Los ejercicios de peso
-                  corporal (BW) no se incluyen hasta cargar el peso del alumno desde su perfil.
+                  <strong>{t('coach.plans.progress.bwMissingTitle')}</strong>{' '}
+                  {t('coach.plans.progress.bwMissingBody')}
                 </div>
               )}
               <div>
-                <p className="font-semibold text-sm text-gray-900">Volumen total por sesión</p>
-                <p className="text-xs text-gray-500">
-                  Reps × peso (peso corporal en BW). Unilateral × 2.
+                <p className="font-semibold text-sm text-gray-900">
+                  {t('coach.plans.progress.volumeTitle')}
                 </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.volumeSubtitle')}</p>
               </div>
               {volumeData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
@@ -654,11 +668,18 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
-                    <Bar dataKey="Volumen" fill="#834f72" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="Volumen"
+                      name={t('coach.plans.progress.series.volume')}
+                      fill="#834f72"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-center text-sm text-gray-400 py-6">Sin datos de volumen</p>
+                <p className="text-center text-sm text-gray-400 py-6">
+                  {t('coach.plans.progress.noVolumeData')}
+                </p>
               )}
             </div>
           )}
@@ -667,8 +688,10 @@ export default function PlanProgressTab({ planId, assignments }) {
           {activeChart === 'pse' && (
             <div className="card space-y-3">
               <div>
-                <p className="font-semibold text-sm text-gray-900">PSE promedio por sesión</p>
-                <p className="text-xs text-gray-500">Esfuerzo percibido (1–10)</p>
+                <p className="font-semibold text-sm text-gray-900">
+                  {t('coach.plans.progress.pseTitle')}
+                </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.pseSubtitle')}</p>
               </div>
               {pseData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
@@ -680,6 +703,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <Area
                       type="monotone"
                       dataKey="PSE promedio"
+                      name={t('coach.plans.progress.series.avgPse')}
                       stroke="#76675d"
                       fill="#f5f0eb"
                       strokeWidth={2}
@@ -688,7 +712,9 @@ export default function PlanProgressTab({ planId, assignments }) {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-center text-sm text-gray-400 py-6">Sin datos de PSE</p>
+                <p className="text-center text-sm text-gray-400 py-6">
+                  {t('coach.plans.progress.noPseData')}
+                </p>
               )}
             </div>
           )}
@@ -697,8 +723,10 @@ export default function PlanProgressTab({ planId, assignments }) {
           {activeChart === 'borg' && (
             <div className="card space-y-3">
               <div>
-                <p className="font-semibold text-sm text-gray-900">Intensidad general</p>
-                <p className="text-xs text-gray-500">Escala de Borg por sesión</p>
+                <p className="font-semibold text-sm text-gray-900">
+                  {t('coach.plans.progress.borgTitle')}
+                </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.borgSubtitle')}</p>
               </div>
               {borgData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
@@ -707,12 +735,17 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
-                    <Bar dataKey="Intensidad" fill="#fdba74" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="Intensidad"
+                      name={t('coach.plans.progress.series.intensity')}
+                      fill="#fdba74"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-center text-sm text-gray-400 py-6">
-                  Sin datos de Borg registrados
+                  {t('coach.plans.progress.noBorgData')}
                 </p>
               )}
             </div>
@@ -723,13 +756,19 @@ export default function PlanProgressTab({ planId, assignments }) {
             <div className="card space-y-3">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-semibold text-sm text-gray-900">Duración de sesiones</p>
-                  <p className="text-xs text-gray-500">En minutos</p>
+                  <p className="font-semibold text-sm text-gray-900">
+                    {t('coach.plans.progress.durationTitle')}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t('coach.plans.progress.durationSubtitle')}
+                  </p>
                 </div>
                 {medianDuration !== null && (
                   <div className="flex flex-col items-end">
                     <span className="text-2xl font-bold text-emerald-600">{medianDuration}</span>
-                    <span className="text-xs text-gray-400">min · mediana</span>
+                    <span className="text-xs text-gray-400">
+                      {t('coach.plans.progress.medianMinutes')}
+                    </span>
                   </div>
                 )}
               </div>
@@ -743,6 +782,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <Area
                       type="monotone"
                       dataKey="Minutos"
+                      name={t('coach.plans.progress.series.minutes')}
                       stroke="#4a6b80"
                       fill="#e3ecf1"
                       strokeWidth={2}
@@ -750,7 +790,9 @@ export default function PlanProgressTab({ planId, assignments }) {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-center text-sm text-gray-400 py-6">Sin datos de duración</p>
+                <p className="text-center text-sm text-gray-400 py-6">
+                  {t('coach.plans.progress.noDurationData')}
+                </p>
               )}
             </div>
           )}
@@ -759,8 +801,10 @@ export default function PlanProgressTab({ planId, assignments }) {
           {activeChart === 'compare' && (
             <div className="card space-y-3">
               <div>
-                <p className="font-semibold text-sm text-gray-900">Plan vs Real</p>
-                <p className="text-xs text-gray-500">Series planificadas vs ejecutadas</p>
+                <p className="font-semibold text-sm text-gray-900">
+                  {t('coach.plans.progress.chart.compare')}
+                </p>
+                <p className="text-xs text-gray-500">{t('coach.plans.progress.compareSubtitle')}</p>
               </div>
               {compareData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
@@ -770,13 +814,23 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="Series sugeridas" fill="#e3d8cf" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Series reales" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="Series sugeridas"
+                      name={t('coach.plans.progress.series.suggestedSets')}
+                      fill="#e3d8cf"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="Series reales"
+                      name={t('coach.plans.progress.series.actualSets')}
+                      fill="#ea580c"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-center text-sm text-gray-400 py-6">
-                  Sin datos para este ejercicio
+                  {t('coach.plans.progress.noExerciseData')}
                 </p>
               )}
             </div>

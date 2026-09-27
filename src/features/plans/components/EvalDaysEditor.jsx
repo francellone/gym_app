@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, ChevronUp, ChevronDown, PlayCircle } from 'lucide-react'
 import { getDynamicSections } from '../helpers'
 import ExercisePicker from '@/features/exercises/components/ExercisePicker'
@@ -8,6 +9,8 @@ import {
   METHODS,
   PRUEBA_TYPES,
   emptyEvalExercise,
+  methodLabelT,
+  pruebaTypeLabelT,
 } from '@/features/evaluations/helpers'
 import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
@@ -42,6 +45,7 @@ export default function EvalDaysEditor({
   globalMethod,
   onGlobalChange,
 }) {
+  const { t } = useTranslation()
   const { exercises, exerciseTags, tagAssignments } = useExerciseCatalog()
   const sections = getDynamicSections(sessionsPerWeek, false)
   const [activeSection, setActiveSection] = useState(sections[0]?.id || 'day_a')
@@ -50,7 +54,7 @@ export default function EvalDaysEditor({
   // se preselecciona la carpeta "EVALUACIONES" si el coach la tiene creada.
   // `tagFilterOverride === null` significa "todavía sin tocar → usar default".
   const defaultEvalTagId =
-    exerciseTags.find((t) => (t.name || '').trim().toUpperCase() === 'EVALUACIONES')?.id || ''
+    exerciseTags.find((tag) => (tag.name || '').trim().toUpperCase() === 'EVALUACIONES')?.id || ''
   const [tagFilterOverride, setTagFilterOverride] = useState(null)
   const tagFilter = tagFilterOverride === null ? defaultEvalTagId : tagFilterOverride
 
@@ -116,7 +120,7 @@ export default function EvalDaysEditor({
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
-            Mismo método para todos
+            {t('coach.planEditor.evalDays.sameMethod')}
           </button>
           <button
             type="button"
@@ -127,7 +131,7 @@ export default function EvalDaysEditor({
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
-            Método por ejercicio
+            {t('coach.planEditor.evalDays.methodPerExercise')}
           </button>
         </div>
       )}
@@ -157,7 +161,7 @@ export default function EvalDaysEditor({
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {s.label}
+                {t(`workout.sections.${s.id}`, { defaultValue: s.label })}
                 {count > 0 && (
                   <span className="ml-1 bg-purple-100 text-purple-700 rounded-full px-1.5 text-xs">
                     {count}
@@ -172,16 +176,16 @@ export default function EvalDaysEditor({
       {/* Filtro por etiqueta del catálogo (Q5) */}
       {exerciseTags.length > 0 && (
         <div>
-          <label className="label text-xs">Filtrar ejercicios por etiqueta</label>
+          <label className="label text-xs">{t('coach.planEditor.evalDays.filterByTag')}</label>
           <select
             className="input text-sm"
             value={tagFilter}
             onChange={(e) => setTagFilterOverride(e.target.value)}
           >
-            <option value="">Todos los ejercicios</option>
-            {exerciseTags.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t('coach.planEditor.evalDays.allExercises')}</option>
+            {exerciseTags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
               </option>
             ))}
           </select>
@@ -192,7 +196,7 @@ export default function EvalDaysEditor({
       <div className="space-y-3">
         {currentRows.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-3">
-            Este día no tiene ejercicios todavía.
+            {t('coach.planEditor.evalDays.emptyDay')}
           </p>
         )}
         {currentRows.map((row, i) => (
@@ -214,7 +218,7 @@ export default function EvalDaysEditor({
           onClick={() => addRow(activeSection)}
           className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
         >
-          <Plus size={16} /> Agregar ejercicio
+          <Plus size={16} /> {t('coach.planEditor.evalDays.addExercise')}
         </button>
       </div>
     </div>
@@ -225,11 +229,12 @@ export default function EvalDaysEditor({
 // Selector de tipo + método (reusado a nivel global y por fila)
 // ============================================================
 function TypeMethodSelector({ type, method, onChange }) {
+  const { t } = useTranslation()
   const methodsForType = METHODS[type] || []
   return (
     <div className="space-y-2">
       <div>
-        <label className="label text-xs">Tipo de evaluación</label>
+        <label className="label text-xs">{t('coach.planEditor.evalDays.evalType')}</label>
         <div className="grid grid-cols-3 gap-1.5">
           {EXERCISE_EVAL_TYPES.map((et) => (
             <button
@@ -246,14 +251,16 @@ function TypeMethodSelector({ type, method, onChange }) {
               }`}
             >
               <EvalTypeIcon type={et.key} inline className="mr-1" />
-              {et.label.split(' ')[0]}
+              {t(`coach.planEditor.evalDays.evalTypeShort.${et.key}`, {
+                defaultValue: et.label.split(' ')[0],
+              })}
             </button>
           ))}
         </div>
       </div>
       {methodsForType.length > 0 && (
         <div>
-          <label className="label text-xs">Método</label>
+          <label className="label text-xs">{t('coach.planEditor.evalDays.method')}</label>
           <select
             className="input text-sm"
             value={method || ''}
@@ -261,7 +268,7 @@ function TypeMethodSelector({ type, method, onChange }) {
           >
             {methodsForType.map((m) => (
               <option key={m.key} value={m.key}>
-                {m.label}
+                {methodLabelT(t, type, m.key)}
               </option>
             ))}
           </select>
@@ -269,7 +276,7 @@ function TypeMethodSelector({ type, method, onChange }) {
       )}
       {type === 'custom' && (
         <div>
-          <label className="label text-xs">Tipo de prueba</label>
+          <label className="label text-xs">{t('coach.planEditor.evalDays.testType')}</label>
           <select
             className="input text-sm"
             value={method || 'libre'}
@@ -277,7 +284,7 @@ function TypeMethodSelector({ type, method, onChange }) {
           >
             {PRUEBA_TYPES.map((pt) => (
               <option key={pt.key} value={pt.key}>
-                {pt.label}
+                {pruebaTypeLabelT(t, pt.key)}
               </option>
             ))}
           </select>
@@ -301,6 +308,7 @@ function EvalExerciseRow({
   onRemove,
   onMove,
 }) {
+  const { t } = useTranslation()
   const { exercises } = useExerciseCatalog()
   const [expanded, setExpanded] = useState(true)
 
@@ -330,11 +338,11 @@ function EvalExerciseRow({
         </div>
         <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
         <span className="flex-1 text-sm font-medium text-gray-700 truncate">
-          {selectedExercise?.name || 'Nuevo ejercicio'}
+          {selectedExercise?.name || t('coach.planEditor.evalDays.newExercise')}
         </span>
         {row.mandatory && (
           <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">
-            Oblig.
+            {t('coach.planEditor.evalDays.mandatoryShort')}
           </span>
         )}
         <button
@@ -356,9 +364,9 @@ function EvalExerciseRow({
             <ExercisePicker
               value={row.exercise_id || ''}
               onChange={(id, ex) => onUpdate({ exercise_id: id, video_url: ex?.video_url || '' })}
-              label="Ejercicio"
+              label={t('coach.planEditor.evalDays.exercise')}
               required
-              placeholder="— Seleccionar ejercicio —"
+              placeholder={t('coach.planEditor.evalDays.selectExercise')}
               options={options}
               createTagIds={createTagIds}
             />
@@ -369,7 +377,7 @@ function EvalExerciseRow({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 mt-1"
               >
-                <PlayCircle size={13} /> Ver video de referencia
+                <PlayCircle size={13} /> {t('coach.planEditor.evalDays.seeVideo')}
               </a>
             )}
           </div>
@@ -387,7 +395,9 @@ function EvalExerciseRow({
           {showSetsInputs && (
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="label text-xs">Series sug.</label>
+                <label className="label text-xs">
+                  {t('coach.planEditor.evalDays.suggestedSets')}
+                </label>
                 <input
                   className="input text-sm"
                   placeholder="3"
@@ -396,19 +406,23 @@ function EvalExerciseRow({
                 />
               </div>
               <div>
-                <label className="label text-xs">Reps sug.</label>
+                <label className="label text-xs">
+                  {t('coach.planEditor.evalDays.suggestedReps')}
+                </label>
                 <input
                   className="input text-sm"
-                  placeholder="ej: 5"
+                  placeholder={t('coach.planEditor.evalDays.repsPlaceholder')}
                   value={(row.suggested_reps_array || [''])[0] || ''}
                   onChange={(e) => onUpdate({ suggested_reps_array: [e.target.value] })}
                 />
               </div>
               <div>
-                <label className="label text-xs">Peso sug. (kg)</label>
+                <label className="label text-xs">
+                  {t('coach.planEditor.evalDays.suggestedWeight')}
+                </label>
                 <input
                   className="input text-sm"
-                  placeholder="ej: 60"
+                  placeholder={t('coach.planEditor.evalDays.weightPlaceholder')}
                   value={(row.suggested_weights_array || [''])[0] || ''}
                   onChange={(e) => onUpdate({ suggested_weights_array: [e.target.value] })}
                 />
@@ -418,11 +432,11 @@ function EvalExerciseRow({
 
           {/* Instrucciones */}
           <div>
-            <label className="label text-xs">Instrucciones</label>
+            <label className="label text-xs">{t('coach.planEditor.evalDays.instructions')}</label>
             <textarea
               className="input resize-none text-sm"
               rows={2}
-              placeholder="Describí cómo ejecutar la prueba..."
+              placeholder={t('coach.planEditor.evalDays.instructionsPlaceholder')}
               value={row.instructions || ''}
               onChange={(e) => onUpdate({ instructions: e.target.value })}
             />
@@ -431,19 +445,21 @@ function EvalExerciseRow({
           {/* Valor esperado */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="label text-xs">Valor esperado (opcional)</label>
+              <label className="label text-xs">
+                {t('coach.planEditor.evalDays.expectedValue')}
+              </label>
               <input
                 className="input text-sm"
-                placeholder="ej: 10"
+                placeholder={t('coach.planEditor.evalDays.expectedPlaceholder')}
                 value={row.expected_value || ''}
                 onChange={(e) => onUpdate({ expected_value: e.target.value })}
               />
             </div>
             <div>
-              <label className="label text-xs">Unidad</label>
+              <label className="label text-xs">{t('coach.planEditor.evalDays.unit')}</label>
               <input
                 className="input text-sm"
-                placeholder="ej: reps, kg, seg"
+                placeholder={t('coach.planEditor.evalDays.unitPlaceholder')}
                 value={row.expected_unit || ''}
                 onChange={(e) => onUpdate({ expected_unit: e.target.value })}
               />
@@ -466,7 +482,7 @@ function EvalExerciseRow({
             <span
               className={`text-xs font-medium ${row.mandatory ? 'text-red-700' : 'text-gray-600'}`}
             >
-              Ejercicio obligatorio
+              {t('coach.planEditor.evalDays.mandatory')}
             </span>
           </div>
         </div>

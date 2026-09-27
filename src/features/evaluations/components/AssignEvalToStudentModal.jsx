@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Check, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { assignTemplateToStudent } from '@/features/plans/assignmentHelpers'
 
 // ─────────────────────────────────────────────────────────────
@@ -13,6 +14,7 @@ import { assignTemplateToStudent } from '@/features/plans/assignmentHelpers'
 // (botón en header — Q9 backlog + iteración 2 del 26/05 PM).
 // ─────────────────────────────────────────────────────────────
 export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
+  const { t } = useTranslation()
   const [students, setStudents] = useState([])
   // v40: personas inactivas ocultas por defecto en el selector
   const [showInactive, setShowInactive] = useState(false)
@@ -33,7 +35,8 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
         if (e) throw e
         if (!cancelled) setStudents(data || [])
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Error cargando alumnos')
+        if (!cancelled)
+          setError(err.message || t('coach.evaluations.assignModal.loadStudentsError'))
       } finally {
         if (!cancelled) setLoadingStudents(false)
       }
@@ -57,7 +60,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
       onDone()
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Error al asignar la evaluación')
+      setError(err.message || t('coach.evaluations.common.assignError'))
     } finally {
       setAssignLoading(false)
     }
@@ -74,40 +77,42 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900">Asignar evaluación</h3>
+            <h3 className="font-semibold text-gray-900">
+              {t('coach.evaluations.assignModal.title')}
+            </h3>
             <p className="text-sm text-gray-600 mt-0.5 break-words">{plan.title}</p>
           </div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             type="button"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>
         </div>
 
         <div>
-          <label className="label text-xs">Alumno</label>
+          <label className="label text-xs">{t('coach.evaluations.assignModal.person')}</label>
           {loadingStudents ? (
             <div className="h-10 bg-gray-50 rounded-lg flex items-center justify-center">
               <div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
             </div>
           ) : students.length === 0 ? (
-            <p className="text-sm text-gray-500">No hay alumnos cargados todavía.</p>
+            <p className="text-sm text-gray-500">{t('coach.evaluations.assignModal.noStudents')}</p>
           ) : (
             <select
               className="input text-sm"
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
             >
-              <option value="">— Seleccionar alumno —</option>
+              <option value="">{t('coach.evaluations.assignModal.selectPerson')}</option>
               {students
                 .filter((s) => showInactive || s.active !== false || s.id === selectedStudentId)
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name || s.email}
-                    {s.active === false ? ' (inactivo)' : ''}
+                    {s.active === false ? t('coach.evaluations.common.inactiveSuffix') : ''}
                   </option>
                 ))}
             </select>
@@ -120,7 +125,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
                 onChange={(e) => setShowInactive(e.target.checked)}
                 className="rounded"
               />
-              Mostrar personas inactivas
+              {t('coach.evaluations.assignModal.showInactive')}
             </label>
           )}
         </div>
@@ -131,10 +136,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
           </p>
         )}
 
-        <p className="text-xs text-gray-500">
-          Para vincularla a un plan del alumno (opcional), usá la pestaña Evaluaciones dentro del
-          perfil.
-        </p>
+        <p className="text-xs text-gray-500">{t('coach.evaluations.assignModal.linkHint')}</p>
 
         <div className="flex gap-2">
           <button
@@ -143,7 +145,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
             className="btn-secondary flex-1 text-sm"
             type="button"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleAssign}
@@ -155,7 +157,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <Check size={14} /> Asignar
+                <Check size={14} /> {t('coach.evaluations.common.assign')}
               </>
             )}
           </button>

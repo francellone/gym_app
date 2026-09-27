@@ -15,6 +15,8 @@
 //   - 'all'       → sin filtro (start = 2000-01-01)
 // ============================================================
 
+// label: nombre interno en español (findPeriodLabel); en pantalla se
+// traduce con coach.dashboard.periods.<key>.
 export const PERIOD_OPTIONS = [
   { key: 'vigente', label: 'Plan vigente' },
   { key: '7d', label: 'Últimos 7 días' },
@@ -101,6 +103,12 @@ export function resolveDefaultPeriod({ hasActivePlan } = {}) {
 // ------------------------------------------------------------
 // Helper de UI para mostrar el label de un periodKey.
 // ============================================================
+// Clave de período válida (default '30d'), para traducir con
+// coach.dashboard.periods.<key>.
+export function normalizePeriodKey(periodKey) {
+  return PERIOD_OPTIONS.some((p) => p.key === periodKey) ? periodKey : PERIOD_OPTIONS[3].key
+}
+
 export function findPeriodLabel(periodKey) {
   return PERIOD_OPTIONS.find((p) => p.key === periodKey)?.label || PERIOD_OPTIONS[3].label
 }

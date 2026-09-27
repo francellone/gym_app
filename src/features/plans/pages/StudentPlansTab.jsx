@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
   ClipboardList,
@@ -10,7 +11,7 @@ import {
   Loader,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import {
   ASSIGNMENT_STATUS,
   statusConfig,
@@ -19,7 +20,6 @@ import {
   pickPrimaryTrainingAssignment,
   getScheduleMode,
   getPreferredDays,
-  formatPreferredDays,
   assignTemplateToStudent,
 } from '../assignmentHelpers'
 import ReplacePlanModal from '../components/ReplacePlanModal'
@@ -40,6 +40,7 @@ import { ScheduleEditorInline, ScheduleEditorModal } from '../components/Schedul
 // Las evaluaciones viven en la pestaña Evaluaciones aparte.
 // ─────────────────────────────────────────────────────────────
 export default function StudentPlansTab({ assignments, allPlans, studentId, onRefresh }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // Solo asignaciones de training. Las evaluaciones no aparecen acá.
@@ -146,7 +147,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] insertNewAssignment', err)
-      alert(err.message || 'Error al asignar el plan')
+      alert(err.message || t('coach.plans.student.errorAssign'))
     }
   }
 
@@ -214,14 +215,14 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       setLinkedEvalsPrompt(null)
       if (failures.length > 0) {
         alert(
-          `Algunas evaluaciones no se pudieron asignar:\n` +
+          `${t('coach.plans.student.someEvalsFailed')}\n` +
             failures.map((f) => `• ${f.title}: ${f.message}`).join('\n')
         )
       }
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] confirmLinkedEvals', err)
-      alert(err.message || 'Error al asignar las evaluaciones')
+      alert(err.message || t('coach.plans.student.errorAssignEvals'))
     } finally {
       setLinkedEvalsLoading(false)
     }
@@ -310,7 +311,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           console.error('[StudentPlansTab] rollback failed', rollbackErr)
         }
       }
-      alert(err.message || 'Error al reemplazar el plan')
+      alert(err.message || t('coach.plans.student.errorReplace'))
       onRefresh()
     }
   }
@@ -342,7 +343,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] changeStatus', err)
-      alert(err.message || 'Error al cambiar el estado')
+      alert(err.message || t('coach.plans.student.errorChangeStatus'))
     } finally {
       setSavingAssignment(null)
       setOpenMenu(null)
@@ -372,7 +373,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] saveExpiry', err)
-      alert(err.message || 'Error al guardar el vencimiento')
+      alert(err.message || t('coach.plans.student.errorSaveExpiry'))
     } finally {
       setSavingAssignment(null)
     }
@@ -421,7 +422,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] confirmReactivate', err)
-      alert(err.message || 'Error al reactivar el plan')
+      alert(err.message || t('coach.plans.student.errorReactivate'))
     } finally {
       setSavingAssignment(null)
     }
@@ -429,7 +430,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
 
   async function handleDelete(assignment) {
     const confirmed = window.confirm(
-      `¿Eliminar definitivamente la asignación de "${assignment.plan?.title}"? Esta acción no se puede deshacer.`
+      t('coach.plans.student.confirmDelete', { title: assignment.plan?.title })
     )
     if (!confirmed) return
     setSavingAssignment(assignment.id)
@@ -439,7 +440,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       onRefresh()
     } catch (err) {
       console.error('[StudentPlansTab] handleDelete', err)
-      alert(err.message || 'Error al eliminar la asignación')
+      alert(err.message || t('coach.plans.student.errorDelete'))
     } finally {
       setSavingAssignment(null)
       setOpenMenu(null)
@@ -477,16 +478,18 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-gray-900">Planes de entrenamiento</h3>
+          <h3 className="font-semibold text-gray-900">{t('coach.plans.student.title')}</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            {currentPrimary ? `Vigente: ${currentPrimary.plan?.title || '—'}` : 'Sin plan vigente'}
+            {currentPrimary
+              ? t('coach.plans.student.current', { title: currentPrimary.plan?.title || '—' })
+              : t('coach.plans.student.noCurrent')}
           </p>
         </div>
         <button
           onClick={() => setAssigningPlan(true)}
           className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3"
         >
-          <Plus size={14} /> Asignar plan
+          <Plus size={14} /> {t('coach.plans.student.assignPlan')}
         </button>
       </div>
 
@@ -499,13 +502,15 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
           const fixedHasNoDays = isFixed && (newSchedule.preferred_days?.length || 0) === 0
           return (
             <div className="card border-2 border-primary-200 space-y-3">
-              <h4 className="font-medium text-gray-900">Asignar nuevo plan</h4>
+              <h4 className="font-medium text-gray-900">
+                {t('coach.plans.student.assignNewPlan')}
+              </h4>
               <select
                 value={selectedPlan}
                 onChange={(e) => setSelectedPlan(e.target.value)}
                 className="input"
               >
-                <option value="">Seleccioná un plan...</option>
+                <option value="">{t('coach.plans.student.selectPlan')}</option>
                 {trainingPlans.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}
@@ -517,7 +522,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 plan elegido para que el coach decida desde el inicio. */}
               {selectedPlan && (
                 <div className="pt-1">
-                  <p className="label">Horario</p>
+                  <p className="label">{t('coach.plans.student.schedule')}</p>
                   <ScheduleEditorInline
                     value={newSchedule}
                     onChange={setNewSchedule}
@@ -532,20 +537,21 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
               {currentActive && selectedPlan && (
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
                   <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
-                  Este alumno ya tiene un plan activo. Te vamos a preguntar qué hacer con él al
-                  confirmar.
+                  {t('coach.plans.student.hasActiveWarning')}
                 </p>
               )}
               <div className="flex gap-2">
                 <button onClick={resetAssignForm} className="btn-secondary flex-1 text-sm">
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={tryAssignPlan}
                   disabled={!selectedPlan || fixedHasNoDays}
                   className="btn-primary flex-1 text-sm"
                 >
-                  {currentActive ? 'Continuar…' : 'Asignar'}
+                  {currentActive
+                    ? t('coach.plans.student.continue')
+                    : t('coach.plans.assign.submit')}
                 </button>
               </div>
             </div>
@@ -556,7 +562,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {trainingAssignments.length === 0 && !assigningPlan && (
         <div className="card text-center py-8 text-gray-400">
           <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Sin planes de entrenamiento asignados</p>
+          <p className="text-sm">{t('coach.plans.student.empty')}</p>
         </div>
       )}
 
@@ -646,13 +652,15 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 <AlertTriangle size={18} className="text-amber-500" />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">Reactivar plan</p>
+                <p className="font-semibold text-gray-900">
+                  {t('coach.plans.student.reactivateTitle')}
+                </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Esto va a pausar el plan actual{' '}
-                  <span className="font-medium text-gray-700">
-                    "{reactivateModal.conflictAssignment.plan?.title}"
-                  </span>
-                  . ¿Continuar?
+                  <Trans
+                    i18nKey="coach.plans.student.reactivateBody"
+                    values={{ title: reactivateModal.conflictAssignment.plan?.title }}
+                    components={{ b: <span className="font-medium text-gray-700" /> }}
+                  />
                 </p>
               </div>
             </div>
@@ -661,7 +669,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 onClick={() => setReactivateModal(null)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={confirmReactivate}
@@ -671,7 +679,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 {savingAssignment === reactivateModal.assignmentId ? (
                   <Loader size={14} className="animate-spin" />
                 ) : (
-                  'Sí, reactivar'
+                  t('coach.plans.student.reactivateConfirm')
                 )}
               </button>
             </div>
@@ -707,11 +715,13 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
         >
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
             <div>
-              <h2 className="font-bold text-gray-900">Evaluaciones asociadas al plan</h2>
+              <h2 className="font-bold text-gray-900">
+                {t('coach.plans.student.linkedEvalsTitle')}
+              </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Este plan tiene {linkedEvalsPrompt.evals.length} evaluación
-                {linkedEvalsPrompt.evals.length > 1 ? 'es' : ''} asociada
-                {linkedEvalsPrompt.evals.length > 1 ? 's' : ''}. ¿Asignárselas también al alumno?
+                {t('coach.plans.student.linkedEvalsBody', {
+                  count: linkedEvalsPrompt.evals.length,
+                })}
               </p>
             </div>
             <div className="space-y-2">
@@ -741,7 +751,11 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                       >
                         {ev.title}
                       </p>
-                      {ev.eval_type && <p className="text-xs text-gray-500">{ev.eval_type}</p>}
+                      {ev.eval_type && (
+                        <p className="text-xs text-gray-500">
+                          {t(`evalType.${ev.eval_type}`, { defaultValue: ev.eval_type })}
+                        </p>
+                      )}
                     </div>
                   </label>
                 )
@@ -753,7 +767,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 disabled={linkedEvalsLoading}
                 className="btn-secondary flex-1 text-sm"
               >
-                No, gracias
+                {t('coach.plans.student.noThanks')}
               </button>
               <button
                 onClick={confirmLinkedEvals}
@@ -763,7 +777,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                 {linkedEvalsLoading ? (
                   <Loader size={14} className="animate-spin" />
                 ) : (
-                  `Asignar ${linkedEvalsPrompt.selected.size > 0 ? `(${linkedEvalsPrompt.selected.size})` : ''}`
+                  `${t('coach.plans.assign.submit')} ${linkedEvalsPrompt.selected.size > 0 ? `(${linkedEvalsPrompt.selected.size})` : ''}`
                 )}
               </button>
             </div>
@@ -791,19 +805,26 @@ function AssignmentRow({
   onEditSchedule,
   onEditExpiry,
 }) {
+  const { t } = useTranslation()
   const status = getAssignmentStatus(assignment)
   const cfg = statusConfig(status)
   const actions = actionsForStatus(status)
   const startDate = assignment.start_date
-    ? format(parseISO(assignment.start_date), 'dd/MM/yy', { locale: es })
+    ? format(parseISO(assignment.start_date), t('coach.plans.student.shortDate'), {
+        locale: dateLocale(),
+      })
     : null
   const closedAt = assignment.closed_at
-    ? format(parseISO(assignment.closed_at), 'dd/MM/yy', { locale: es })
+    ? format(parseISO(assignment.closed_at), t('coach.plans.student.shortDate'), {
+        locale: dateLocale(),
+      })
     : null
   // v48: vencimiento previsto. Distinto del cierre: uno mira adelante,
   // el otro dice cuándo la asignación dejó de estar vigente.
   const expectedEnd = assignment.expected_end_date
-    ? format(parseISO(assignment.expected_end_date), 'dd/MM/yy', { locale: es })
+    ? format(parseISO(assignment.expected_end_date), t('coach.plans.student.shortDate'), {
+        locale: dateLocale(),
+      })
     : null
   const expectedIsEstimated = assignment.expected_end_source === 'backfill'
   const expectedIsManual = assignment.expected_end_source === 'manual'
@@ -821,8 +842,10 @@ function AssignmentRow({
   const preferredDays = getPreferredDays(assignment)
   const scheduleLabel =
     scheduleMode === 'fixed' && preferredDays.length > 0
-      ? formatPreferredDays(preferredDays)
-      : 'Horario flexible'
+      ? preferredDays
+          .map((d) => format(new Date(2024, 0, 7 + d), 'EEE', { locale: dateLocale() }))
+          .join(' · ')
+      : t('coach.plans.student.flexibleSchedule')
 
   return (
     <div className={`card flex items-start gap-3 ${!isLive ? 'opacity-80' : ''}`}>
@@ -839,29 +862,35 @@ function AssignmentRow({
             <p className="font-medium text-sm text-gray-900 break-words">
               {assignment.plan?.title || '—'}
             </p>
-            <span className={`badge text-[10px] ${cfg.badgeClass}`}>{cfg.label}</span>
+            <span className={`badge text-[10px] ${cfg.badgeClass}`}>
+              {t(`coach.assignment.status.${status}.label`, { defaultValue: cfg.label })}
+            </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            {startDate ? `Desde ${startDate}` : 'Sin fecha de inicio'}
-            {closedAt ? ` · Cerrado ${closedAt}` : ''}
+            {startDate
+              ? t('coach.plans.student.since', { date: startDate })
+              : t('coach.plans.student.noStartDate')}
+            {closedAt ? ` · ${t('coach.plans.student.closedOn', { date: closedAt })}` : ''}
             {isLive &&
               (expectedEnd ? (
                 <span className="ml-1">
-                  {` · Vence ${expectedEnd}`}
+                  {` · ${t('coach.plans.student.expiresOn', { date: expectedEnd })}`}
                   {expectedIsEstimated && (
-                    <span className="text-gray-400" title="Estimado con la duración del plan">
+                    <span className="text-gray-400" title={t('coach.plans.student.estimatedTitle')}>
                       {' '}
-                      (est.)
+                      {t('coach.plans.student.estimatedShort')}
                     </span>
                   )}
-                  {expectedIsManual && <span className="text-gray-400"> (fijado)</span>}
+                  {expectedIsManual && (
+                    <span className="text-gray-400"> {t('coach.plans.student.manualShort')}</span>
+                  )}
                 </span>
               ) : (
-                <span className="ml-1 text-gray-400"> · Sin vencimiento</span>
+                <span className="ml-1 text-gray-400"> · {t('coach.plans.student.noExpiry')}</span>
               ))}
             {linkedEvalCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-0.5 text-purple-600">
-                · {linkedEvalCount} {linkedEvalCount === 1 ? 'evaluación' : 'evaluaciones'}
+                · {t('coach.plans.student.evalsCount', { count: linkedEvalCount })}
               </span>
             )}
           </p>
@@ -885,7 +914,7 @@ function AssignmentRow({
           )}
           {replacedBy && (
             <p className="text-xs text-blue-600 mt-0.5 truncate">
-              ↳ Reemplazado por {replacedBy.plan?.title}
+              ↳ {t('coach.plans.student.replacedBy', { title: replacedBy.plan?.title })}
             </p>
           )}
         </div>
@@ -919,14 +948,14 @@ function AssignmentRow({
                     onClick={onEditSchedule}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    Editar horario
+                    {t('coach.plans.student.editSchedule')}
                   </button>
                   {onEditExpiry && (
                     <button
                       onClick={onEditExpiry}
                       className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
-                      Cambiar vencimiento
+                      {t('coach.plans.student.changeExpiry')}
                     </button>
                   )}
                   {actions.length > 0 && <div className="my-1 border-t border-gray-100" />}
@@ -943,7 +972,7 @@ function AssignmentRow({
                     }}
                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    {action.label}
+                    {t(`coach.assignment.actions.${action.key}`, { defaultValue: action.label })}
                   </button>
                 )
               })}
@@ -952,7 +981,7 @@ function AssignmentRow({
                 onClick={onDelete}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
               >
-                Eliminar
+                {t('coach.plans.detail.delete')}
               </button>
             </div>
           </>
@@ -970,6 +999,7 @@ function AssignmentRow({
 // Ver docs/decisiones-vencimiento-plan-vs-pago.md (D1).
 // ─────────────────────────────────────────────────────────────
 function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(assignment.expected_end_date || '')
   const source = assignment.expected_end_source
   const weeks = assignment.plan?.duration_weeks || null
@@ -983,19 +1013,17 @@ function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
     >
       <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
         <div>
-          <h3 className="font-semibold text-gray-900">Vencimiento del plan</h3>
+          <h3 className="font-semibold text-gray-900">{t('coach.plans.student.expiryTitle')}</h3>
           <p className="text-xs text-gray-500 mt-1">
             {weeks
-              ? `Se calcula solo: ${weeks} semanas desde el inicio.`
-              : 'Este plan no declara duración, así que no tiene vencimiento calculado.'}
+              ? t('coach.plans.student.expiryAuto', { count: Number(weeks) })
+              : t('coach.plans.student.expiryNoDuration')}
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            No tiene relación con el vencimiento del pago.
-          </p>
+          <p className="text-xs text-gray-400 mt-1">{t('coach.plans.student.expiryNotPayment')}</p>
         </div>
 
         <div>
-          <label className="label text-xs">Vence el</label>
+          <label className="label text-xs">{t('coach.plans.student.expiresOnLabel')}</label>
           <input
             type="date"
             className="input"
@@ -1003,11 +1031,13 @@ function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
             onChange={(e) => setValue(e.target.value)}
           />
           {source === 'manual' && (
-            <p className="text-[11px] text-gray-500 mt-1">Fecha fijada a mano.</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              {t('coach.plans.student.expiryManual')}
+            </p>
           )}
           {source === 'backfill' && (
             <p className="text-[11px] text-gray-500 mt-1">
-              Fecha estimada con la duración del plan. Confirmala o corregila.
+              {t('coach.plans.student.expiryEstimated')}
             </p>
           )}
         </div>
@@ -1018,15 +1048,15 @@ function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
             disabled={saving}
             onClick={() => onSave(value || null)}
           >
-            Guardar
+            {t('common.save')}
           </button>
           {weeks && (
             <button className="btn-secondary w-full" disabled={saving} onClick={onReset}>
-              Volver a la fecha calculada
+              {t('coach.plans.student.expiryReset')}
             </button>
           )}
           <button className="btn-ghost w-full" disabled={saving} onClick={onCancel}>
-            Cancelar
+            {t('common.cancel')}
           </button>
         </div>
       </div>

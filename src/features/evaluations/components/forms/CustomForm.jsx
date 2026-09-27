@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { MessageSquare, PlayCircle } from 'lucide-react'
-import { pruebaTypeInfo } from '../../helpers'
+import { pruebaTypeInfo, pruebaTypeLabelT } from '../../helpers'
 
 // ============================================================
 // FORM: Custom (tabla de pruebas configuradas por el coach)
@@ -46,7 +46,7 @@ export default function CustomForm({ pruebas, responses, onChange }) {
                     </a>
                   )}
                   <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                    {typeInfo.label}
+                    {pruebaTypeLabelT(t, prueba.test_type)}
                   </span>
                   {prueba.mandatory && (
                     <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">

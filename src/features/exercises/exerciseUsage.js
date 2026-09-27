@@ -28,20 +28,18 @@ export function isReferenced(u) {
   )
 }
 
-export function usageSummary(u) {
+/** Partes legibles del uso ("3 planes", "2 personas"...). `t` = función de i18next. */
+export function usageSummary(u, t) {
   if (!u) return []
+  const K = 'coach.exercises.usage.'
   const partes = []
-  if (u.plans > 0) partes.push(`${u.plans} ${u.plans === 1 ? 'plan' : 'planes'}`)
-  if (u.students > 0) partes.push(`${u.students} ${u.students === 1 ? 'alumna' : 'alumnas'}`)
+  if (u.plans > 0) partes.push(t(K + 'plans', { count: u.plans }))
+  if (u.students > 0) partes.push(t(K + 'students', { count: u.students }))
   // v53: los aeróbicos registran en workout_block_logs con su exercise_id
   const entrenos = (u.workout_logs || 0) + (u.workout_block_logs || 0)
-  if (entrenos > 0) {
-    partes.push(
-      `${entrenos} ${entrenos === 1 ? 'entrenamiento registrado' : 'entrenamientos registrados'}`
-    )
-  }
+  if (entrenos > 0) partes.push(t(K + 'logs', { count: entrenos }))
   const evals = (u.eval_responses || 0) + (u.eval_tests || 0)
-  if (evals > 0) partes.push(`${evals} ${evals === 1 ? 'evaluación' : 'evaluaciones'}`)
-  if (u.notes > 0) partes.push(`${u.notes} ${u.notes === 1 ? 'nota' : 'notas'}`)
+  if (evals > 0) partes.push(t(K + 'evals', { count: evals }))
+  if (u.notes > 0) partes.push(t(K + 'notes', { count: u.notes }))
   return partes
 }

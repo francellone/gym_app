@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { groupAlertsByStudent } from '../alerts'
@@ -25,25 +26,26 @@ function initials(name) {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '·'
 }
 
-// Intercala nodos con ", " y " y " antes del último.
-function joinNodes(nodes) {
+// Intercala nodos con ", " y `and` (" y " / " and ") antes del último.
+function joinNodes(nodes, and) {
   return nodes.flatMap((n, i) => {
     if (i === 0) return [n]
-    return [i === nodes.length - 1 ? ' y ' : ', ', n]
+    return [i === nodes.length - 1 ? and : ', ', n]
   })
 }
 
 export default function AttentionList({ alerts, loading, studentId = null, avatarById = null }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const { rows, quiet } = useMemo(() => {
-    const g = groupAlertsByStudent(alerts)
+    const g = groupAlertsByStudent(alerts, t)
     if (!studentId) return g
     return {
       rows: g.rows.filter((r) => r.studentId === studentId),
       quiet: g.quiet.filter((q) => q.studentId === studentId),
     }
-  }, [alerts, studentId])
+  }, [alerts, studentId, t])
 
   const shown = expanded ? rows : rows.slice(0, VISIBLE)
   const hidden = rows.length - shown.length
@@ -51,15 +53,17 @@ export default function AttentionList({ alerts, loading, studentId = null, avata
   return (
     <section className="card">
       <div className="flex items-center justify-between mb-1">
-        <p className="eyebrow">Necesitan atención</p>
+        <p className="eyebrow">{t('coach.dashboard.attention.title')}</p>
         {rows.length > 0 && <span className="pill-bad font-bold">{rows.length}</span>}
       </div>
 
       {loading ? (
-        <p className="text-sm text-texto3 py-2">Cargando…</p>
+        <p className="text-sm text-texto3 py-2">{t('common.loading')}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-texto2 py-2">
-          {studentId ? 'Nada que atender con esta persona.' : 'Nadie necesita atención ahora.'}
+          {studentId
+            ? t('coach.dashboard.attention.noneForPerson')
+            : t('coach.dashboard.attention.none')}
         </p>
       ) : (
         <div className="divide-y divide-linea">
@@ -98,13 +102,15 @@ export default function AttentionList({ alerts, loading, studentId = null, avata
           onClick={() => setExpanded((v) => !v)}
           className="text-sm font-medium text-primary-700 hover:underline mt-1"
         >
-          {expanded ? 'Ver menos' : `Ver ${hidden} más`}
+          {expanded
+            ? t('coach.dashboard.attention.showLess')
+            : t('coach.dashboard.attention.showMore', { count: hidden })}
         </button>
       )}
 
       {!loading && quiet.length > 0 && (
         <p className="text-[13px] text-texto2 pt-2.5 mt-2 border-t border-dashed border-gray-300">
-          La semana pasada faltaron a alguna sesión:{' '}
+          {t('coach.dashboard.attention.missedLastWeek')}{' '}
           {joinNodes(
             quiet.map((q) => (
               <Link
@@ -114,7 +120,8 @@ export default function AttentionList({ alerts, loading, studentId = null, avata
               >
                 {q.name.split(' ')[0]}
               </Link>
-            ))
+            )),
+            t('coach.dashboard.listAnd')
           )}
           .
         </p>

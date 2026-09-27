@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, Loader, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 
 // ─────────────────────────────────────────────────────────────
 // ReplacePlanModal
@@ -30,12 +31,15 @@ export default function ReplacePlanModal({
   onDuplicateOutgoing,
   evalCount = 0,
 }) {
+  const { t } = useTranslation()
   const [outgoingTransition, setOutgoingTransition] = useState('replaced')
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const startDateStr = currentAssignment?.start_date
-    ? format(parseISO(currentAssignment.start_date), "d 'de' MMMM yyyy", { locale: es })
+    ? format(parseISO(currentAssignment.start_date), t('dates.dayMonthYear'), {
+        locale: dateLocale(),
+      })
     : null
 
   async function handleConfirm() {
@@ -65,9 +69,9 @@ export default function ReplacePlanModal({
               <AlertTriangle size={18} className="text-amber-500" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900">Reemplazar plan activo</h2>
+              <h2 className="font-bold text-gray-900">{t('coach.planEditor.replace.title')}</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Este alumno ya tiene un plan vigente. Decidí qué hacer con él.
+                {t('coach.planEditor.replace.subtitle')}
               </p>
             </div>
           </div>
@@ -84,30 +88,36 @@ export default function ReplacePlanModal({
           {/* Resumen: saliente vs entrante */}
           <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
             <div className="flex items-start gap-2">
-              <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">Actual</span>
+              <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">
+                {t('coach.planEditor.replace.current')}
+              </span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-gray-900 break-words">
-                  {currentAssignment?.plan?.title || 'Plan actual'}
+                  {currentAssignment?.plan?.title || t('coach.planEditor.replace.currentFallback')}
                 </p>
                 {startDateStr && (
-                  <p className="text-xs text-gray-500">Activo desde {startDateStr}</p>
+                  <p className="text-xs text-gray-500">
+                    {t('coach.planEditor.replace.activeSince', { date: startDateStr })}
+                  </p>
                 )}
               </div>
             </div>
             <div className="border-t border-gray-200 pt-2 flex items-start gap-2">
-              <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">Nuevo</span>
+              <span className="text-xs font-medium text-gray-400 mt-0.5 w-16">
+                {t('coach.planEditor.replace.new')}
+              </span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-primary-700 break-words">
-                  {incomingPlan?.title || 'Plan nuevo'}
+                  {incomingPlan?.title || t('coach.planEditor.replace.newFallback')}
                 </p>
-                <p className="text-xs text-gray-500">Empieza hoy</p>
+                <p className="text-xs text-gray-500">{t('coach.planEditor.replace.startsToday')}</p>
               </div>
             </div>
           </div>
 
           {/* Qué hacer con el saliente */}
           <div>
-            <label className="label">¿Qué hacemos con el plan actual?</label>
+            <label className="label">{t('coach.planEditor.replace.question')}</label>
             <div className="space-y-2">
               <label
                 className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
@@ -128,10 +138,12 @@ export default function ReplacePlanModal({
                   <p
                     className={`text-sm font-semibold ${outgoingTransition === 'replaced' ? 'text-primary-700' : 'text-gray-700'}`}
                   >
-                    Reemplazar
+                    {t('coach.planEditor.replace.replace')}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Queda como “Reemplazado por {incomingPlan?.title || 'el nuevo'}”. Recomendado.
+                    {t('coach.planEditor.replace.replaceHint', {
+                      title: incomingPlan?.title || t('coach.planEditor.replace.theNewOne'),
+                    })}
                   </p>
                 </div>
               </label>
@@ -155,11 +167,9 @@ export default function ReplacePlanModal({
                   <p
                     className={`text-sm font-semibold ${outgoingTransition === 'paused' ? 'text-amber-700' : 'text-gray-700'}`}
                   >
-                    Pausar
+                    {t('coach.planEditor.replace.pause')}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    Queda en pausa, lo podés reactivar más adelante.
-                  </p>
+                  <p className="text-xs text-gray-500">{t('coach.planEditor.replace.pauseHint')}</p>
                 </div>
               </label>
             </div>
@@ -167,10 +177,10 @@ export default function ReplacePlanModal({
 
           {/* Motivo opcional */}
           <div>
-            <label className="label">Motivo (opcional)</label>
+            <label className="label">{t('coach.planEditor.replace.reasonLabel')}</label>
             <input
               className="input"
-              placeholder="Ej: Pasó a fuerza máxima, lesión, etc."
+              placeholder={t('coach.planEditor.replace.reasonPlaceholder')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -180,18 +190,17 @@ export default function ReplacePlanModal({
           {onDuplicateOutgoing && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
               <p className="text-xs font-semibold text-blue-800 flex items-center gap-1">
-                <Copy size={12} /> Atajo
+                <Copy size={12} /> {t('coach.planEditor.replace.shortcut')}
               </p>
               <p className="text-xs text-blue-700 mt-1">
-                ¿Querés usar el plan actual como base del nuevo? Te abre el duplicador con los
-                mismos ejercicios, lo editás y volvés acá a asignarlo.
+                {t('coach.planEditor.replace.shortcutBody')}
               </p>
               <button
                 onClick={onDuplicateOutgoing}
                 disabled={submitting}
                 className="mt-2 text-xs font-medium text-blue-700 hover:text-blue-900 inline-flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg px-3 py-1.5 disabled:opacity-50"
               >
-                Duplicar plan actual <ArrowRight size={12} />
+                {t('coach.planEditor.replace.duplicateCurrent')} <ArrowRight size={12} />
               </button>
             </div>
           )}
@@ -199,13 +208,12 @@ export default function ReplacePlanModal({
           {/* Aviso de evaluaciones linkeadas */}
           {evalCount > 0 && (
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-xs text-purple-800">
-              <p className="font-semibold">Evaluaciones vinculadas</p>
+              <p className="font-semibold">{t('coach.planEditor.replace.linkedEvals')}</p>
               <p className="mt-1">
-                El plan saliente tiene {evalCount} evaluación{evalCount > 1 ? 'es' : ''} vinculada
-                {evalCount > 1 ? 's' : ''}.{' '}
+                {t('coach.planEditor.replace.linkedEvalsCount', { count: evalCount })}{' '}
                 {outgoingTransition === 'replaced'
-                  ? 'Quedan como historial en la pestaña Evaluaciones (no se borran).'
-                  : 'Las podés seguir viendo en la pestaña Evaluaciones.'}
+                  ? t('coach.planEditor.replace.evalsKeptReplaced')
+                  : t('coach.planEditor.replace.evalsKeptPaused')}
               </p>
             </div>
           )}
@@ -213,7 +221,7 @@ export default function ReplacePlanModal({
           {/* Acciones */}
           <div className="flex gap-3 pt-1">
             <button onClick={onCancel} disabled={submitting} className="btn-secondary flex-1">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -223,7 +231,7 @@ export default function ReplacePlanModal({
               {submitting ? (
                 <Loader size={16} className="animate-spin" />
               ) : (
-                <>Confirmar reemplazo</>
+                <>{t('coach.planEditor.replace.confirm')}</>
               )}
             </button>
           </div>

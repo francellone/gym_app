@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import i18n from '@/i18n'
 import { compareForMerge, filledSummary } from './mergeFill'
 
 describe('compareForMerge', () => {
@@ -32,7 +33,13 @@ describe('compareForMerge', () => {
   })
 
   it('resume los campos completados', () => {
-    expect(filledSummary(['description', 'i18n'])).toEqual(['descripción', 'traducción al inglés'])
-    expect(filledSummary(null)).toEqual([])
+    const t = i18n.getFixedT('es')
+    expect(filledSummary(['description', 'i18n'], t)).toEqual([
+      'descripción',
+      'traducción al inglés',
+    ])
+    expect(filledSummary(['otro_campo'], t)).toEqual(['otro_campo'])
+    expect(filledSummary(null, t)).toEqual([])
+    expect(filledSummary(['description'], i18n.getFixedT('en'))).toEqual(['description'])
   })
 })

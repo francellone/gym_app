@@ -6,14 +6,15 @@
  *   2. Override manual activo: banner + opción de volver a automático.
  *   3. Monolingüe: una sola línea discreta para activar el modo manualmente.
  *
- * El texto está en español a propósito — el panel del coach no se traduce
- * (ver src/i18n/index.js).
+ * Textos en coach/forms.*.json (el panel de la coach sale en su idioma).
  */
 
 import { Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 
 export default function LanguageModeCard() {
+  const { t } = useTranslation()
   const { bilingual, autoBilingual, override, loading, setOverride } = useCoachFormLanguages()
 
   if (loading) return null
@@ -26,20 +27,16 @@ export default function LanguageModeCard() {
         <div className="flex-1 text-sm">
           <p className="font-medium text-blue-900">
             {autoBilingual
-              ? 'Tenés alumnos en español e inglés'
-              : 'Modo bilingüe activado manualmente'}
+              ? t('coach.forms.languageMode.autoTitle')
+              : t('coach.forms.languageMode.manualTitle')}
           </p>
-          <p className="text-blue-700 mt-0.5">
-            Al editar cada pregunta de tus formularios y cada ejercicio de tu biblioteca vas a poder
-            cargar su versión en inglés (opcional: lo que no traduzcas se muestra en español). Tus
-            alumnos ven el contenido en su idioma y vos ves todo en español.
-          </p>
+          <p className="text-blue-700 mt-0.5">{t('coach.forms.languageMode.body')}</p>
           {override && !autoBilingual && (
             <button
               onClick={() => setOverride(false)}
               className="text-xs text-blue-600 underline mt-2 hover:text-blue-800"
             >
-              Volver a modo automático
+              {t('coach.forms.languageMode.backToAuto')}
             </button>
           )}
         </div>
@@ -52,10 +49,10 @@ export default function LanguageModeCard() {
     <button
       onClick={() => setOverride(true)}
       className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-      title="Habilita los campos de traducción (formularios y ejercicios) aunque todavía no tengas alumnos en inglés"
+      title={t('coach.forms.languageMode.prepareTitle')}
     >
       <Globe size={14} />
-      <span>Preparar mi contenido en inglés</span>
+      <span>{t('coach.forms.languageMode.prepareButton')}</span>
     </button>
   )
 }

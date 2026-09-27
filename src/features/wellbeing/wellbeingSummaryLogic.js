@@ -43,6 +43,7 @@ export const WELLBEING_STATUS = {
   good: {
     key: 'good',
     label: 'Bien',
+    labelKey: 'coach.wellbeing.status.good',
     emoji: '🟢',
     dotClass: 'bg-green-500',
     badgeClass: 'bg-green-50 text-green-700 border-green-200',
@@ -51,6 +52,7 @@ export const WELLBEING_STATUS = {
   warn: {
     key: 'warn',
     label: 'Atención',
+    labelKey: 'coach.wellbeing.status.warn',
     emoji: '🟡',
     dotClass: 'bg-amber-400',
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -59,6 +61,7 @@ export const WELLBEING_STATUS = {
   bad: {
     key: 'bad',
     label: 'Alerta',
+    labelKey: 'coach.wellbeing.status.bad',
     emoji: '🔴',
     dotClass: 'bg-red-500',
     badgeClass: 'bg-red-50 text-red-700 border-red-200',
@@ -67,6 +70,7 @@ export const WELLBEING_STATUS = {
   none: {
     key: 'none',
     label: 'Sin datos',
+    labelKey: 'coach.wellbeing.status.none',
     emoji: '⚪',
     dotClass: 'bg-gray-300',
     badgeClass: 'bg-gray-50 text-gray-500 border-gray-200',
@@ -76,6 +80,14 @@ export const WELLBEING_STATUS = {
 
 export function wellbeingStatusConfig(status) {
   return WELLBEING_STATUS[status] || WELLBEING_STATUS.none
+}
+
+// Motivos del semáforo traducidos ("fatiga alta 3 días"). Usa reasonItems
+// si están; si no (summary viejo), cae a los textos en español.
+export function formatStatusReasons(summary, t) {
+  const items = summary?.statusReasonItems
+  if (!items) return summary?.statusReasons || []
+  return items.map((r) => t(`coach.wellbeing.reasons.${r.signal}`, { count: r.days }))
 }
 
 // ── Helpers de fecha (YMD, sin timezone) ────────────────────
@@ -152,11 +164,11 @@ export function normalizeLogs(logs, { from = null, to = null } = {}) {
 // ============================================================
 export function computeWellbeingStatus(logs, { to = null, today = new Date() } = {}) {
   const end = to ? parseYMD(to) : startOfDay(today)
-  if (!end) return { status: 'none', reasons: [], daysWithData: 0 }
+  if (!end) return { status: 'none', reasons: [], reasonItems: [], daysWithData: 0 }
   const start = addDays(end, -ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS)
 
   const inWindow = normalizeLogs(logs, { from: formatYMD(start), to: formatYMD(end) })
-  if (!inWindow.length) return { status: 'none', reasons: [], daysWithData: 0 }
+  if (!inWindow.length) return { status: 'none', reasons: [], reasonItems: [], daysWithData: 0 }
 
   let lowEnergyDays = 0
   let highFatigueDays = 0
@@ -177,23 +189,42 @@ export function computeWellbeingStatus(logs, { to = null, today = new Date() } =
   }
 
   const reasons = []
+  // reasonItems: la misma info sin texto, para que la UI la traduzca
+  // (coach.wellbeing.reasons.<signal>). `reasons` queda en español.
+  const reasonItems = []
   let status = 'good'
   const dayWord = (n) => `${n} día${n === 1 ? '' : 's'}`
 
   const signals = [
-    { days: lowEnergyDays, min: ALERT_THRESHOLDS.FATIGUE_MIN_DAYS, label: 'energía baja' },
-    { days: highFatigueDays, min: ALERT_THRESHOLDS.FATIGUE_MIN_DAYS, label: 'fatiga alta' },
-    { days: highStressDays, min: ALERT_THRESHOLDS.LOW_MOTIVATION_MIN_DAYS, label: 'estrés alto' },
+    {
+      days: lowEnergyDays,
+      min: ALERT_THRESHOLDS.FATIGUE_MIN_DAYS,
+      label: 'energía baja',
+      signal: 'lowEnergy',
+    },
+    {
+      days: highFatigueDays,
+      min: ALERT_THRESHOLDS.FATIGUE_MIN_DAYS,
+      label: 'fatiga alta',
+      signal: 'highFatigue',
+    },
+    {
+      days: highStressDays,
+      min: ALERT_THRESHOLDS.LOW_MOTIVATION_MIN_DAYS,
+      label: 'estrés alto',
+      signal: 'highStress',
+    },
   ]
 
   for (const s of signals) {
     if (s.days === 0) continue
     reasons.push(`${s.label} ${dayWord(s.days)}`)
+    reasonItems.push({ signal: s.signal, days: s.days })
     if (s.days >= s.min) status = 'bad'
     else if (status !== 'bad') status = 'warn'
   }
 
-  return { status, reasons, daysWithData: inWindow.length }
+  return { status, reasons, reasonItems, daysWithData: inWindow.length }
 }
 
 // ============================================================
@@ -275,7 +306,10 @@ export function computeWellbeingSummary({ logs, from = null, to = null, today = 
   // hasta `to`. Si el período pedido es más corto que esa ventana (p. ej.
   // "esta semana"), el consumidor puede traer logs anteriores a `from` y el
   // semáforo los aprovecha sin ensuciar los promedios del período.
-  const { status, reasons, daysWithData } = computeWellbeingStatus(logs, { to: end, today })
+  const { status, reasons, reasonItems, daysWithData } = computeWellbeingStatus(logs, {
+    to: end,
+    today,
+  })
 
   return {
     hasData: rows.length > 0,
@@ -284,6 +318,7 @@ export function computeWellbeingSummary({ logs, from = null, to = null, today = 
     last: computeLastEntryTrend(rows, { today }),
     status,
     statusReasons: reasons,
+    statusReasonItems: reasonItems,
     daysWithData,
     windowDays: ALERT_THRESHOLDS.WELLBEING_WINDOW_DAYS,
   }
@@ -313,8 +348,15 @@ export function summarizeByStudent(logs, { from = null, to = null, today = new D
 // describeLastEntry
 // ------------------------------------------------------------
 // "hoy" / "ayer" / "hace 5 días" — texto corto para el badge.
+// Con `t` (i18next) sale en el idioma activo; sin `t`, en español.
 // ============================================================
-export function describeLastEntry(daysAgo) {
+export function describeLastEntry(daysAgo, t) {
+  if (t) {
+    if (daysAgo === null || daysAgo === undefined) return t('coach.wellbeing.noEntries')
+    if (daysAgo <= 0) return t('dates.relToday')
+    if (daysAgo === 1) return t('dates.relYesterday')
+    return t('dates.relDaysAgo', { count: daysAgo })
+  }
   if (daysAgo === null || daysAgo === undefined) return 'sin registros'
   if (daysAgo <= 0) return 'hoy'
   if (daysAgo === 1) return 'ayer'

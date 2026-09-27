@@ -1,0 +1,175 @@
+{
+  "languageMode": {
+    "autoTitle": "Tenés personas en español y en inglés",
+    "manualTitle": "Modo bilingüe activado manualmente",
+    "body": "Al editar cada pregunta de tus formularios y cada ejercicio de tu biblioteca vas a poder cargar su versión en inglés (opcional: lo que no traduzcas se muestra en español). Cada persona ve el contenido en su idioma.",
+    "backToAuto": "Volver a modo automático",
+    "prepareTitle": "Habilita los campos de traducción (formularios y ejercicios) aunque todavía no tengas personas en inglés",
+    "prepareButton": "Preparar mi contenido en inglés"
+  },
+  "intro": {
+    "placeholder": "Escribí la introducción que van a ver las personas...\nPodés usar emojis 💪 y saltos de línea.",
+    "tip": "Tip: usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la info y cualquier instrucción especial.",
+    "enLabel": "Introducción en inglés (opcional; vacío = se muestra la de arriba)"
+  },
+  "templates": {
+    "title": "Plantillas de formulario",
+    "tabLoad": "Cargar plantilla",
+    "tabSave": "Guardar actual",
+    "predefinedBadge": "Predefinida",
+    "useThis": "Usar esta →",
+    "saveHint": "Guardá la configuración actual como una nueva plantilla para reutilizarla.",
+    "nameLabel": "Nombre de la plantilla",
+    "namePlaceholder": "Ej: Fitness avanzado",
+    "saveButton": "Guardar plantilla",
+    "predefined": {
+      "tpl_general": {
+        "name": "Fitness General",
+        "description": "Formulario completo para clientes de fitness general"
+      },
+      "tpl_rehabilitacion": {
+        "name": "Rehabilitación",
+        "description": "Énfasis en salud, lesiones y condiciones médicas"
+      },
+      "tpl_alto_rendimiento": {
+        "name": "Alto Rendimiento",
+        "description": "Para atletas con experiencia y objetivos competitivos"
+      },
+      "tpl_minimalista": {
+        "name": "Formulario mínimo",
+        "description": "Solo lo esencial: datos, objetivos y salud"
+      }
+    }
+  },
+  "questionTypes": {
+    "text": "Texto corto",
+    "textarea": "Texto largo",
+    "select": "Selección única",
+    "multiselect": "Selección múltiple",
+    "boolean": "Sí / No",
+    "scale": "Escala",
+    "email": "Email",
+    "phone": "Teléfono",
+    "number": "Número",
+    "date": "Fecha"
+  },
+  "question": {
+    "labelPlaceholder": "Texto de la pregunta...",
+    "required": "Obligatoria",
+    "conditional": "Condicional",
+    "fixed": "Fija",
+    "onlyEs": "Solo español",
+    "onlyEn": "Solo inglés",
+    "enStale": "Inglés desactualizado",
+    "enOk": "Inglés ✓",
+    "untranslated": "Sin traducir",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "closeEdit": "Cerrar edición",
+    "edit": "Editar pregunta",
+    "confirmDelete": "¿Eliminar esta pregunta?",
+    "delete": "Eliminar pregunta",
+    "answerType": "Tipo de respuesta",
+    "placeholderLabel": "Placeholder (opcional)",
+    "placeholderPlaceholder": "Texto de ayuda dentro del campo...",
+    "optionsLabel": "Opciones (una por línea)",
+    "optionsPlaceholder": "Opción 1\nOpción 2\nOpción 3",
+    "min": "Mín",
+    "max": "Máx",
+    "requiredToggle": "Respuesta obligatoria",
+    "showIfLabel": "Mostrar solo si... (opcional)",
+    "alwaysVisible": "Siempre visible",
+    "triggerValue": "Valor que activa esta pregunta:",
+    "enVersion": "Versión en inglés",
+    "visibilityLabel": "Esta pregunta se muestra a...",
+    "visibilityBoth": "Personas en ambos idiomas",
+    "visibilityOnlyEs": "Solo personas en español",
+    "visibilityOnlyEn": "Solo personas en inglés",
+    "staleWarning": "Cambiaste las opciones en español después de traducirlas. Mientras tanto, las personas en inglés ven las opciones en español.",
+    "staleReviewed": "Ya la revisé, está bien así",
+    "enLabel": "Pregunta en inglés (vacío = se muestra en español)",
+    "enPlaceholderLabel": "Placeholder en inglés (opcional)",
+    "enOptionsLabel": "Opciones en inglés (mismo orden que en español; línea vacía = queda en español)",
+    "enOptionsMismatch": "Hay {{translated}} traducciones para {{total}} opciones; hasta que coincidan, las personas en inglés ven las opciones en español."
+  },
+  "module": {
+    "disable": "Desactivar módulo",
+    "enable": "Activar módulo",
+    "editTitle": "Clic para editar el título",
+    "fixed": "Fijo",
+    "questionsCount": "{{count}} pregs.",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "confirmDelete": "¿Eliminar el módulo \"{{title}}\"?",
+    "delete": "Eliminar módulo",
+    "editQuestions": "Editar preguntas",
+    "enTitleLabel": "Título en inglés:",
+    "enTitlePlaceholder": "Vacío = se muestra en español",
+    "empty": "Sin preguntas. Agregá una.",
+    "addQuestion": "+ Agregar pregunta"
+  },
+  "builder": {
+    "titleIntake": "Constructor de formulario",
+    "titleFollowUp": "Formulario de seguimiento",
+    "subtitleIntake": "Personalizá el formulario que reciben las personas al ingresar",
+    "subtitleFollowUp": "Armá un formulario libre para mandarles a las personas durante o al cierre de un plan",
+    "templates": "Plantillas",
+    "send": "Enviar",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "tabEdit": "Editar",
+    "tabPreview": "Vista previa",
+    "emptyLangTitle": "Tal como está, este formulario les llegaría VACÍO a las personas en {{langs}}.",
+    "emptyLangBody": "Todas las preguntas están marcadas para el otro idioma. Revisá en cada pregunta la opción “{{visibilityLabel}}” y elegí “{{visibilityBoth}}”. Si lo mandás así, la persona abre el formulario y el botón de empezar no hace nada.",
+    "lang": {
+      "es": "español",
+      "en": "inglés"
+    },
+    "langJoin": " y en ",
+    "introTitle": "Introducción",
+    "introHint": "Texto que ve la persona al abrir el formulario. Soporta emojis y formato.",
+    "modulesTitle": "Módulos",
+    "addModule": "+ Agregar módulo personalizado",
+    "consentTitle": "{{title}} (obligatorio, no editable)",
+    "consentBody": "Este módulo siempre aparece al final y no puede eliminarse. Incluye el consentimiento informado de la persona.",
+    "saveForm": "Guardar formulario",
+    "previewHint": "Simulá cómo ve el formulario una persona en su pantalla.",
+    "openPreview": "Abrir vista previa",
+    "closePreview": "Cerrar vista previa"
+  },
+  "builderPage": {
+    "saved": "✅ Formulario guardado",
+    "saveError": "❌ Error al guardar"
+  },
+  "followUpBuilder": {
+    "promptName": "Nombre de la plantilla:",
+    "promptDefault": "Check-in mitad de plan",
+    "limitReached": "Llegaste al límite de 10 plantillas activas. Archivá una antes de crear otra.",
+    "saved": "Guardado ✓",
+    "saveError": "Error al guardar",
+    "back": "Volver",
+    "nameLabel": "Nombre del formulario",
+    "namePlaceholder": "Ej: Check-in mitad de plan",
+    "nameEnLabel": "Nombre en inglés (opcional; lo ven las personas en inglés)",
+    "descriptionLabel": "Descripción (opcional)",
+    "descriptionPlaceholder": "Breve descripción para vos"
+  },
+  "followUpList": {
+    "title": "Formularios de seguimiento",
+    "subtitle": "Plantillas libres para mandar durante o al cierre de un plan. {{active}}/{{limit}} activas.",
+    "createTitle": "Crear nueva plantilla",
+    "limitTitle": "Llegaste al límite de {{limit}}. Archivá alguna primero.",
+    "new": "Nueva",
+    "empty": "Todavía no tenés formularios de seguimiento.",
+    "createFirst": "Crear el primero →",
+    "questions_one": "{{count}} pregunta",
+    "questions_other": "{{count}} preguntas",
+    "send": "Enviar",
+    "edit": "Editar",
+    "archive": "Archivar",
+    "confirmArchive": "¿Archivar esta plantilla? No se borra, pero deja de aparecer en envíos nuevos.",
+    "archived": "Archivadas ({{count}})",
+    "reactivate": "Reactivar",
+    "limitAlert": "Ya tenés {{limit}} plantillas activas. Archivá una para reactivar esta."
+  }
+}

@@ -1,5 +1,6 @@
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { format } from 'date-fns'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
@@ -23,6 +24,7 @@ import StudentExerciseHistoryLine from '../StudentExerciseHistoryLine'
  * Lista de ejercicios con tipo por reps o por tiempo.
  */
 export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises }) {
+  const { t } = useTranslation()
   const circuitType = block.circuit_type || 'hiit'
   const list = block.exercises || []
 
@@ -53,25 +55,29 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
     <div className="space-y-3">
       {/* Tipo de circuito */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Tipo de circuito</label>
+        <label className="text-xs text-gray-500 mb-1 block">
+          {t('coach.planEditor.circuitBlock.type')}
+        </label>
         <div className="grid grid-cols-2 gap-1.5">
-          {CIRCUIT_TYPES.map((t) => (
+          {CIRCUIT_TYPES.map((ct) => (
             <button
-              key={t.key}
+              key={ct.key}
               type="button"
-              onClick={() => onUpdate({ circuit_type: t.key })}
+              onClick={() => onUpdate({ circuit_type: ct.key })}
               className={`rounded-xl border-2 p-2 text-left transition-all ${
-                circuitType === t.key
+                circuitType === ct.key
                   ? 'border-orange-500 bg-orange-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               <p
-                className={`text-xs font-semibold ${circuitType === t.key ? 'text-orange-700' : 'text-gray-700'}`}
+                className={`text-xs font-semibold ${circuitType === ct.key ? 'text-orange-700' : 'text-gray-700'}`}
               >
-                {t.label}
+                {t(`workout.circuitTypes.${ct.key}`)}
               </p>
-              <p className="text-[10px] text-gray-400 leading-tight">{t.description}</p>
+              <p className="text-[10px] text-gray-400 leading-tight">
+                {t(`coach.planEditor.circuitBlock.typeDesc.${ct.key}`)}
+              </p>
             </button>
           ))}
         </div>
@@ -80,10 +86,14 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Configuración del circuito según tipo */}
       {circuitType === 'hiit' && (
         <div className="bg-orange-50 rounded-xl p-3 space-y-2">
-          <p className="text-xs font-semibold text-orange-700">Estructura HIIT</p>
+          <p className="text-xs font-semibold text-orange-700">
+            {t('coach.planEditor.circuitBlock.hiitStructure')}
+          </p>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Trabajo (s)</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.workSeconds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -94,7 +104,9 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
               />
             </div>
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Descanso (s)</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.restSeconds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -105,7 +117,9 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
               />
             </div>
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Rondas</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.aerobicBlock.rounds')}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -122,7 +136,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
       {(circuitType === 'amrap' || circuitType === 'emom') && (
         <div className="bg-orange-50 rounded-xl p-3">
           <label className="text-xs font-semibold text-orange-700 mb-1 block">
-            Duración total (min)
+            {t('coach.planEditor.aerobicBlock.totalMinutes')}
           </label>
           <input
             type="number"
@@ -137,7 +151,9 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
 
       {/* Intensidad general */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">Intensidad (opcional)</label>
+        <label className="text-xs text-gray-500 mb-1 block">
+          {t('coach.planEditor.circuitBlock.intensityOptional')}
+        </label>
         <select
           className="input text-sm"
           value={block.circuit_intensity || 'moderate'}
@@ -145,7 +161,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
         >
           {INTENSITY_LEVELS.map((i) => (
             <option key={i.key} value={i.key}>
-              {i.label}
+              {t(`workout.intensity.${i.key}`)}
             </option>
           ))}
         </select>
@@ -154,7 +170,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
       {/* Todo el circuito al X% del máximo (lo heredan los ejercicios) */}
       <div>
         <label className="text-xs text-gray-500 mb-1 block">
-          Todo el circuito al % del máximo (opcional)
+          {t('coach.planEditor.circuitBlock.blockPct')}
         </label>
         <div className="relative">
           <input
@@ -163,7 +179,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
             max="200"
             step="1"
             className="input text-sm pr-7"
-            placeholder="Ej: 50"
+            placeholder={t('coach.planEditor.circuitBlock.blockPctPlaceholder')}
             value={block.default_pct_1rm || ''}
             onChange={(e) => onUpdate({ default_pct_1rm: e.target.value })}
           />
@@ -172,16 +188,22 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
           </span>
         </div>
         <p className="text-[11px] text-gray-500 mt-1 leading-snug">
-          Se aplica a los ejercicios en modo <strong className="font-medium">% del máximo</strong>{' '}
-          que no tengan su propio porcentaje. Cada ejercicio puede pisarlo.
+          <Trans
+            i18nKey="coach.planEditor.circuitBlock.blockPctHint"
+            components={{ strong: <strong className="font-medium" /> }}
+          />
         </p>
       </div>
 
       {/* Lista de ejercicios */}
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-700">Ejercicios del circuito</p>
+        <p className="text-xs font-semibold text-gray-700">
+          {t('coach.planEditor.circuitBlock.exercises')}
+        </p>
         {list.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-2">Sin ejercicios todavía</p>
+          <p className="text-xs text-gray-400 text-center py-2">
+            {t('coach.planEditor.circuitBlock.empty')}
+          </p>
         )}
         {list.map((ex, i) => (
           <CircuitExerciseRow
@@ -200,7 +222,7 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
           className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
         >
           <Plus size={16} />
-          Agregar ejercicio al circuito
+          {t('coach.planEditor.circuitBlock.addExercise')}
         </button>
       </div>
     </div>
@@ -211,7 +233,9 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
 // Fila de ejercicio dentro del circuito (más compacto que fuerza)
 // ============================================================
 function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRemove, onMove }) {
+  const { t } = useTranslation()
   const { exercises } = useExerciseCatalog()
+  const bold = { b: <strong className="font-semibold" /> }
   const target = usePlanTargetPerson()
   const mode = ex.exercise_mode || 'reps'
 
@@ -249,7 +273,7 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
             value={ex.exercise_id || ''}
             onChange={(id) => onUpdate({ exercise_id: id })}
             label={null}
-            placeholder="Seleccionar ejercicio..."
+            placeholder={t('coach.planEditor.circuitBlock.selectExercise')}
             size="xs"
           />
           {/* Con cuánto viene esta persona en este ejercicio */}
@@ -258,7 +282,9 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
           {/* Tipo (reps/tiempo) + valor */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Tipo</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.circuitBlock.mode')}
+              </label>
               <select
                 className="input text-sm"
                 value={mode}
@@ -266,14 +292,16 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               >
                 {EXERCISE_MODES.map((m) => (
                   <option key={m.key} value={m.key}>
-                    {m.label}
+                    {t(`coach.planEditor.exerciseModes.${m.key}`)}
                   </option>
                 ))}
               </select>
             </div>
             {mode === 'time' ? (
               <div>
-                <label className="text-[11px] text-gray-500 mb-0.5 block">Duración (seg)</label>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">
+                  {t('coach.planEditor.circuitBlock.durationSeconds')}
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -285,7 +313,9 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               </div>
             ) : (
               <div>
-                <label className="text-[11px] text-gray-500 mb-0.5 block">Reps</label>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">
+                  {t('coach.planEditor.exerciseRow.reps')}
+                </label>
                 <input
                   className="input text-sm"
                   placeholder="10"
@@ -299,42 +329,55 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
           {/* Modo de peso + valor (kg o % del máximo) */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[11px] text-gray-500 mb-0.5 block">Peso</label>
+              <label className="text-[11px] text-gray-500 mb-0.5 block">
+                {t('coach.planEditor.circuitBlock.weight')}
+              </label>
               <select
                 className="input text-sm"
                 value={ex.weight_mode ?? ''}
                 onChange={(e) => onUpdate({ weight_mode: e.target.value || null })}
               >
                 <option value="">
-                  Heredar
                   {selectedExercise
-                    ? ` (${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode || 'with_weight']?.short || 'Con peso'})`
-                    : ''}
+                    ? t('coach.planEditor.weightModes.inheritWith', {
+                        mode: t(
+                          `coach.planEditor.weightModes.${WEIGHT_MODE_BY_KEY[selectedExercise.default_weight_mode] ? selectedExercise.default_weight_mode : 'with_weight'}.short`
+                        ),
+                      })
+                    : t('coach.planEditor.weightModes.inherit')}
                 </option>
                 {WEIGHT_MODES.map((m) => (
                   <option key={m.key} value={m.key}>
-                    {m.short}
+                    {t(`coach.planEditor.weightModes.${m.key}.short`)}
                   </option>
                 ))}
               </select>
             </div>
             {isPct1rm ? (
               <div>
-                <label className="text-[11px] text-gray-500 mb-0.5 block">% del máximo</label>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">
+                  {t('coach.planEditor.exerciseRow.pctOfMax')}
+                </label>
                 <input
                   type="number"
                   min="1"
                   max="200"
                   step="1"
                   className="input text-sm"
-                  placeholder={blockDefaultPct ? `${blockDefaultPct} (del bloque)` : '50'}
+                  placeholder={
+                    blockDefaultPct
+                      ? t('coach.planEditor.circuitBlock.fromBlock', { pct: blockDefaultPct })
+                      : '50'
+                  }
                   value={ex.pct_1rm ?? ''}
                   onChange={(e) => onUpdate({ pct_1rm: e.target.value })}
                 />
               </div>
             ) : showWeightInput ? (
               <div>
-                <label className="text-[11px] text-gray-500 mb-0.5 block">Peso (kg)</label>
+                <label className="text-[11px] text-gray-500 mb-0.5 block">
+                  {t('coach.planEditor.exerciseRow.weightKg')}
+                </label>
                 <input
                   type="number"
                   step="0.5"
@@ -347,7 +390,9 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               </div>
             ) : (
               <div className="flex items-end">
-                <p className="text-[11px] text-emerald-600 pb-2">Sin peso · solo reps</p>
+                <p className="text-[11px] text-emerald-600 pb-2">
+                  {t('coach.planEditor.circuitBlock.bodyweightNote')}
+                </p>
               </div>
             )}
           </div>
@@ -356,27 +401,33 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
               <p className="text-[11px] leading-snug">
                 {previewWeight.status === 'derived' ? (
                   <span className="text-emerald-700">
-                    <strong className="font-semibold">{target.studentName}:</strong>{' '}
-                    <strong className="font-semibold">{previewWeight.kg} kg</strong> ·{' '}
-                    {previewWeight.pct}% de {previewWeight.oneRm} kg, evaluado el{' '}
-                    {formatShortDate(previewWeight.oneRmDate)}
+                    <Trans
+                      i18nKey="coach.planEditor.pctPreview.derived"
+                      values={{
+                        name: target.studentName,
+                        kg: previewWeight.kg,
+                        pct: previewWeight.pct,
+                        oneRm: previewWeight.oneRm,
+                        date: formatShortDate(previewWeight.oneRmDate),
+                      }}
+                      components={bold}
+                    />
                   </span>
                 ) : previewWeight.status === 'missing_1rm' ? (
                   <span className="text-amber-800">
-                    {target.studentName} no tiene evaluación de este ejercicio: va a ver el
-                    porcentaje.
+                    {t('coach.planEditor.pctPreview.missing1rmShort', { name: target.studentName })}
                   </span>
                 ) : (
                   <span className="text-amber-800">
-                    Falta el porcentaje: cargalo acá o a nivel del circuito.
+                    {t('coach.planEditor.pctPreview.missingPctCircuit')}
                   </span>
                 )}
               </p>
             ) : (
               <p className="text-[11px] text-amber-700 leading-snug">
                 {inheritedPct
-                  ? `Los kilos se calculan solos: ${inheritedPct}% del máximo de cada persona.`
-                  : 'Falta el porcentaje: cargalo acá o a nivel del circuito.'}
+                  ? t('coach.planEditor.pctPreview.autoKg', { pct: inheritedPct })
+                  : t('coach.planEditor.pctPreview.missingPctCircuit')}
               </p>
             ))}
         </div>

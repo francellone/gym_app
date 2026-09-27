@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { format } from 'date-fns'
+import { dateLocale } from '@/i18n/dateLocale'
 import { supabase } from '@/lib/supabase'
-import { EVAL_TYPES, evalTypeColor } from '../helpers'
+import { EVAL_TYPES, evalTypeColor, evalTypeLabelT } from '../helpers'
 import {
   BarChart2,
   Plus,
@@ -19,6 +22,7 @@ import AssignEvalToStudentModal from '../components/AssignEvalToStudentModal'
 import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 
 export default function EvaluationsPage() {
+  const { t } = useTranslation()
   const [evalPlans, setEvalPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -107,7 +111,7 @@ export default function EvaluationsPage() {
       await setPlanArchived(plan.id, false)
       fetchEvalPlans()
     } catch (err) {
-      alert(err.message || 'No se pudo desarchivar.')
+      alert(err.message || t('coach.evaluations.common.unarchiveError'))
     }
   }
 
@@ -135,16 +139,16 @@ export default function EvaluationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Evaluaciones</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('coach.evaluations.list.title')}</h1>
           <p className="text-sm text-gray-500">
-            {templates.length} planes de evaluación
+            {t('coach.evaluations.list.count', { count: templates.length })}
             {archivedCount > 0 &&
-              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
+              t('coach.evaluations.list.archivedCount', { count: archivedCount })}
           </p>
         </div>
         <Link to="/coach/plans/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
-          <span className="hidden sm:inline">Nueva evaluación</span>
+          <span className="hidden sm:inline">{t('coach.evaluations.list.new')}</span>
         </Link>
       </div>
 
@@ -159,7 +163,9 @@ export default function EvaluationsPage() {
               className={`card text-left transition-all ${filterType === et.key ? 'ring-2 ring-primary-500' : ''}`}
             >
               <EvalTypeIcon type={et.key} size="sm" />
-              <p className="text-xs font-medium text-gray-700 mt-1 leading-tight">{et.label}</p>
+              <p className="text-xs font-medium text-gray-700 mt-1 leading-tight">
+                {evalTypeLabelT(t, et.key)}
+              </p>
               <p className="text-lg font-bold text-gray-900">{count}</p>
             </button>
           )
@@ -173,7 +179,7 @@ export default function EvaluationsPage() {
           <input
             type="text"
             className="input pl-9"
-            placeholder="Buscar evaluación..."
+            placeholder={t('coach.evaluations.list.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -183,10 +189,10 @@ export default function EvaluationsPage() {
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="">Todos los tipos</option>
+          <option value="">{t('coach.evaluations.list.allTypes')}</option>
           {EVAL_TYPES.map((et) => (
             <option key={et.key} value={et.key}>
-              {et.label}
+              {evalTypeLabelT(t, et.key)}
             </option>
           ))}
         </select>
@@ -198,11 +204,13 @@ export default function EvaluationsPage() {
               ? 'bg-durazno-50 border-durazno-200 text-primary-700'
               : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
           }`}
-          title="Ver las evaluaciones archivadas"
+          title={t('coach.evaluations.list.archivedTitle')}
         >
           <Archive size={15} />
           <span className="hidden sm:inline">
-            Archivadas{archivedCount > 0 ? ` (${archivedCount})` : ''}
+            {archivedCount > 0
+              ? t('coach.evaluations.list.archivedWithCount', { count: archivedCount })
+              : t('coach.evaluations.list.archived')}
           </span>
         </button>
       </div>
@@ -222,14 +230,12 @@ export default function EvaluationsPage() {
           <BarChart2 className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">
             {evalPlans.length === 0
-              ? 'No hay planes de evaluación todavía'
-              : 'Sin resultados para esos filtros'}
+              ? t('coach.evaluations.list.emptyNone')
+              : t('coach.evaluations.list.emptyFiltered')}
           </p>
-          <p className="text-sm text-gray-400 mt-1 mb-4">
-            Podés crear uno desde "Planes" usando el botón de duplicar
-          </p>
+          <p className="text-sm text-gray-400 mt-1 mb-4">{t('coach.evaluations.list.emptyHint')}</p>
           <Link to="/coach/plans" className="btn-secondary inline-flex items-center gap-2">
-            Ir a Planes
+            {t('coach.evaluations.list.goToPlans')}
           </Link>
         </div>
       ) : (
@@ -253,11 +259,13 @@ export default function EvaluationsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 break-words">{plan.title}</p>
                     {plan.archived_at && (
-                      <span className="badge bg-gray-200 text-gray-700">Archivada</span>
+                      <span className="badge bg-gray-200 text-gray-700">
+                        {t('coach.evaluations.list.archivedBadge')}
+                      </span>
                     )}
                     {plan.eval_type && (
                       <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                        {EVAL_TYPES.find((e) => e.key === plan.eval_type)?.label || plan.eval_type}
+                        {evalTypeLabelT(t, plan.eval_type)}
                       </span>
                     )}
                   </div>
@@ -265,12 +273,16 @@ export default function EvaluationsPage() {
                     {activeAssignments.length > 0 && (
                       <span className="flex items-center gap-1">
                         <Users size={11} />
-                        {activeAssignments.length} alumno{activeAssignments.length > 1 ? 's' : ''}
+                        {t('coach.evaluations.list.students', { count: activeAssignments.length })}
                       </span>
                     )}
                     {lastResult && (
                       <span>
-                        Último: {new Date(lastResult.eval_date).toLocaleDateString('es-AR')}
+                        {t('coach.evaluations.list.last', {
+                          date: format(new Date(lastResult.eval_date), t('dates.shortDate'), {
+                            locale: dateLocale(),
+                          }),
+                        })}
                       </span>
                     )}
                     {plan.description && (
@@ -285,8 +297,8 @@ export default function EvaluationsPage() {
                     <button
                       onClick={() => setAssigningPlan(plan)}
                       className="btn-ghost p-2 text-gray-400 hover:text-purple-600"
-                      title="Asignar a alumno"
-                      aria-label="Asignar evaluación a alumno"
+                      title={t('coach.evaluations.list.assignTitle')}
+                      aria-label={t('coach.evaluations.list.assignAria')}
                     >
                       <UserPlus size={16} />
                     </button>
@@ -295,7 +307,7 @@ export default function EvaluationsPage() {
                     <button
                       onClick={() => handleUnarchive(plan)}
                       className="btn-ghost p-2 text-gray-500"
-                      title="Desarchivar"
+                      title={t('coach.evaluations.common.unarchive')}
                     >
                       <ArchiveRestore size={16} />
                     </button>
@@ -303,7 +315,7 @@ export default function EvaluationsPage() {
                     <button
                       onClick={() => handleOpenDelete(plan)}
                       className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-                      title="Archivar o eliminar evaluación"
+                      title={t('coach.evaluations.list.deleteTitle')}
                     >
                       <Trash2 size={16} />
                     </button>

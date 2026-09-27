@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import i18n from '@/i18n'
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 
@@ -42,29 +43,38 @@ describe('planLifecycleMode (v47, decisión D4)', () => {
   })
 })
 
+// Los tests corren en español (src/test/setup.js).
+const t = i18n.t.bind(i18n)
+
 describe('planUsageSummary', () => {
   it('plantilla: habla de copias y evaluaciones vinculadas, no de asignaciones directas', () => {
-    const partes = planUsageSummary({
-      ...base,
-      is_template: true,
-      clones: 3,
-      clone_students: 2,
-      child_evaluations: 1,
-      total_refs: 4,
-    })
+    const partes = planUsageSummary(
+      {
+        ...base,
+        is_template: true,
+        clones: 3,
+        clone_students: 2,
+        child_evaluations: 1,
+        total_refs: 4,
+      },
+      t
+    )
     expect(partes).toEqual(['3 copias asignadas a 2 personas', '1 evaluación vinculada'])
   })
   it('clon: asignaciones + registros + evaluaciones', () => {
-    const partes = planUsageSummary({
-      ...base,
-      assignments: 1,
-      students: 1,
-      workout_logs: 86,
-      sessions: 12,
-      eval_results: 1,
-      eval_responses: 4,
-      total_refs: 104,
-    })
+    const partes = planUsageSummary(
+      {
+        ...base,
+        assignments: 1,
+        students: 1,
+        workout_logs: 86,
+        sessions: 12,
+        eval_results: 1,
+        eval_responses: 4,
+        total_refs: 104,
+      },
+      t
+    )
     expect(partes).toEqual([
       '1 asignación (1 persona)',
       '86 entrenamientos registrados',

@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { dateLocale } from '@/i18n/dateLocale'
 import useCoachCalendarData from '../hooks/useCoachCalendarData'
 import { buildAgendaDays, agendaPhrase } from '../calendarLogic'
 import useCalendarVisibility from '../hooks/useCalendarVisibility'
@@ -36,6 +37,7 @@ function startOfToday() {
 }
 
 export default function UpcomingAgenda({ studentId = null }) {
+  const { t } = useTranslation()
   const today = useMemo(startOfToday, [])
   const win = useMemo(() => {
     const end = new Date(today)
@@ -57,23 +59,23 @@ export default function UpcomingAgenda({ studentId = null }) {
     const [y, m, d] = ymd.split('-').map(Number)
     const date = new Date(y, m - 1, d)
     const diff = Math.round((date - today) / 86400000)
-    if (diff === 0) return 'Hoy'
-    if (diff === 1) return 'Mañana'
-    const txt = format(date, date.getMonth() === today.getMonth() ? 'EEEE d' : 'EEEE d MMM', {
-      locale: es,
-    })
+    if (diff === 0) return t('coach.dashboard.agenda.today')
+    if (diff === 1) return t('coach.dashboard.agenda.tomorrow')
+    const pattern =
+      date.getMonth() === today.getMonth()
+        ? t('coach.dashboard.agenda.dayFormat')
+        : t('coach.dashboard.agenda.dayFormatOtherMonth')
+    const txt = format(date, pattern, { locale: dateLocale() })
     return txt.charAt(0).toUpperCase() + txt.slice(1)
   }
 
   return (
     <section className="card">
-      <p className="eyebrow mb-2">Próximos 7 días</p>
+      <p className="eyebrow mb-2">{t('coach.dashboard.agenda.title')}</p>
       {loading ? (
-        <p className="text-sm text-texto3 py-2">Cargando…</p>
+        <p className="text-sm text-texto3 py-2">{t('common.loading')}</p>
       ) : days.length === 0 ? (
-        <p className="text-sm text-texto2 py-2">
-          Nada anotado: sin pagos, planes, evaluaciones, formularios ni cumpleaños esta semana.
-        </p>
+        <p className="text-sm text-texto2 py-2">{t('coach.dashboard.agenda.empty')}</p>
       ) : (
         <div className="divide-y divide-linea">
           {days.map(({ ymd, events }) => (
@@ -84,7 +86,7 @@ export default function UpcomingAgenda({ studentId = null }) {
               <span className="text-[13px] font-bold text-texto2 sm:pt-1">{dayLabel(ymd)}</span>
               <div className="space-y-2">
                 {events.map((ev, i) => {
-                  const p = agendaPhrase(ev)
+                  const p = agendaPhrase(ev, t)
                   const icon = ICON[ev.type] || ICON.plan_end
                   return (
                     <Link

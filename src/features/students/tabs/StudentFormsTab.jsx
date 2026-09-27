@@ -9,10 +9,12 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle, Clock, Calendar, FileText, X, AlertCircle, Trash2 } from 'lucide-react'
 
 export default function StudentFormsTab({ studentId }) {
+  const { t, i18n } = useTranslation()
   const [assignments, setAssignments] = useState([])
   const [submissions, setSubmissions] = useState({}) // { assignment_id: submission }
   const [loading, setLoading] = useState(true)
@@ -60,8 +62,8 @@ export default function StudentFormsTab({ studentId }) {
   async function handleCancel(a) {
     const started = a.status === 'in_progress' || !!submissions[a.id]
     const message = started
-      ? `Esta persona ya empezó a responder "${nameOf(a)}". Si cancelás el envío se borra junto con lo que haya completado. ¿Seguro?`
-      : `¿Cancelar el envío de "${nameOf(a)}"? Le va a desaparecer de su lista de formularios.`
+      ? t('coach.students.forms.cancelStartedConfirm', { name: nameOf(a) })
+      : t('coach.students.forms.cancelConfirm', { name: nameOf(a) })
     if (!confirm(message)) return
 
     setCancelling(a.id)
@@ -76,7 +78,7 @@ export default function StudentFormsTab({ studentId }) {
 
     if (error || !data?.length) {
       console.error('No se pudo cancelar el envío', error)
-      alert('No se pudo cancelar el envío. Probá de nuevo; si sigue pasando, avisá.')
+      alert(t('coach.students.forms.cancelError'))
       return
     }
     load()
@@ -84,10 +86,10 @@ export default function StudentFormsTab({ studentId }) {
 
   function statusBadge(status) {
     const map = {
-      scheduled: { label: 'Programado', cls: 'bg-blue-100 text-blue-800', Icon: Calendar },
-      pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-800', Icon: AlertCircle },
-      in_progress: { label: 'En progreso', cls: 'bg-yellow-100 text-yellow-800', Icon: Clock },
-      completed: { label: 'Respondido', cls: 'bg-green-100 text-green-800', Icon: CheckCircle },
+      scheduled: { labelKey: 'scheduled', cls: 'bg-blue-100 text-blue-800', Icon: Calendar },
+      pending: { labelKey: 'pending', cls: 'bg-amber-100 text-amber-800', Icon: AlertCircle },
+      in_progress: { labelKey: 'inProgress', cls: 'bg-yellow-100 text-yellow-800', Icon: Clock },
+      completed: { labelKey: 'completed', cls: 'bg-green-100 text-green-800', Icon: CheckCircle },
     }
     const info = map[status] || map.pending
     const Icon = info.Icon
@@ -95,19 +97,24 @@ export default function StudentFormsTab({ studentId }) {
       <span
         className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${info.cls}`}
       >
-        <Icon size={11} /> {info.label}
+        <Icon size={11} /> {t(`coach.students.forms.status.${info.labelKey}`)}
       </span>
     )
   }
 
   function nameOf(a) {
-    return a.intake_form_templates?.name || a.form_snapshot?.name || 'Formulario de seguimiento'
+    return (
+      a.intake_form_templates?.name ||
+      a.form_snapshot?.name ||
+      t('coach.students.forms.defaultName')
+    )
   }
 
   function triggerLabel(a) {
-    if (a.trigger_type === 'manual') return 'Envío manual'
-    if (a.trigger_type === 'on_week') return `Semana ${a.trigger_config?.week ?? '?'} del plan`
-    if (a.trigger_type === 'on_plan_end') return 'Cierre del plan'
+    if (a.trigger_type === 'manual') return t('coach.students.forms.trigger.manual')
+    if (a.trigger_type === 'on_week')
+      return t('coach.students.forms.trigger.onWeek', { week: a.trigger_config?.week ?? '?' })
+    if (a.trigger_type === 'on_plan_end') return t('coach.students.forms.trigger.onPlanEnd')
     return ''
   }
 
@@ -123,10 +130,8 @@ export default function StudentFormsTab({ studentId }) {
     return (
       <div className="card text-center py-10 text-gray-400">
         <FileText size={32} className="mx-auto mb-3 text-gray-300" />
-        <p className="text-sm">Todavía no le enviaste formularios de seguimiento.</p>
-        <p className="text-xs mt-1">
-          Andá a "Seguimiento" en el menú lateral para crear y enviar uno.
-        </p>
+        <p className="text-sm">{t('coach.students.forms.emptyTitle')}</p>
+        <p className="text-xs mt-1">{t('coach.students.forms.emptyHint')}</p>
       </div>
     )
   }
@@ -157,9 +162,11 @@ export default function StudentFormsTab({ studentId }) {
                 <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-400">
                   {statusBadge(a.status)}
                   {a.scheduled_for && a.status === 'scheduled' && (
-                    <span>· {new Date(a.scheduled_for).toLocaleDateString()}</span>
+                    <span>· {new Date(a.scheduled_for).toLocaleDateString(i18n.language)}</span>
                   )}
-                  {a.completed_at && <span>· {new Date(a.completed_at).toLocaleDateString()}</span>}
+                  {a.completed_at && (
+                    <span>· {new Date(a.completed_at).toLocaleDateString(i18n.language)}</span>
+                  )}
                 </div>
               </button>
 
@@ -168,11 +175,11 @@ export default function StudentFormsTab({ studentId }) {
                   type="button"
                   onClick={() => handleCancel(a)}
                   disabled={cancelling === a.id}
-                  title="Cancelar este envío"
+                  title={t('coach.students.forms.cancelTitle')}
                   className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
                 >
                   <Trash2 size={12} />
-                  {cancelling === a.id ? 'Cancelando...' : 'Cancelar'}
+                  {cancelling === a.id ? t('coach.students.forms.cancelling') : t('common.cancel')}
                 </button>
               )}
             </div>
@@ -196,6 +203,7 @@ export default function StudentFormsTab({ studentId }) {
 // Modal: ver respuestas una por una
 // ─────────────────────────────────────────────────────────
 function ResponsesModal({ assignment, submission, onClose }) {
+  const { t, i18n } = useTranslation()
   const config = submission.form_snapshot
   const responses = submission.responses || {}
 
@@ -206,10 +214,10 @@ function ResponsesModal({ assignment, submission, onClose }) {
 
   function renderValue(q, value) {
     if (value === undefined || value === null || value === '') {
-      return <span className="text-gray-400 italic">Sin respuesta</span>
+      return <span className="text-gray-400 italic">{t('coach.students.forms.noAnswer')}</span>
     }
     if (q.type === 'boolean') {
-      return value === true || value === 'true' || value === 'si' ? 'Sí' : 'No'
+      return value === true || value === 'true' || value === 'si' ? t('common.yes') : t('common.no')
     }
     if (Array.isArray(value)) {
       return value.join(', ')
@@ -228,10 +236,12 @@ function ResponsesModal({ assignment, submission, onClose }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="min-w-0">
             <h2 className="font-bold text-gray-900 text-base truncate">
-              {assignment.intake_form_templates?.name || 'Formulario'}
+              {assignment.intake_form_templates?.name || t('coach.students.forms.form')}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Respondido el {new Date(submission.submitted_at).toLocaleString()}
+              {t('coach.students.forms.answeredOn', {
+                date: new Date(submission.submitted_at).toLocaleString(i18n.language),
+              })}
             </p>
           </div>
           <button
@@ -245,7 +255,7 @@ function ResponsesModal({ assignment, submission, onClose }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {allQuestions.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              Este formulario no tiene preguntas.
+              {t('coach.students.forms.noQuestions')}
             </p>
           ) : (
             allQuestions.map((q) => (
@@ -265,7 +275,7 @@ function ResponsesModal({ assignment, submission, onClose }) {
             onClick={onClose}
             className="w-full py-3 bg-primary-600 text-white text-sm font-bold rounded-boton hover:bg-primary-700 transition-colors"
           >
-            Cerrar
+            {t('common.close')}
           </button>
         </div>
       </div>

@@ -1,0 +1,149 @@
+{
+  "common": {
+    "loading": "Cargando informe…",
+    "loadError": "No se pudieron cargar los datos",
+    "back": "Volver",
+    "print": "Imprimir / PDF",
+    "download": "Descargar",
+    "custom": "Personalizado",
+    "weeks_one": "{{count}} semana",
+    "weeks_other": "{{count}} semanas",
+    "personFallback": "Persona"
+  },
+  "export": {
+    "print": "Imprimir / PDF",
+    "sort": "Ordenar",
+    "toc": "Contenido:",
+    "coachTitle": "Informe de progreso — {{name}}"
+  },
+  "coach": {
+    "clientVersion": "Versión cliente",
+    "clientVersionTitle": "Carta simple para la persona, sin gráficos a la vista",
+    "title": "Informe de progreso",
+    "preparedBy": "Preparado por {{name}}",
+    "noData": "No hay registros de entrenamiento en este período.",
+    "modality": {
+      "online": "Online",
+      "hybrid": "Híbrido",
+      "coach_only": "Solo coach"
+    },
+    "delta": {
+      "same": "= igual que antes",
+      "vsPrevious": "{{arrow}} {{value}}{{unit}} vs período anterior"
+    },
+    "stats": {
+      "daysTrained": "Días entrenados",
+      "fullAndPartial": "{{full}} completos · {{partial}} solo activación",
+      "perWeek": "{{value}} por semana",
+      "bestStreak": "Mejor racha: {{count}} días seguidos",
+      "compliance": "Cumplimiento del plan",
+      "complianceSub": "{{done}} de {{expected}} días previstos",
+      "daysPerWeek": "Días por semana",
+      "activation": "Activación",
+      "activationSub": "de los días que entrenó",
+      "workSeries": "Series de trabajo"
+    },
+    "attendance": {
+      "title": "Constancia semanal",
+      "full": "Completos",
+      "partial": "Solo activación",
+      "expected": "Previstos",
+      "expectedNote": "La línea punteada es lo previsto por el plan vigente cada semana (cambia si el plan cambia).",
+      "tipFull": "Semana del {{week}}: {{count}} días completos",
+      "tipPartial": "Semana del {{week}}: {{count}} solo activación"
+    },
+    "entries": {
+      "title": "Cómo registró",
+      "split": "<b>{{confirmed}} %</b> tal cual y <b>{{edited}} %</b> con ajustes",
+      "splitNote": "Sobre {{count}} registros hechos desde que existe el registro por confirmación. Un número muy alto de \"tal cual\" puede ser que el plan le queda justo o que confirma sin mirar.",
+      "skipped_one": "{{count}} omitido",
+      "skipped_other": "{{count}} omitidos",
+      "byTime": "{{count}} por tiempo",
+      "byDiscomfort": "{{count}} por molestia",
+      "byChoice": "{{count}} por elección",
+      "byUnknown": "{{count}} sin motivo",
+      "listSeparator": ", ",
+      "lastSeparator": " y ",
+      "noReason": "Sin motivo",
+      "more": "y {{count}} más",
+      "noSkips": "No omitió nada en el período.",
+      "fallbackName": {
+        "aerobic": "Aeróbico",
+        "circuit": "Circuito",
+        "exercise": "Ejercicio"
+      }
+    },
+    "patterns": {
+      "title": "Trabajo principal por patrón de movimiento",
+      "note": "Series realizadas (sin contar la activación). Un ejercicio puede aportar a más de un patrón.",
+      "untagged": "Sin categoría",
+      "thisPeriod": "Este período",
+      "previous": "Anterior",
+      "tipNow": "{{name}}: {{count}} series",
+      "tipPrev": "{{name}}: {{count}} series el período anterior"
+    },
+    "highlights": {
+      "records": "Récords",
+      "before": "(antes {{value}})",
+      "topChange": "Mayor cambio",
+      "stalled": "Sin cambios",
+      "stalledDetail": "({{count}} registros en {{value}} {{unit}})"
+    },
+    "units": {
+      "weight": "kg",
+      "reps": "reps"
+    },
+    "table": {
+      "title": "Por ejercicio",
+      "exercise": "Ejercicio",
+      "measuredIn": "Se mide en",
+      "logs": "Registros",
+      "periodMax": "Máx. período",
+      "startEnd": "Inicio → Fin",
+      "change": "Cambio"
+    },
+    "effort": {
+      "title": "Esfuerzo percibido por semana",
+      "pse": "PSE",
+      "borg": "Borg",
+      "note": "PSE: promedio de lo que registró por ejercicio · Borg: intensidad de la sesión",
+      "periodAvg": "Promedio del período:",
+      "tipPse": "Semana del {{week}}: PSE {{value}}",
+      "tipBorg": "Semana del {{week}}: Borg {{value}}"
+    },
+    "blocks": {
+      "title": "Bloques aeróbicos y circuitos",
+      "types": {
+        "aerobic": "Aeróbico",
+        "circuit": "Circuito",
+        "strength": "Fuerza"
+      },
+      "count_one": "{{count}} bloque",
+      "count_other": "{{count}} bloques"
+    },
+    "wellbeing": {
+      "title": "Bienestar",
+      "labels": {
+        "sleep_quality": "Sueño",
+        "nutrition_quality": "Nutrición",
+        "hydration_quality": "Hidratación",
+        "energy_level": "Energía",
+        "stress_level": "Estrés",
+        "muscle_fatigue": "Fatiga muscular"
+      },
+      "before": "(antes {{value}})",
+      "note": "Promedios del período · {{count}} registros"
+    },
+    "footerPreparedBy": "Informe preparado por {{name}} · "
+  },
+  "client": {
+    "letterLanguage": "Idioma:",
+    "includeStalled": "Incluir «Sin cambios»",
+    "editableHint": "El texto es editable: tocá cualquier línea y corregila antes de descargar. Cambiar período, idioma u opciones regenera el borrador (y descarta lo editado).",
+    "noData": "Sin datos en el período elegido.",
+    "removePoint": "Sacar este punto",
+    "goalPlaceholder": "Escribí un objetivo…",
+    "messagePlaceholder": "Escribí acá tu mensaje para cerrar el período…",
+    "challengePlaceholder": "Ej.: 🏋️ Sentadilla: 105 kg"
+  }
+}

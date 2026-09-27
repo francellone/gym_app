@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import CompletionMessageField from '../components/CompletionMessageField'
 import { normalizeCompletionMessage } from '../completionMessage'
 import { useNavigate } from 'react-router-dom'
@@ -46,6 +47,7 @@ export default function CreatePlanPage() {
 }
 
 function CreatePlanPageInner() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -222,11 +224,11 @@ function CreatePlanPageInner() {
   // ============================================================
   async function handleSave() {
     if (!plan.title.trim()) {
-      setError('El nombre del plan es obligatorio')
+      setError(t('coach.plans.form.errorTitleRequired'))
       return
     }
     if (plan.plan_type === 'evaluation' && !plan.eval_type) {
-      setError('Seleccioná el tipo de evaluación')
+      setError(t('coach.plans.form.errorEvalTypeRequired'))
       return
     }
     setError(null)
@@ -314,7 +316,7 @@ function CreatePlanPageInner() {
       navigate(`/coach/plans/${newPlan.id}`)
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Error al guardar el plan')
+      setError(err.message || t('coach.plans.form.errorSavePlan'))
     } finally {
       setLoading(false)
     }
@@ -354,16 +356,16 @@ function CreatePlanPageInner() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Nuevo plan</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('coach.plans.list.newPlan')}</h1>
       </div>
 
       {/* Plan info */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Información del plan</h2>
+        <h2 className="font-semibold text-gray-900">{t('coach.plans.form.infoTitle')}</h2>
 
         {/* Tipo de plan */}
         <div>
-          <label className="label">Tipo de plan</label>
+          <label className="label">{t('coach.plans.form.planType')}</label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -382,9 +384,9 @@ function CreatePlanPageInner() {
                 <p
                   className={`text-sm font-semibold ${plan.plan_type === 'training' ? 'text-primary-700' : 'text-gray-700'}`}
                 >
-                  Entrenamiento
+                  {t('coach.plans.form.typeTraining')}
                 </p>
-                <p className="text-xs text-gray-400">Rutina regular</p>
+                <p className="text-xs text-gray-400">{t('coach.plans.form.typeTrainingHint')}</p>
               </div>
             </button>
             <button
@@ -404,9 +406,9 @@ function CreatePlanPageInner() {
                 <p
                   className={`text-sm font-semibold ${plan.plan_type === 'evaluation' ? 'text-purple-700' : 'text-gray-700'}`}
                 >
-                  Evaluación
+                  {t('coach.plans.form.typeEvaluation')}
                 </p>
-                <p className="text-xs text-gray-400">Protocolo de test</p>
+                <p className="text-xs text-gray-400">{t('coach.plans.form.typeEvaluationHint')}</p>
               </div>
             </button>
           </div>
@@ -418,7 +420,7 @@ function CreatePlanPageInner() {
         {/* Categoría de evaluación */}
         {isEval && (
           <div>
-            <label className="label">Categoría de evaluación</label>
+            <label className="label">{t('coach.plans.form.evalCategory')}</label>
             <div className="space-y-1.5">
               {EVAL_TYPES.map((et) => (
                 <button
@@ -436,7 +438,7 @@ function CreatePlanPageInner() {
                     <p
                       className={`text-sm font-semibold ${plan.eval_type === et.key ? 'text-purple-700' : 'text-gray-700'}`}
                     >
-                      {et.label}
+                      {t(`evalType.${et.key}`, { defaultValue: et.label })}
                     </p>
                     <p className="text-xs text-gray-400">{et.description}</p>
                   </div>
@@ -453,7 +455,7 @@ function CreatePlanPageInner() {
 
         {isEval && plan.eval_type && METHODS[plan.eval_type]?.length > 0 && (
           <div>
-            <label className="label">Método / Protocolo</label>
+            <label className="label">{t('coach.plans.form.method')}</label>
             <div className="space-y-1.5">
               {METHODS[plan.eval_type].map((m) => (
                 <button
@@ -487,20 +489,20 @@ function CreatePlanPageInner() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
-            <label className="label">Nombre del plan *</label>
+            <label className="label">{t('coach.plans.form.name')}</label>
             <input
               className="input"
-              placeholder="Plan 1 - Iniciación"
+              placeholder={t('coach.plans.form.namePlaceholder')}
               value={plan.title}
               onChange={(e) => setPlan((p) => ({ ...p, title: e.target.value }))}
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="label">Descripción</label>
+            <label className="label">{t('coach.plans.form.description')}</label>
             <textarea
               className="input resize-none"
               rows={2}
-              placeholder="Descripción del plan..."
+              placeholder={t('coach.plans.form.descriptionPlaceholder')}
               value={plan.description}
               onChange={(e) => setPlan((p) => ({ ...p, description: e.target.value }))}
             />
@@ -516,16 +518,16 @@ function CreatePlanPageInner() {
           {!isEval && (
             <>
               <div>
-                <label className="label">Objetivo</label>
+                <label className="label">{t('coach.plans.form.goal')}</label>
                 <input
                   className="input"
-                  placeholder="Fuerza, hipertrofia..."
+                  placeholder={t('coach.plans.form.goalPlaceholder')}
                   value={plan.goal}
                   onChange={(e) => setPlan((p) => ({ ...p, goal: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="label">Días por semana</label>
+                <label className="label">{t('coach.plans.form.daysPerWeek')}</label>
                 <input
                   type="number"
                   min="1"
@@ -536,11 +538,11 @@ function CreatePlanPageInner() {
                 />
               </div>
               <div>
-                <label className="label">Duración (semanas)</label>
+                <label className="label">{t('coach.plans.form.durationWeeks')}</label>
                 <input
                   type="number"
                   className="input"
-                  placeholder="Opcional"
+                  placeholder={t('coach.plans.form.optional')}
                   value={plan.duration_weeks}
                   onChange={(e) => setPlan((p) => ({ ...p, duration_weeks: e.target.value }))}
                 />
@@ -565,10 +567,10 @@ function CreatePlanPageInner() {
                   <span
                     className={`text-sm font-medium ${plan.has_activation ? 'text-amber-800' : 'text-gray-700'}`}
                   >
-                    Incluir bloque de Activación
+                    {t('coach.plans.form.includeActivation')}
                   </span>
                   <span className="text-xs text-gray-400 block">
-                    Movilidad, activación neuromuscular, calentamiento, etc.
+                    {t('coach.plans.form.includeActivationHint')}
                   </span>
                 </label>
               </div>
@@ -580,7 +582,7 @@ function CreatePlanPageInner() {
             <div>
               <label className="label flex items-center gap-1.5">
                 <Tag size={13} className="text-gray-400" />
-                Tags de la evaluación
+                {t('coach.plans.form.evalTags')}
               </label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {evalTags.map((t) => (
@@ -602,7 +604,7 @@ function CreatePlanPageInner() {
               <div className="flex gap-2">
                 <input
                   className="input flex-1 text-sm"
-                  placeholder="Ej: Fuerza, Movilidad..."
+                  placeholder={t('coach.plans.form.evalTagsPlaceholder')}
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -617,7 +619,7 @@ function CreatePlanPageInner() {
                   onClick={() => addTag(tagInput)}
                   className="btn-secondary text-sm px-3"
                 >
-                  Agregar
+                  {t('coach.plans.form.add')}
                 </button>
               </div>
               <div className="flex flex-wrap gap-1 mt-1.5">
@@ -663,13 +665,13 @@ function CreatePlanPageInner() {
         <div className="card space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="font-semibold text-gray-900">Ejercicios a evaluar</h2>
+              <h2 className="font-semibold text-gray-900">{t('coach.plans.form.evalExercises')}</h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                Organizados por día. Se mostrarán en el formulario del alumno.
+                {t('coach.plans.form.evalExercisesHint')}
               </p>
             </div>
             <div className="w-24">
-              <label className="label text-xs">Días</label>
+              <label className="label text-xs">{t('coach.plans.form.days')}</label>
               <input
                 type="number"
                 min="1"
@@ -702,7 +704,7 @@ function CreatePlanPageInner() {
          ============================================================ */}
       {!isEval && (
         <div className="card space-y-4">
-          <h2 className="font-semibold text-gray-900">Bloques del plan</h2>
+          <h2 className="font-semibold text-gray-900">{t('coach.plans.form.blocksTitle')}</h2>
 
           {/* Tabs de secciones */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
@@ -718,7 +720,7 @@ function CreatePlanPageInner() {
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  {s.label}
+                  {t(`workout.sections.${s.id}`, { defaultValue: s.label })}
                   {blockCount > 0 && (
                     <span className="ml-1 bg-primary-100 text-primary-700 rounded-full px-1.5 text-xs">
                       {blockCount}
@@ -732,7 +734,7 @@ function CreatePlanPageInner() {
           <div className="space-y-3">
             {currentBlocks.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-3">
-                Esta sección no tiene bloques todavía.
+                {t('coach.plans.form.sectionNoBlocks')}
               </p>
             )}
 
@@ -773,7 +775,7 @@ function CreatePlanPageInner() {
 
       <div className="flex gap-3 pb-8">
         <button onClick={() => navigate(-1)} className="btn-secondary flex-1">
-          Cancelar
+          {t('common.cancel')}
         </button>
         <button
           onClick={handleSave}
@@ -784,7 +786,7 @@ function CreatePlanPageInner() {
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <Save size={16} /> Guardar plan
+              <Save size={16} /> {t('coach.plans.form.savePlan')}
             </>
           )}
         </button>

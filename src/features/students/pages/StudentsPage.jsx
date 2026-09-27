@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { Users, Plus, Search, ChevronRight, AlertCircle, UserX, UserCheck } from 'lucide-react'
 import {
@@ -24,6 +25,7 @@ import AvatarImage from '@/features/avatars/AvatarImage'
 
 export default function StudentsPage() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -115,11 +117,6 @@ export default function StudentsPage() {
     intermediate: 'bg-yellow-100 text-yellow-700',
     advanced: 'bg-red-100 text-red-700',
   }
-  const levelLabel = {
-    beginner: 'Principiante',
-    intermediate: 'Intermedio',
-    advanced: 'Avanzado',
-  }
 
   const byActive = filterByActiveStatus(students, activeFilter)
   const activeCount = students.filter(isProfileActive).length
@@ -168,9 +165,7 @@ export default function StudentsPage() {
   async function handleToggleActive(student) {
     const makeInactive = isProfileActive(student)
     if (makeInactive) {
-      const ok = window.confirm(
-        `¿Marcar a ${student.name} como inactivo?\n\nDeja de aparecer en la lista, el calendario, las alertas y los selectores del coach. Su cuenta y su historial no se tocan, y podés reactivarlo cuando quieras.`
-      )
+      const ok = window.confirm(t('coach.students.list.deactivateConfirm', { name: student.name }))
       if (!ok) return
     }
     setTogglingId(student.id)
@@ -185,6 +180,7 @@ export default function StudentsPage() {
         student_id: student.id,
         changed_by: profile?.id,
         field_name: 'active',
+        // Historial: se guarda en español a propósito (dato, no UI)
         old_value: makeInactive ? 'Activo' : 'Inactivo',
         new_value: newActive ? 'Activo' : 'Inactivo',
       })
@@ -193,7 +189,7 @@ export default function StudentsPage() {
       )
     } catch (err) {
       console.error('[StudentsPage] toggle active', err)
-      window.alert(err.message || 'No se pudo cambiar el estado')
+      window.alert(err.message || t('coach.students.list.toggleError'))
     } finally {
       setTogglingId(null)
     }
@@ -204,26 +200,29 @@ export default function StudentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Alumnos</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('coach.students.list.title')}</h1>
           <p className="text-sm text-gray-500">
-            {activeCount} activo{activeCount !== 1 ? 's' : ''}
+            {t('coach.students.list.activeCount', { count: activeCount })}
             {inactiveCount > 0
-              ? ` · ${inactiveCount} inactivo${inactiveCount !== 1 ? 's' : ''}`
+              ? ` · ${t('coach.students.list.inactiveCount', { count: inactiveCount })}`
               : ''}
           </p>
         </div>
         <Link to="/coach/students/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
-          <span className="hidden sm:inline">Nuevo alumno</span>
+          <span className="hidden sm:inline">{t('coach.students.list.newStudent')}</span>
         </Link>
       </div>
 
       {/* v40: filtro de estado del perfil (default: solo activos) */}
       <div className="flex items-center gap-2">
         {[
-          { key: 'active', label: `Activos (${activeCount})` },
-          { key: 'inactive', label: `Inactivos (${inactiveCount})` },
-          { key: 'all', label: 'Todos' },
+          { key: 'active', label: t('coach.students.list.filterActive', { count: activeCount }) },
+          {
+            key: 'inactive',
+            label: t('coach.students.list.filterInactive', { count: inactiveCount }),
+          },
+          { key: 'all', label: t('coach.students.list.filterAll') },
         ].map((opt) => (
           <button
             key={opt.key}
@@ -257,8 +256,7 @@ export default function StudentsPage() {
                     : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
                 }`}
               >
-                {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
-                {overdueCount !== 1 ? 's' : ''}
+                {t('coach.students.list.alertOverdue', { count: overdueCount })}
               </button>
             )}
             {dueSoonCount > 0 && (
@@ -270,7 +268,7 @@ export default function StudentsPage() {
                     : 'bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100'
                 }`}
               >
-                {dueSoonCount} pago{dueSoonCount !== 1 ? 's' : ''} por vencer
+                {t('coach.students.list.alertDueSoon', { count: dueSoonCount })}
               </button>
             )}
             {noPlanCount > 0 && (
@@ -282,7 +280,7 @@ export default function StudentsPage() {
                     : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
                 }`}
               >
-                {noPlanCount} sin plan
+                {t('coach.students.list.alertNoPlan', { count: noPlanCount })}
               </button>
             )}
             {planExpiredCount > 0 && (
@@ -296,8 +294,7 @@ export default function StudentsPage() {
                     : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                 }`}
               >
-                {planExpiredCount} plan{planExpiredCount !== 1 ? 'es' : ''} vencido
-                {planExpiredCount !== 1 ? 's' : ''}
+                {t('coach.students.list.alertPlanExpired', { count: planExpiredCount })}
               </button>
             )}
             {planExpiringCount > 0 && (
@@ -311,7 +308,7 @@ export default function StudentsPage() {
                     : 'bg-yellow-50 text-yellow-600 border-yellow-100 hover:bg-yellow-100'
                 }`}
               >
-                {planExpiringCount} plan{planExpiringCount !== 1 ? 'es' : ''} por vencer
+                {t('coach.students.list.alertPlanExpiring', { count: planExpiringCount })}
               </button>
             )}
             {wellbeingAlertCount > 0 && (
@@ -322,9 +319,9 @@ export default function StudentsPage() {
                     ? 'bg-amber-100 text-amber-800 border-amber-300'
                     : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                 }`}
-                title="Fatiga, energía baja o estrés alto sostenidos en los últimos 14 días"
+                title={t('coach.students.list.alertWellbeingTitle')}
               >
-                {wellbeingAlertCount} con wellbeing en alerta
+                {t('coach.students.list.alertWellbeing', { count: wellbeingAlertCount })}
               </button>
             )}
           </div>
@@ -336,7 +333,7 @@ export default function StudentsPage() {
         <input
           type="text"
           className="input pl-9"
-          placeholder="Buscar alumno..."
+          placeholder={t('coach.students.list.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -368,18 +365,18 @@ export default function StudentsPage() {
       ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
           <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No hay alumnos</p>
+          <p className="text-gray-500 font-medium">{t('coach.students.list.emptyTitle')}</p>
           <p className="text-gray-400 text-sm mt-1">
             {search || filterStatus !== 'all' || activeFilter !== 'active'
-              ? 'Ningún resultado para tu búsqueda o filtros'
-              : 'Creá tu primer alumno'}
+              ? t('coach.students.list.emptyFiltered')
+              : t('coach.students.list.emptyFirst')}
           </p>
           {!search && filterStatus === 'all' && activeFilter === 'active' && (
             <Link
               to="/coach/students/new"
               className="btn-primary inline-flex items-center gap-2 mt-4"
             >
-              <Plus size={16} /> Agregar alumno
+              <Plus size={16} /> {t('coach.students.list.addStudent')}
             </Link>
           )}
           {(filterStatus !== 'all' || activeFilter !== 'all') && (
@@ -390,7 +387,7 @@ export default function StudentsPage() {
               }}
               className="btn-secondary text-sm mt-3"
             >
-              Ver todos
+              {t('coach.students.list.showAll')}
             </button>
           )}
         </div>
@@ -445,11 +442,15 @@ export default function StudentsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 truncate">{student.name}</p>
                     {!studentActive && (
-                      <span className="badge bg-gray-200 text-gray-600 text-xs">Inactivo</span>
+                      <span className="badge bg-gray-200 text-gray-600 text-xs">
+                        {t('coach.students.activeStatus.inactive')}
+                      </span>
                     )}
                     {student.level && (
                       <span className={`badge ${levelColor[student.level]}`}>
-                        {levelLabel[student.level]}
+                        {levelColor[student.level]
+                          ? t(`coach.students.levelOptions.${student.level}`)
+                          : student.level}
                       </span>
                     )}
                   </div>
@@ -462,7 +463,10 @@ export default function StudentsPage() {
                         {primaryAssignment.plan?.title}
                         {primaryStatus !== 'active' && (
                           <span className="ml-1 text-[10px] opacity-75">
-                            · {primaryStatusCfg.shortLabel}
+                            ·{' '}
+                            {t(`coach.students.list.assignmentShort.${primaryStatus}`, {
+                              defaultValue: primaryStatusCfg.shortLabel,
+                            })}
                           </span>
                         )}
                       </span>
@@ -471,7 +475,7 @@ export default function StudentsPage() {
                         className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
-                        {planConfig.label}
+                        {t(planConfig.labelKey)}
                       </span>
                     )}
                     {(expiry.status === 'expired' || expiry.status === 'expiring_soon') && (
@@ -482,19 +486,20 @@ export default function StudentsPage() {
                             : 'bg-yellow-100 text-yellow-700'
                         }`}
                         title={
-                          expiry.isEstimated
-                            ? 'Fecha estimada a partir de la duración del plan'
-                            : undefined
+                          expiry.isEstimated ? t('coach.students.list.estimatedTitle') : undefined
                         }
                       >
                         {expiry.status === 'expired'
-                          ? `Plan vencido${expiry.isEstimated ? ' (est.)' : ''}`
-                          : `Plan vence en ${expiry.daysLeft}d`}
+                          ? t('coach.students.list.planExpired') +
+                            (expiry.isEstimated
+                              ? ` ${t('coach.students.list.estimatedShort')}`
+                              : '')
+                          : t('coach.students.list.planEndsIn', { days: expiry.daysLeft })}
                       </span>
                     )}
                     {payStatus !== 'no_data' && payStatus !== 'up_to_date' && (
                       <span className={`badge text-xs ${payConfig.badgeClass}`}>
-                        {payConfig.label}
+                        {t(payConfig.labelKey)}
                       </span>
                     )}
                     <WellbeingStatusBadge summary={wellbeingByStudent.get(student.id)} />
@@ -509,7 +514,11 @@ export default function StudentsPage() {
                     handleToggleActive(student)
                   }}
                   disabled={togglingId === student.id}
-                  title={studentActive ? 'Marcar como inactivo' : 'Reactivar'}
+                  title={
+                    studentActive
+                      ? t('coach.students.list.markInactive')
+                      : t('coach.students.list.reactivate')
+                  }
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0 disabled:opacity-40"
                 >
                   {studentActive ? <UserX size={16} /> : <UserCheck size={16} />}

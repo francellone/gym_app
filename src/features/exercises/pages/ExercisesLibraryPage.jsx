@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
   Dumbbell,
@@ -43,6 +44,7 @@ const PRESET_COLORS = [
 // Modal para crear/editar etiquetas
 // ============================================================
 function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(PRESET_COLORS[0])
   const [saving, setSaving] = useState(false)
@@ -69,7 +71,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
   }
 
   async function deleteTag(tagId) {
-    if (!confirm('¿Eliminar esta etiqueta? Se quitará de todos los ejercicios.')) return
+    if (!confirm(t('coach.exercises.tagManager.confirmDelete'))) return
     await supabase.from('exercise_tags').delete().eq('id', tagId)
     onRefresh()
   }
@@ -78,7 +80,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
     <div className="fixed inset-0 bg-tinta/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-          <h2 className="font-bold text-gray-900">Gestionar etiquetas</h2>
+          <h2 className="font-bold text-gray-900">{t('coach.exercises.tagManager.title')}</h2>
           <button onClick={onClose} className="btn-ghost p-1.5">
             <X size={18} />
           </button>
@@ -87,11 +89,11 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
         <div className="p-4 space-y-4">
           {/* Nueva etiqueta */}
           <div className="space-y-2">
-            <label className="label">Nueva etiqueta</label>
+            <label className="label">{t('coach.exercises.tagManager.newTag')}</label>
             <div className="flex gap-2">
               <input
                 className="input flex-1"
-                placeholder="Nombre (ej: Cuádriceps, Cadena posterior...)"
+                placeholder={t('coach.exercises.tagManager.namePlaceholder')}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && createTag()}
@@ -134,9 +136,13 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 
           {/* Lista de etiquetas existentes */}
           <div className="space-y-2">
-            <label className="label">Tus etiquetas ({tags.length})</label>
+            <label className="label">
+              {t('coach.exercises.tagManager.yourTags', { count: tags.length })}
+            </label>
             {tags.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Aún no creaste etiquetas</p>
+              <p className="text-sm text-gray-400 text-center py-4">
+                {t('coach.exercises.tagManager.empty')}
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
@@ -167,6 +173,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
 // Página principal de biblioteca de ejercicios
 // ============================================================
 export default function ExercisesLibraryPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [exercises, setExercises] = useState([])
   const [tags, setTags] = useState([])
@@ -229,17 +236,18 @@ export default function ExercisesLibraryPage() {
       usage = null
     }
     if (usage && isReferenced(usage)) {
-      const partes = usageSummary(usage)
+      const partes = usageSummary(usage, t)
       const ok = confirm(
-        `"${ex.name}" está en uso: ${partes.join(', ')}. ` +
-          'No se puede eliminar sin perder ese historial.\n\n' +
-          '¿Querés archivarlo? Deja de aparecer al armar planes pero todo lo registrado se conserva.'
+        t('coach.exercises.library.confirmArchiveInUse', {
+          name: ex.name,
+          parts: partes.join(', '),
+        })
       )
       if (ok) await setArchived(ex, true)
       return
     }
 
-    if (!confirm(`¿Eliminar "${ex.name}"? No tiene planes ni registros asociados.`)) return
+    if (!confirm(t('coach.exercises.library.confirmDelete', { name: ex.name }))) return
 
     // Chequear el resultado: si RLS lo bloquea, el DELETE afecta 0 filas SIN error.
     // Sin este chequeo el ejercicio "desaparecía" de la lista y reaparecía al recargar.
@@ -247,20 +255,14 @@ export default function ExercisesLibraryPage() {
 
     if (error) {
       if (error.code === '23503') {
-        alert(
-          `No se puede eliminar "${ex.name}": tiene entrenamientos o evaluaciones registrados. ` +
-            'Archivalo en lugar de eliminarlo.'
-        )
+        alert(t('coach.exercises.library.deleteHasLogs', { name: ex.name }))
       } else {
-        alert(`No se pudo eliminar el ejercicio: ${error.message}`)
+        alert(t('coach.exercises.library.deleteError', { message: error.message }))
       }
       return
     }
     if (!data || data.length === 0) {
-      alert(
-        'No se pudo eliminar el ejercicio: no tenés permisos sobre él ' +
-          '(fue creado por otra cuenta). Recargá la página.'
-      )
+      alert(t('coach.exercises.library.deleteNoPermission'))
       return
     }
     setExercises((prev) => prev.filter((e) => e.id !== id))
@@ -272,7 +274,14 @@ export default function ExercisesLibraryPage() {
       p_archived: archived,
     })
     if (error) {
-      alert(`No se pudo ${archived ? 'archivar' : 'desarchivar'}: ${error.message}`)
+      alert(
+        t(
+          archived
+            ? 'coach.exercises.library.archiveError'
+            : 'coach.exercises.library.unarchiveError',
+          { message: error.message }
+        )
+      )
       return
     }
     setExercises((prev) => prev.map((e) => (e.id === ex.id ? { ...e, ...data } : e)))
@@ -280,17 +289,18 @@ export default function ExercisesLibraryPage() {
 
   function handleMerged({ from, into, counts }) {
     setMergeFrom(null)
+    const M = 'coach.exercises.library.merged.'
     const partes = []
-    if (counts?.plan_exercises) partes.push(`${counts.plan_exercises} casilleros de plan`)
-    if (counts?.workout_logs) partes.push(`${counts.workout_logs} entrenamientos`)
+    if (counts?.plan_exercises) partes.push(t(M + 'planSlots', { count: counts.plan_exercises }))
+    if (counts?.workout_logs) partes.push(t(M + 'workouts', { count: counts.workout_logs }))
     const evals = (counts?.eval_responses || 0) + (counts?.eval_tests || 0)
-    if (evals) partes.push(`${evals} evaluaciones`)
-    if (counts?.notes) partes.push(`${counts.notes} notas`)
-    const completados = filledSummary(counts?.filled)
+    if (evals) partes.push(t(M + 'evals', { count: evals }))
+    if (counts?.notes) partes.push(t(M + 'notes', { count: counts.notes }))
+    const completados = filledSummary(counts?.filled, t)
     alert(
-      `"${from.name}" se fusionó en "${into.name}".` +
-        (partes.length ? ` Pasaron ${partes.join(', ')}.` : '') +
-        (completados.length ? ` Se completó: ${completados.join(', ')}.` : '')
+      t(M + 'done', { from: from.name, into: into.name }) +
+        (partes.length ? t(M + 'moved', { parts: partes.join(', ') }) : '') +
+        (completados.length ? t(M + 'filled', { parts: completados.join(', ') }) : '')
     )
     fetchAll()
   }
@@ -316,8 +326,10 @@ export default function ExercisesLibraryPage() {
     const matchSearch =
       !search ||
       e.name?.toLowerCase().includes(search.toLowerCase()) ||
-      (exerciseTagMap[e.id] || []).some((t) => t.name?.toLowerCase().includes(search.toLowerCase()))
-    const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some((t) => t.id === filterTag)
+      (exerciseTagMap[e.id] || []).some((tag) =>
+        tag.name?.toLowerCase().includes(search.toLowerCase())
+      )
+    const matchTag = !filterTag || (exerciseTagMap[e.id] || []).some((tag) => tag.id === filterTag)
     const exMode = e.default_weight_mode || 'with_weight'
     const matchMode = !filterMode || exMode === filterMode
     // "Completo" = video + nota técnica (lo que el alumno necesita sí o sí).
@@ -331,28 +343,28 @@ export default function ExercisesLibraryPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ejercicios</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('coach.exercises.library.title')}</h1>
           <p className="text-sm text-gray-500">
-            {activeCount} en la biblioteca
+            {t('coach.exercises.library.inLibrary', { count: activeCount })}
             {archivedCount > 0 &&
-              ` · ${archivedCount} ${archivedCount === 1 ? 'archivado' : 'archivados'}`}
+              t('coach.exercises.library.archivedCount', { count: archivedCount })}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowDuplicates(true)}
             className="btn-secondary flex items-center gap-1.5 text-sm"
-            title="Ejercicios con el mismo nombre o el mismo video"
+            title={t('coach.exercises.library.duplicatesTitle')}
           >
             <Copy size={15} />
-            <span className="hidden sm:inline">Duplicados</span>
+            <span className="hidden sm:inline">{t('coach.exercises.library.duplicates')}</span>
           </button>
           <button
             onClick={() => setShowTagManager(true)}
             className="btn-secondary flex items-center gap-1.5 text-sm"
           >
             <Tag size={15} />
-            <span className="hidden sm:inline">Etiquetas</span>
+            <span className="hidden sm:inline">{t('coach.exercises.library.tags')}</span>
           </button>
           <button
             onClick={() => {
@@ -362,7 +374,7 @@ export default function ExercisesLibraryPage() {
             className="btn-primary flex items-center gap-2"
           >
             <Plus size={18} />
-            <span className="hidden sm:inline">Nuevo ejercicio</span>
+            <span className="hidden sm:inline">{t('coach.exercises.library.newExercise')}</span>
           </button>
         </div>
       </div>
@@ -373,7 +385,7 @@ export default function ExercisesLibraryPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             className="input pl-9"
-            placeholder="Buscar por nombre o etiqueta..."
+            placeholder={t('coach.exercises.library.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -384,10 +396,10 @@ export default function ExercisesLibraryPage() {
             value={filterTag}
             onChange={(e) => setFilterTag(e.target.value)}
           >
-            <option value="">Todas las etiquetas</option>
-            {tags.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t('coach.exercises.library.allTags')}</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
               </option>
             ))}
           </select>
@@ -397,10 +409,10 @@ export default function ExercisesLibraryPage() {
           value={filterMode}
           onChange={(e) => setFilterMode(e.target.value)}
         >
-          <option value="">Todos los modos</option>
+          <option value="">{t('coach.exercises.library.allModes')}</option>
           {WEIGHT_MODES.map((m) => (
             <option key={m.key} value={m.key}>
-              {m.label}
+              {t(`coach.exercises.weightModes.${m.key}`)}
             </option>
           ))}
         </select>
@@ -412,10 +424,10 @@ export default function ExercisesLibraryPage() {
               ? 'bg-red-50 border-red-200 text-red-600'
               : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
           }`}
-          title="Mostrar solo ejercicios sin video o sin nota"
+          title={t('coach.exercises.library.incompleteTitle')}
         >
           <AlertCircle size={15} />
-          <span className="hidden sm:inline">Solo incompletos</span>
+          <span className="hidden sm:inline">{t('coach.exercises.library.onlyIncomplete')}</span>
         </button>
         <button
           type="button"
@@ -425,11 +437,13 @@ export default function ExercisesLibraryPage() {
               ? 'bg-durazno-50 border-durazno-200 text-primary-700'
               : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
           }`}
-          title="Ver los ejercicios archivados"
+          title={t('coach.exercises.library.archivedTitle')}
         >
           <Archive size={15} />
           <span className="hidden sm:inline">
-            Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
+            {archivedCount > 0
+              ? t('coach.exercises.library.archivedWithCount', { count: archivedCount })
+              : t('coach.exercises.library.archived')}
           </span>
         </button>
       </div>
@@ -444,14 +458,16 @@ export default function ExercisesLibraryPage() {
         <div className="card text-center py-12">
           <Dumbbell className="w-10 h-10 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500">
-            {showArchived ? 'No hay ejercicios archivados' : 'No hay ejercicios'}
+            {showArchived
+              ? t('coach.exercises.library.emptyArchived')
+              : t('coach.exercises.library.empty')}
           </p>
           <button
             hidden={showArchived}
             onClick={() => setShowModal(true)}
             className="btn-primary inline-flex items-center gap-2 mt-3"
           >
-            <Plus size={16} /> Crear ejercicio
+            <Plus size={16} /> {t('coach.exercises.library.createExercise')}
           </button>
         </div>
       ) : (
@@ -478,7 +494,7 @@ export default function ExercisesLibraryPage() {
                       if (mode === 'barbell_only') {
                         return (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                            Barra
+                            {t('coach.exercises.library.badgeBarbell')}
                           </span>
                         )
                       }
@@ -486,40 +502,44 @@ export default function ExercisesLibraryPage() {
                     })()}
                     {ex.default_unilateral && (
                       <span
-                        title="Unilateral (cada lado)"
+                        title={t('coach.exercises.library.unilateralTitle')}
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700"
                       >
-                        Unilat.
+                        {t('coach.exercises.library.badgeUnilateral')}
                       </span>
                     )}
                     {!ex.video_url && (
                       <span
-                        title="Falta video"
+                        title={t('coach.exercises.library.noVideoTitle')}
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"
                       >
-                        Sin video
+                        {t('coach.exercises.library.noVideo')}
                       </span>
                     )}
                     {!ex.technique_notes && (
                       <span
-                        title="Falta la nota técnica (el alumno la ve siempre al abrir el ejercicio)"
+                        title={t('coach.exercises.library.noNoteTitle')}
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600"
                       >
-                        Sin nota
+                        {t('coach.exercises.library.noNote')}
                       </span>
                     )}
                     {ex.archived_at && (
                       <span
                         title={
                           ex.merged_into_id
-                            ? `Fusionado en "${exerciseById[ex.merged_into_id]?.name || '…'}"`
-                            : 'Archivado: no aparece al armar planes'
+                            ? t('coach.exercises.library.mergedIntoTitle', {
+                                name: exerciseById[ex.merged_into_id]?.name || '…',
+                              })
+                            : t('coach.exercises.library.archivedBadgeTitle')
                         }
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700"
                       >
                         {ex.merged_into_id
-                          ? `Fusionado en ${exerciseById[ex.merged_into_id]?.name || '…'}`
-                          : 'Archivado'}
+                          ? t('coach.exercises.library.mergedInto', {
+                              name: exerciseById[ex.merged_into_id]?.name || '…',
+                            })
+                          : t('coach.exercises.library.archivedBadge')}
                       </span>
                     )}
                     {ex.created_by &&
@@ -527,10 +547,12 @@ export default function ExercisesLibraryPage() {
                       ex.created_by !== profile.id &&
                       coachNames[ex.created_by] && (
                         <span
-                          title="Creado por otra coach (decisión D3: un solo catálogo para todas)"
+                          title={t('coach.exercises.library.otherCoachTitle')}
                           className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700"
                         >
-                          de {coachNames[ex.created_by]}
+                          {t('coach.exercises.library.byCoach', {
+                            name: coachNames[ex.created_by],
+                          })}
                         </span>
                       )}
                   </div>
@@ -547,7 +569,7 @@ export default function ExercisesLibraryPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400">Sin etiquetas</p>
+                    <p className="text-xs text-gray-400">{t('coach.exercises.library.noTags')}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -556,7 +578,7 @@ export default function ExercisesLibraryPage() {
                       <button
                         onClick={() => setArchived(ex, false)}
                         className="btn-ghost p-2"
-                        title="Desarchivar: vuelve a aparecer al armar planes"
+                        title={t('coach.exercises.library.unarchiveTitle')}
                       >
                         <ArchiveRestore size={15} className="text-gray-500" />
                       </button>
@@ -569,28 +591,28 @@ export default function ExercisesLibraryPage() {
                           setShowModal(true)
                         }}
                         className="btn-ghost p-2"
-                        title="Editar"
+                        title={t('common.edit')}
                       >
                         <Edit2 size={15} className="text-gray-500" />
                       </button>
                       <button
                         onClick={() => setMergeFrom({ from: ex })}
                         className="btn-ghost p-2"
-                        title="Fusionar en otro ejercicio (si está repetido)"
+                        title={t('coach.exercises.library.mergeTitle')}
                       >
                         <GitMerge size={15} className="text-indigo-500" />
                       </button>
                       <button
                         onClick={() => setArchived(ex, true)}
                         className="btn-ghost p-2"
-                        title="Archivar: deja de aparecer al armar planes, el historial se conserva"
+                        title={t('coach.exercises.library.archiveTitle')}
                       >
                         <Archive size={15} className="text-gray-500" />
                       </button>
                       <button
                         onClick={() => deleteExercise(ex)}
                         className="btn-ghost p-2"
-                        title="Eliminar (solo si nadie lo usa)"
+                        title={t('coach.exercises.library.deleteTitle')}
                       >
                         <Trash2 size={15} className="text-red-400" />
                       </button>

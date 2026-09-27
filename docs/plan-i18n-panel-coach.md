@@ -152,3 +152,24 @@ funcionó con el backfill de ejercicios.
 - **Traducción de lo que va a la base.** Ver las constantes canónicas de arriba.
 - **Volumen.** 740 textos no se hacen de una sentada. El valor está en cerrar
   tandas verificadas, no en abrir todo a la vez.
+
+---
+
+## Estado 2026-09-27 — Etapa 2 IMPLEMENTADA
+
+- La coach elige el idioma de su panel en **Mi perfil** (`/coach/profile`), no con
+  un botón en el header: es el mismo `profiles.language` y AuthContext lo aplica.
+- Las 8 tandas se hicieron juntas, en paralelo por área. Claves en
+  `src/i18n/locales/coach/<área>.{es,en}.json` (layout, profile, students,
+  wellbeing, notes, milestones, plans, planEditor, assignment, evaluations,
+  forms, reports, dashboard, exercises): unas 2050 por idioma.
+- Guardias: `src/i18n/locales-parity.test.js` (mismas claves, sin vacíos) y
+  `src/i18n/no-hardcoded-text.test.js` (corre `scripts/find-hardcoded-es.mjs`
+  sobre `src/` y falla ante texto visible nuevo fuera de `t()`; con prueba
+  negativa hecha).
+- Receta y glosario: `docs/guia-i18n-panel-coach.md`.
+- Queda en español a propósito: valores canónicos de la base (status, tags de
+  evaluación, historial de cambios del perfil `student_edit_history`), valores
+  iniciales de contenido de formularios ("Nuevo módulo") y nombres de archivos
+  descargados.
+- Pendiente: revisión del inglés por Anto (planilla de claves) y verificación en vivo.

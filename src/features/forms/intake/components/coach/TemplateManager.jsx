@@ -9,6 +9,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { DEFAULT_TEMPLATES } from '../../schema/default-form.js'
 
 export default function TemplateManager({
@@ -18,23 +19,30 @@ export default function TemplateManager({
   onClose,
   onSaveNew,
 }) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('load') // 'load' | 'save'
 
   const allTemplates = [
-    ...DEFAULT_TEMPLATES.map((t) => ({
-      id: t.template_id,
-      name: t.template_name,
-      description: t.description,
+    // Las predefinidas son texto de la app (se traducen por template_id); las
+    // guardadas son texto libre de la coach.
+    ...DEFAULT_TEMPLATES.map((tpl) => ({
+      id: tpl.template_id,
+      name: t(`coach.forms.templates.predefined.${tpl.template_id}.name`, {
+        defaultValue: tpl.template_name,
+      }),
+      description: t(`coach.forms.templates.predefined.${tpl.template_id}.description`, {
+        defaultValue: tpl.description,
+      }),
       isPredefined: true,
     })),
-    ...templates.map((t) => ({
-      id: t.id,
-      name: t.name,
-      description: t.description || '',
+    ...templates.map((tpl) => ({
+      id: tpl.id,
+      name: tpl.name,
+      description: tpl.description || '',
       isPredefined: false,
-      config: t.config,
+      config: tpl.config,
     })),
   ]
 
@@ -54,11 +62,11 @@ export default function TemplateManager({
       <div className="bg-white rounded-tarjeta shadow-flotante w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Plantillas de formulario</h2>
+          <h2 className="font-semibold text-gray-900">{t('coach.forms.templates.title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             <X size={20} />
           </button>
@@ -67,19 +75,19 @@ export default function TemplateManager({
         {/* Tabs */}
         <div className="flex border-b border-gray-100">
           {[
-            { id: 'load', label: 'Cargar plantilla' },
-            { id: 'save', label: 'Guardar actual' },
-          ].map((t) => (
+            { id: 'load', label: t('coach.forms.templates.tabLoad') },
+            { id: 'save', label: t('coach.forms.templates.tabSave') },
+          ].map((tb) => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
               className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                tab === t.id
+                tab === tb.id
                   ? 'border-primary-600 text-primary-700'
                   : 'border-transparent text-texto2 hover:text-tinta'
               }`}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>
@@ -100,7 +108,7 @@ export default function TemplateManager({
                       </p>
                       {tpl.isPredefined && (
                         <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                          Predefinida
+                          {t('coach.forms.templates.predefinedBadge')}
                         </span>
                       )}
                     </div>
@@ -112,7 +120,7 @@ export default function TemplateManager({
                     className="text-xs text-primary-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
                     onClick={() => tpl.config && onLoad(tpl.config)}
                   >
-                    Usar esta →
+                    {t('coach.forms.templates.useThis')}
                   </button>
                 </div>
               ))}
@@ -121,19 +129,17 @@ export default function TemplateManager({
 
           {tab === 'save' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">
-                Guardá la configuración actual como una nueva plantilla para reutilizarla.
-              </p>
+              <p className="text-sm text-gray-500">{t('coach.forms.templates.saveHint')}</p>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1">
-                  Nombre de la plantilla
+                  {t('coach.forms.templates.nameLabel')}
                 </label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                  placeholder="Ej: Fitness femenino avanzado"
+                  placeholder={t('coach.forms.templates.namePlaceholder')}
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -142,7 +148,7 @@ export default function TemplateManager({
                 disabled={!newName.trim() || saving}
                 className="btn-primary w-full"
               >
-                {saving ? 'Guardando...' : 'Guardar plantilla'}
+                {saving ? t('common.saving') : t('coach.forms.templates.saveButton')}
               </button>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
   ArrowLeft,
@@ -33,6 +34,7 @@ import {
   groupExercisesIntoBlocks,
 } from '../helpers'
 import { format } from 'date-fns'
+import { dateLocale } from '@/i18n/dateLocale'
 import DeletePlanModal from '../components/DeletePlanModal'
 import { setPlanArchived } from '../planLifecycle'
 import PlanProgressTab from './PlanProgressTab'
@@ -59,6 +61,7 @@ import AvatarImage from '@/features/avatars/AvatarImage'
 // no tiene sentido conceptual (no podés asignar el plan de un alumno a
 // otro alumno) y además el back lo rechazaría con check_violation.
 function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [students, setStudents] = useState([])
   const [alreadyAssigned, setAlreadyAssigned] = useState(new Set())
@@ -113,19 +116,14 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
     // antes de tocar el back. El back igualmente lo rechazaría con
     // check_violation desde la RPC.
     if (isTemplate === false) {
-      setError(
-        'Este plan ya es una instancia personalizada de un alumno y no se puede asignar a otro. ' +
-          'Duplicalo como plantilla nueva si querés reutilizarlo.'
-      )
+      setError(t('coach.plans.assign.errorPersonalInstance'))
       return
     }
 
     // Si es training y el alumno ya tiene activo, llevarlo al perfil
     // a usar el flujo completo (con ReplacePlanModal).
     if (isTraining && studentsWithActiveTraining.has(selected)) {
-      const goProfile = window.confirm(
-        'Este alumno ya tiene un plan de entrenamiento activo. Para reemplazarlo necesitamos que lo gestiones desde el perfil del alumno (con motivo, opción de pausar, etc.). ¿Ir al perfil?'
-      )
+      const goProfile = window.confirm(t('coach.plans.assign.confirmHasActiveTraining'))
       if (goProfile) navigate(`/coach/students/${selected}`)
       return
     }
@@ -142,7 +140,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
       })
       onDone()
     } catch (err) {
-      setError(err.message || 'Error al asignar alumno')
+      setError(err.message || t('coach.plans.assign.errorAssign'))
     } finally {
       setSaving(false)
     }
@@ -165,7 +163,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <UserPlus size={16} className="text-primary-600" />
-            <h2 className="font-bold text-gray-900 text-sm">Asignar alumno</h2>
+            <h2 className="font-bold text-gray-900 text-sm">{t('coach.plans.assign.title')}</h2>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
             <X size={16} />
@@ -175,7 +173,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
           <input
             type="text"
             className="input"
-            placeholder="Buscar alumno..."
+            placeholder={t('coach.plans.assign.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
@@ -188,13 +186,15 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
                 onChange={(e) => setShowInactive(e.target.checked)}
                 className="rounded"
               />
-              Mostrar personas inactivas
+              {t('coach.plans.assign.showInactive')}
             </label>
           )}
           <div className="space-y-1.5 max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">
-                {students.length === 0 ? 'No hay alumnos' : 'Todos ya tienen este plan'}
+                {students.length === 0
+                  ? t('coach.plans.assign.noPeople')
+                  : t('coach.plans.assign.allHavePlan')}
               </p>
             ) : (
               filtered.map((s) => (
@@ -218,7 +218,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
                     {s.name}
                     {s.active === false && (
                       <span className="ml-1.5 text-[10px] text-gray-400 font-normal">
-                        · Inactivo
+                        · {t('coach.plans.assign.inactive')}
                       </span>
                     )}
                   </span>
@@ -240,7 +240,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</p>}
           <div className="flex gap-3">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleAssign}
@@ -251,7 +251,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <UserPlus size={13} /> Asignar
+                  <UserPlus size={13} /> {t('coach.plans.assign.submit')}
                 </>
               )}
             </button>
@@ -299,6 +299,7 @@ function fmtWeight(ex) {
 
 // ── Fila de ejercicio (tabla) ───────────────────────────────
 function ExerciseRow({ ex, onDelete, history = [] }) {
+  const { t } = useTranslation()
   const [notesOpen, setNotesOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -330,7 +331,9 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
 
         {/* Nombre */}
         <div className="plan-ex-name">
-          <span className="plan-ex-name-text">{ex.exercise?.name || 'Sin ejercicio'}</span>
+          <span className="plan-ex-name-text">
+            {ex.exercise?.name || t('coach.plans.detail.noExercise')}
+          </span>
           <div className="plan-ex-name-actions">
             {hasNotes && (
               <button
@@ -339,7 +342,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
                   e.stopPropagation()
                   setNotesOpen((o) => !o)
                 }}
-                title="Ver técnica"
+                title={t('coach.plans.detail.seeTechnique')}
               >
                 <Info size={9} strokeWidth={2.5} />
               </button>
@@ -351,7 +354,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="plan-ex-video-btn"
-                title="Ver video"
+                title={t('coach.plans.detail.seeVideo')}
               >
                 <ExternalLink size={11} />
               </a>
@@ -363,7 +366,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
                   e.stopPropagation()
                   setHistoryOpen((o) => !o)
                 }}
-                title={`Cambios de objetivo (${history.length})`}
+                title={t('coach.plans.detail.targetChangesCount', { count: history.length })}
               >
                 <History size={9} strokeWidth={2.5} />
               </button>
@@ -425,7 +428,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
                     setMenuOpen(false)
                   }}
                 >
-                  <X size={13} /> Eliminar
+                  <X size={13} /> {t('coach.plans.detail.delete')}
                 </button>
               </div>
             )}
@@ -437,7 +440,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
       {notesOpen && hasNotes && (
         <div className="plan-ex-notes-row">
           <div className="plan-ex-notes-inner">
-            <div className="plan-ex-notes-label">Técnica / notas</div>
+            <div className="plan-ex-notes-label">{t('coach.plans.detail.techniqueNotes')}</div>
             {ex.extra_notes || ex.exercise?.technique_notes}
           </div>
         </div>
@@ -448,7 +451,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
         <div className="plan-ex-notes-row">
           <div className="plan-ex-notes-inner">
             <div className="plan-ex-notes-label flex items-center gap-1.5">
-              <History size={11} /> Cambios de objetivo
+              <History size={11} /> {t('coach.plans.detail.targetChanges')}
             </div>
             <div className="mt-1.5">
               <PrescriptionHistoryTimeline entries={history} />
@@ -462,6 +465,7 @@ function ExerciseRow({ ex, onDelete, history = [] }) {
 
 // ── Tarjeta resumen de bloque AERÓBICO ──────────────────────
 function AerobicBlockSummary({ block }) {
+  const { t } = useTranslation()
   const fmt = AEROBIC_FORMATS.find((f) => f.key === block.aerobic_format)
   const intensity = INTENSITY_LEVELS.find((i) => i.key === block.aerobic_intensity)
   const zone = AEROBIC_ZONES.find((z) => z.key === block.aerobic_zone)
@@ -474,20 +478,22 @@ function AerobicBlockSummary({ block }) {
     <div className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-3.5 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <Activity size={16} className="text-niebla-700" />
-        <span className="font-semibold text-sm text-sky-800">{block.title || 'Aeróbico'}</span>
+        <span className="font-semibold text-sm text-sky-800">
+          {block.title || t('workout.aerobic')}
+        </span>
         {fmt && (
           <span className="text-[10px] font-semibold uppercase tracking-wide bg-sky-200/60 text-sky-800 rounded-full px-2 py-0.5">
-            {fmt.label}
+            {t(`workout.aerobicFormats.${fmt.key}`)}
           </span>
         )}
         {zone && (
           <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 border ${zone.color}`}>
-            {zone.label} · {zone.short}
+            {zone.label} · {t(`workout.aerobicZones.${zone.key}.short`)}
           </span>
         )}
         {intensity && !zone && (
           <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${intensity.color}`}>
-            {intensity.label}
+            {t(`workout.intensity.${intensity.key}`)}
           </span>
         )}
         {exerciseName && (
@@ -500,7 +506,7 @@ function AerobicBlockSummary({ block }) {
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="plan-ex-video-btn"
-                title="Ver video"
+                title={t('coach.plans.detail.seeVideo')}
               >
                 <ExternalLink size={12} />
               </a>
@@ -522,7 +528,7 @@ function AerobicBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <Activity size={12} className="text-sky-600" />
             <span>
-              Trabajo <strong>{block.aerobic_work_seconds}s</strong>
+              {t('coach.plans.detail.work')} <strong>{block.aerobic_work_seconds}s</strong>
             </span>
           </div>
         )}
@@ -530,7 +536,7 @@ function AerobicBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <span className="text-sky-600 text-xs">⏸</span>
             <span>
-              Descanso <strong>{block.aerobic_rest_seconds}s</strong>
+              {t('coach.plans.detail.rest')} <strong>{block.aerobic_rest_seconds}s</strong>
             </span>
           </div>
         )}
@@ -538,7 +544,7 @@ function AerobicBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <Repeat size={12} className="text-sky-600" />
             <span>
-              <strong>{block.aerobic_rounds}</strong> rondas
+              <strong>{block.aerobic_rounds}</strong> {t('coach.plans.detail.rounds')}
             </span>
           </div>
         )}
@@ -546,8 +552,10 @@ function AerobicBlockSummary({ block }) {
 
       {block.aerobic_expected_sensation && (
         <div className="text-xs text-sky-700 italic bg-white/40 rounded-lg px-2.5 py-1.5">
-          <span className="font-semibold not-italic">Sensación esperada: </span>"
-          {block.aerobic_expected_sensation}"
+          <span className="font-semibold not-italic">
+            {t('coach.plans.detail.expectedSensation')}{' '}
+          </span>
+          "{block.aerobic_expected_sensation}"
         </div>
       )}
 
@@ -563,7 +571,8 @@ function AerobicBlockSummary({ block }) {
 
 // ── Tarjeta resumen de bloque CIRCUITO ──────────────────────
 function CircuitBlockSummary({ block }) {
-  const cType = CIRCUIT_TYPES.find((t) => t.key === block.circuit_type)
+  const { t } = useTranslation()
+  const cType = CIRCUIT_TYPES.find((ct) => ct.key === block.circuit_type)
   const intensity = INTENSITY_LEVELS.find((i) => i.key === block.circuit_intensity)
   const exercises = (block.plan_exercises || [])
     .slice()
@@ -573,15 +582,17 @@ function CircuitBlockSummary({ block }) {
     <div className="rounded-2xl border-2 border-durazno-200 bg-durazno-50 p-3.5 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <Flame size={16} className="text-primary-700" />
-        <span className="font-semibold text-sm text-primary-800">{block.title || 'Circuito'}</span>
+        <span className="font-semibold text-sm text-primary-800">
+          {block.title || t('workout.circuit')}
+        </span>
         {cType && (
           <span className="text-[10px] font-semibold uppercase tracking-wide bg-orange-200/60 text-orange-800 rounded-full px-2 py-0.5">
-            {cType.label}
+            {t(`workout.circuitTypes.${cType.key}`, { defaultValue: cType.label })}
           </span>
         )}
         {intensity && (
           <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${intensity.color}`}>
-            {intensity.label}
+            {t(`workout.intensity.${intensity.key}`)}
           </span>
         )}
       </div>
@@ -591,7 +602,7 @@ function CircuitBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <Flame size={12} className="text-orange-600" />
             <span>
-              Trabajo <strong>{block.circuit_work_seconds}s</strong>
+              {t('coach.plans.detail.work')} <strong>{block.circuit_work_seconds}s</strong>
             </span>
           </div>
         )}
@@ -599,7 +610,7 @@ function CircuitBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <span className="text-orange-600 text-xs">⏸</span>
             <span>
-              Descanso <strong>{block.circuit_rest_seconds}s</strong>
+              {t('coach.plans.detail.rest')} <strong>{block.circuit_rest_seconds}s</strong>
             </span>
           </div>
         )}
@@ -607,7 +618,7 @@ function CircuitBlockSummary({ block }) {
           <div className="flex items-center gap-1.5 bg-white/60 rounded-lg px-2 py-1.5">
             <Repeat size={12} className="text-orange-600" />
             <span>
-              <strong>{block.circuit_rounds}</strong> rondas
+              <strong>{block.circuit_rounds}</strong> {t('coach.plans.detail.rounds')}
             </span>
           </div>
         )}
@@ -624,7 +635,7 @@ function CircuitBlockSummary({ block }) {
       {exercises.length > 0 && (
         <div className="space-y-1 pt-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-700/70">
-            Ejercicios
+            {t('coach.plans.detail.exercises')}
           </p>
           <div className="space-y-1">
             {exercises.map((ex, i) => {
@@ -636,7 +647,7 @@ function CircuitBlockSummary({ block }) {
                 >
                   <span className="text-[11px] font-bold text-orange-600 w-4">{i + 1}.</span>
                   <span className="text-xs text-gray-800 flex-1 truncate">
-                    {ex.exercise?.name || 'Sin ejercicio'}
+                    {ex.exercise?.name || t('coach.plans.detail.noExercise')}
                   </span>
                   {ex.exercise?.video_url && ex.exercise.video_url.startsWith('http') && (
                     <a
@@ -645,7 +656,7 @@ function CircuitBlockSummary({ block }) {
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                       className="plan-ex-video-btn"
-                      title="Ver video"
+                      title={t('coach.plans.detail.seeVideo')}
                     >
                       <ExternalLink size={12} />
                     </a>
@@ -654,7 +665,9 @@ function CircuitBlockSummary({ block }) {
                     {isTime
                       ? `${ex.duration_seconds || '—'}s`
                       : ex.suggested_reps
-                        ? `${displayReps(ex.suggested_reps)} reps`
+                        ? t('coach.plans.detail.repsValue', {
+                            value: displayReps(ex.suggested_reps),
+                          })
                         : '—'}
                   </span>
                   {ex.suggested_weight && ex.suggested_weight !== 'None' && (
@@ -681,6 +694,7 @@ function CircuitBlockSummary({ block }) {
 
 // ── Sección con tabla ────────────────────────────────────────
 function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
+  const { t } = useTranslation()
   const sectionColors = {
     // Identidad (2026-09-27): sin arcoíris. Los días se distinguen por
     // su nombre; el color solo marca la sección elegida (Naranja 700) y la
@@ -703,19 +717,21 @@ function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
 
       {/* Encabezados de columna */}
       <div className="plan-ex-col-headers">
-        <div className="plan-ex-col-h">Bloque</div>
-        <div className="plan-ex-col-h">Ejercicio</div>
-        <div className="plan-ex-col-h plan-ex-col-h--center">Series</div>
-        <div className="plan-ex-col-h">Reps</div>
-        <div className="plan-ex-col-h">Peso</div>
-        <div className="plan-ex-col-h plan-ex-col-h--center">Pausa</div>
-        <div className="plan-ex-col-h plan-ex-col-h--center">PSE sug.</div>
+        <div className="plan-ex-col-h">{t('coach.plans.detail.colBlock')}</div>
+        <div className="plan-ex-col-h">{t('coach.plans.detail.colExercise')}</div>
+        <div className="plan-ex-col-h plan-ex-col-h--center">{t('coach.plans.detail.colSets')}</div>
+        <div className="plan-ex-col-h">{t('coach.plans.detail.colReps')}</div>
+        <div className="plan-ex-col-h">{t('coach.plans.detail.colWeight')}</div>
+        <div className="plan-ex-col-h plan-ex-col-h--center">{t('coach.plans.detail.colRest')}</div>
+        <div className="plan-ex-col-h plan-ex-col-h--center">
+          {t('coach.plans.detail.colSuggestedPse')}
+        </div>
         <div />
       </div>
 
       {exercises.length === 0 ? (
         <div className="py-10 text-center text-sm text-gray-400">
-          Sin ejercicios en esta sección
+          {t('coach.plans.detail.sectionNoExercises')}
         </div>
       ) : (
         exercises.map((ex) => (
@@ -728,6 +744,7 @@ function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
 
 // ── Página principal ─────────────────────────────────────────
 export default function PlanDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [plan, setPlan] = useState(null)
@@ -797,7 +814,7 @@ export default function PlanDetailPage() {
       const row = await setPlanArchived(plan.id, false)
       setPlan((prev) => ({ ...prev, ...row }))
     } catch (err) {
-      alert(err.message || 'No se pudo desarchivar.')
+      alert(err.message || t('coach.plans.unarchiveError'))
     }
   }
 
@@ -868,7 +885,11 @@ export default function PlanDetailPage() {
     )
 
   if (!plan)
-    return <div className="text-center py-14 text-gray-500 text-sm">Plan no encontrado</div>
+    return (
+      <div className="text-center py-14 text-gray-500 text-sm">
+        {t('coach.plans.detail.notFound')}
+      </div>
+    )
 
   return (
     <>
@@ -896,14 +917,14 @@ export default function PlanDetailPage() {
       {plan.archived_at && (
         <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-100 border border-gray-200 px-4 py-2.5">
           <p className="text-xs text-gray-700">
-            <span className="font-semibold">Plan archivado.</span> No aparece en el recetario ni al
-            asignar; todo lo registrado se conserva.
+            <span className="font-semibold">{t('coach.plans.detail.archivedTitle')}</span>{' '}
+            {t('coach.plans.detail.archivedBody')}
           </p>
           <button
             onClick={handleUnarchive}
             className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0"
           >
-            Desarchivar
+            {t('coach.plans.detail.unarchive')}
           </button>
         </div>
       )}
@@ -933,15 +954,21 @@ export default function PlanDetailPage() {
                   <line x1="8" y1="2" x2="8" y2="6" />
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
-                {plan.sessions_per_week || '—'} días/semana
+                {t('coach.plans.detail.daysPerWeekValue', { value: plan.sessions_per_week || '—' })}
               </span>
               <span className="plan-meta-sep">·</span>
-              <span className="plan-meta-item">{totalExercises} ejercicios</span>
+              <span className="plan-meta-item">
+                {t('coach.plans.list.exercisesCount', { count: totalExercises })}
+              </span>
               {plan.created_at && (
                 <>
                   <span className="plan-meta-sep">·</span>
                   <span className="plan-meta-item">
-                    Creado {format(new Date(plan.created_at), 'dd MMM yyyy')}
+                    {t('coach.plans.detail.createdOn', {
+                      date: format(new Date(plan.created_at), 'dd MMM yyyy', {
+                        locale: dateLocale(),
+                      }),
+                    })}
                   </span>
                 </>
               )}
@@ -951,7 +978,7 @@ export default function PlanDetailPage() {
             <button
               onClick={() => setShowDeleteModal(true)}
               className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-              title="Eliminar plan"
+              title={t('coach.plans.detail.deletePlanTitle')}
             >
               <Trash2 size={16} />
             </button>
@@ -959,7 +986,7 @@ export default function PlanDetailPage() {
               to={`/coach/plans/${id}/edit`}
               className="btn-secondary flex items-center gap-1.5 text-sm"
             >
-              <Edit2 size={13} /> Editar
+              <Edit2 size={13} /> {t('common.edit')}
             </Link>
             {/* B5 (24/05): se eliminó el botón "+ Agregar ejercicio" del
                 header que no tenía handler (dead button). El flujo natural
@@ -971,19 +998,19 @@ export default function PlanDetailPage() {
         <div className="plan-stats-strip">
           <div className="plan-stat">
             <span className="plan-stat-val">{totalExercises}</span>
-            <span className="plan-stat-lbl">Ejercicios</span>
+            <span className="plan-stat-lbl">{t('coach.plans.detail.exercises')}</span>
           </div>
           <div className="plan-stat">
             <span className="plan-stat-val">{plan.sessions_per_week || '—'}</span>
-            <span className="plan-stat-lbl">Días / semana</span>
+            <span className="plan-stat-lbl">{t('coach.plans.detail.statDaysPerWeek')}</span>
           </div>
           <div className="plan-stat">
             <span className="plan-stat-val">{assignments.length}</span>
-            <span className="plan-stat-lbl">Alumnos</span>
+            <span className="plan-stat-lbl">{t('coach.plans.detail.statPeople')}</span>
           </div>
           <div className="plan-stat">
             <span className="plan-stat-val">{activeSections.length}</span>
-            <span className="plan-stat-lbl">Secciones</span>
+            <span className="plan-stat-lbl">{t('coach.plans.detail.statSections')}</span>
           </div>
         </div>
       </div>
@@ -999,7 +1026,7 @@ export default function PlanDetailPage() {
           }`}
         >
           <LayoutGrid size={13} />
-          Estructura
+          {t('coach.plans.detail.tabStructure')}
         </button>
         <button
           onClick={() => setMainTab('progress')}
@@ -1010,7 +1037,7 @@ export default function PlanDetailPage() {
           }`}
         >
           <TrendingUp size={13} />
-          Progreso
+          {t('coach.plans.detail.tabProgress')}
           {assignments.length > 0 && (
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
@@ -1042,14 +1069,14 @@ export default function PlanDetailPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                 <Users size={14} className="text-gray-400" />
-                Alumnos asignados
+                {t('coach.plans.detail.assignedPeople')}
               </div>
               {plan?.is_template !== false && (
                 <button
                   onClick={() => setShowAssignModal(true)}
                   className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
                 >
-                  <Plus size={12} /> Asignar
+                  <Plus size={12} /> {t('coach.plans.assign.submit')}
                 </button>
               )}
             </div>
@@ -1060,11 +1087,11 @@ export default function PlanDetailPage() {
                     onClick={() => setShowAssignModal(true)}
                     className="plan-add-student-chip"
                   >
-                    <Plus size={11} /> Asignar alumno
+                    <Plus size={11} /> {t('coach.plans.assign.title')}
                   </button>
                 ) : (
                   <p className="text-xs text-gray-400 italic">
-                    Plan personalizado (sin alumnos para asignar).
+                    {t('coach.plans.detail.personalPlanNoAssign')}
                   </p>
                 )
               ) : (
@@ -1085,7 +1112,7 @@ export default function PlanDetailPage() {
                       <button
                         onClick={() => removeAssignment(a.id)}
                         className="text-gray-300 hover:text-red-500 transition-colors ml-1 leading-none"
-                        title="Desasignar"
+                        title={t('coach.plans.detail.unassign')}
                       >
                         <X size={12} />
                       </button>
@@ -1096,7 +1123,7 @@ export default function PlanDetailPage() {
                       onClick={() => setShowAssignModal(true)}
                       className="plan-add-student-chip"
                     >
-                      <Plus size={11} /> Agregar
+                      <Plus size={11} /> {t('coach.plans.detail.add')}
                     </button>
                   )}
                 </>
@@ -1127,7 +1154,7 @@ export default function PlanDetailPage() {
                     className="plan-tab-dot"
                     style={{ background: isActive ? color : '#e3d8cf' }}
                   />
-                  {s.label}
+                  {t(`workout.sections.${s.id}`, { defaultValue: s.label })}
                   <span
                     className={`plan-tab-count ${isActive ? 'plan-tab-count--active' : ''}`}
                     style={isActive ? { background: color + '18', color } : {}}
@@ -1161,7 +1188,7 @@ export default function PlanDetailPage() {
                       <div className="flex items-center gap-1.5 px-1">
                         <Dumbbell size={13} className="text-gray-500" />
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                          Fuerza
+                          {t('workout.strength')}
                         </span>
                       </div>
                       <ExerciseSection
@@ -1179,7 +1206,7 @@ export default function PlanDetailPage() {
                       <div className="flex items-center gap-1.5 px-1">
                         <Activity size={13} className="text-niebla-700" />
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                          Aeróbico
+                          {t('workout.aerobic')}
                         </span>
                       </div>
                       <div className="space-y-2">
@@ -1196,7 +1223,7 @@ export default function PlanDetailPage() {
                       <div className="flex items-center gap-1.5 px-1">
                         <Flame size={13} className="text-primary-700" />
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-primary-700">
-                          Circuito
+                          {t('workout.circuit')}
                         </span>
                       </div>
                       <div className="space-y-2">
@@ -1210,7 +1237,7 @@ export default function PlanDetailPage() {
                   {/* Vacío */}
                   {!hasAnything && (
                     <div className="plan-ex-panel py-10 text-center text-sm text-gray-400">
-                      Sin contenido en esta sección
+                      {t('coach.plans.detail.sectionEmpty')}
                     </div>
                   )}
                 </div>

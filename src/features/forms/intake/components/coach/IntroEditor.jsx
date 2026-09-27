@@ -8,7 +8,10 @@
  * del FormBuilder (nivel superior).
  */
 
+import { useTranslation } from 'react-i18next'
+
 export default function IntroEditor({ value, onChange, bilingual = false }) {
+  const { t } = useTranslation()
   const content = typeof value === 'string' ? value : value?.content || ''
   const enContent = typeof value === 'object' ? value?.i18n?.en?.content || '' : ''
 
@@ -32,19 +35,15 @@ export default function IntroEditor({ value, onChange, bilingual = false }) {
         value={content}
         onChange={handleChange}
         rows={6}
-        placeholder="Escribí la introducción que verán tus estudiantes...
-Podés usar emojis 💪 y saltos de línea."
+        placeholder={t('coach.forms.intro.placeholder')}
         className="w-full text-sm border border-gray-300 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
-      <p className="text-xs text-gray-400">
-        Tip: usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la
-        info, y cualquier instrucción especial.
-      </p>
+      <p className="text-xs text-gray-400">{t('coach.forms.intro.tip')}</p>
 
       {bilingual && (
         <div>
           <label className="text-xs font-medium text-gray-600 block mb-1">
-            Introducción en inglés (opcional — vacío = se muestra la de arriba)
+            {t('coach.forms.intro.enLabel')}
           </label>
           <textarea
             value={enContent}

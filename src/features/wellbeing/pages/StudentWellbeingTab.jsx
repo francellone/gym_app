@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { format, parseISO, subDays } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
+import { dateLocale } from '@/i18n/dateLocale'
 import {
   LineChart,
   Line,
@@ -22,10 +23,10 @@ import { WELLBEING_METRICS, wellbeingColor } from '../components/WellbeingModal'
 // Constantes
 // ─────────────────────────────────────────────────────────────
 const PERIODS = [
-  { label: '2s', days: 14 },
-  { label: '1m', days: 30 },
-  { label: '3m', days: 90 },
-  { label: 'Todo', days: 365 },
+  { labelKey: 'coach.wellbeing.tab.period2w', days: 14 },
+  { labelKey: 'coach.wellbeing.tab.period1m', days: 30 },
+  { labelKey: 'coach.wellbeing.tab.period3m', days: 90 },
+  { labelKey: 'coach.wellbeing.tab.periodAll', days: 365 },
 ]
 
 // Colores para cada línea del gráfico
@@ -59,14 +60,16 @@ function TooltipCard({ active, payload, label }) {
 
 // Tarjeta de promedio por métrica
 function MetricCard({ metric, avg, count }) {
-  const { label, emoji, positive } = metric
+  const { t } = useTranslation()
+  const { labelKey, emoji, positive } = metric
+  const label = t(labelKey)
   const colorClass = avg ? wellbeingColor(Math.round(avg), positive) : 'bg-gray-100 text-gray-400'
   return (
     <div className="card p-3 flex items-center gap-3">
       <span className="text-2xl">{emoji}</span>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-gray-500 leading-tight truncate">{label}</p>
-        <p className="text-xs text-gray-400">{count} registros</p>
+        <p className="text-xs text-gray-400">{t('coach.wellbeing.tab.entries', { count })}</p>
       </div>
       <div className={`text-sm font-bold px-2.5 py-1 rounded-xl ${colorClass}`}>
         {avg ? avg.toFixed(1) : '—'}
@@ -80,6 +83,7 @@ function MetricCard({ metric, avg, count }) {
 // Props: studentId
 // ─────────────────────────────────────────────────────────────
 export default function StudentWellbeingTab({ studentId }) {
+  const { t, i18n } = useTranslation()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState(30)
@@ -111,7 +115,7 @@ export default function StudentWellbeingTab({ studentId }) {
   const chartData = useMemo(
     () =>
       logs.map((l) => ({
-        date: format(parseISO(l.date), 'd MMM', { locale: es }),
+        date: format(parseISO(l.date), t('dates.dayMonthShort'), { locale: dateLocale() }),
         rawDate: l.date,
         sleep_quality: l.sleep_quality,
         nutrition_quality: l.nutrition_quality,
@@ -121,7 +125,9 @@ export default function StudentWellbeingTab({ studentId }) {
         muscle_fatigue: l.muscle_fatigue,
         notes: l.notes,
       })),
-    [logs]
+    // i18n.language: re-formatea las fechas si cambia el idioma
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [logs, i18n.language]
   )
 
   // Promedios por métrica
@@ -139,17 +145,18 @@ export default function StudentWellbeingTab({ studentId }) {
   // Datos para el radar (promedios normalizados)
   const radarData = useMemo(
     () =>
-      WELLBEING_METRICS.map(({ key, label, emoji, positive }) => {
+      WELLBEING_METRICS.map(({ key, labelKey, emoji, positive }) => {
         const a = averages[key]?.avg
         // Para métricas negativas (estrés, fatiga): invertimos para que el radar muestre "bienestar"
         const normalized = a != null ? (positive ? a : 11 - a) : null
         return {
           metric: emoji,
-          fullLabel: label,
+          fullLabel: t(labelKey),
           value: normalized != null ? parseFloat(normalized.toFixed(1)) : null,
         }
       }),
-    [averages]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [averages, i18n.language]
   )
 
   function toggleMetric(key) {
@@ -177,10 +184,8 @@ export default function StudentWellbeingTab({ studentId }) {
     return (
       <div className="card text-center py-10 space-y-2">
         <div className="text-4xl">🌟</div>
-        <p className="font-semibold text-gray-700">Sin datos de wellbeing</p>
-        <p className="text-sm text-gray-500">
-          El alumno aún no completó ninguna encuesta de bienestar.
-        </p>
+        <p className="font-semibold text-gray-700">{t('coach.wellbeing.tab.emptyTitle')}</p>
+        <p className="text-sm text-gray-500">{t('coach.wellbeing.tab.emptyBody')}</p>
       </div>
     )
   }
@@ -199,7 +204,7 @@ export default function StudentWellbeingTab({ studentId }) {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {p.label}
+            {t(p.labelKey)}
           </button>
         ))}
       </div>
@@ -207,7 +212,7 @@ export default function StudentWellbeingTab({ studentId }) {
       {/* Grid de promedios */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          Promedios — últimos {period} días
+          {t('coach.wellbeing.tab.averages', { count: period })}
         </p>
         <div className="grid grid-cols-2 gap-2">
           {WELLBEING_METRICS.map((metric) => (
@@ -225,9 +230,9 @@ export default function StudentWellbeingTab({ studentId }) {
       {radarData.every((d) => d.value != null) && (
         <div className="card">
           <p className="text-sm font-semibold text-gray-800 mb-1">
-            Radar de bienestar
+            {t('coach.wellbeing.tab.radarTitle')}
             <span className="text-xs text-gray-400 font-normal ml-2">
-              (estrés y fatiga invertidos — más alto = mejor)
+              {t('coach.wellbeing.tab.radarHint')}
             </span>
           </p>
           <div className="h-52">
@@ -237,7 +242,7 @@ export default function StudentWellbeingTab({ studentId }) {
                 <PolarAngleAxis dataKey="metric" tick={{ fontSize: 14 }} />
                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9 }} />
                 <Radar
-                  name="Bienestar"
+                  name={t('coach.wellbeing.tab.radarSeries')}
                   dataKey="value"
                   stroke="#834f72"
                   fill="#834f72"
@@ -251,7 +256,9 @@ export default function StudentWellbeingTab({ studentId }) {
                     return (
                       <div className="bg-white shadow rounded-xl p-2 text-xs border border-gray-100">
                         <p className="font-semibold">{d?.fullLabel}</p>
-                        <p className="text-gray-600">Valor: {d?.value}</p>
+                        <p className="text-gray-600">
+                          {t('coach.wellbeing.tab.value', { value: d?.value })}
+                        </p>
                       </div>
                     )
                   }}
@@ -265,13 +272,15 @@ export default function StudentWellbeingTab({ studentId }) {
       {/* Gráfico de líneas con toggle */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-gray-800">Evolución</p>
-          <p className="text-xs text-gray-400">{logs.length} sesiones</p>
+          <p className="text-sm font-semibold text-gray-800">{t('coach.wellbeing.tab.trend')}</p>
+          <p className="text-xs text-gray-400">
+            {t('coach.wellbeing.tab.sessions', { count: logs.length })}
+          </p>
         </div>
 
         {/* Toggle de métricas visibles */}
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {WELLBEING_METRICS.map(({ key, emoji, label }) => (
+          {WELLBEING_METRICS.map(({ key, emoji }) => (
             <button
               key={key}
               onClick={() => toggleMetric(key)}
@@ -282,7 +291,7 @@ export default function StudentWellbeingTab({ studentId }) {
               }`}
               style={visibleMetrics.has(key) ? { background: LINE_COLORS[key] } : {}}
             >
-              {emoji} {label.split(' ')[0]}
+              {emoji} {t(`coach.wellbeing.short.${key}`)}
             </button>
           ))}
         </div>
@@ -294,13 +303,13 @@ export default function StudentWellbeingTab({ studentId }) {
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis domain={[0, 10]} ticks={[2, 4, 6, 8, 10]} tick={{ fontSize: 10 }} />
               <Tooltip content={<TooltipCard />} />
-              {WELLBEING_METRICS.map(({ key, label }) =>
+              {WELLBEING_METRICS.map(({ key, labelKey }) =>
                 visibleMetrics.has(key) ? (
                   <Line
                     key={key}
                     type="monotone"
                     dataKey={key}
-                    name={label}
+                    name={t(labelKey)}
                     stroke={LINE_COLORS[key]}
                     strokeWidth={2}
                     dot={{ r: 3, fill: LINE_COLORS[key] }}
@@ -317,7 +326,9 @@ export default function StudentWellbeingTab({ studentId }) {
       {/* Últimas observaciones */}
       {logs.some((l) => l.notes) && (
         <div className="card">
-          <p className="text-sm font-semibold text-gray-800 mb-3">Observaciones recientes</p>
+          <p className="text-sm font-semibold text-gray-800 mb-3">
+            {t('coach.wellbeing.tab.recentNotes')}
+          </p>
           <div className="space-y-2">
             {[...logs]
               .reverse()
@@ -326,7 +337,7 @@ export default function StudentWellbeingTab({ studentId }) {
               .map((l) => (
                 <div key={l.id} className="bg-gray-50 rounded-xl p-3">
                   <p className="text-xs text-gray-400 mb-1">
-                    {format(parseISO(l.date), "d 'de' MMMM yyyy", { locale: es })}
+                    {format(parseISO(l.date), t('dates.dayMonthYear'), { locale: dateLocale() })}
                   </p>
                   <p className="text-sm text-gray-700">{l.notes}</p>
                 </div>

@@ -1,5 +1,10 @@
 import { HeartPulse } from 'lucide-react'
-import { wellbeingStatusConfig, describeLastEntry } from '../wellbeingSummaryLogic'
+import { useTranslation } from 'react-i18next'
+import {
+  wellbeingStatusConfig,
+  describeLastEntry,
+  formatStatusReasons,
+} from '../wellbeingSummaryLogic'
 
 // ============================================================
 // WellbeingStatusBadge
@@ -14,16 +19,21 @@ import { wellbeingStatusConfig, describeLastEntry } from '../wellbeingSummaryLog
 //   showLabel muestra también la palabra del estado (Bien/Atención/Alerta)
 // ============================================================
 export default function WellbeingStatusBadge({ summary, showLabel = false }) {
+  const { t } = useTranslation()
   const status = summary?.status || 'none'
   const cfg = wellbeingStatusConfig(status)
   const daysAgo = summary?.last?.daysAgo ?? null
 
+  const label = t(cfg.labelKey)
+  const reasons = formatStatusReasons(summary, t)
   const title =
     status === 'none'
-      ? 'Wellbeing: sin registros en los últimos 14 días'
-      : `Wellbeing ${cfg.label.toLowerCase()}${
-          summary?.statusReasons?.length ? ` — ${summary.statusReasons.join(', ')}` : ''
-        } · último registro ${describeLastEntry(daysAgo)}`
+      ? t('coach.wellbeing.badge.titleNone')
+      : t('coach.wellbeing.badge.title', {
+          status: label.toLowerCase(),
+          reasons: reasons.length ? ` — ${reasons.join(', ')}` : '',
+          last: describeLastEntry(daysAgo, t),
+        })
 
   return (
     <span
@@ -32,9 +42,9 @@ export default function WellbeingStatusBadge({ summary, showLabel = false }) {
     >
       <HeartPulse size={11} className="flex-shrink-0" />
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
-      {showLabel && <span>{cfg.label}</span>}
+      {showLabel && <span>{label}</span>}
       <span className="opacity-75">
-        {status === 'none' ? 'sin wellbeing' : describeLastEntry(daysAgo)}
+        {status === 'none' ? t('coach.wellbeing.badge.none') : describeLastEntry(daysAgo, t)}
       </span>
     </span>
   )

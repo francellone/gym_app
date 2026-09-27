@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ArrowLeft, ClipboardEdit, FileBarChart, FileHeart } from 'lucide-react'
@@ -23,16 +24,16 @@ import { fetchSingleMirrorBodies } from '@/features/notes/api'
 import AvatarImage from '@/features/avatars/AvatarImage'
 
 const TABS = [
-  { id: 'info', label: 'Info' },
-  { id: 'notas', label: 'Notas' },
-  { id: 'plans', label: 'Planes' },
-  { id: 'evaluaciones', label: 'Evaluaciones' },
-  { id: 'formularios', label: 'Formularios' },
-  { id: 'wellbeing', label: 'Wellbeing' },
-  { id: 'actividad', label: 'Actividad' },
-  { id: 'progress', label: 'Progreso' },
-  { id: 'logs', label: 'Logs' },
-  { id: 'history', label: 'Historial' },
+  { id: 'info', labelKey: 'coach.students.detail.tabs.info' },
+  { id: 'notas', labelKey: 'coach.students.detail.tabs.notes' },
+  { id: 'plans', labelKey: 'coach.students.detail.tabs.plans' },
+  { id: 'evaluaciones', labelKey: 'coach.students.detail.tabs.evaluations' },
+  { id: 'formularios', labelKey: 'coach.students.detail.tabs.forms' },
+  { id: 'wellbeing', labelKey: 'coach.students.detail.tabs.wellbeing' },
+  { id: 'actividad', labelKey: 'coach.students.detail.tabs.activity' },
+  { id: 'progress', labelKey: 'coach.students.detail.tabs.progress' },
+  { id: 'logs', labelKey: 'coach.students.detail.tabs.logs' },
+  { id: 'history', labelKey: 'coach.students.detail.tabs.history' },
 ]
 
 // ─────────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ const TABS = [
 export default function StudentDetailPage() {
   const { id } = useParams()
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // ?tab=notas permite deep-linkear a una pestaña concreta (usado por la
   // campana de notificaciones al clickear una notif de nota del alumno).
@@ -53,7 +55,7 @@ export default function StudentDetailPage() {
   const [searchParams] = useSearchParams()
   const initialTab = (() => {
     const fromUrl = searchParams.get('tab')
-    return TABS.some((t) => t.id === fromUrl) ? fromUrl : 'info'
+    return TABS.some((tb) => tb.id === fromUrl) ? fromUrl : 'info'
   })()
 
   const [student, setStudent] = useState(null)
@@ -203,7 +205,7 @@ export default function StudentDetailPage() {
   if (!student) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Alumno no encontrado</p>
+        <p className="text-gray-500">{t('coach.students.detail.notFound')}</p>
       </div>
     )
   }
@@ -232,7 +234,9 @@ export default function StudentDetailPage() {
           <span className="truncate">{student.name}</span>
           {/* v40: perfil inactivo — no aparece en lista default, calendario ni alertas */}
           {student.active === false && (
-            <span className="badge bg-gray-200 text-gray-600 text-xs shrink-0">Inactivo</span>
+            <span className="badge bg-gray-200 text-gray-600 text-xs shrink-0">
+              {t('coach.students.activeStatus.inactive')}
+            </span>
           )}
         </h1>
         {/* v33 — registrar entrenamiento en nombre del alumno (modo coach).
@@ -240,25 +244,25 @@ export default function StudentDetailPage() {
         <button
           onClick={() => navigate(`/coach/students/${id}/informe`)}
           className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
-          title="Informe de progreso (técnico, para la coach)"
+          title={t('coach.students.detail.reportTitle')}
         >
           <FileBarChart size={16} />
-          Informe
+          {t('coach.students.detail.report')}
         </button>
         <button
           onClick={() => navigate(`/coach/students/${id}/informe-cliente`)}
           className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
-          title="Informe cliente (carta simple para el alumno)"
+          title={t('coach.students.detail.clientReportTitle')}
         >
           <FileHeart size={16} />
-          Informe cliente
+          {t('coach.students.detail.clientReport')}
         </button>
         <button
           onClick={() => navigate(`/coach/students/${id}/workout`)}
           className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
         >
           <ClipboardEdit size={16} />
-          Registrar entrenamiento
+          {t('coach.students.detail.logWorkout')}
         </button>
       </div>
 
@@ -276,7 +280,9 @@ export default function StudentDetailPage() {
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {student.level && (
                 <span className="badge bg-primary-100 text-primary-700 capitalize">
-                  {LEVEL_LABELS[student.level] || student.level}
+                  {LEVEL_LABELS[student.level]
+                    ? t(`coach.students.levelOptions.${student.level}`)
+                    : student.level}
                 </span>
               )}
               {student.goal && (
@@ -287,7 +293,9 @@ export default function StudentDetailPage() {
               {/* v33: modalidad — solo se muestra si no es la default online */}
               {student.modality && student.modality !== 'online' && (
                 <span className="badge bg-violet-100 text-violet-700">
-                  {MODALITY_LABELS[student.modality] || student.modality}
+                  {MODALITY_LABELS[student.modality]
+                    ? t(`coach.students.modalityOptions.${student.modality}`)
+                    : student.modality}
                 </span>
               )}
             </div>
@@ -298,15 +306,15 @@ export default function StudentDetailPage() {
         <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
           <div className="text-center">
             <p className="text-lg font-bold text-gray-900">{student.weight_kg || '—'}</p>
-            <p className="text-xs text-gray-500">Peso (kg)</p>
+            <p className="text-xs text-gray-500">{t('coach.students.fields.weight_kg')}</p>
           </div>
           <div className="text-center">
             <p className="text-lg font-bold text-gray-900">{student.weekly_frequency || '—'}</p>
-            <p className="text-xs text-gray-500">Días/semana</p>
+            <p className="text-xs text-gray-500">{t('coach.students.detail.daysPerWeek')}</p>
           </div>
           <div className="text-center">
             <p className="text-lg font-bold text-gray-900">{logs.length}</p>
-            <p className="text-xs text-gray-500">Registros</p>
+            <p className="text-xs text-gray-500">{t('coach.students.detail.logsCount')}</p>
           </div>
         </div>
 
@@ -314,11 +322,11 @@ export default function StudentDetailPage() {
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
           <span className={`badge text-xs flex items-center gap-1 ${planConfig.badgeClass}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${planConfig.dotClass}`} />
-            {planConfig.label}
+            {t(planConfig.labelKey)}
           </span>
           <span className={`badge text-xs flex items-center gap-1 ${paymentConfig.badgeClass}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${paymentConfig.dotClass}`} />
-            {paymentConfig.label}
+            {t(paymentConfig.labelKey)}
           </span>
         </div>
       </div>
@@ -340,7 +348,7 @@ export default function StudentDetailPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`chip relative ${activeTab === tab.id ? 'chip-on' : 'hover:text-tinta'}`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
             {tab.id === 'history' && editHistory.length > 0 && (
               <span className="ml-1 text-xs text-gray-400">({editHistory.length})</span>
             )}
@@ -348,7 +356,7 @@ export default function StudentDetailPage() {
               <span
                 className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1
                            bg-orange-500 text-white text-[10px] font-bold rounded-full leading-none align-middle"
-                title={`${notesUnread} sin leer`}
+                title={t('coach.students.detail.unread', { count: notesUnread })}
               >
                 {notesUnread > 9 ? '9+' : notesUnread}
               </span>

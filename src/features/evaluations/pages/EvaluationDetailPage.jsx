@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { format } from 'date-fns'
+import { dateLocale } from '@/i18n/dateLocale'
 import { supabase } from '@/lib/supabase'
 import {
   EVAL_TYPES,
   METHODS,
   evalTypeColor,
-  evalTypeLabel,
+  evalTypeLabelT,
+  evalTypeDescriptionT,
+  evalMethodLabelT,
+  methodLabelT,
   isExerciseBasedEval,
-  pruebaTypeInfo,
 } from '../helpers'
 import {
   ArrowLeft,
@@ -44,11 +49,11 @@ function Stat({ label, value, unit, colorClass = 'bg-gray-50' }) {
 }
 
 function MethodBadge({ method, evalType }) {
+  const { t } = useTranslation()
   if (!method) return null
-  const m = (METHODS[evalType] || []).find((m) => m.key === method)
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium">
-      {m?.label || method}
+      {methodLabelT(t, evalType, method)}
     </span>
   )
 }
@@ -58,13 +63,17 @@ function MethodBadge({ method, evalType }) {
 // ============================================================
 
 function OneRMView({ results }) {
-  if (!results?.exercises?.length) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results?.exercises?.length)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   return (
     <div className="space-y-3">
       <MethodBadge method={results.method} evalType="one_rm" />
       {results.exercises.map((ex, i) => (
         <div key={i} className="flex flex-col gap-1 bg-gray-50 rounded-xl p-3">
-          <p className="text-sm font-semibold text-gray-800">{ex.name || `Ejercicio ${i + 1}`}</p>
+          <p className="text-sm font-semibold text-gray-800">
+            {ex.name || t('coach.evaluations.common.exerciseN', { n: i + 1 })}
+          </p>
           <div className="flex flex-wrap gap-2">
             {ex.weight_kg && (
               <span className="badge bg-gray-100 text-gray-600">{ex.weight_kg} kg</span>
@@ -84,7 +93,9 @@ function OneRMView({ results }) {
 }
 
 function MaxRepsView({ results }) {
-  if (!results?.reps) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results?.reps)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   return (
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="max_reps" />
@@ -96,7 +107,9 @@ function MaxRepsView({ results }) {
           <span className="badge bg-gray-100 text-gray-600">{results.weight_kg} kg</span>
         )}
         {results.volume && (
-          <span className="badge bg-orange-50 text-orange-600">Vol: {results.volume} kg</span>
+          <span className="badge bg-orange-50 text-orange-600">
+            {t('coach.evaluations.views.volume', { value: results.volume })}
+          </span>
         )}
       </div>
       {results.notes && (
@@ -107,25 +120,39 @@ function MaxRepsView({ results }) {
 }
 
 function PowerView({ results }) {
-  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   return (
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="power" />
       <div className="grid grid-cols-2 gap-2 mt-2">
-        {results.mass_kg && <Stat label="Masa corporal" value={results.mass_kg} unit="kg" />}
+        {results.mass_kg && (
+          <Stat label={t('coach.evaluations.views.bodyMass')} value={results.mass_kg} unit="kg" />
+        )}
         {results.jump_cm && (
           <Stat
-            label="Altura de salto"
+            label={t('coach.evaluations.views.jumpHeight')}
             value={results.jump_cm}
             unit="cm"
             colorClass="bg-yellow-50"
           />
         )}
         {results.distance_m && (
-          <Stat label="Distancia" value={results.distance_m} unit="m" colorClass="bg-yellow-50" />
+          <Stat
+            label={t('coach.evaluations.views.distance')}
+            value={results.distance_m}
+            unit="m"
+            colorClass="bg-yellow-50"
+          />
         )}
         {results.time_sec && (
-          <Stat label="Tiempo" value={results.time_sec} unit="seg" colorClass="bg-yellow-50" />
+          <Stat
+            label={t('coach.evaluations.views.time')}
+            value={results.time_sec}
+            unit="seg"
+            colorClass="bg-yellow-50"
+          />
         )}
       </div>
       {/* Rendered result stored in results.result */}
@@ -134,21 +161,23 @@ function PowerView({ results }) {
           {results.result.power_w !== undefined && (
             <div className="bg-yellow-100 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-yellow-800">{results.result.power_w} W</p>
-              <p className="text-xs text-yellow-600">Potencia media</p>
+              <p className="text-xs text-yellow-600">{t('coach.evaluations.views.meanPower')}</p>
             </div>
           )}
           {results.result.peak_w !== undefined && (
             <div className="bg-yellow-100 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-yellow-800">{results.result.peak_w} W</p>
               <p className="text-xs text-yellow-600">
-                Potencia pico · Media: {results.result.mean_w} W
+                {t('coach.evaluations.views.peakPower', { value: results.result.mean_w })}
               </p>
             </div>
           )}
           {results.result.time_sec !== undefined && (
             <div className="bg-yellow-100 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-yellow-800">{results.result.time_sec} seg</p>
-              <p className="text-xs text-yellow-600">Velocidad: {results.result.speed_ms} m/s</p>
+              <p className="text-xs text-yellow-600">
+                {t('coach.evaluations.views.speed', { value: results.result.speed_ms })}
+              </p>
             </div>
           )}
         </div>
@@ -161,14 +190,26 @@ function PowerView({ results }) {
 }
 
 function CardioView({ results }) {
-  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   return (
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="cardio" />
       <div className="grid grid-cols-2 gap-2 mt-2">
-        {results.distance_m && <Stat label="Distancia" value={results.distance_m} unit="m" />}
-        {results.time_min && <Stat label="Tiempo" value={results.time_min} unit="min" />}
-        {results.heart_rate && <Stat label="FC final" value={results.heart_rate} unit="bpm" />}
+        {results.distance_m && (
+          <Stat label={t('coach.evaluations.views.distance')} value={results.distance_m} unit="m" />
+        )}
+        {results.time_min && (
+          <Stat label={t('coach.evaluations.views.time')} value={results.time_min} unit="min" />
+        )}
+        {results.heart_rate && (
+          <Stat
+            label={t('coach.evaluations.views.finalHr')}
+            value={results.heart_rate}
+            unit="bpm"
+          />
+        )}
         {results.vo2max && (
           <Stat label="VO₂max" value={results.vo2max} unit="ml/kg/min" colorClass="bg-blue-50" />
         )}
@@ -184,33 +225,41 @@ function CardioView({ results }) {
 }
 
 function BodyCompView({ results }) {
-  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   const r = results.result
   return (
     <div className="space-y-2">
       <MethodBadge method={results.method} evalType="body_comp" />
-      {results.weight_kg && <Stat label="Peso corporal" value={results.weight_kg} unit="kg" />}
+      {results.weight_kg && (
+        <Stat label={t('coach.evaluations.views.bodyWeight')} value={results.weight_kg} unit="kg" />
+      )}
       {r && (
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div className="bg-green-50 rounded-xl p-3 text-center">
             <p className="text-xl font-bold text-green-700">{r.fat_pct}%</p>
-            <p className="text-xs text-green-600">Grasa corporal</p>
+            <p className="text-xs text-green-600">{t('coach.evaluations.views.bodyFat')}</p>
           </div>
           {r.fat_kg && (
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-gray-700">{r.fat_kg} kg</p>
-              <p className="text-xs text-gray-500">Masa grasa</p>
+              <p className="text-xs text-gray-500">{t('coach.evaluations.views.fatMass')}</p>
             </div>
           )}
           {r.lean_kg && (
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-gray-700">{r.lean_kg} kg</p>
-              <p className="text-xs text-gray-500">Masa magra</p>
+              <p className="text-xs text-gray-500">{t('coach.evaluations.views.leanMass')}</p>
             </div>
           )}
         </div>
       )}
-      {r?.sum_mm && <p className="text-xs text-gray-400 text-center">Σ pliegues: {r.sum_mm} mm</p>}
+      {r?.sum_mm && (
+        <p className="text-xs text-gray-400 text-center">
+          {t('coach.evaluations.views.skinfoldSum', { value: r.sum_mm })}
+        </p>
+      )}
       {results.notes && (
         <p className="text-xs text-gray-500 italic border-t pt-2">{results.notes}</p>
       )}
@@ -222,7 +271,9 @@ const SCORE_COLORS_TEXT = ['text-red-600', 'text-orange-500', 'text-yellow-500',
 const SCORE_BG = ['bg-red-50', 'bg-orange-50', 'bg-yellow-50', 'bg-green-50']
 
 function ScoredView({ results }) {
-  if (!results) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   const method = results.method || 'fms'
 
   return (
@@ -236,7 +287,9 @@ function ScoredView({ results }) {
               return (
                 <div key={p.key} className="flex items-center gap-2 text-sm">
                   <span className="flex-1 text-gray-700">{p.label}</span>
-                  <span className="badge bg-red-100 text-red-700">Dolor</span>
+                  <span className="badge bg-red-100 text-red-700">
+                    {t('coach.evaluations.views.pain')}
+                  </span>
                 </div>
               )
             }
@@ -250,14 +303,19 @@ function ScoredView({ results }) {
                 <span className="flex-1 text-gray-700">{p.label}</span>
                 {p.bilateral && (
                   <span className="text-xs text-gray-400">
-                    I:{p.score_left ?? '?'} D:{p.score_right ?? '?'}
+                    {t('coach.evaluations.views.leftRightScores', {
+                      left: p.score_left ?? '?',
+                      right: p.score_right ?? '?',
+                    })}
                   </span>
                 )}
                 <span className={`badge font-bold ${SCORE_BG[sc]} ${SCORE_COLORS_TEXT[sc]}`}>
                   {sc}
                 </span>
                 {hasAsymmetry && (
-                  <span className="text-xs font-medium text-amber-700">Asimetría</span>
+                  <span className="text-xs font-medium text-amber-700">
+                    {t('coach.evaluations.views.asymmetry')}
+                  </span>
                 )}
               </div>
             )
@@ -275,7 +333,9 @@ function ScoredView({ results }) {
               <p
                 className={`text-xs mt-0.5 ${results.result.total >= 14 ? 'text-green-600' : 'text-red-500'}`}
               >
-                {results.result.total < 14 ? 'Riesgo de lesión (menos de 14)' : 'Puntaje aceptable'}
+                {results.result.total < 14
+                  ? t('coach.evaluations.views.injuryRisk')
+                  : t('coach.evaluations.views.scoreOk')}
               </p>
             </div>
           )}
@@ -285,20 +345,20 @@ function ScoredView({ results }) {
       {method === 'sit_reach' && results.distance_left_cm && (
         <div className="bg-purple-50 rounded-xl p-3 text-center mt-2">
           <p className="text-xl font-bold text-purple-700">{results.distance_left_cm} cm</p>
-          <p className="text-xs text-purple-500">Flexibilidad isquiosural</p>
+          <p className="text-xs text-purple-500">{t('coach.evaluations.views.hamstringFlex')}</p>
         </div>
       )}
 
       {method === 'shoulder_mob' && results.distance_left_cm && results.distance_right_cm && (
         <div className="grid grid-cols-2 gap-2 mt-2">
           <Stat
-            label="Mano D arriba"
+            label={t('coach.evaluations.views.rightHandUp')}
             value={results.distance_left_cm}
             unit="cm"
             colorClass="bg-purple-50"
           />
           <Stat
-            label="Mano I arriba"
+            label={t('coach.evaluations.views.leftHandUp')}
             value={results.distance_right_cm}
             unit="cm"
             colorClass="bg-purple-50"
@@ -309,9 +369,9 @@ function ScoredView({ results }) {
       {method === 'y_balance' && (
         <div className="space-y-2 mt-2 text-xs">
           {[
-            ['reach_anterior', 'Anterior'],
-            ['reach_posteromedial', 'Posteromedial'],
-            ['reach_posterolateral', 'Posterolateral'],
+            ['reach_anterior', t('coach.evaluations.views.anterior')],
+            ['reach_posteromedial', t('coach.evaluations.views.posteromedial')],
+            ['reach_posterolateral', t('coach.evaluations.views.posterolateral')],
           ].map(
             ([field, label]) =>
               (results[`${field}_l`] || results[`${field}_r`]) && (
@@ -319,12 +379,12 @@ function ScoredView({ results }) {
                   <span className="text-gray-600 flex-1">{label}</span>
                   {results[`${field}_l`] && (
                     <span className="badge bg-purple-50 text-purple-600">
-                      I: {results[`${field}_l`]} cm
+                      {t('coach.evaluations.views.leftValue', { value: results[`${field}_l`] })}
                     </span>
                   )}
                   {results[`${field}_r`] && (
                     <span className="badge bg-purple-50 text-purple-600">
-                      D: {results[`${field}_r`]} cm
+                      {t('coach.evaluations.views.rightValue', { value: results[`${field}_r`] })}
                     </span>
                   )}
                 </div>
@@ -341,14 +401,18 @@ function ScoredView({ results }) {
 }
 
 function CustomView({ results }) {
-  if (!results?.fields?.length) return <p className="text-sm text-gray-400">Sin datos</p>
+  const { t } = useTranslation()
+  if (!results?.fields?.length)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
   return (
     <div className="space-y-1.5">
       {results.fields
         .filter((f) => f.label || f.value)
         .map((f, i) => (
           <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="text-gray-600 flex-1">{f.label || `Campo ${i + 1}`}</span>
+            <span className="text-gray-600 flex-1">
+              {f.label || t('coach.evaluations.views.fieldN', { n: i + 1 })}
+            </span>
             <span className="font-semibold text-gray-900">
               {f.value}
               {f.unit ? ` ${f.unit}` : ''}
@@ -367,8 +431,10 @@ function CustomView({ results }) {
 // agrupada por día. Lee de res._exResponses (response jsonb + plan_exercise).
 // ============================================================
 function ExerciseBasedView({ result }) {
+  const { t } = useTranslation()
   const responses = result._exResponses || []
-  if (responses.length === 0) return <p className="text-sm text-gray-400">Sin datos</p>
+  if (responses.length === 0)
+    return <p className="text-sm text-gray-400">{t('coach.evaluations.common.noData')}</p>
 
   // Agrupar por día (section del plan_exercise).
   const byDay = {}
@@ -387,13 +453,14 @@ function ExerciseBasedView({ result }) {
         <div key={sec} className="space-y-1.5">
           {multiDay && (
             <p className="text-xs font-bold text-gray-400 uppercase">
-              Día {sec.replace('day_', '').toUpperCase()}
+              {t('coach.evaluations.common.dayN', {
+                letter: sec.replace('day_', '').toUpperCase(),
+              })}
               {dayDates[sec] && (
                 <span className="ml-1.5 normal-case font-normal text-gray-400">
                   ·{' '}
-                  {new Date(dayDates[sec] + 'T12:00:00').toLocaleDateString('es-AR', {
-                    day: 'numeric',
-                    month: 'short',
+                  {format(new Date(dayDates[sec] + 'T12:00:00'), t('dates.dayMonthShort'), {
+                    locale: dateLocale(),
                   })}
                 </span>
               )}
@@ -413,9 +480,10 @@ function ExerciseBasedView({ result }) {
 }
 
 function ExerciseResponseRow({ resp }) {
+  const { t } = useTranslation()
   const pe = resp.plan_exercise || {}
   const evalType = pe.eval_type || 'custom'
-  const name = pe.exercises?.name || pe.exercise?.name || 'Ejercicio'
+  const name = pe.exercises?.name || pe.exercise?.name || t('coach.evaluations.common.exercise')
   const sr = resp.student_response || {}
 
   let valueLabel = ''
@@ -431,10 +499,7 @@ function ExerciseResponseRow({ resp }) {
     valueLabel = [sr.value, sr.unit].filter(Boolean).join(' ')
   }
 
-  const methodLabel =
-    evalType === 'custom'
-      ? pruebaTypeInfo(pe.eval_method).label
-      : (METHODS[evalType] || []).find((m) => m.key === pe.eval_method)?.label || ''
+  const methodLabel = evalMethodLabelT(t, evalType, pe.eval_method) || ''
 
   return (
     <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
@@ -476,6 +541,7 @@ function ResultViewer({ evalType, results }) {
 // Student result card
 // ============================================================
 function StudentResultCard({ assignment, allResults, evalType }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const studentResults = allResults
     .filter((r) => r.student_id === assignment.student_id)
@@ -499,8 +565,13 @@ function StudentResultCard({ assignment, allResults, evalType }) {
           <p className="text-sm font-medium text-gray-900">{assignment.student?.name}</p>
           <p className="text-xs text-gray-500">
             {studentResults.length > 0
-              ? `${studentResults.length} evaluación${studentResults.length > 1 ? 'es' : ''} · última: ${new Date(latest.eval_date).toLocaleDateString('es-AR')}`
-              : 'Sin evaluaciones registradas'}
+              ? t('coach.evaluations.detail.studentSummary', {
+                  count: studentResults.length,
+                  date: format(new Date(latest.eval_date), t('dates.shortDate'), {
+                    locale: dateLocale(),
+                  }),
+                })
+              : t('coach.evaluations.detail.noStudentResults')}
           </p>
         </div>
         <Link
@@ -523,11 +594,8 @@ function StudentResultCard({ assignment, allResults, evalType }) {
           {studentResults.map((res) => (
             <div key={res.id}>
               <p className="text-xs font-semibold text-gray-400 mb-2">
-                {new Date(res.eval_date).toLocaleDateString('es-AR', {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
+                {format(new Date(res.eval_date), t('coach.evaluations.dates.weekdayDayMonthYear'), {
+                  locale: dateLocale(),
                 })}
               </p>
               {isExerciseBasedEval(evalType) ? (
@@ -550,6 +618,7 @@ function StudentResultCard({ assignment, allResults, evalType }) {
 // Main page
 // ============================================================
 export default function EvaluationDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [plan, setPlan] = useState(null)
@@ -674,7 +743,7 @@ export default function EvaluationDetailPage() {
       const row = await setPlanArchived(plan.id, false)
       setPlan((prev) => ({ ...prev, ...row }))
     } catch (err) {
-      alert(err.message || 'No se pudo desarchivar.')
+      alert(err.message || t('coach.evaluations.common.unarchiveError'))
     }
   }
 
@@ -685,7 +754,12 @@ export default function EvaluationDetailPage() {
       </div>
     )
 
-  if (!plan) return <div className="text-center py-12 text-gray-500">Evaluación no encontrada</div>
+  if (!plan)
+    return (
+      <div className="text-center py-12 text-gray-500">
+        {t('coach.evaluations.detail.notFound')}
+      </div>
+    )
 
   const typeInfo = EVAL_TYPES.find((e) => e.key === plan.eval_type)
 
@@ -701,7 +775,7 @@ export default function EvaluationDetailPage() {
             <h1 className="text-xl font-bold text-gray-900 break-words">{plan.title}</h1>
             {plan.eval_type && (
               <span className={`badge ${evalTypeColor(plan.eval_type)}`}>
-                <EvalTypeIcon type={plan.eval_type} inline /> {evalTypeLabel(plan.eval_type)}
+                <EvalTypeIcon type={plan.eval_type} inline /> {evalTypeLabelT(t, plan.eval_type)}
               </span>
             )}
           </div>
@@ -712,16 +786,16 @@ export default function EvaluationDetailPage() {
             <button
               onClick={() => setShowAssignModal(true)}
               className="btn-secondary flex items-center gap-1.5 text-sm"
-              title="Asignar a alumno"
+              title={t('coach.evaluations.detail.assignTitle')}
             >
               <UserPlus size={14} />
-              <span className="hidden sm:inline">Asignar</span>
+              <span className="hidden sm:inline">{t('coach.evaluations.common.assign')}</span>
             </button>
           )}
           <button
             onClick={() => setShowDeleteModal(true)}
             className="btn-ghost p-2 text-gray-400 hover:text-red-500"
-            title="Eliminar evaluación"
+            title={t('coach.evaluations.detail.deleteTitle')}
           >
             <Trash2 size={16} />
           </button>
@@ -730,7 +804,7 @@ export default function EvaluationDetailPage() {
             className="btn-secondary flex items-center gap-1.5 text-sm"
           >
             <Edit2 size={14} />
-            Editar
+            {t('coach.evaluations.detail.edit')}
           </Link>
         </div>
       </div>
@@ -757,14 +831,14 @@ export default function EvaluationDetailPage() {
       {plan?.archived_at && (
         <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-100 border border-gray-200 px-4 py-2.5">
           <p className="text-xs text-gray-700">
-            <span className="font-semibold">Evaluación archivada.</span> No aparece en el listado ni
-            al asignar; los resultados se conservan.
+            <span className="font-semibold">{t('coach.evaluations.detail.archivedStrong')}</span>{' '}
+            {t('coach.evaluations.detail.archivedBody')}
           </p>
           <button
             onClick={handleUnarchive}
             className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0"
           >
-            Desarchivar
+            {t('coach.evaluations.common.unarchive')}
           </button>
         </div>
       )}
@@ -773,22 +847,25 @@ export default function EvaluationDetailPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="card text-center">
           <p className="text-xl font-bold text-gray-900">{assignments.length}</p>
-          <p className="text-xs text-gray-500">Alumnos</p>
+          <p className="text-xs text-gray-500">{t('coach.evaluations.detail.statStudents')}</p>
         </div>
         <div className="card text-center">
           <p className="text-xl font-bold text-gray-900">{results.length}</p>
-          <p className="text-xs text-gray-500">Evaluaciones</p>
+          <p className="text-xs text-gray-500">{t('coach.evaluations.detail.statEvaluations')}</p>
         </div>
         <div className="card text-center">
           <p className="text-xl font-bold text-gray-900">
             {results.length > 0
-              ? new Date(results[0]?.eval_date).toLocaleDateString('es-AR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                })
+              ? format(
+                  new Date(results[0]?.eval_date),
+                  t('coach.evaluations.dates.dayMonthNumeric'),
+                  {
+                    locale: dateLocale(),
+                  }
+                )
               : '—'}
           </p>
-          <p className="text-xs text-gray-500">Última</p>
+          <p className="text-xs text-gray-500">{t('coach.evaluations.detail.statLast')}</p>
         </div>
       </div>
 
@@ -798,15 +875,15 @@ export default function EvaluationDetailPage() {
           <div className="flex items-start gap-3">
             <EvalTypeIcon type={typeInfo.key} />
             <div>
-              <p className="font-semibold text-gray-900">{typeInfo.label}</p>
-              <p className="text-sm text-gray-500">{typeInfo.description}</p>
+              <p className="font-semibold text-gray-900">{evalTypeLabelT(t, typeInfo.key)}</p>
+              <p className="text-sm text-gray-500">{evalTypeDescriptionT(t, typeInfo.key)}</p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {(METHODS[plan.eval_type] || []).map((m) => (
                   <span
                     key={m.key}
                     className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg"
                   >
-                    {m.label}
+                    {methodLabelT(t, plan.eval_type, m.key)}
                   </span>
                 ))}
               </div>
@@ -819,15 +896,17 @@ export default function EvaluationDetailPage() {
       <div className="card space-y-3">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-gray-500" />
-          <h3 className="font-semibold text-sm text-gray-900">Resultados por alumno</h3>
+          <h3 className="font-semibold text-sm text-gray-900">
+            {t('coach.evaluations.detail.resultsByStudent')}
+          </h3>
         </div>
 
         {assignments.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">
-            No hay alumnos asignados a esta evaluación.
+            {t('coach.evaluations.detail.noStudents')}
             <br />
             <Link to="/coach/students" className="text-primary-600 underline mt-1 inline-block">
-              Ir a alumnos
+              {t('coach.evaluations.detail.goToStudents')}
             </Link>
           </p>
         ) : (
@@ -847,7 +926,7 @@ export default function EvaluationDetailPage() {
       {assignments.length > 0 && results.length === 0 && (
         <div className="card text-center py-6">
           <Calendar className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Los alumnos aún no han registrado evaluaciones</p>
+          <p className="text-sm text-gray-500">{t('coach.evaluations.detail.noResultsYet')}</p>
         </div>
       )}
     </div>

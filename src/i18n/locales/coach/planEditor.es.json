@@ -1,0 +1,418 @@
+{
+  "completionMessage": {
+    "label": "Mensaje al terminar el plan",
+    "autoHint": "Es el mensaje automático: cada persona lo ve en su idioma y con un tono acorde a cómo le fue. Si lo cambiás, se muestra tal cual lo escribas.",
+    "customHint": "Se muestra tal cual en la pantalla de cierre del plan, sea cual sea el resultado.",
+    "backToAuto": "Volver al automático"
+  },
+  "daySelector": {
+    "groupAria": "Días de entrenamiento",
+    "mismatch": "El plan sugiere {{sessions}} y elegiste {{days}}. Podés guardarlo igual.",
+    "sessionsPerWeek_one": "{{count}} sesión por semana",
+    "sessionsPerWeek_other": "{{count}} sesiones por semana",
+    "daysCount_one": "{{count}} día",
+    "daysCount_other": "{{count}} días"
+  },
+  "days": {
+    "short": {
+      "0": "Dom",
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mié",
+      "4": "Jue",
+      "5": "Vie",
+      "6": "Sáb"
+    },
+    "long": {
+      "0": "Domingo",
+      "1": "Lunes",
+      "2": "Martes",
+      "3": "Miércoles",
+      "4": "Jueves",
+      "5": "Viernes",
+      "6": "Sábado"
+    }
+  },
+  "historyLine": {
+    "thisPerson": "Esta persona",
+    "noLogs": "{{name}} no registró este ejercicio todavía.",
+    "didOnce": "hizo {{range}}",
+    "comesIn": "viene en {{range}}",
+    "max": " · máx {{value}}",
+    "lastTime": " · última vez {{date}}"
+  },
+  "prescriptionFields": {
+    "sets": "Series",
+    "reps": "Reps",
+    "weight": "Peso",
+    "rest": "Descanso",
+    "pse": "PSE"
+  },
+  "prescriptionTimeline": {
+    "dateFormat": "dd MMM yyyy"
+  },
+  "addBlock": {
+    "button": "Agregar bloque",
+    "question": "¿Qué tipo de bloque querés agregar?"
+  },
+  "blockTypes": {
+    "strength": {
+      "label": "Fuerza",
+      "description": "Series, reps y peso. Formato clásico."
+    },
+    "aerobic": {
+      "label": "Aeróbico",
+      "description": "Cardio: duración, intensidad, intervalos."
+    },
+    "circuit": {
+      "label": "Circuito",
+      "description": "HIIT / AMRAP / EMOM / libre con varios ejercicios."
+    },
+    "fallback": "Bloque",
+    "strengthNumbered": "Fuerza {{n}}"
+  },
+  "strengthBlock": {
+    "empty": "Sin ejercicios todavía. Agregá uno abajo 👇",
+    "addExercise": "Agregar ejercicio"
+  },
+  "prescriptionNote": {
+    "title": "Cambiaste el objetivo del plan",
+    "body": "Quedó registrado en el historial del plan. Podés dejar un motivo (opcional) para tener la trazabilidad del cambio.",
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "Ej: progresión, viene muy bien, ajuste por molestia…",
+    "skip": "Omitir",
+    "saveReason": "Guardar motivo"
+  },
+  "deletePlan": {
+    "loadUsageError": "No se pudo leer el uso del plan.",
+    "genericError": "No se pudo completar. Intentá de nuevo.",
+    "noPermission": "No se pudo eliminar el plan: no tenés permisos sobre él.",
+    "titleDeletePlan": "Eliminar plan",
+    "titleDeleteEval": "Eliminar evaluación",
+    "titleArchivePlan": "Archivar plan",
+    "titleArchiveEval": "Archivar evaluación",
+    "titleBlocked": "No se puede archivar",
+    "titleLoading": "Un momento…",
+    "blocked": "<b>\"{{title}}\"</b> tiene <strong>{{assignments}}</strong>. Para archivarlo, primero reemplazá o cerrá esa asignación desde la ficha de la persona. Así nadie se queda sin plan sin que lo hayas decidido.",
+    "activeAssignments_one": "{{count}} asignación activa",
+    "activeAssignments_other": "{{count}} asignaciones activas",
+    "archiveBody": "<b>\"{{title}}\"</b> tiene historial, así que no se elimina: se <strong>archiva</strong>. Deja de aparecer en el recetario y al asignar, y todo lo registrado se conserva. Se puede desarchivar cuando quieras.",
+    "kept": "Se conserva",
+    "clonesStillActive_one": "Una persona sigue entrenando con su copia de esta plantilla; no se ve afectada.",
+    "clonesStillActive_other": "{{count}} personas siguen entrenando con su copia de esta plantilla; no se ven afectadas.",
+    "confirmDelete": "¿Seguro que querés eliminar <b>\"{{title}}\"</b>?",
+    "deleteNote": "No tiene registros, asignaciones ni copias. Esta acción no se puede deshacer.",
+    "understood": "Entendido"
+  },
+  "usage": {
+    "clones_one": "{{count}} copia asignada",
+    "clones_other": "{{count}} copias asignadas",
+    "toPeople_one": " a {{count}} persona",
+    "toPeople_other": " a {{count}} personas",
+    "childEvaluations_one": "{{count}} evaluación vinculada",
+    "childEvaluations_other": "{{count}} evaluaciones vinculadas",
+    "assignments_one": "{{count}} asignación ({{people}})",
+    "assignments_other": "{{count}} asignaciones ({{people}})",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} personas",
+    "workoutLogs_one": "{{count}} entrenamiento registrado",
+    "workoutLogs_other": "{{count}} entrenamientos registrados",
+    "sessions_one": "{{count}} sesión",
+    "sessions_other": "{{count}} sesiones",
+    "evalResults_one": "{{count}} resultado de evaluación",
+    "evalResults_other": "{{count}} resultados de evaluación",
+    "prescriptionChanges_one": "{{count}} cambio de prescripción",
+    "prescriptionChanges_other": "{{count}} cambios de prescripción"
+  },
+  "duplicate": {
+    "copySuffix": "{{title}} (copia)",
+    "pickEvalType": "Seleccioná un tipo de evaluación",
+    "error": "Error al duplicar el plan",
+    "title": "Duplicar plan",
+    "stepNameType": "Nombre y tipo",
+    "stepCategory": "Categoría",
+    "newPlanName": "Nombre del nuevo plan",
+    "namePlaceholder": "Nombre del plan...",
+    "planType": "Tipo de plan",
+    "training": "Entrenamiento",
+    "trainingDesc": "Rutina de ejercicios regular",
+    "evaluation": "Evaluación",
+    "evaluationDesc": "Protocolo de evaluación",
+    "evalType": "Tipo de evaluación",
+    "back": "Atrás",
+    "enterName": "Ingresá un nombre",
+    "next": "Siguiente",
+    "duplicate": "Duplicar"
+  },
+  "parentPlan": {
+    "label": "Plan asociado (opcional)",
+    "independent": "Independiente (no pertenece a un plan)",
+    "hint": "Si la evaluación es parte de un plan específico, asociála acá. Cuando le asignes ese plan a una persona, vamos a sugerirte asignar también esta evaluación."
+  },
+  "linkedEvals": {
+    "title": "Evaluaciones asociadas",
+    "empty": "Este plan todavía no tiene evaluaciones asociadas. Para asociar una, editá la evaluación y elegí este plan en “Plan asociado”."
+  },
+  "pct1rmGap": {
+    "exerciseFallback": "Ejercicio",
+    "checking": "Revisando las evaluaciones de 1RM...",
+    "allCovered_one": "El ejercicio prescripto por % del máximo tiene evaluación: va a ver los kilos calculados.",
+    "allCovered_other": "Los {{count}} ejercicios prescriptos por % del máximo tienen evaluación: va a ver los kilos calculados.",
+    "thisPerson": "Esta persona",
+    "missingEval": "<b>{{name}}</b> no tiene evaluación de 1RM de <b>{{exercises}}</b>: en esos ejercicios va a ver el porcentaje en vez de los kilos.",
+    "missingPct": "Además, falta cargar el porcentaje en <b>{{exercises}}</b>.",
+    "help": "Podés asignar igual y resolverlo después: cargale una evaluación de 1RM (la podés completar vos por esa persona desde su ficha) o ponele los kilos a mano en su plan una vez asignado.",
+    "goToEvals": "Ir a sus evaluaciones"
+  },
+  "reassign": {
+    "error": "Error al re-asignar",
+    "title": "Cambios guardados en la plantilla",
+    "body": "Los cambios <strong>no</strong> se aplican a las copias ya asignadas. Si querés que reciban la versión nueva de \"{{title}}\", re-asignala.",
+    "bodyNoTitle": "Los cambios <strong>no</strong> se aplican a las copias ya asignadas. Si querés que reciban la versión nueva de esta plantilla, re-asignala.",
+    "trainingWarning": "Ojo: en planes de <strong>entrenamiento</strong>, re-asignar reinicia el plan en curso de esa persona. Su avance (logs, tildes) queda en el plan anterior y la copia nueva arranca desde cero. Si solo querés ajustar el plan de una persona puntual, editá su plan directamente en vez de re-asignar.",
+    "affected_one": "{{count}} persona afectada",
+    "affected_other": "{{count}} personas afectadas",
+    "logsKept_one": "{{count}} registro se conserva en histórico · la copia nueva arranca vacía",
+    "logsKept_other": "{{count}} registros se conservan en histórico · la copia nueva arranca vacía",
+    "notNow": "Ahora no",
+    "reassign": "Re-asignar",
+    "done_one": "{{count}} persona re-asignada con la versión nueva.",
+    "done_other": "{{count}} personas re-asignadas con la versión nueva.",
+    "failed_one": "{{count}} no se pudo re-asignar",
+    "failed_other": "{{count}} no se pudieron re-asignar",
+    "finish": "Listo"
+  },
+  "replace": {
+    "title": "Reemplazar plan activo",
+    "subtitle": "Esta persona ya tiene un plan vigente. Decidí qué hacer con él.",
+    "current": "Actual",
+    "currentFallback": "Plan actual",
+    "activeSince": "Activo desde {{date}}",
+    "new": "Nuevo",
+    "newFallback": "Plan nuevo",
+    "startsToday": "Empieza hoy",
+    "question": "¿Qué hacemos con el plan actual?",
+    "replace": "Reemplazar",
+    "replaceHint": "Queda como “Reemplazado por {{title}}”. Recomendado.",
+    "theNewOne": "el nuevo",
+    "pause": "Pausar",
+    "pauseHint": "Queda en pausa, lo podés reactivar más adelante.",
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "Ej: Pasó a fuerza máxima, lesión, etc.",
+    "shortcut": "Atajo",
+    "shortcutBody": "¿Querés usar el plan actual como base del nuevo? Te abre el duplicador con los mismos ejercicios, lo editás y volvés acá a asignarlo.",
+    "duplicateCurrent": "Duplicar plan actual",
+    "linkedEvals": "Evaluaciones vinculadas",
+    "linkedEvalsCount_one": "El plan saliente tiene {{count}} evaluación vinculada.",
+    "linkedEvalsCount_other": "El plan saliente tiene {{count}} evaluaciones vinculadas.",
+    "evalsKeptReplaced": "Quedan como historial en la pestaña Evaluaciones (no se borran).",
+    "evalsKeptPaused": "Las podés seguir viendo en la pestaña Evaluaciones.",
+    "confirm": "Confirmar reemplazo"
+  },
+  "schedule": {
+    "modeAria": "Modo de horario",
+    "modes": {
+      "fixed": {
+        "label": "Horario fijo",
+        "description": "Días específicos de la semana. La adherencia se mide día por día."
+      },
+      "flexible": {
+        "label": "Flexible",
+        "description": "Solo importa cuántas sesiones cumple por semana, sin importar el día."
+      }
+    },
+    "saveError": "Error al guardar el horario",
+    "title": "Horario de entrenamiento",
+    "assignmentFallback": "Asignación",
+    "suggestedPerWeek": " · {{count}} ses/sem sugeridas"
+  },
+  "blockCard": {
+    "exercisesCount_one": " · {{count}} ejercicio",
+    "exercisesCount_other": " · {{count}} ejercicios",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "remove": "Eliminar bloque",
+    "titleLabel": "Título del bloque (opcional)",
+    "titlePlaceholder": "Ej: {{type}} principal",
+    "notesLabel": "Notas técnicas del bloque",
+    "notesPlaceholder": "Observaciones para la persona..."
+  },
+  "orderWarning": {
+    "title": "Hay bloques que conviene reordenar",
+    "disordered_one": "{{names}} tiene las letras (A, B, C...) fuera de orden.",
+    "disordered_other": "{{names}} tienen las letras (A, B, C...) fuera de orden.",
+    "gaps_one": "{{names}} tiene números salteados (ej: A1, A2, A4). Se renumerarán para que queden consecutivos.",
+    "gaps_other": "{{names}} tienen números salteados (ej: A1, A2, A4). Se renumerarán para que queden consecutivos.",
+    "unlettered_one": "1 ejercicio sin letra quedará en su lugar.",
+    "unlettered_other": "{{count}} ejercicios sin letra quedarán en su lugar.",
+    "closeAria": "Cerrar aviso",
+    "leaveAsIs": "Dejar como está",
+    "reorderDay": "Reordenar día"
+  },
+  "aerobicBlock": {
+    "exerciseLabel": "Ejercicio (opcional)",
+    "exercisePlaceholder": "Sin ejercicio específico",
+    "format": "Formato",
+    "formatDesc": {
+      "continuous": "Ritmo sostenido",
+      "intervals": "Trabajo / descanso",
+      "progressive": "Sube de intensidad"
+    },
+    "totalMinutes": "Duración total (min)",
+    "minutesPlaceholder": "Ej: 25",
+    "intensity": "Intensidad",
+    "targetZone": "Zona objetivo",
+    "intervalStructure": "Estructura de intervalos",
+    "workSeconds": "Trabajo (s)",
+    "restSeconds": "Descanso (s)",
+    "rounds": "Rondas",
+    "extraNote": "Aclaración extra",
+    "optional": "(opcional)",
+    "extraNotePlaceholder": "Ej: por lesión, ir más suave de lo habitual...",
+    "extraNoteHint": "Sólo para casos puntuales (lesiones, indicaciones específicas). La zona ya describe la sensación general."
+  },
+  "weightModes": {
+    "with_weight": {
+      "label": "Con peso",
+      "short": "Con peso"
+    },
+    "barbell_only": {
+      "label": "Solo con barra",
+      "short": "Solo barra"
+    },
+    "bodyweight": {
+      "label": "Sin peso",
+      "short": "BW"
+    },
+    "pct_1rm": {
+      "label": "% del máximo (RM)",
+      "short": "%RM"
+    },
+    "inherit": "Heredar",
+    "inheritWith": "Heredar ({{mode}})"
+  },
+  "exerciseModes": {
+    "reps": "Por reps",
+    "time": "Por tiempo"
+  },
+  "pctPreview": {
+    "derived": "<b>{{name}}:</b> <b>{{kg}} kg</b> · {{pct}}% de {{oneRm}} kg, evaluado el {{date}}",
+    "derivedRef": "<b>{{name}}:</b> <b>{{kg}} kg</b> · {{pct}}% de {{oneRm}} kg (máximo de {{exercise}}), evaluado el {{date}}",
+    "stale": " · esa evaluación ya está vieja",
+    "missing1rm": "<b>{{name}}</b> no tiene evaluación de 1RM de este ejercicio: va a ver el porcentaje en vez de los kilos. Cargale una evaluación, elegí un ejercicio de referencia, o ponele los kilos a mano en su plan una vez asignado.",
+    "missing1rmShort": "{{name}} no tiene evaluación de este ejercicio: va a ver el porcentaje.",
+    "missingPct": "Falta cargar el porcentaje.",
+    "missingPctCircuit": "Falta el porcentaje: cargalo acá o a nivel del circuito.",
+    "autoKg": "Los kilos se calculan solos: {{pct}}% del máximo de cada persona."
+  },
+  "exerciseRow": {
+    "exercise": "Ejercicio",
+    "block": "Bloque",
+    "sub": "Sub",
+    "weightMode": "Modo de peso",
+    "unilateral": "Unilateral",
+    "repsPerSide": "Las reps van por lado",
+    "forceBilateral": "Override: forzar bilateral",
+    "inheritTitle": "Quitar override y heredar del ejercicio",
+    "inheritLink": "heredar",
+    "pctOfMax": "% del máximo",
+    "refExerciseLabel": "Tomar el máximo de otro ejercicio (opcional)",
+    "refExercisePlaceholder": "Usar el máximo de este mismo ejercicio",
+    "pctExplain": "Los kilos no se escriben: se calculan como <strong>{{pct}} del máximo</strong> de cada persona, así el plan sube solo cuando sube su máximo. Si todavía no tiene evaluación, va a ver el porcentaje.",
+    "pctExplainRef": "Los kilos no se escriben: se calculan como <strong>{{pct}} del máximo de {{exercise}}</strong> de cada persona, así el plan sube solo cuando sube su máximo. Si todavía no tiene evaluación, va a ver el porcentaje.",
+    "thePct": "el %",
+    "groupNotice": "Bloque {{letter}}: los ejercicios con la misma letra van encadenados, <strong>sin pausa entre ellos</strong>. El descanso que cargues es la pausa del grupo (al terminar la vuelta), no entre serie y serie. Se muestra una sola vez a la persona.",
+    "sets": "Series",
+    "rest": "Descanso",
+    "suggestedPse": "PSE sugerida",
+    "unspecified": "Sin especificar",
+    "reps": "Reps",
+    "repsPerSide2": "Reps (por lado)",
+    "repsWeightPerSet": "Repeticiones y peso por serie",
+    "repsPerSet": "Repeticiones por serie",
+    "repsWeight": "Repeticiones y peso",
+    "repsOnly": "Repeticiones",
+    "perSideTag": "· POR LADO",
+    "differential": "Diferencial por serie",
+    "weightKg": "Peso (kg)",
+    "cascadeHint": "El valor de la serie 1 autocompleta las series vacías.",
+    "pctWeightNote": "Peso prescripto por porcentaje · los kilos se derivan del máximo.",
+    "bodyweightNote": "Ejercicio sin peso · solo se cargan reps.",
+    "notes": "Notas técnicas",
+    "notesPlaceholder": "Indicaciones técnicas del ejercicio..."
+  },
+  "circuitBlock": {
+    "type": "Tipo de circuito",
+    "typeDesc": {
+      "hiit": "Trabajo / descanso / rondas",
+      "amrap": "Tantas rondas como puedas",
+      "emom": "Cada minuto al minuto",
+      "free": "Sin estructura fija"
+    },
+    "hiitStructure": "Estructura HIIT",
+    "intensityOptional": "Intensidad (opcional)",
+    "blockPct": "Todo el circuito al % del máximo (opcional)",
+    "blockPctPlaceholder": "Ej: 50",
+    "blockPctHint": "Se aplica a los ejercicios en modo <strong>% del máximo</strong> que no tengan su propio porcentaje. Cada ejercicio puede pisarlo.",
+    "exercises": "Ejercicios del circuito",
+    "empty": "Sin ejercicios todavía",
+    "addExercise": "Agregar ejercicio al circuito",
+    "selectExercise": "Seleccionar ejercicio...",
+    "mode": "Tipo",
+    "durationSeconds": "Duración (seg)",
+    "weight": "Peso",
+    "fromBlock": "{{pct}} (del bloque)",
+    "bodyweightNote": "Sin peso · solo reps"
+  },
+  "targetPerson": {
+    "planFor": "Plan de",
+    "loading": "Cargando...",
+    "lockedHint": "Este es el plan personal de esa persona, así que los datos que ves en cada ejercicio son los suyos.",
+    "question": "¿Para quién es este plan?",
+    "generic": "Genérico — para varias personas",
+    "inactiveSuffix": " (inactiva)",
+    "showInactive": "Mostrar personas inactivas",
+    "selectedHint": "Mientras armás vas a ver los datos de <b>{{name}}</b> en cada ejercicio: con cuánto viene cargando, su máximo, y los kilos que le tocan si prescribís por % del máximo. Elegirla acá no le asigna el plan — eso sigue siendo un paso aparte.",
+    "genericHint": "Si es para alguien en particular, elegila y vas a ver sus pesos reales al lado de cada ejercicio."
+  },
+  "evalDays": {
+    "sameMethod": "Mismo método para todos",
+    "methodPerExercise": "Método por ejercicio",
+    "filterByTag": "Filtrar ejercicios por etiqueta",
+    "allExercises": "Todos los ejercicios",
+    "emptyDay": "Este día no tiene ejercicios todavía.",
+    "addExercise": "Agregar ejercicio",
+    "evalType": "Tipo de evaluación",
+    "evalTypeShort": {
+      "one_rm": "Fuerza",
+      "max_reps": "Fuerza-Resistencia",
+      "custom": "Personalizado"
+    },
+    "method": "Método",
+    "testType": "Tipo de prueba",
+    "newExercise": "Nuevo ejercicio",
+    "mandatoryShort": "Oblig.",
+    "exercise": "Ejercicio",
+    "selectExercise": "— Seleccionar ejercicio —",
+    "seeVideo": "Ver video de referencia",
+    "suggestedSets": "Series sug.",
+    "suggestedReps": "Reps sug.",
+    "suggestedWeight": "Peso sug. (kg)",
+    "repsPlaceholder": "ej: 5",
+    "weightPlaceholder": "ej: 60",
+    "instructions": "Instrucciones",
+    "instructionsPlaceholder": "Describí cómo ejecutar la prueba...",
+    "expectedValue": "Valor esperado (opcional)",
+    "expectedPlaceholder": "ej: 10",
+    "unit": "Unidad",
+    "unitPlaceholder": "ej: reps, kg, seg",
+    "mandatory": "Ejercicio obligatorio"
+  },
+  "assignErrors": {
+    "templateDirect": "No se puede asignar una plantilla directamente. Volvé a intentar — si el problema persiste, reportá este caso.",
+    "notTemplate": "Ese plan no es una plantilla; no se puede clonar desde acá.",
+    "notFound": "No se encontró el plan o la persona (referencia inválida).",
+    "alreadyActive": "Esa persona ya tiene un plan activo con esas condiciones. Reemplazá el actual desde su ficha.",
+    "generic": "Error al asignar el plan"
+  }
+}

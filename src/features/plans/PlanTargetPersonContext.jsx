@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { UserCheck, Loader2, Users } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { fetchOneRmMap } from '@/features/evaluations/oneRm'
 import { fetchExerciseHistory } from './studentExerciseHistory'
@@ -144,6 +145,7 @@ export function PlanTargetPersonProvider({ children }) {
  * No asigna nada: solo decide qué datos se muestran mientras armás.
  */
 export function PlanTargetPersonPicker({ locked = false }) {
+  const { t } = useTranslation()
   const { students, studentId, studentName, setStudentId, loading } = usePlanTargetPerson()
   // v40: personas inactivas ocultas por defecto; la seleccionada se
   // muestra siempre para no romper un plan que ya la tenía elegida.
@@ -157,15 +159,14 @@ export function PlanTargetPersonPicker({ locked = false }) {
   if (locked) {
     return (
       <div>
-        <label className="label">Plan de</label>
+        <label className="label">{t('coach.planEditor.targetPerson.planFor')}</label>
         <p className="flex items-center gap-2 text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
           <UserCheck size={15} className="text-emerald-600 flex-shrink-0" />
-          {studentName || 'Cargando...'}
+          {studentName || t('coach.planEditor.targetPerson.loading')}
           {loading && <Loader2 size={13} className="text-gray-400 animate-spin" />}
         </p>
         <p className="text-[11px] text-gray-500 mt-1.5 leading-snug">
-          Este es el plan personal de esa persona, así que los datos que ves en cada ejercicio son
-          los suyos.
+          {t('coach.planEditor.targetPerson.lockedHint')}
         </p>
       </div>
     )
@@ -173,18 +174,18 @@ export function PlanTargetPersonPicker({ locked = false }) {
 
   return (
     <div>
-      <label className="label">¿Para quién es este plan?</label>
+      <label className="label">{t('coach.planEditor.targetPerson.question')}</label>
       <div className="relative">
         <select
           className="input"
           value={studentId || ''}
           onChange={(e) => setStudentId(e.target.value || null)}
         >
-          <option value="">Genérico — para varias personas</option>
+          <option value="">{t('coach.planEditor.targetPerson.generic')}</option>
           {visibleStudents.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name || s.email}
-              {s.active === false ? ' (inactivo)' : ''}
+              {s.active === false ? t('coach.planEditor.targetPerson.inactiveSuffix') : ''}
             </option>
           ))}
         </select>
@@ -203,26 +204,24 @@ export function PlanTargetPersonPicker({ locked = false }) {
             onChange={(e) => setShowInactive(e.target.checked)}
             className="rounded"
           />
-          Mostrar personas inactivas
+          {t('coach.planEditor.targetPerson.showInactive')}
         </label>
       )}
       {studentId ? (
         <p className="text-[11px] text-emerald-700 mt-1.5 flex items-start gap-1.5 leading-snug">
           <UserCheck size={13} className="mt-px flex-shrink-0" />
           <span>
-            Mientras armás vas a ver los datos de{' '}
-            <strong className="font-semibold">{studentName}</strong> en cada ejercicio: con cuánto
-            viene cargando, su máximo, y los kilos que le tocan si prescribís por % del máximo.
-            Elegirla acá no le asigna el plan — eso sigue siendo un paso aparte.
+            <Trans
+              i18nKey="coach.planEditor.targetPerson.selectedHint"
+              values={{ name: studentName }}
+              components={{ b: <strong className="font-semibold" /> }}
+            />
           </span>
         </p>
       ) : (
         <p className="text-[11px] text-gray-500 mt-1.5 flex items-start gap-1.5 leading-snug">
           <Users size={13} className="mt-px flex-shrink-0" />
-          <span>
-            Si es para alguien en particular, elegila y vas a ver sus pesos reales al lado de cada
-            ejercicio.
-          </span>
+          <span>{t('coach.planEditor.targetPerson.genericHint')}</span>
         </p>
       )}
     </div>

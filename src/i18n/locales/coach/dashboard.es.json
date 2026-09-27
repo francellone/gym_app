@@ -1,0 +1,306 @@
+{
+  "home": {
+    "subtitleNone": "Nadie necesita tu atención ahora.",
+    "subtitle_one": "{{count}} persona necesita tu atención.",
+    "subtitle_other": "{{count}} personas necesitan tu atención.",
+    "statActive": "personas activas",
+    "statTrainedToday": "entrenaron hoy",
+    "trainedOf": "{{done}} de {{total}}",
+    "statLastWeek": "cumplimiento semana pasada",
+    "adherenceByPerson": "Cumplimiento por persona",
+    "recentSessions": "Últimas sesiones",
+    "noSessions": "No hay sesiones en este período.",
+    "personFallback": "Persona",
+    "lateLog": "Carga tardía",
+    "sessionExercises": "{{done}} de {{total}} ejercicios",
+    "noExercises": "Sin ejercicios cargados",
+    "pse": "PSE {{value}}",
+    "minutes": "{{count}} min",
+    "dayMonthNumeric": "dd/MM"
+  },
+  "sectionDay": "Día {{letter}}",
+  "listAnd": " y ",
+  "attention": {
+    "title": "Necesitan atención",
+    "noneForPerson": "Nada que atender con esta persona.",
+    "none": "Nadie necesita atención ahora.",
+    "showLess": "Ver menos",
+    "showMore": "Ver {{count}} más",
+    "missedLastWeek": "La semana pasada faltaron a alguna sesión:"
+  },
+  "alerts": {
+    "overdueDays_one": "Pago vencido hace {{count}} día",
+    "overdueDays_other": "Pago vencido hace {{count}} días",
+    "overdue": "Pago vencido",
+    "noLogs": "Sin entrenamientos registrados",
+    "inactiveDays_one": "No entrena hace {{count}} día",
+    "inactiveDays_other": "No entrena hace {{count}} días",
+    "painQuote": "Contó dolor: \"{{snippet}}\"",
+    "pain": "Contó dolor",
+    "skipDiscomfort": "Omitió por molestia",
+    "skipDiscomfortOne": "Omitió {{name}} por molestia",
+    "skipDiscomfortMany": "Omitió por molestia: {{names}}",
+    "skipDiscomfortManyMore": "Omitió por molestia: {{names}} y {{count}} más",
+    "planExpiredDays_one": "Plan vencido hace {{count}} día",
+    "planExpiredDays_other": "Plan vencido hace {{count}} días",
+    "planExpired": "Plan vencido",
+    "formUnanswered_one": "Formulario sin responder hace {{count}} día",
+    "formUnanswered_other": "Formulario sin responder hace {{count}} días",
+    "formUnansweredMore_one": " (y {{count}} otro)",
+    "formUnansweredMore_other": " (y {{count}} otros)",
+    "adherenceDecline": "Cumplimiento en baja: {{trend}} %",
+    "fatigue": "Señales de fatiga",
+    "lowMotivation": "Motivación baja",
+    "highRpe_one": "Esfuerzo alto {{count}} vez",
+    "highRpe_other": "Esfuerzo alto {{count}} veces",
+    "stagnationIn": "Sin progreso en {{names}}",
+    "stagnation": "Sin progreso",
+    "noActivePlan": "Sin plan activo"
+  },
+  "alertKinds": {
+    "overdue": "Pagos vencidos",
+    "planExpiringSoon": "Planes que vencen pronto",
+    "planExpired": "Plan vencido",
+    "dueSoon": "Pagos por vencer",
+    "adherenceDecline": "Adherencia en declive",
+    "lowAdherence": "Baja adherencia (semana pasada)",
+    "inactiveStudents": "Sin entrenar hace varios días",
+    "highRpeStudents": "Esfuerzo alto sostenido",
+    "noActivePlan": "Sin plan activo",
+    "fatigueStudents": "Fatiga / recuperación mala",
+    "lowMotivationStudents": "Baja motivación",
+    "skipDiscomfort": "Omitió por molestia",
+    "painStudents": "Dolor repetido",
+    "formUnanswered": "Formulario sin responder",
+    "stagnationStudents": "Estancamiento"
+  },
+  "adherence": {
+    "empty": "Todavía no hay personas con plan de entrenamiento activo.",
+    "behind_one": "{{count}} persona hizo menos de lo planificado la semana pasada",
+    "behind_other": "{{count}} personas hicieron menos de lo planificado la semana pasada",
+    "ok_one": "Al día: {{count}} persona",
+    "ok_other": "Al día: {{count}} personas",
+    "none": "Sin entrenamientos registrados: {{count}}",
+    "behindPill": "{{done}} de {{target}} la semana pasada",
+    "noLogs": "Sin entrenamientos registrados"
+  },
+  "filters": {
+    "student": "Persona",
+    "plan": "Plan",
+    "period": "Período",
+    "allStudents": "Todas",
+    "allPlansOfStudent": "Todos los planes de la persona",
+    "pickStudent": "Elegí una persona",
+    "untitled": "Sin título",
+    "clear": "Limpiar",
+    "status": {
+      "paused": "pausado",
+      "completed": "terminado",
+      "replaced": "reemplazado",
+      "cancelled": "cancelado",
+      "archived": "archivado"
+    }
+  },
+  "periods": {
+    "vigente": "Plan vigente",
+    "7d": "Últimos 7 días",
+    "14d": "Últimos 14 días",
+    "30d": "Últimos 30 días",
+    "90d": "Últimos 90 días",
+    "all": "Histórico completo"
+  },
+  "agenda": {
+    "title": "Próximos 7 días",
+    "empty": "Nada anotado: sin pagos, planes, evaluaciones, formularios ni cumpleaños esta semana.",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "dayFormat": "EEEE d",
+    "dayFormatOtherMonth": "EEEE d MMM"
+  },
+  "phrase": {
+    "paymentLate": "Pago vencido de",
+    "payment": "Vence el pago de",
+    "planEndLate": "Venció el plan de",
+    "planEnd": "Termina el plan de",
+    "planStart": "Empieza el plan de",
+    "evaluationLate": "Evaluación atrasada de",
+    "evaluation": "Evaluación de",
+    "evaluationDone": "Evaluó",
+    "birthday": "Cumple",
+    "formScheduled": "Sale el formulario de",
+    "formUnanswered": "Sin responder el formulario de",
+    "formWaiting_one": "{{title}} · hace {{count}} día",
+    "formWaiting_other": "{{title}} · hace {{count}} días",
+    "formAnswered": "Respondió el formulario",
+    "paymentDone": "Pagó"
+  },
+  "fallback": {
+    "plan": "Plan",
+    "evaluation": "Evaluación",
+    "intakeForm": "Formulario inicial",
+    "followUpForm": "Formulario de seguimiento",
+    "activity": "Actividad"
+  },
+  "milestones": {
+    "weekComplete": "Semana completa",
+    "planComplete": "Terminó el plan",
+    "streak_one": "Racha de {{count}} semana",
+    "streak_other": "Racha de {{count}} semanas",
+    "streakGeneric": "Racha de semanas",
+    "personalBestIn": "Mejor marca en {{exercise}}",
+    "personalBest": "Mejor marca",
+    "generic": "Festejo"
+  },
+  "calendar": {
+    "title": "Calendario",
+    "seeCalendarOf": "Ver el calendario de",
+    "allPeople": "Todas las personas",
+    "today": "Hoy",
+    "prevMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "more": "+{{count}} más",
+    "trained": "{{count}} entrenaron",
+    "trainedShort": "{{count}} entr.",
+    "closeDetail": "Cerrar detalle",
+    "trainedPeople_one": "Entrenó {{count}} persona",
+    "trainedPeople_other": "Entrenaron {{count}} personas",
+    "nothing": "Nada anotado este día.",
+    "dayDetailFormat": "EEEE d 'de' LLLL",
+    "legendHint": "Tocá un tipo para mostrarlo u ocultarlo",
+    "reset": "Restablecer",
+    "late": "Atrasado",
+    "lateForm": "Sin responder hace {{count}} días o más",
+    "trainedChip": "Entrenaron",
+    "trainedExample": "“5 entrenaron”",
+    "trainedExampleShort": "“5 entr.”",
+    "trainedLegend": ": personas que registraron entrenamiento ese día (tocá el día para ver quiénes)",
+    "summary": {
+      "done_one": "{{count}} cumplido",
+      "done_other": "{{count}} cumplidos",
+      "partial_one": "{{count}} parcial",
+      "partial_other": "{{count}} parciales",
+      "missed": "{{count}} no asistió",
+      "extra_one": "{{count}} día extra",
+      "extra_other": "{{count}} días extra",
+      "planDays": "Plan: {{days}}",
+      "planPerWeek": "Plan: {{count}} por semana, en los días que elija",
+      "planFree": "Plan con días libres",
+      "noPlan": "Sin plan activo"
+    },
+    "groups": {
+      "plans": "Planes",
+      "evaluations": "Evaluaciones",
+      "forms": "Formularios",
+      "payments": "Pagos",
+      "person": "La persona"
+    },
+    "dayStatus": {
+      "planned_done": "Cumplido",
+      "planned_partial": "Parcial",
+      "planned_missed": "No asistió",
+      "planned_future": "Planificado",
+      "unplanned_done": "Día extra",
+      "unplanned_partial": "Extra parcial",
+      "rest": "Descanso"
+    },
+    "kinds": {
+      "plan_start": {
+        "label": "Inicio de plan",
+        "legend": "Inicio de plan",
+        "short": "Inicio"
+      },
+      "plan_end": {
+        "label": "Fin de plan",
+        "legend": "Fin de plan",
+        "short": "Fin"
+      },
+      "payment_due": {
+        "label": "Pago",
+        "legend": "Pago",
+        "short": "Pago"
+      },
+      "evaluation": {
+        "label": "Evaluación",
+        "legend": "Evaluación pendiente",
+        "short": "Eval."
+      },
+      "evaluation_done": {
+        "label": "✓ Evaluó",
+        "legend": "✓ Evaluación hecha",
+        "short": "✓ Eval."
+      },
+      "form_scheduled": {
+        "label": "Formulario programado",
+        "legend": "Formulario programado",
+        "short": "Form."
+      },
+      "form_unanswered": {
+        "label": "Formulario sin responder",
+        "legend": "Formulario sin responder",
+        "short": "Sin resp."
+      },
+      "form_answered": {
+        "label": "✓ Formulario respondido",
+        "legend": "✓ Formulario respondido",
+        "short": "✓ Form."
+      },
+      "payment_done": {
+        "label": "✓ Pago cobrado",
+        "legend": "✓ Pago cobrado",
+        "short": "✓ Pago"
+      },
+      "activity": {
+        "label": "Actividad extra",
+        "legend": "Actividad extra",
+        "short": "⚽"
+      },
+      "milestone": {
+        "label": "🎉 Festejo",
+        "legend": "🎉 Festejo",
+        "short": "🎉"
+      },
+      "birthday": {
+        "label": "🎂 Cumpleaños",
+        "legend": "🎂 Cumpleaños",
+        "short": "🎂"
+      }
+    }
+  },
+  "panel": {
+    "noPlan": "{{name}} no tiene plan de entrenamiento activo en este período.",
+    "noPlanNoName": "Esta persona no tiene plan de entrenamiento activo en este período.",
+    "report": "Informe",
+    "personFallback": "Persona",
+    "activePlanFallback": "Plan activo",
+    "viewPerson": "Ver persona",
+    "loading": "Cargando datos de la persona…",
+    "kpi": {
+      "expected": "Esperados",
+      "completed": "Completados",
+      "adherence": "Adherencia",
+      "pseAvg": "PSE prom."
+    },
+    "sessionsPerDay": "Sesiones por día",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "noSessions": "Sin sesiones en este período",
+    "tallies": "Tildes por día",
+    "progressTitle": "Progreso por ejercicio",
+    "colExercise": "Ejercicio",
+    "colBefore": "Antes",
+    "colNow": "Ahora",
+    "colLogs": "Logs",
+    "progressHint": "Compara max(peso) primera mitad vs segunda mitad del período seleccionado.",
+    "exerciseFallback": "Ejercicio",
+    "noClosedWeeks": "Todavía no hay semanas cerradas completas en este período."
+  },
+  "motivation": {
+    "empty": "Sin entrenos registrados en el período seleccionado.",
+    "count_one": "Completó {{count}} entreno en el período.",
+    "count_other": "Completó {{count}} entrenos en el período.",
+    "great": "Excelente adherencia ({{pct}}%). La constancia está pagando.",
+    "good": "Buena constancia ({{pct}}%). Hay margen para subir.",
+    "meh": "Adherencia parcial ({{pct}}%). Conviene revisar barreras de la persona.",
+    "bad": "Adherencia baja ({{pct}}%). Es buen momento para conversar con la persona."
+  }
+}

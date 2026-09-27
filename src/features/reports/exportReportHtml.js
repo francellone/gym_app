@@ -39,14 +39,16 @@ export function stripNonExport(root) {
 
 // Orden por click en los encabezados de tablas [data-export-sortable].
 // Numérico si la columna parsea como número (soporta "+12%", "32,5"),
-// alfabético si no. Click repetido invierte.
-export const SORT_SCRIPT = `
+// alfabético si no. Click repetido invierte. `sortLabel` es el tooltip del
+// encabezado (idioma de quien lee el archivo; lo pasa downloadReportHtml).
+export function buildSortScript(sortLabel = 'Ordenar') {
+  return `
 (function () {
   document.querySelectorAll('table[data-export-sortable]').forEach(function (table) {
     var dir = {}
     table.querySelectorAll('thead th').forEach(function (th, col) {
       th.style.cursor = 'pointer'
-      th.title = 'Ordenar'
+      th.title = ${JSON.stringify(String(sortLabel))}
       th.addEventListener('click', function () {
         var tbody = table.querySelector('tbody')
         var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'))
@@ -66,6 +68,8 @@ export const SORT_SCRIPT = `
   })
 })()
 `
+}
+export const SORT_SCRIPT = buildSortScript()
 
 /**
  * Secciones plegables en el archivo: todo <section> con un <h2> directo se
@@ -94,7 +98,7 @@ export function makeCollapsible(root) {
  * Índice con anclas al principio del archivo, armado con los títulos de
  * sección presentes (el informe es modular: el índice también).
  */
-export function buildToc(root) {
+export function buildToc(root, tocLabel = 'Contenido:') {
   const doc = root.ownerDocument
   const entries = []
   root.querySelectorAll('section, details').forEach((sec) => {
@@ -117,7 +121,8 @@ export function buildToc(root) {
   const nav = doc.createElement('nav')
   nav.className = 'export-toc'
   nav.innerHTML =
-    '<b>Contenido:</b> ' + entries.map((e) => `<a href="#${e.id}">${e.text}</a>`).join(' · ')
+    `<b>${escapeHtml(tocLabel)}</b> ` +
+    entries.map((e) => `<a href="#${e.id}">${e.text}</a>`).join(' · ')
   const header = root.querySelector('header')
   if (header) header.after(nav)
   else root.prepend(nav)
@@ -174,9 +179,11 @@ export function injectSvgTitles(root, specs = []) {
  * @param {string} args.title - título del documento
  * @param {string} [args.lang='es'] - idioma del documento (informe cliente:
  *   el del ALUMNO, no el de la UI del coach)
+ * @param {{print?:string, sort?:string}} [args.labels] - textos del propio
+ *   archivo (botón imprimir, tooltip de orden) en el idioma del documento
  * @returns {string}
  */
-export function buildExportHtml({ bodyHtml, css, title, lang = 'es' }) {
+export function buildExportHtml({ bodyHtml, css, title, lang = 'es', labels = {} }) {
   return `<!doctype html>
 <html lang="${lang}">
 <head>
@@ -200,12 +207,12 @@ details.card:not([open]) > summary h2::after { content: ' ▸'; }
 </style>
 </head>
 <body>
-<button class="no-print btn-secondary" onclick="window.print()">Imprimir / PDF</button>
+<button class="no-print btn-secondary" onclick="window.print()">${escapeHtml(labels.print || 'Imprimir / PDF')}</button>
 <div class="export-shell">
 ${bodyHtml}
 </div>
 <script>
-${SORT_SCRIPT}
+${buildSortScript(labels.sort)}
 </script>
 </body>
 </html>`
@@ -239,6 +246,8 @@ function slug(s) {
  * @param {boolean} [opts.toc=true] - índice con anclas (apagado en cliente)
  * @param {string} [opts.lang='es'] - lang del documento (cliente: el del alumno)
  * @param {string} [opts.title] - título del documento (default: informe coach)
+ * @param {{print?:string, sort?:string, toc?:string}} [opts.labels] - textos
+ *   propios del archivo, en el idioma del documento (default: español)
  * @param {string} [opts.filePrefix='informe'] - prefijo del nombre de archivo
  * @param {Function} [opts.prepare] - hook (clone) => void para limpiar el
  *   clon antes de serializar (p. ej. sacar contenteditable y vaciar
@@ -255,19 +264,21 @@ export function downloadReportHtml(
     title: customTitle,
     filePrefix = 'informe',
     prepare,
+    labels = {},
   } = {}
 ) {
   const clone = stripNonExport(rootEl.cloneNode(true))
   if (prepare) prepare(clone)
   injectSvgTitles(clone, svgTitleSpecs || [])
   if (collapsible) makeCollapsible(clone)
-  if (toc) buildToc(clone)
+  if (toc) buildToc(clone, labels.toc)
   const title = customTitle || `Informe de progreso — ${studentName}`
   const html = buildExportHtml({
     bodyHtml: clone.innerHTML,
     css: collectPageCss(rootEl.ownerDocument),
     title,
     lang,
+    labels,
   })
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)

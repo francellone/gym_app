@@ -65,10 +65,17 @@ export function proposeNextPeriod(payments, cycleDays, today = new Date()) {
 
 /**
  * Traduce los errores de la base a algo que la coach pueda leer.
+ * Con `t` (i18next) sale en el idioma activo; sin `t`, en español.
  * 23P01 = payments_no_overlap (D8).
  */
-export function friendlyPaymentError(error) {
+export function friendlyPaymentError(error, t) {
   const code = error?.code
+  if (t) {
+    if (code === '23P01') return t('coach.students.payment.errors.overlap')
+    if (code === '23514') return t('coach.students.payment.errors.check')
+    if (code === '42501' || code === 'PGRST301') return t('coach.students.payment.errors.forbidden')
+    return error?.message || t('coach.students.payment.errors.generic')
+  }
   if (code === '23P01') {
     return 'Ese período ya está cubierto por otro pago registrado. Revisá el historial.'
   }

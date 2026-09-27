@@ -19,6 +19,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Eye, Files, Lock, Pencil, Save, Send, X } from 'lucide-react'
 import ModuleCard from './ModuleCard'
 import TemplateManager from './TemplateManager'
@@ -37,7 +38,6 @@ import {
 } from '../../schema/default-form.js'
 
 const FORM_LANGUAGES = ['es', 'en']
-const LANG_LABEL = { es: 'español', en: 'inglés' }
 
 export default function FormBuilder({
   coachId: _coachId,
@@ -47,6 +47,7 @@ export default function FormBuilder({
   onSendToStudent,
   formKind = 'intake', // 'intake' | 'follow_up'
 }) {
+  const { t } = useTranslation()
   const isFollowUp = formKind === 'follow_up'
 
   // Modo bilingüe (docs/plan-formularios-bilingues.md): habilita los campos
@@ -99,7 +100,7 @@ export default function FormBuilder({
   const addCustomModule = useCallback(() => {
     const newModule = {
       id: `modulo_custom_${Date.now()}`,
-      title: 'Nuevo módulo',
+      title: 'Nuevo módulo', // valor inicial del contenido (canónico en español)
       emoji: '📌',
       enabled: true,
       editable: true,
@@ -174,12 +175,14 @@ export default function FormBuilder({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isFollowUp ? 'Formulario de seguimiento' : 'Constructor de Formulario'}
+            {isFollowUp
+              ? t('coach.forms.builder.titleFollowUp')
+              : t('coach.forms.builder.titleIntake')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {isFollowUp
-              ? 'Armá un formulario libre para mandarles a tus alumnos durante o al cierre de un plan'
-              : 'Personalizá el formulario que recibirán tus estudiantes al ingresar'}
+              ? t('coach.forms.builder.subtitleFollowUp')
+              : t('coach.forms.builder.subtitleIntake')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -187,20 +190,21 @@ export default function FormBuilder({
             onClick={() => setShowTemplates(true)}
             className="btn-secondary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            <Files size={16} /> Plantillas
+            <Files size={16} /> {t('coach.forms.builder.templates')}
           </button>
           <button
             onClick={() => onSendToStudent?.(buildCurrentConfig())}
             className="btn-secondary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            <Send size={16} /> Enviar
+            <Send size={16} /> {t('coach.forms.builder.send')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className="btn-primary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            <Save size={16} /> {saving ? 'Guardando...' : 'Guardar'}
+            <Save size={16} />{' '}
+            {saving ? t('coach.forms.builder.saving') : t('coach.forms.builder.save')}
           </button>
         </div>
       </div>
@@ -208,8 +212,8 @@ export default function FormBuilder({
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         {[
-          { id: 'form', label: 'Editar', Icon: Pencil },
-          { id: 'preview', label: 'Vista previa', Icon: Eye },
+          { id: 'form', label: t('coach.forms.builder.tabEdit'), Icon: Pencil },
+          { id: 'preview', label: t('coach.forms.builder.tabPreview'), Icon: Eye },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -231,13 +235,17 @@ export default function FormBuilder({
           <AlertTriangle size={20} className="text-amber-600 flex-shrink-0" />
           <div className="text-sm text-amber-900">
             <p className="font-semibold">
-              Tal como está, este formulario le llegaría VACÍO a tus alumnas en{' '}
-              {emptyLangs.map((l) => LANG_LABEL[l] || l).join(' y en ')}.
+              {t('coach.forms.builder.emptyLangTitle', {
+                langs: emptyLangs
+                  .map((l) => t(`coach.forms.builder.lang.${l}`, { defaultValue: l }))
+                  .join(t('coach.forms.builder.langJoin')),
+              })}
             </p>
             <p className="text-xs mt-1 text-amber-800">
-              Todas las preguntas están marcadas para el otro idioma. Revisá en cada pregunta la
-              opción “Esta pregunta se muestra a...” y poné “Alumnos en ambos idiomas”. Si lo mandás
-              así, la alumna abre el formulario y el botón de empezar no hace nada.
+              {t('coach.forms.builder.emptyLangBody', {
+                visibilityLabel: t('coach.forms.question.visibilityLabel'),
+                visibilityBoth: t('coach.forms.question.visibilityBoth'),
+              })}
             </p>
           </div>
         </div>
@@ -248,10 +256,8 @@ export default function FormBuilder({
           {/* Introducción */}
           <div className="card !p-0 overflow-hidden">
             <div className="bg-durazno-50 px-4 py-3 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-800">Introducción</h2>
-              <p className="text-xs text-gray-500">
-                Texto que verá el estudiante al abrir el formulario. Soporta emojis y formato.
-              </p>
+              <h2 className="font-semibold text-gray-800">{t('coach.forms.builder.introTitle')}</h2>
+              <p className="text-xs text-gray-500">{t('coach.forms.builder.introHint')}</p>
             </div>
             <div className="p-4">
               <IntroEditor value={intro} onChange={setIntro} bilingual={bilingual} />
@@ -261,12 +267,14 @@ export default function FormBuilder({
           {/* Módulos */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">Módulos</h2>
+              <h2 className="font-semibold text-gray-800">
+                {t('coach.forms.builder.modulesTitle')}
+              </h2>
               <button
                 onClick={addCustomModule}
                 className="text-xs font-medium text-primary-700 hover:text-primary-800 flex items-center gap-1"
               >
-                + Agregar módulo personalizado
+                {t('coach.forms.builder.addModule')}
               </button>
             </div>
 
@@ -295,11 +303,10 @@ export default function FormBuilder({
                 <span className="text-xl">{CONSENT_MODULE.emoji}</span>
                 <div>
                   <p className="font-semibold text-amber-800 text-sm">
-                    {CONSENT_MODULE.title} (obligatorio – no editable)
+                    {t('coach.forms.builder.consentTitle', { title: CONSENT_MODULE.title })}
                   </p>
                   <p className="text-xs text-amber-600 mt-1">
-                    Este módulo siempre aparecerá al final y no puede eliminarse. Incluye el
-                    consentimiento informado del estudiante.
+                    {t('coach.forms.builder.consentBody')}
                   </p>
                 </div>
                 <Lock size={16} className="ml-auto text-amber-600 flex-shrink-0" />
@@ -314,7 +321,8 @@ export default function FormBuilder({
               disabled={saving}
               className="btn-primary inline-flex items-center gap-2"
             >
-              <Save size={18} /> {saving ? 'Guardando...' : 'Guardar formulario'}
+              <Save size={18} />{' '}
+              {saving ? t('coach.forms.builder.saving') : t('coach.forms.builder.saveForm')}
             </button>
           </div>
         </div>
@@ -322,14 +330,12 @@ export default function FormBuilder({
 
       {activeTab === 'preview' && (
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center space-y-3">
-          <p className="text-sm text-gray-500">
-            Simulá cómo verá el formulario un alumno en su pantalla.
-          </p>
+          <p className="text-sm text-gray-500">{t('coach.forms.builder.previewHint')}</p>
           <button
             onClick={() => setShowPreview(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-linea text-tinta text-sm font-medium rounded-boton hover:bg-durazno-50 transition-colors"
           >
-            <Eye size={16} /> Abrir vista previa
+            <Eye size={16} /> {t('coach.forms.builder.openPreview')}
           </button>
         </div>
       )}
@@ -343,7 +349,7 @@ export default function FormBuilder({
             className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 bg-white border border-linea text-tinta
                        text-xs font-medium px-3 py-2 rounded-full shadow-flotante hover:bg-durazno-50 transition-colors"
           >
-            <X size={14} /> Cerrar vista previa
+            <X size={14} /> {t('coach.forms.builder.closePreview')}
           </button>
 
           {/* Selector de idioma del preview (modo bilingüe) */}

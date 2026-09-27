@@ -15,12 +15,14 @@
 
 import { useEffect, useState } from 'react'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/features/auth/AuthContext'
 import { getOrCreateThreadForStudent } from '../api'
 import NotesPanel from '../components/NotesPanel'
 
 export default function StudentNotesTab({ studentId }) {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const [threadId, setThreadId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -35,7 +37,7 @@ export default function StudentNotesTab({ studentId }) {
       // mensaje claro.
       if (profile.role !== 'coach') {
         if (!cancelled) {
-          setError('Solo el coach puede abrir este panel.')
+          setError(t('coach.notes.tab.coachOnly'))
           setThreadId(null)
           setLoading(false)
         }
@@ -50,16 +52,16 @@ export default function StudentNotesTab({ studentId }) {
         const { data, error: err } = await getOrCreateThreadForStudent(studentId, profile.id)
         if (cancelled) return
         if (err) {
-          setError(err.message || 'No se pudo abrir el hilo de notas.')
+          setError(err.message || t('coach.notes.tab.openError'))
           setThreadId(null)
         } else if (!data) {
-          setError('No se pudo obtener el hilo de notas.')
+          setError(t('coach.notes.tab.fetchError'))
           setThreadId(null)
         } else {
           setThreadId(data)
         }
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Error inesperado al abrir el hilo.')
+        if (!cancelled) setError(err.message || t('coach.notes.tab.unexpectedError'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -68,6 +70,8 @@ export default function StudentNotesTab({ studentId }) {
     return () => {
       cancelled = true
     }
+    // t fuera de deps: el texto del error no justifica re-abrir el hilo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.role, studentId])
 
   // ── Loading ────────────────────────────────────────────────
@@ -86,8 +90,10 @@ export default function StudentNotesTab({ studentId }) {
         <div className="flex items-start gap-2 text-red-700 text-sm">
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-medium">No pudimos abrir las notas</p>
-            <p className="text-xs text-red-600 mt-0.5">{error || 'Hilo no disponible.'}</p>
+            <p className="font-medium">{t('coach.notes.tab.errorTitle')}</p>
+            <p className="text-xs text-red-600 mt-0.5">
+              {error || t('coach.notes.tab.unavailable')}
+            </p>
           </div>
         </div>
       </div>

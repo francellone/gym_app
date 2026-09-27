@@ -6,13 +6,18 @@
 // —que entrenaba solo la activación— le figuraba cumplida a la coach.
 // ============================================================
 import { describe, it, expect } from 'vitest'
+import i18n from '@/i18n'
 import {
   computeStudentDayStatus,
   STUDENT_DAY_STYLE,
   computeCalendarEvents,
   buildAgendaDays,
   agendaPhrase,
+  milestoneText,
 } from './calendarLogic'
+
+// Las frases salen de i18n (panel de la coach); los tests corren en español.
+const t = i18n.getFixedT('es')
 
 const TODAY = new Date(2026, 7, 27) // jueves 2026-08-27
 const YMD = '2026-08-24'
@@ -111,7 +116,7 @@ describe('STUDENT_DAY_STYLE', () => {
       'rest',
     ]) {
       expect(STUDENT_DAY_STYLE[status]).toBeTruthy()
-      expect(STUDENT_DAY_STYLE[status].label).toBeTruthy()
+      expect(t(STUDENT_DAY_STYLE[status].labelKey)).toBeTruthy()
     }
   })
 })
@@ -143,7 +148,7 @@ describe('computeCalendarEvents — vencimiento del plan', () => {
       win
     )
     expect(tipos(map, '2026-09-15')).toContain('plan_end')
-    expect(map.get('2026-09-15')[0].title).toBe('Vence Fuerza')
+    expect(map.get('2026-09-15')[0]).toMatchObject({ type: 'plan_end', planTitle: 'Fuerza' })
   })
 
   it('NO pinta el de una asignación reemplazada', () => {
@@ -275,7 +280,7 @@ describe('rediseño 2026-09-26: evaluaciones, atrasos y agenda', () => {
       { student_id: 's1', plan_id: 'p1', eval_date: '2026-09-26' },
     ])
     expect(buildAgendaDays(map, hoy, 7)).toEqual([])
-    expect(agendaPhrase(map.get('2026-09-26')[0])).toEqual({
+    expect(agendaPhrase(map.get('2026-09-26')[0], t)).toEqual({
       lead: 'Evaluó',
       name: 'Ana',
       detail: 'Evaluación',
@@ -296,12 +301,12 @@ describe('rediseño 2026-09-26: evaluaciones, atrasos y agenda', () => {
   })
 
   it('la frase de la agenda dice qué pasa y con quién', () => {
-    expect(agendaPhrase({ type: 'payment_due', studentName: 'Bea', late: false })).toEqual({
+    expect(agendaPhrase({ type: 'payment_due', studentName: 'Bea', late: false }, t)).toEqual({
       lead: 'Vence el pago de',
       name: 'Bea',
       detail: '',
     })
-    expect(agendaPhrase({ type: 'payment_due', studentName: 'Ana', late: true }).lead).toBe(
+    expect(agendaPhrase({ type: 'payment_due', studentName: 'Ana', late: true }, t).lead).toBe(
       'Pago vencido de'
     )
   })
@@ -407,7 +412,7 @@ describe('computeCalendarEvents — pagos cobrados, actividades y festejos', () 
     })
     const [ev] = map.get('2026-09-20')
     expect(ev.type).toBe('activity')
-    expect(agendaPhrase(ev).lead).toBe('⚽ Fútbol:')
+    expect(agendaPhrase(ev, t).lead).toBe('⚽ Fútbol:')
   })
 
   it('festejos: semana completa sí, día completo no, anulados no', () => {
@@ -424,7 +429,10 @@ describe('computeCalendarEvents — pagos cobrados, actividades y festejos', () 
       ],
     })
     const ev = [...map.values()].flat()
-    expect(ev.map((e) => [e.type, e.planTitle])).toEqual([['milestone', 'Semana completa']])
+    expect(ev.map((e) => [e.type, milestoneText(e.milestone, t)])).toEqual([
+      ['milestone', 'Semana completa'],
+    ])
+    expect(agendaPhrase(ev[0], i18n.getFixedT('en')).lead).toBe('🎉 Week complete:')
   })
 
   it('la agenda no muestra lo que ya pasó y respeta lo apagado', () => {

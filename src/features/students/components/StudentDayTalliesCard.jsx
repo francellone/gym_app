@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { computeDayTallies } from '../dayTalliesLogic'
 import DayTalliesBadge from './DayTalliesBadge'
@@ -19,15 +20,16 @@ import DayTalliesBadge from './DayTalliesBadge'
 //   studentId        UUID del alumno
 //   activeAssignment plan_assignment object con { id, plan_id, start_date, plan?: { title } }
 //   variant          'default' | 'compact'   pasa-through al badge
-//   title            string  título de la card (default "Cuántas veces hiciste cada día")
+//   title            string  título de la card (default coach.students.tallies.title)
 // ============================================================
 
 export default function StudentDayTalliesCard({
   studentId,
   activeAssignment,
   variant = 'default',
-  title = 'Cuántas veces hiciste cada día',
+  title,
 }) {
+  const { t: tr } = useTranslation()
   const [tallies, setTallies] = useState({})
   const [loading, setLoading] = useState(false)
 
@@ -88,7 +90,9 @@ export default function StudentDayTalliesCard({
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-700">
+          {title ?? tr('coach.students.tallies.title')}
+        </h3>
         {activeAssignment.plan?.title && (
           <span className="text-[11px] text-gray-400 truncate ml-2 max-w-[60%]">
             {activeAssignment.plan.title}
@@ -96,7 +100,7 @@ export default function StudentDayTalliesCard({
         )}
       </div>
       {loading ? (
-        <p className="text-xs text-gray-400 italic">Cargando…</p>
+        <p className="text-xs text-gray-400 italic">{tr('common.loading')}</p>
       ) : (
         <DayTalliesBadge tallies={tallies} variant={variant} showLegend />
       )}

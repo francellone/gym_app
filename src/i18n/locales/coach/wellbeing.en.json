@@ -1,0 +1,67 @@
+{
+  "status": {
+    "good": "Good",
+    "warn": "Watch",
+    "bad": "Alert",
+    "none": "No data"
+  },
+  "noEntries": "no entries",
+  "reasons": {
+    "lowEnergy_one": "low energy {{count}} day",
+    "lowEnergy_other": "low energy {{count}} days",
+    "highFatigue_one": "high fatigue {{count}} day",
+    "highFatigue_other": "high fatigue {{count}} days",
+    "highStress_one": "high stress {{count}} day",
+    "highStress_other": "high stress {{count}} days"
+  },
+  "short": {
+    "sleep_quality": "Sleep",
+    "nutrition_quality": "Nutrition",
+    "hydration_quality": "Hydration",
+    "energy_level": "Energy",
+    "stress_level": "Stress",
+    "muscle_fatigue": "Fatigue"
+  },
+  "badge": {
+    "titleNone": "Wellbeing: no entries in the last 14 days",
+    "title": "Wellbeing {{status}}{{reasons}} · last entry {{last}}",
+    "none": "no wellbeing"
+  },
+  "block": {
+    "title": "Wellbeing",
+    "seeTrend": "See trend",
+    "loading": "Loading wellbeing…",
+    "empty": "No wellbeing entries in this period",
+    "reasons_one": "· {{reasons}} (last {{count}} day)",
+    "reasons_other": "· {{reasons}} (last {{count}} days)",
+    "noSignals_one": "· no signs of fatigue or stress in the last day",
+    "noSignals_other": "· no signs of fatigue or stress in the last {{count}} days",
+    "last": "Last: {{date}} ({{ago}})",
+    "coachBadge": "Coach",
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "lastNote": "Note from last entry:",
+    "footnote": "Period average · the arrow compares the last entry against the average of the previous days.",
+    "lastShort": "last"
+  },
+  "tab": {
+    "period2w": "2w",
+    "period1m": "1m",
+    "period3m": "3m",
+    "periodAll": "All",
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "emptyTitle": "No wellbeing data",
+    "emptyBody": "This student hasn't filled in any wellbeing check-in yet.",
+    "averages_one": "Averages — last {{count}} day",
+    "averages_other": "Averages — last {{count}} days",
+    "radarTitle": "Wellbeing radar",
+    "radarHint": "(stress and fatigue inverted — higher = better)",
+    "radarSeries": "Wellbeing",
+    "value": "Value: {{value}}",
+    "trend": "Trend",
+    "sessions_one": "{{count}} session",
+    "sessions_other": "{{count}} sessions",
+    "recentNotes": "Recent notes"
+  }
+}

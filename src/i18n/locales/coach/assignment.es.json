@@ -1,0 +1,30 @@
+{
+  "status": {
+    "active": {
+      "label": "Activo",
+      "short": "Activo"
+    },
+    "paused": {
+      "label": "En pausa",
+      "short": "Pausa"
+    },
+    "replaced": {
+      "label": "Reemplazado",
+      "short": "Reemplazado"
+    },
+    "completed": {
+      "label": "Completado",
+      "short": "Completado"
+    },
+    "archived": {
+      "label": "Archivado",
+      "short": "Archivado"
+    }
+  },
+  "actions": {
+    "pause": "Pausar",
+    "complete": "Marcar completado",
+    "archive": "Archivar",
+    "reactivate": "Reactivar"
+  }
+}
