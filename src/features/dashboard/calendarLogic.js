@@ -187,7 +187,8 @@ export const CALENDAR_GROUPS = [
   { key: 'person', label: 'La persona', kinds: ['trained', 'activity', 'milestone', 'birthday'] },
 ]
 
-export const DEFAULT_HIDDEN = ['form_unanswered', 'form_answered']
+// 2026-09-27: festejos también arrancan apagados (pedido de Franco).
+export const DEFAULT_HIDDEN = ['form_unanswered', 'form_answered', 'milestone']
 
 // Lo que ya pasó no va en "Próximos 7 días".
 export const PAST_ONLY_KINDS = new Set([

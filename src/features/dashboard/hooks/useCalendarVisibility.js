@@ -13,7 +13,9 @@ import { DEFAULT_HIDDEN } from '../calendarLogic'
 // Calendario y agenda son componentes separados: se avisan entre sí
 // con un evento de ventana para que un cambio se vea en los dos.
 // ============================================================
-const KEY = 'coachCalendarHidden.v1'
+// v2 (2026-09-27): cambió DEFAULT_HIDDEN (festejos apagados); la clave
+// nueva hace que todos arranquen con los valores por defecto nuevos.
+const KEY = 'coachCalendarHidden.v2'
 const EVT = 'coach-calendar-visibility'
 
 function read() {
