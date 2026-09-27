@@ -1,0 +1,34 @@
+{
+  "title": "Mi perfil",
+  "photoPrivacy": "Tu foto la ven vos y las personas que entrenás.",
+  "personalData": "Mis datos",
+  "name": "Nombre",
+  "namePlaceholder": "Tu nombre",
+  "email": "Email",
+  "emailHint": "Es tu usuario para entrar; no se cambia desde acá.",
+  "phone": "Teléfono",
+  "phonePlaceholder": "+54 9 351 000 0000",
+  "appLanguage": "Idioma de la app",
+  "appLanguageHint": "Cambia el idioma de tu panel. La pantalla de registro de cada persona sale en el idioma de esa persona.",
+  "workLanguages": "Idiomas en los que trabajás",
+  "workLanguagesHint": "Elegí uno o los dos. Vas a escribir tu presentación en cada idioma que elijas.",
+  "bio": "Presentación corta",
+  "bioIn": "Presentación en {{lang}}",
+  "bioPlaceholder": "Contá en pocas líneas quién sos y cómo trabajás.",
+  "charsLeft": "{{count}} caracteres disponibles",
+  "save": "Guardar cambios",
+  "saving": "Guardando…",
+  "saved": "Cambios guardados",
+  "noChanges": "No hay cambios para guardar",
+  "errors": {
+    "nameRequired": "El nombre no puede quedar vacío.",
+    "pickLanguage": "Elegí al menos un idioma de trabajo.",
+    "bioTooLong": "La presentación puede tener hasta {{max}} caracteres.",
+    "phoneTooLong": "El teléfono es demasiado largo.",
+    "save": "No se pudieron guardar los cambios. Probá de nuevo."
+  },
+  "lang": {
+    "es": "Español",
+    "en": "Inglés"
+  }
+}

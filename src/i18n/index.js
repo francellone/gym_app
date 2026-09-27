@@ -14,7 +14,7 @@ import en from './locales/en.json'
 //
 // fallbackLng 'es': todo componente que todavía no migró a t() sigue
 // mostrando su texto hardcodeado en español, así la migración puede ser
-// gradual sin romper nada. El panel del coach queda en español a propósito.
+// gradual sin romper nada.
 
 const PRE_LOGIN_LANG_KEY = 'gymcoach_pre_login_lang'
 
@@ -38,10 +38,29 @@ export function setPreLoginLanguage(lng) {
   i18n.changeLanguage(lng)
 }
 
+// ── Panel de la coach (etapa 2 del plan i18n, 2026-09-27) ──────────────────
+// Cada área del panel tiene su par de archivos en locales/coach/:
+//   <área>.es.json y <área>.en.json  →  claves `coach.<área>.*`
+// Separado del diccionario principal para que cada tanda tenga un diff legible
+// (y Anto pueda revisar el inglés por bloque) y para que dos tandas no se
+// pisen editando el mismo JSON gigante. La guardia de paridad vive en
+// locales-parity.test.js.
+const coachFiles = import.meta.glob('./locales/coach/*.json', { eager: true })
+
+export function buildCoachNamespace(files, lng) {
+  const out = {}
+  for (const [file, mod] of Object.entries(files)) {
+    const m = file.match(/\/([\w-]+)\.(es|en)\.json$/)
+    if (!m || m[2] !== lng) continue
+    out[m[1]] = mod.default ?? mod
+  }
+  return out
+}
+
 i18n.use(initReactI18next).init({
   resources: {
-    es: { translation: es },
-    en: { translation: en },
+    es: { translation: { ...es, coach: buildCoachNamespace(coachFiles, 'es') } },
+    en: { translation: { ...en, coach: buildCoachNamespace(coachFiles, 'en') } },
   },
   lng: preLoginLanguage(),
   fallbackLng: 'es',

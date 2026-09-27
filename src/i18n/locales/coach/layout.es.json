@@ -1,0 +1,16 @@
+{
+  "panelSubtitle": "Panel Coach",
+  "roleLabel": "Coach",
+  "notifications": "Notificaciones",
+  "signOut": "Cerrar sesión",
+  "myProfile": "Mi perfil",
+  "nav": {
+    "dashboard": "Dashboard",
+    "students": "Personas",
+    "plans": "Planes",
+    "exercises": "Ejercicios",
+    "evaluations": "Evaluaciones",
+    "intakeForm": "Formulario alta",
+    "followUp": "Seguimiento"
+  }
+}

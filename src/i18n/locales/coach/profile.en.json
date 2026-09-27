@@ -1,0 +1,34 @@
+{
+  "title": "My profile",
+  "photoPrivacy": "Your photo is visible to you and the people you train.",
+  "personalData": "My details",
+  "name": "Name",
+  "namePlaceholder": "Your name",
+  "email": "Email",
+  "emailHint": "It is your login and can't be changed here.",
+  "phone": "Phone",
+  "phonePlaceholder": "+1 555 000 0000",
+  "appLanguage": "App language",
+  "appLanguageHint": "Changes the language of your panel. Each person's logging screen stays in that person's language.",
+  "workLanguages": "Languages you work in",
+  "workLanguagesHint": "Pick one or both. You will write your bio in each language you pick.",
+  "bio": "Short bio",
+  "bioIn": "Bio in {{lang}}",
+  "bioPlaceholder": "Tell people in a few lines who you are and how you work.",
+  "charsLeft": "{{count}} characters left",
+  "save": "Save changes",
+  "saving": "Saving…",
+  "saved": "Changes saved",
+  "noChanges": "Nothing to save",
+  "errors": {
+    "nameRequired": "Name can't be empty.",
+    "pickLanguage": "Pick at least one working language.",
+    "bioTooLong": "The bio can be up to {{max}} characters.",
+    "phoneTooLong": "The phone number is too long.",
+    "save": "Changes couldn't be saved. Please try again."
+  },
+  "lang": {
+    "es": "Spanish",
+    "en": "English"
+  }
+}

@@ -43,7 +43,13 @@ function canvasToBlob(canvas) {
   })
 }
 
-export default function AvatarEditor({ userId, currentPath, onClose, onSaved }) {
+export default function AvatarEditor({
+  userId,
+  currentPath,
+  onClose,
+  onSaved,
+  privacyText = null,
+}) {
   const { t } = useTranslation()
   const inputRef = useRef(null)
   const drag = useRef(null)
@@ -248,7 +254,7 @@ export default function AvatarEditor({ userId, currentPath, onClose, onSaved }) 
           )}
 
           <p className="text-[11px] text-gray-400 text-center leading-snug">
-            {t('profile.photoPrivacy')}
+            {privacyText ?? t('profile.photoPrivacy')}
           </p>
 
           {error && <div className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</div>}

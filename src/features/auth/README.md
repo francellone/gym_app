@@ -17,11 +17,11 @@ auth/
 
 `useAuth()` se usa en **~20 archivos** (todos los layouts, todas las pages, varios tabs). Es el módulo más transversal del frontend.
 
-| Consumidor representativo | Para qué |
-|---|---|
-| `src/App.jsx` | `AuthProvider` (wrap) + `LoginPage` (route) |
-| `src/components/layout/CoachLayout.jsx` y `StudentLayout.jsx` | `useAuth()` para mostrar el perfil + logout |
-| Todas las pages del coach y del alumno | `useAuth()` para sacar `profile.id`, `profile.role`, etc. |
+| Consumidor representativo                                     | Para qué                                                  |
+| ------------------------------------------------------------- | --------------------------------------------------------- |
+| `src/App.jsx`                                                 | `AuthProvider` (wrap) + `LoginPage` (route)               |
+| `src/components/layout/CoachLayout.jsx` y `StudentLayout.jsx` | `useAuth()` para mostrar el perfil + logout               |
+| Todas las pages del coach y del alumno                        | `useAuth()` para sacar `profile.id`, `profile.role`, etc. |
 
 Siempre con alias absoluto:
 

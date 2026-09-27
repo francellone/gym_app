@@ -85,7 +85,6 @@ export function AuthProvider({ children }) {
     })
 
     return () => subscription.unsubscribe()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function fetchProfile(userObj) {
@@ -123,9 +122,11 @@ export function AuthProvider({ children }) {
   // más vale cerrar de más que dejar al usuario apretando un botón muerto.
   async function signOut() {
     if (user) {
-      await withTimeout(unregisterPush(user.id), PUSH_UNREGISTER_TIMEOUT_MS, 'unregisterPush').catch(
-        (err) => console.warn('Push unregister failed:', err)
-      )
+      await withTimeout(
+        unregisterPush(user.id),
+        PUSH_UNREGISTER_TIMEOUT_MS,
+        'unregisterPush'
+      ).catch((err) => console.warn('Push unregister failed:', err))
     }
     // Limpiar snapshots del pintado instantáneo para no filtrar datos entre cuentas.
     clearAuthSnapshot()

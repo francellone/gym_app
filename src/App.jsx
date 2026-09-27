@@ -32,6 +32,7 @@ import CoachModeLanguageProvider from '@/features/workouts/CoachModeLanguage'
 import ProgressPage from '@/features/progress/pages/ProgressPage'
 import HistoryPage from '@/features/workouts/pages/HistoryPage'
 import ProfilePage from '@/features/auth/pages/ProfilePage'
+import CoachProfilePage from '@/features/auth/pages/CoachProfilePage'
 import EvalWorkoutPage from '@/features/evaluations/pages/EvalWorkoutPage'
 import FormBuilderPage from '@/features/forms/pages/FormBuilderPage'
 import FollowUpFormsPage from '@/features/forms/pages/FollowUpFormsPage'
@@ -103,6 +104,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<CoachDashboard />} />
+        <Route path="profile" element={<CoachProfilePage />} />
         <Route path="students" element={<StudentsPage />} />
         <Route path="students/new" element={<CreateStudentPage />} />
         <Route path="students/:id" element={<StudentDetailPage />} />
