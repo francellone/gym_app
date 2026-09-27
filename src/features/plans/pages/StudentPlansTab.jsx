@@ -739,7 +739,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
                       <p
                         className={`text-sm font-semibold ${checked ? 'text-purple-700' : 'text-gray-700'}`}
                       >
-                        📊 {ev.title}
+                        {ev.title}
                       </p>
                       {ev.eval_type && <p className="text-xs text-gray-500">{ev.eval_type}</p>}
                     </div>
@@ -861,7 +861,7 @@ function AssignmentRow({
               ))}
             {linkedEvalCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-0.5 text-purple-600">
-                · 📊 {linkedEvalCount} {linkedEvalCount === 1 ? 'evaluación' : 'evaluaciones'}
+                · {linkedEvalCount} {linkedEvalCount === 1 ? 'evaluación' : 'evaluaciones'}
               </span>
             )}
           </p>
@@ -875,7 +875,7 @@ function AssignmentRow({
                   : 'bg-gray-50 text-gray-500 border border-gray-200'
               }`}
             >
-              📅 {scheduleLabel}
+              {scheduleLabel}
             </span>
           )}
           {assignment.status_reason && (

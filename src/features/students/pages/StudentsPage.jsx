@@ -250,38 +250,38 @@ export default function StudentsPage() {
             {overdueCount > 0 && (
               <button
                 onClick={() => setFilterStatus(filterStatus === 'overdue' ? 'all' : 'overdue')}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'overdue'
                     ? 'bg-red-100 text-red-700 border-red-300'
                     : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
                 }`}
               >
-                🔴 {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
+                {overdueCount} pago{overdueCount !== 1 ? 's' : ''} vencido
                 {overdueCount !== 1 ? 's' : ''}
               </button>
             )}
             {dueSoonCount > 0 && (
               <button
                 onClick={() => setFilterStatus(filterStatus === 'due_soon' ? 'all' : 'due_soon')}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'due_soon'
                     ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
                     : 'bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100'
                 }`}
               >
-                🟡 {dueSoonCount} pago{dueSoonCount !== 1 ? 's' : ''} por vencer
+                {dueSoonCount} pago{dueSoonCount !== 1 ? 's' : ''} por vencer
               </button>
             )}
             {noPlanCount > 0 && (
               <button
                 onClick={() => setFilterStatus(filterStatus === 'no_plan' ? 'all' : 'no_plan')}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'no_plan'
                     ? 'bg-gray-200 text-gray-700 border-gray-400'
                     : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
                 }`}
               >
-                ⚪ {noPlanCount} sin plan
+                {noPlanCount} sin plan
               </button>
             )}
             {planExpiredCount > 0 && (
@@ -289,13 +289,13 @@ export default function StudentsPage() {
                 onClick={() =>
                   setFilterStatus(filterStatus === 'plan_expired' ? 'all' : 'plan_expired')
                 }
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'plan_expired'
                     ? 'bg-red-100 text-red-700 border-red-300'
                     : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                 }`}
               >
-                📅 {planExpiredCount} plan{planExpiredCount !== 1 ? 'es' : ''} vencido
+                {planExpiredCount} plan{planExpiredCount !== 1 ? 'es' : ''} vencido
                 {planExpiredCount !== 1 ? 's' : ''}
               </button>
             )}
@@ -304,26 +304,26 @@ export default function StudentsPage() {
                 onClick={() =>
                   setFilterStatus(filterStatus === 'plan_expiring' ? 'all' : 'plan_expiring')
                 }
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'plan_expiring'
                     ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
                     : 'bg-yellow-50 text-yellow-600 border-yellow-100 hover:bg-yellow-100'
                 }`}
               >
-                📅 {planExpiringCount} plan{planExpiringCount !== 1 ? 'es' : ''} por vencer
+                {planExpiringCount} plan{planExpiringCount !== 1 ? 'es' : ''} por vencer
               </button>
             )}
             {wellbeingAlertCount > 0 && (
               <button
                 onClick={() => setFilterStatus(filterStatus === 'wellbeing' ? 'all' : 'wellbeing')}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
                   filterStatus === 'wellbeing'
-                    ? 'bg-orange-100 text-orange-700 border-orange-300'
-                    : 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                 }`}
                 title="Fatiga, energía baja o estrés alto sostenidos en los últimos 14 días"
               >
-                🟠 {wellbeingAlertCount} con wellbeing en alerta
+                {wellbeingAlertCount} con wellbeing en alerta
               </button>
             )}
           </div>
@@ -484,7 +484,6 @@ export default function StudentsPage() {
                             : undefined
                         }
                       >
-                        📅{' '}
                         {expiry.status === 'expired'
                           ? `Plan vencido${expiry.isEstimated ? ' (est.)' : ''}`
                           : `Plan vence en ${expiry.daysLeft}d`}

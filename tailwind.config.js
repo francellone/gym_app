@@ -1,4 +1,5 @@
 import defaultTheme from 'tailwindcss/defaultTheme'
+import twColors from 'tailwindcss/colors'
 
 /**
  * Identidad visual "Encabezado durazno" (docs/identidad-visual.md).
@@ -85,6 +86,20 @@ export default {
         sky: NIEBLA,
         niebla: NIEBLA,
         slate: GRIS_CALIDO,
+        // Escalas saturadas sueltas (2026-09-27): se llevan a la familia del
+        // manual que ya significa lo mismo, así nada queda fuera de paleta.
+        //   emerald, lime → verde de estado "bien"
+        //   yellow        → ámbar de "atención"
+        //   rose          → rojo de "problema"
+        //   pink, fuchsia → ciruela;  teal, cyan → niebla
+        emerald: twColors.green,
+        lime: twColors.green,
+        yellow: twColors.amber,
+        rose: twColors.red,
+        pink: CIRUELA,
+        fuchsia: CIRUELA,
+        teal: NIEBLA,
+        cyan: NIEBLA,
         durazno: {
           50: '#fff7ed',
           100: '#ffedd5',

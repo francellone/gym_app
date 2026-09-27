@@ -76,7 +76,7 @@ export default function MaxRepsForm({ results, onChange, planMethod, planExercis
                 )}
               </div>
 
-              {pe?.notes && <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>}
+              {pe?.notes && <p className="text-xs text-blue-600 italic">{pe.notes}</p>}
 
               {/* Encabezados de columna */}
               <div className={`grid grid-cols-${colCount} gap-1.5 mb-1 px-0.5`}>

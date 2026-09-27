@@ -19,6 +19,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { AlertTriangle, Eye, Files, Lock, Pencil, Save, Send, X } from 'lucide-react'
 import ModuleCard from './ModuleCard'
 import TemplateManager from './TemplateManager'
 import IntroEditor from './IntroEditor'
@@ -184,22 +185,22 @@ export default function FormBuilder({
         <div className="flex gap-2">
           <button
             onClick={() => setShowTemplates(true)}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="btn-secondary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            📋 Plantillas
+            <Files size={16} /> Plantillas
           </button>
           <button
             onClick={() => onSendToStudent?.(buildCurrentConfig())}
-            className="px-4 py-2 text-sm border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="btn-secondary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            📤 Enviar
+            <Send size={16} /> Enviar
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="btn-primary !py-2 text-sm inline-flex items-center gap-1.5"
           >
-            {saving ? 'Guardando...' : '💾 Guardar'}
+            <Save size={16} /> {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -207,18 +208,19 @@ export default function FormBuilder({
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         {[
-          { id: 'form', label: '✏️ Editar' },
-          { id: 'preview', label: '👁 Vista previa' },
+          { id: 'form', label: 'Editar', Icon: Pencil },
+          { id: 'preview', label: 'Vista previa', Icon: Eye },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 ${
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-texto2 hover:text-tinta'
             }`}
           >
+            <tab.Icon size={15} />
             {tab.label}
           </button>
         ))}
@@ -226,7 +228,7 @@ export default function FormBuilder({
 
       {emptyLangs.length > 0 && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
-          <span className="text-xl leading-none">⚠️</span>
+          <AlertTriangle size={20} className="text-amber-600 flex-shrink-0" />
           <div className="text-sm text-amber-900">
             <p className="font-semibold">
               Tal como está, este formulario le llegaría VACÍO a tus alumnas en{' '}
@@ -244,9 +246,9 @@ export default function FormBuilder({
       {activeTab === 'form' && (
         <div className="space-y-4">
           {/* Introducción */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="card !p-0 overflow-hidden">
             <div className="bg-durazno-50 px-4 py-3 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-800">📝 Introducción</h2>
+              <h2 className="font-semibold text-gray-800">Introducción</h2>
               <p className="text-xs text-gray-500">
                 Texto que verá el estudiante al abrir el formulario. Soporta emojis y formato.
               </p>
@@ -259,10 +261,10 @@ export default function FormBuilder({
           {/* Módulos */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">🧩 Módulos</h2>
+              <h2 className="font-semibold text-gray-800">Módulos</h2>
               <button
                 onClick={addCustomModule}
-                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-xs font-medium text-primary-700 hover:text-primary-800 flex items-center gap-1"
               >
                 + Agregar módulo personalizado
               </button>
@@ -300,7 +302,7 @@ export default function FormBuilder({
                     consentimiento informado del estudiante.
                   </p>
                 </div>
-                <span className="ml-auto text-amber-400">🔒</span>
+                <Lock size={16} className="ml-auto text-amber-600 flex-shrink-0" />
               </div>
             </div>
           )}
@@ -310,9 +312,9 @@ export default function FormBuilder({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+              className="btn-primary inline-flex items-center gap-2"
             >
-              {saving ? 'Guardando...' : '💾 Guardar formulario'}
+              <Save size={18} /> {saving ? 'Guardando...' : 'Guardar formulario'}
             </button>
           </div>
         </div>
@@ -327,7 +329,7 @@ export default function FormBuilder({
             onClick={() => setShowPreview(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-linea text-tinta text-sm font-medium rounded-boton hover:bg-durazno-50 transition-colors"
           >
-            👁 Abrir vista previa
+            <Eye size={16} /> Abrir vista previa
           </button>
         </div>
       )}
@@ -341,12 +343,12 @@ export default function FormBuilder({
             className="fixed top-4 right-4 z-[60] flex items-center gap-1.5 bg-white border border-linea text-tinta
                        text-xs font-medium px-3 py-2 rounded-full shadow-flotante hover:bg-durazno-50 transition-colors"
           >
-            ✕ Cerrar preview
+            <X size={14} /> Cerrar vista previa
           </button>
 
           {/* Selector de idioma del preview (modo bilingüe) */}
           {bilingual && (
-            <div className="fixed top-4 left-4 z-[60] flex rounded-full shadow-lg overflow-hidden text-xs font-medium">
+            <div className="fixed top-4 left-4 z-[60] flex rounded-full border border-linea shadow-flotante overflow-hidden text-xs font-medium">
               {[
                 { code: 'es', label: '🇪🇸 Español' },
                 { code: 'en', label: '🇬🇧 English' },
@@ -356,8 +358,8 @@ export default function FormBuilder({
                   onClick={() => setPreviewLang(l.code)}
                   className={`px-3 py-2 transition-colors ${
                     previewLang === l.code
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-100'
+                      ? 'bg-durazno-50 text-primary-700'
+                      : 'bg-white text-texto2 hover:bg-durazno-50'
                   }`}
                 >
                   {l.label}

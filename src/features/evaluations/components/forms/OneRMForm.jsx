@@ -136,7 +136,7 @@ export default function OneRMForm({ results, onChange, planMethod, planExercises
 
             {/* Nota del coach */}
             {usePlanExercises && pe?.notes && (
-              <p className="text-xs text-blue-600 italic">📝 {pe.notes}</p>
+              <p className="text-xs text-blue-600 italic">{pe.notes}</p>
             )}
 
             {/* Modo con plan: grilla por serie */}

@@ -162,17 +162,17 @@ export default function FollowUpFormBuilderPage() {
       {/* Toast */}
       {saveStatus === 'saved' && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
-          ✅ Guardado
+          Guardado ✓
         </div>
       )}
       {saveStatus === 'error' && (
         <div className="fixed top-4 right-4 z-50 bg-red-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
-          ❌ Error al guardar
+          Error al guardar
         </div>
       )}
       {typeof saveStatus === 'string' && saveStatus !== 'saved' && saveStatus !== 'error' && (
         <div className="fixed top-4 right-4 z-50 bg-amber-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg max-w-xs">
-          ⚠ {saveStatus}
+          {saveStatus}
         </div>
       )}
 
@@ -199,7 +199,7 @@ export default function FollowUpFormBuilderPage() {
           {bilingual && (
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                🌐 Nombre en inglés (opcional — lo ven tus alumnos en inglés)
+                Nombre en inglés (opcional — lo ven tus alumnos en inglés)
               </label>
               <input
                 type="text"

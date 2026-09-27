@@ -40,6 +40,13 @@
   .btn-primary {
     @apply bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-bold py-3 px-4 rounded-boton transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
+  /* Contraste (manual §2): blanco sobre Naranja 600 da 3,6 a 1 y solo
+     alcanza con texto de 16 px en negrita. Un botón principal con texto
+     chico pasa a Naranja 700 de fondo (36 botones así al 2026-09-27). */
+  .btn-primary.text-xs,
+  .btn-primary.text-sm {
+    @apply bg-primary-700 hover:bg-primary-800 active:bg-primary-900;
+  }
   .btn-secondary {
     @apply bg-white hover:bg-durazno-50 active:bg-durazno-100 text-tinta font-medium py-3 px-4 rounded-boton border border-linea transition-colors duration-150;
   }
@@ -244,14 +251,14 @@
 .plan-chip-avatar {
   width: 20px;
   height: 20px;
-  background: #f97316;
+  background: #ffedd5;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
   font-weight: 700;
-  color: white;
+  color: #c2410c;
   flex-shrink: 0;
 }
 
@@ -272,8 +279,8 @@
     border-color 0.12s;
 }
 .plan-add-student-chip:hover {
-  color: #f97316;
-  border-color: #fcd3a0;
+  color: #c2410c;
+  border-color: #fed7aa;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -312,7 +319,7 @@
 }
 .plan-tab--active {
   background: #fbf8f5;
-  color: var(--tab-color, #f97316);
+  color: var(--tab-color, #c2410c);
 }
 
 .plan-tab-dot {
@@ -448,7 +455,7 @@
 .plan-ex-note-btn:hover,
 .plan-ex-note-btn--on {
   background: #fff7ed;
-  border-color: #fcd3a0;
+  border-color: #fed7aa;
   color: #c2410c;
 }
 
@@ -456,11 +463,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #60a5fa;
+  color: #4a6b80;
   transition: color 0.1s;
 }
 .plan-ex-video-btn:hover {
-  color: #2563eb;
+  color: #3d5869;
 }
 
 .plan-ex-cell {

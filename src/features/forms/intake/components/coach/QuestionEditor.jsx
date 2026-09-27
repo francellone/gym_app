@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react'
+import { AlertTriangle, ChevronUp, Settings, X } from 'lucide-react'
 import { QUESTION_TYPES, QUESTION_TYPE_META } from '../../schema/question-types.js'
 
 export default function QuestionEditor({
@@ -145,23 +146,25 @@ export default function QuestionEditor({
           )}
 
           {/* Indicadores */}
-          <div className="flex gap-2 mt-1">
-            {question.required && <span className="text-xs text-blue-500">● Obligatoria</span>}
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {question.required && <span className="pill-neutral text-[11px]">Obligatoria</span>}
             {question.conditional && (
-              <span className="text-xs text-purple-500">🔀 Condicional</span>
+              <span className="text-[11px] rounded-full px-2 py-0.5 bg-niebla-100 text-niebla-700">
+                Condicional
+              </span>
             )}
-            {!question.removable && <span className="text-xs text-gray-400">🔒 Fija</span>}
+            {!question.removable && <span className="pill-neutral text-[11px]">Fija</span>}
             {bilingual &&
               (visibility === 'solo_es' ? (
-                <span className="text-xs text-gray-400">🌐 Solo español</span>
+                <span className="pill-neutral text-[11px]">Solo español</span>
               ) : visibility === 'solo_en' ? (
-                <span className="text-xs text-gray-400">🌐 Solo inglés</span>
+                <span className="pill-neutral text-[11px]">Solo inglés</span>
               ) : en.stale ? (
-                <span className="text-xs text-amber-500">🌐 EN desactualizada</span>
+                <span className="pill-warn text-[11px]">Inglés desactualizado</span>
               ) : en.label?.trim() ? (
-                <span className="text-xs text-green-600">🌐 EN ✓</span>
+                <span className="pill-ok text-[11px]">Inglés ✓</span>
               ) : (
-                <span className="text-xs text-gray-400">🌐 Sin traducir</span>
+                <span className="pill-neutral text-[11px]">Sin traducir</span>
               ))}
           </div>
         </div>
@@ -187,8 +190,9 @@ export default function QuestionEditor({
             <button
               onClick={() => setExpanded(!expanded)}
               className="p-1 text-gray-400 hover:text-gray-600 text-xs ml-1"
+              aria-label={expanded ? 'Cerrar edición' : 'Editar pregunta'}
             >
-              {expanded ? '▲' : '⚙️'}
+              {expanded ? <ChevronUp size={16} /> : <Settings size={16} />}
             </button>
           )}
 
@@ -198,8 +202,9 @@ export default function QuestionEditor({
                 if (confirm('¿Eliminar esta pregunta?')) onRemove()
               }}
               className="p-1 text-red-300 hover:text-red-500 text-xs"
+              aria-label="Eliminar pregunta"
             >
-              ✕
+              <X size={16} />
             </button>
           )}
         </div>
@@ -290,7 +295,7 @@ export default function QuestionEditor({
             <button
               onClick={handleRequiredToggle}
               className={`relative w-8 h-4 rounded-full transition-colors ${
-                question.required ? 'bg-blue-500' : 'bg-gray-300'
+                question.required ? 'bg-primary-600' : 'bg-gray-300'
               }`}
             >
               <span
@@ -306,7 +311,7 @@ export default function QuestionEditor({
           {possibleParents.length > 0 && (
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">
-                🔀 Mostrar solo si... (opcional)
+                Mostrar solo si... (opcional)
               </label>
               <select
                 value={question.conditional?.dependsOn || ''}
@@ -356,9 +361,7 @@ export default function QuestionEditor({
           {/* ── Versión en inglés (modo bilingüe) ─────────── */}
           {bilingual && (
             <div className="border-t border-gray-200 pt-3 space-y-3">
-              <label className="text-xs font-semibold text-gray-700 block">
-                🌐 Versión en inglés
-              </label>
+              <label className="text-xs font-semibold text-gray-700 block">Versión en inglés</label>
 
               {/* Visibilidad por idioma */}
               <div>
@@ -381,7 +384,7 @@ export default function QuestionEditor({
                   {/* Aviso de traducción desactualizada */}
                   {en.stale && (
                     <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded p-2">
-                      <span className="text-sm">⚠️</span>
+                      <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-xs text-amber-700">
                           Cambiaste las opciones en español después de traducirlas. Mientras tanto,
@@ -443,7 +446,7 @@ export default function QuestionEditor({
                       {(en.options?.length || 0) > 0 &&
                         en.options.length !== (question.options || []).length && (
                           <p className="text-xs text-amber-600 mt-1">
-                            ⚠️ Hay {en.options.length} traducciones para{' '}
+                            Hay {en.options.length} traducciones para{' '}
                             {(question.options || []).length} opciones — hasta que coincidan, los
                             alumnos en inglés ven las opciones en español.
                           </p>

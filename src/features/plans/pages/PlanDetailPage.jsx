@@ -13,6 +13,7 @@ import {
   Info,
   Trash2,
   Activity,
+  Dumbbell,
   Flame,
   Clock,
   Repeat,
@@ -258,20 +259,20 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 function blockStyle(block) {
   if (!block) return { bg: '#f5f0eb', color: '#a3958b', border: '#f0e7df' }
   const l = block[0]
-  if (l === 'A') return { bg: '#fff7ed', color: '#c2410c', border: '#fcd3a0' }
-  if (l === 'B') return { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' }
-  if (l === 'C') return { bg: '#f0fdf4', color: '#059669', border: '#a7f3d0' }
-  return { bg: '#faf5f8', color: '#7c3aed', border: '#ddd6fe' }
+  if (l === 'A') return { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }
+  if (l === 'B') return { bg: '#e3ecf1', color: '#3d5869', border: '#c8d8e2' }
+  if (l === 'C') return { bg: '#f5f0eb', color: '#5a4b42', border: '#e3d8cf' }
+  return { bg: '#fbf8f5', color: '#76675d', border: '#f0e7df' }
 }
 
 // ── Helper: PSE → color CSS ─────────────────────────────────
 function pseStyle(pse) {
   if (!pse) return null
   const n = parseFloat(pse)
-  if (n >= 8) return { bg: '#fef2f2', color: '#dc2626' }
+  if (n >= 8) return { bg: '#fee2e2', color: '#b91c1c' }
   if (n >= 6) return { bg: '#fff7ed', color: '#c2410c' }
-  if (n >= 4) return { bg: '#fefce8', color: '#854d0e' }
-  return { bg: '#f0fdf4', color: '#059669' }
+  if (n >= 4) return { bg: '#fef3c7', color: '#92400e' }
+  return { bg: '#dcfce7', color: '#15803d' }
 }
 
 // ── Helper: formatear peso ──────────────────────────────────
@@ -465,7 +466,7 @@ function AerobicBlockSummary({ block }) {
   return (
     <div className="rounded-2xl border-2 border-sky-200 bg-sky-50 p-3.5 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-base">🏃</span>
+        <Activity size={16} className="text-niebla-700" />
         <span className="font-semibold text-sm text-sky-800">{block.title || 'Aeróbico'}</span>
         {fmt && (
           <span className="text-[10px] font-semibold uppercase tracking-wide bg-sky-200/60 text-sky-800 rounded-full px-2 py-0.5">
@@ -562,10 +563,10 @@ function CircuitBlockSummary({ block }) {
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
 
   return (
-    <div className="rounded-2xl border-2 border-orange-200 bg-orange-50 p-3.5 space-y-2">
+    <div className="rounded-2xl border-2 border-durazno-200 bg-durazno-50 p-3.5 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-base">🔥</span>
-        <span className="font-semibold text-sm text-orange-800">{block.title || 'Circuito'}</span>
+        <Flame size={16} className="text-primary-700" />
+        <span className="font-semibold text-sm text-primary-800">{block.title || 'Circuito'}</span>
         {cType && (
           <span className="text-[10px] font-semibold uppercase tracking-wide bg-orange-200/60 text-orange-800 rounded-full px-2 py-0.5">
             {cType.label}
@@ -674,14 +675,17 @@ function CircuitBlockSummary({ block }) {
 // ── Sección con tabla ────────────────────────────────────────
 function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
   const sectionColors = {
-    activation: '#9c6589',
-    day_a: '#f97316',
-    day_b: '#3b82f6',
-    day_c: '#10b981',
-    day_d: '#ec4899',
-    day_e: '#f59e0b',
-    day_f: '#06b6d4',
-    day_g: '#84cc16',
+    // Identidad (2026-09-27): sin arcoíris. Los días se distinguen por
+    // su nombre; el color solo marca la sección elegida (Naranja 700) y la
+    // activación va en texto secundario.
+    activation: '#76675d',
+    day_a: '#c2410c',
+    day_b: '#c2410c',
+    day_c: '#c2410c',
+    day_d: '#c2410c',
+    day_e: '#c2410c',
+    day_f: '#c2410c',
+    day_g: '#c2410c',
   }
   const color = sectionColors[section.id] || '#76675d'
 
@@ -836,14 +840,17 @@ export default function PlanDetailPage() {
   const currentSection = activeSections.find((s) => s.id === activeSection)
 
   const sectionColors = {
-    activation: '#9c6589',
-    day_a: '#f97316',
-    day_b: '#3b82f6',
-    day_c: '#10b981',
-    day_d: '#ec4899',
-    day_e: '#f59e0b',
-    day_f: '#06b6d4',
-    day_g: '#84cc16',
+    // Identidad (2026-09-27): sin arcoíris. Los días se distinguen por
+    // su nombre; el color solo marca la sección elegida (Naranja 700) y la
+    // activación va en texto secundario.
+    activation: '#76675d',
+    day_a: '#c2410c',
+    day_b: '#c2410c',
+    day_c: '#c2410c',
+    day_d: '#c2410c',
+    day_e: '#c2410c',
+    day_f: '#c2410c',
+    day_g: '#c2410c',
   }
 
   if (loading)
@@ -1141,7 +1148,7 @@ export default function PlanDetailPage() {
                   {hasStrength && (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 px-1">
-                        <span className="text-xs">💪</span>
+                        <Dumbbell size={13} className="text-gray-500" />
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                           Fuerza
                         </span>
@@ -1159,7 +1166,7 @@ export default function PlanDetailPage() {
                   {hasAerobic && (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 px-1">
-                        <span className="text-xs">🏃</span>
+                        <Activity size={13} className="text-niebla-700" />
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
                           Aeróbico
                         </span>
@@ -1176,8 +1183,8 @@ export default function PlanDetailPage() {
                   {hasCircuit && (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 px-1">
-                        <span className="text-xs">🔥</span>
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                        <Flame size={13} className="text-primary-700" />
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-primary-700">
                           Circuito
                         </span>
                       </div>

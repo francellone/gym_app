@@ -258,12 +258,12 @@ export default function PlansPage() {
                         : ''}
                       {!isEval && plan._linked_evals_count > 0 && (
                         <span className="ml-1 text-purple-600">
-                          · 📊 {plan._linked_evals_count}{' '}
+                          · {plan._linked_evals_count}{' '}
                           {plan._linked_evals_count === 1 ? 'eval.' : 'evals.'}
                         </span>
                       )}
                       {isEval && plan.parent_plan_id && (
-                        <span className="ml-1 text-blue-600">· 📎 ligada a un plan</span>
+                        <span className="ml-1 text-blue-600">· ligada a un plan</span>
                       )}
                     </p>
                     {plan.description && (

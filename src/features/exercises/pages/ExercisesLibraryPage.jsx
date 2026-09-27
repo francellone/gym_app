@@ -23,16 +23,19 @@ import DuplicatesModal from '../components/DuplicatesModal'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
+  // Paleta del manual de identidad (2026-09-27): ciruela, rojo, naranja,
+  // ámbar, verde, niebla y gris cálido. Las etiquetas ya creadas conservan
+  // el color que tenían.
   '#834f72',
   '#9c6589',
-  '#ec4899',
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#14b8a6',
-  '#3b82f6',
-  '#64748b',
+  '#dc2626',
+  '#ea580c',
+  '#fdba74',
+  '#d97706',
+  '#16a34a',
+  '#4a6b80',
+  '#3d5869',
+  '#76675d',
 ]
 
 // ============================================================

@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react'
+import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import QuestionEditor from './QuestionEditor'
 
 export default function ModuleCard({
@@ -87,7 +88,7 @@ export default function ModuleCard({
             onClick={onToggle}
             title={module.enabled ? 'Desactivar módulo' : 'Activar módulo'}
             className={`w-10 h-5 rounded-full transition-colors flex-shrink-0 relative ${
-              module.enabled ? 'bg-blue-500' : 'bg-gray-300'
+              module.enabled ? 'bg-primary-600' : 'bg-gray-300'
             }`}
           >
             <span
@@ -109,12 +110,12 @@ export default function ModuleCard({
               onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={handleTitleSave}
               onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-              className="text-sm font-medium border-b border-blue-400 bg-transparent focus:outline-none"
+              className="text-sm font-medium border-b border-primary-300 bg-transparent focus:outline-none"
             />
           ) : (
             <span
               className={`text-sm font-medium truncate ${
-                module.editable ? 'cursor-pointer hover:text-blue-600' : 'text-gray-700'
+                module.editable ? 'cursor-pointer hover:text-primary-700' : 'text-gray-700'
               }`}
               onClick={() => module.editable && setEditingTitle(true)}
               title={module.editable ? 'Clic para editar el título' : undefined}
@@ -156,8 +157,9 @@ export default function ModuleCard({
               }}
               className="p-1 text-red-400 hover:text-red-600"
               title="Eliminar módulo"
+              aria-label="Eliminar módulo"
             >
-              🗑
+              <Trash2 size={16} />
             </button>
           )}
 
@@ -166,7 +168,7 @@ export default function ModuleCard({
             className="p-1 text-gray-400 hover:text-gray-600 ml-1"
             title="Editar preguntas"
           >
-            {expanded ? '🔼' : '🔽'}
+            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         </div>
       </div>
@@ -177,7 +179,7 @@ export default function ModuleCard({
           {/* Título del módulo en inglés (modo bilingüe) */}
           {bilingual && module.editable && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 flex-shrink-0">🌐 Título en inglés:</span>
+              <span className="text-xs text-gray-500 flex-shrink-0">Título en inglés:</span>
               <input
                 type="text"
                 value={module.i18n?.en?.title || ''}
@@ -217,7 +219,7 @@ export default function ModuleCard({
           {module.editable && (
             <button
               onClick={handleAddQuestion}
-              className="w-full text-center text-xs text-blue-600 hover:text-blue-800 border border-dashed border-blue-300 rounded-lg py-2 hover:bg-blue-50 transition-colors"
+              className="w-full text-center text-xs text-primary-700 hover:text-primary-800 border border-dashed border-durazno-200 rounded-lg py-2 hover:bg-durazno-50 transition-colors"
             >
               + Agregar pregunta
             </button>

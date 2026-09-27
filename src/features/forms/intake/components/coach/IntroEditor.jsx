@@ -37,14 +37,14 @@ Podés usar emojis 💪 y saltos de línea."
         className="w-full text-sm border border-gray-300 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
       <p className="text-xs text-gray-400">
-        💡 Tip: Usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la
+        Tip: usá emojis para darle tu tono personal. Contá tu metodología, qué vas a hacer con la
         info, y cualquier instrucción especial.
       </p>
 
       {bilingual && (
         <div>
           <label className="text-xs font-medium text-gray-600 block mb-1">
-            🌐 Introducción en inglés (opcional — vacío = se muestra la de arriba)
+            Introducción en inglés (opcional — vacío = se muestra la de arriba)
           </label>
           <textarea
             value={enContent}

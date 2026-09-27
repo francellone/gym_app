@@ -752,7 +752,7 @@ export default function ProgressPage() {
                         yAxisId="left"
                         type="monotone"
                         dataKey={chartMetric === 'weight' ? sWeight : sReps}
-                        fill="#fff1e3"
+                        fill="#fff7ed"
                         stroke="#ea580c"
                         strokeWidth={2.5}
                         dot={{ fill: '#ea580c', r: 4 }}
@@ -887,7 +887,7 @@ export default function ProgressPage() {
                         type="monotone"
                         dataKey={sVolume}
                         fill="#fed7aa"
-                        stroke="#fb923c"
+                        stroke="#ea580c"
                         strokeWidth={2}
                       />
                     </AreaChart>
@@ -960,12 +960,12 @@ export default function ProgressPage() {
                           key={i}
                           fill={
                             entry[sIntensity] >= 8
-                              ? '#fca5a5'
+                              ? '#fecaca'
                               : entry[sIntensity] >= 6
                                 ? '#fdba74'
                                 : entry[sIntensity] >= 4
-                                  ? '#fcd34d'
-                                  : '#86efac'
+                                  ? '#fde68a'
+                                  : '#bbf7d0'
                           }
                         />
                       ))}

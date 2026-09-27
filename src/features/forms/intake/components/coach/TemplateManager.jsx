@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { DEFAULT_TEMPLATES } from '../../schema/default-form.js'
 
 export default function TemplateManager({
@@ -50,28 +51,32 @@ export default function TemplateManager({
 
   return (
     <div className="fixed inset-0 bg-tinta/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-tarjeta shadow-flotante w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">📋 Plantillas de formulario</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">
-            ✕
+          <h2 className="font-semibold text-gray-900">Plantillas de formulario</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
           </button>
         </div>
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100">
           {[
-            { id: 'load', label: '📂 Cargar plantilla' },
-            { id: 'save', label: '💾 Guardar actual' },
+            { id: 'load', label: 'Cargar plantilla' },
+            { id: 'save', label: 'Guardar actual' },
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
                 tab === t.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary-600 text-primary-700'
+                  : 'border-transparent text-texto2 hover:text-tinta'
               }`}
             >
               {t.label}
@@ -85,12 +90,12 @@ export default function TemplateManager({
               {allTemplates.map((tpl) => (
                 <div
                   key={tpl.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors group"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-durazno-200 hover:bg-durazno-50 cursor-pointer transition-colors group"
                   onClick={() => tpl.config && onLoad(tpl.config)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-800 group-hover:text-blue-700">
+                      <p className="text-sm font-medium text-gray-800 group-hover:text-primary-700">
                         {tpl.name}
                       </p>
                       {tpl.isPredefined && (
@@ -104,7 +109,7 @@ export default function TemplateManager({
                     )}
                   </div>
                   <button
-                    className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                    className="text-xs text-primary-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
                     onClick={() => tpl.config && onLoad(tpl.config)}
                   >
                     Usar esta →
@@ -135,9 +140,9 @@ export default function TemplateManager({
               <button
                 onClick={handleSave}
                 disabled={!newName.trim() || saving}
-                className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="btn-primary w-full"
               >
-                {saving ? 'Guardando...' : '💾 Guardar plantilla'}
+                {saving ? 'Guardando...' : 'Guardar plantilla'}
               </button>
             </div>
           )}

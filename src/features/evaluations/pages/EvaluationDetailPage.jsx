@@ -235,7 +235,7 @@ function ScoredView({ results }) {
               return (
                 <div key={p.key} className="flex items-center gap-2 text-sm">
                   <span className="flex-1 text-gray-700">{p.label}</span>
-                  <span className="badge bg-red-100 text-red-600">⚠️ Dolor</span>
+                  <span className="badge bg-red-100 text-red-700">Dolor</span>
                 </div>
               )
             }
@@ -255,7 +255,9 @@ function ScoredView({ results }) {
                 <span className={`badge font-bold ${SCORE_BG[sc]} ${SCORE_COLORS_TEXT[sc]}`}>
                   {sc}
                 </span>
-                {hasAsymmetry && <span className="text-xs text-orange-500">⚡ asimetría</span>}
+                {hasAsymmetry && (
+                  <span className="text-xs font-medium text-amber-700">Asimetría</span>
+                )}
               </div>
             )
           })}
@@ -272,7 +274,7 @@ function ScoredView({ results }) {
               <p
                 className={`text-xs mt-0.5 ${results.result.total >= 14 ? 'text-green-600' : 'text-red-500'}`}
               >
-                {results.result.total < 14 ? '⚠️ Riesgo de lesión (< 14)' : '✅ Score aceptable'}
+                {results.result.total < 14 ? 'Riesgo de lesión (menos de 14)' : 'Puntaje aceptable'}
               </p>
             </div>
           )}
@@ -518,7 +520,6 @@ function StudentResultCard({ assignment, allResults, evalType }) {
           {studentResults.map((res) => (
             <div key={res.id}>
               <p className="text-xs font-semibold text-gray-400 mb-2">
-                📅{' '}
                 {new Date(res.eval_date).toLocaleDateString('es-AR', {
                   weekday: 'short',
                   year: 'numeric',
@@ -532,7 +533,7 @@ function StudentResultCard({ assignment, allResults, evalType }) {
                 <ResultViewer evalType={evalType} results={res.results} />
               )}
               {res.notes && (
-                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">💬 {res.notes}</p>
+                <p className="text-xs text-gray-500 italic mt-2 border-t pt-2">{res.notes}</p>
               )}
             </div>
           ))}

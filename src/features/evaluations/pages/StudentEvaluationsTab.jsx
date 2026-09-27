@@ -575,7 +575,7 @@ function EvaluationCard({
             ))}
             {linkedTo && (
               <span className="badge text-xs bg-blue-50 text-blue-700 border border-blue-100 inline-flex items-center gap-1">
-                📎 {linkedTo.plan?.title}
+                Ligada a {linkedTo.plan?.title}
               </span>
             )}
             {latestResult && (

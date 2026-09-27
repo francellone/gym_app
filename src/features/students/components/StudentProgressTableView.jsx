@@ -1412,7 +1412,7 @@ export default function StudentProgressTableView({
                 </span>
                 <Sparkline
                   values={r.sparklineValues}
-                  color={r.progressPct > 0 ? '#16a34a' : r.progressPct < 0 ? '#ef4444' : '#a3958b'}
+                  color={r.progressPct > 0 ? '#16a34a' : r.progressPct < 0 ? '#dc2626' : '#a3958b'}
                 />
               </div>
             ) : (

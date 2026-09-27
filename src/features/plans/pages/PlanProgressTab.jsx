@@ -609,7 +609,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                       yAxisId="right"
                       type="monotone"
                       dataKey="PSE"
-                      stroke="#9c6589"
+                      stroke="#76675d"
                       strokeWidth={1.5}
                       dot={false}
                       strokeDasharray="4 2"
@@ -672,10 +672,10 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <Area
                       type="monotone"
                       dataKey="PSE promedio"
-                      stroke="#9c6589"
-                      fill="#ede9fe"
+                      stroke="#76675d"
+                      fill="#f5f0eb"
                       strokeWidth={2}
-                      dot={{ fill: '#9c6589', r: 3 }}
+                      dot={{ fill: '#76675d', r: 3 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -699,7 +699,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
-                    <Bar dataKey="Intensidad" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Intensidad" fill="#fdba74" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -735,8 +735,8 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <Area
                       type="monotone"
                       dataKey="Minutos"
-                      stroke="#10b981"
-                      fill="#d1fae5"
+                      stroke="#4a6b80"
+                      fill="#e3ecf1"
                       strokeWidth={2}
                     />
                   </AreaChart>
@@ -762,8 +762,8 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="Series sugeridas" fill="#e0e7ff" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Series reales" fill="#834f72" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Series sugeridas" fill="#e3d8cf" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Series reales" fill="#ea580c" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
