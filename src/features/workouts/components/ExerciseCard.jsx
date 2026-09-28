@@ -140,8 +140,13 @@ export default function ExerciseCard({
   const [setsLimitHit, setSetsLimitHit] = useState(false)
   // v54 — acción en curso dentro de la vista de confirmación:
   //   null | 'confirm' (PSE desplegado) | 'skip' (motivos desplegados)
-  //   | 'reopen' (un omitido volvió a la vista de confirmación para cambiar)
   const [pendingAction, setPendingAction] = useState(null)
+  // Un omitido que la persona pidió cambiar: la vista de confirmación queda
+  // abierta aunque el log siga omitido. Va APARTE de pendingAction porque
+  // elegir "Lo hice tal cual" o un motivo pisa pendingAction, y cuando
+  // 'reopen' vivía ahí la tarjeta volvía a "omitido" sin guardar nada
+  // (bug 2026-09-28, Franco no podía pasar un omitido a hecho).
+  const [reopened, setReopened] = useState(false)
   // v54: el campo de comentario dentro de la vista de confirmación (antes
   // solo existía al pie del formulario, que ahora vive en "ajustar").
   const [showQuickNote, setShowQuickNote] = useState(false)
@@ -388,7 +393,7 @@ export default function ExerciseCard({
   const isSkipped = isLogSkipped(log) && !logData.completed
   // Vista de confirmación: no hay nada hecho, no se está ajustando, y o no
   // hay omisión o la persona pidió cambiarla.
-  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  const showConfirmView = !completed && !editing && (!isSkipped || reopened)
   // Se puede confirmar de un toque solo si TODO lo que se guardaría está
   // a la vista: reps en todas las series y, si el ejercicio lleva peso,
   // peso en todas. Si falta el peso (primera vez sin prescripción ni
@@ -639,9 +644,11 @@ export default function ExerciseCard({
     setPendingData(null)
     const wasEditing = editing
     const prevAction = pendingAction
+    const wasReopened = reopened
     setLogData((p) => ({ ...p, completed: true }))
     setEditing(false)
     setPendingAction(null)
+    setReopened(false)
     setSaving(true)
     try {
       await onSaveLog(planEx.id, data)
@@ -653,6 +660,7 @@ export default function ExerciseCard({
       setLogData((p) => ({ ...p, completed: false }))
       setEditing(wasEditing)
       setPendingAction(prevAction)
+      setReopened(wasReopened)
     } finally {
       setSaving(false)
     }
@@ -676,11 +684,13 @@ export default function ExerciseCard({
   async function skipWith(reason) {
     if (!SKIP_REASONS.includes(reason)) return
     const prevAction = pendingAction
+    const wasReopened = reopened
     // Optimista: el padre proyecta el log omitido en `logs` al instante y
     // la tarjeta lo lee de ahí (isSkipped). Acá solo cerramos los paneles.
     setLogData((p) => ({ ...p, completed: false, perceived_difficulty: null }))
     setEditing(false)
     setPendingAction(null)
+    setReopened(false)
     setSaving(true)
     try {
       await onSaveLog(planEx.id, buildSkipData(reason))
@@ -689,6 +699,7 @@ export default function ExerciseCard({
     } catch (err) {
       console.error(err)
       setPendingAction(prevAction)
+      setReopened(wasReopened)
     } finally {
       setSaving(false)
     }
@@ -701,6 +712,7 @@ export default function ExerciseCard({
       // F4: delete server exitoso → barrer también el draft local.
       clearDraft()
       setDraftHintDismissed(true)
+      setReopened(false)
       // Resetear estado local al estado inicial (sin log). El prop `log`
       // todavía puede estar en mano hasta que el padre refresque, así que
       // se arma desde la prescripción y no desde buildPristineLogData.
@@ -817,7 +829,12 @@ export default function ExerciseCard({
               // v54: el círculo es el atajo a la vista de confirmación.
               setExpanded(true)
               setEditing(false)
-              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
+              if (isSkipped) {
+                setReopened(true)
+                setPendingAction(null)
+              } else {
+                setPendingAction(canConfirm ? 'confirm' : null)
+              }
             }}
             className="flex-shrink-0"
             aria-label={
@@ -1553,7 +1570,10 @@ export default function ExerciseCard({
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"
-                    onClick={() => setPendingAction('reopen')}
+                    onClick={() => {
+                      setReopened(true)
+                      setPendingAction(null)
+                    }}
                     className="text-xs text-amber-800 underline"
                   >
                     {t('workout.change')}

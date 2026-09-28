@@ -95,8 +95,14 @@ export default function CircuitBlockRunCard({
   const cardRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  // v54: null | 'confirm' | 'skip' | 'reopen' (un omitido vuelve a la vista)
+  // v54: null | 'confirm' | 'skip'
   const [pendingAction, setPendingAction] = useState(null)
+  // Un omitido que la persona pidió cambiar: la vista de confirmación queda
+  // abierta aunque el log siga omitido. Va APARTE de pendingAction porque
+  // elegir "Lo hice tal cual" o un motivo pisa pendingAction, y cuando
+  // 'reopen' vivía ahí la tarjeta volvía a "omitido" sin guardar nada
+  // (bug 2026-09-28, Franco no podía pasar un omitido a hecho).
+  const [reopened, setReopened] = useState(false)
 
   // v54: un bloque omitido tiene completed=false y status='skipped'.
   const completed = isLogDone(blockLog)
@@ -306,6 +312,7 @@ export default function CircuitBlockRunCard({
       await Promise.all(exerciseSaves)
       setEditing(false)
       setPendingAction(null)
+      setReopened(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -355,6 +362,7 @@ export default function CircuitBlockRunCard({
       })
       setEditing(false)
       setPendingAction(null)
+      setReopened(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -368,7 +376,7 @@ export default function CircuitBlockRunCard({
     pre: prescribedFor(ex),
     data: exForm[ex.id] || {},
   }))
-  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  const showConfirmView = !completed && !editing && (!isSkipped || reopened)
   const blockHasPrescription = !!(suggestedMinutes || block.circuit_rounds)
   const anyExercisePrescribed = exercisesForView.some(
     ({ pre, data }) => (pre.isTime ? data.actual_time : data.actual_reps) !== ''
@@ -386,6 +394,7 @@ export default function CircuitBlockRunCard({
     setConfirmDelete(false)
     setEditing(false)
     setPendingAction(null)
+    setReopened(false)
     setExpanded(false)
   }
 
@@ -447,7 +456,12 @@ export default function CircuitBlockRunCard({
               // v54: el círculo es el atajo a la vista de confirmación
               setExpanded(true)
               setEditing(false)
-              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
+              if (isSkipped) {
+                setReopened(true)
+                setPendingAction(null)
+              } else {
+                setPendingAction(canConfirm ? 'confirm' : null)
+              }
             }}
             className="flex-shrink-0"
             aria-label={
@@ -807,7 +821,7 @@ export default function CircuitBlockRunCard({
                   </p>
                 )}
                 <BlockConfirmActions
-                  pendingAction={pendingAction === 'reopen' ? null : pendingAction}
+                  pendingAction={pendingAction}
                   onPendingChange={setPendingAction}
                   canConfirm={canConfirm}
                   confirmHint={
@@ -923,7 +937,10 @@ export default function CircuitBlockRunCard({
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"
-                    onClick={() => setPendingAction('reopen')}
+                    onClick={() => {
+                      setReopened(true)
+                      setPendingAction(null)
+                    }}
                     className="text-xs text-amber-800 underline"
                   >
                     {t('workout.change')}

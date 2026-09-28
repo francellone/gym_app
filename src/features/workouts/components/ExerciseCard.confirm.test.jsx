@@ -277,6 +277,45 @@ describe('NO LO HICE: el motivo guarda un omitido sin datos de ejecución', () =
     await user.click(screen.getByRole('button', { name: /cambiar/i }))
     expect(screen.getByRole('button', { name: /lo hice tal cual/i })).toBeInTheDocument()
   })
+
+  // Bug 2026-09-28 (Franco): "Cambiar" abría las opciones pero al tocar
+  // "Lo hice tal cual" la tarjeta volvía a "omitido" sin guardar nada.
+  it('un omitido se puede pasar a hecho: Cambiar → Lo hice tal cual → PSE guarda done', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({
+      log: { id: 'l1', completed: false, status: 'skipped', skip_reason: 'choice' },
+    })
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /cambiar/i }))
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    expect(screen.getByText(/cómo te resultó/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /PSE 6/i }))
+    expect(onSaveLog).toHaveBeenCalledTimes(1)
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({
+      p_status: 'done',
+      p_skip_reason: null,
+      p_entry_mode: 'confirmed',
+      p_perceived_difficulty: 6,
+    })
+  })
+
+  it('un omitido puede cambiar de motivo, y Cancelar vuelve a las tres salidas', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({
+      log: { id: 'l1', completed: false, status: 'skipped', skip_reason: 'choice' },
+    })
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /cambiar/i }))
+    await user.click(screen.getByRole('button', { name: /no lo hice/i }))
+    await user.click(screen.getByRole('button', { name: /cancelar/i }))
+    expect(screen.getByRole('button', { name: /lo hice tal cual/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /no lo hice/i }))
+    await user.click(screen.getByRole('button', { name: /me molestaba algo/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({
+      p_status: 'skipped',
+      p_skip_reason: 'discomfort',
+    })
+  })
 })
 
 describe('modo coach: misma tarjeta, tercera persona', () => {

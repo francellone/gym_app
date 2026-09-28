@@ -68,8 +68,14 @@ export default function AerobicBlockRunCard({
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  // v54: null | 'confirm' | 'skip' | 'reopen'
+  // v54: null | 'confirm' | 'skip'
   const [pendingAction, setPendingAction] = useState(null)
+  // Un omitido que la persona pidió cambiar: la vista de confirmación queda
+  // abierta aunque el log siga omitido. Va APARTE de pendingAction porque
+  // elegir "Lo hice tal cual" o un motivo pisa pendingAction, y cuando
+  // 'reopen' vivía ahí la tarjeta volvía a "omitido" sin guardar nada
+  // (bug 2026-09-28, Franco no podía pasar un omitido a hecho).
+  const [reopened, setReopened] = useState(false)
 
   // v54: un bloque omitido tiene completed=false y status='skipped'.
   const completed = isLogDone(blockLog)
@@ -128,7 +134,7 @@ export default function AerobicBlockRunCard({
     }))
   }
 
-  const showConfirmView = !completed && !editing && (!isSkipped || pendingAction === 'reopen')
+  const showConfirmView = !completed && !editing && (!isSkipped || reopened)
   const canConfirm = !!suggestedMinutes
 
   const title = blockDisplayTitle(block)
@@ -166,6 +172,7 @@ export default function AerobicBlockRunCard({
       })
       setEditing(false)
       setPendingAction(null)
+      setReopened(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -196,6 +203,7 @@ export default function AerobicBlockRunCard({
       })
       setEditing(false)
       setPendingAction(null)
+      setReopened(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -214,6 +222,7 @@ export default function AerobicBlockRunCard({
     setConfirmDelete(false)
     setEditing(false)
     setPendingAction(null)
+    setReopened(false)
     setExpanded(false)
   }
 
@@ -262,7 +271,12 @@ export default function AerobicBlockRunCard({
               // v54: el círculo es el atajo a la vista de confirmación
               setExpanded(true)
               setEditing(false)
-              setPendingAction(isSkipped ? 'reopen' : canConfirm ? 'confirm' : null)
+              if (isSkipped) {
+                setReopened(true)
+                setPendingAction(null)
+              } else {
+                setPendingAction(canConfirm ? 'confirm' : null)
+              }
             }}
             className="flex-shrink-0"
             aria-label={
@@ -511,7 +525,7 @@ export default function AerobicBlockRunCard({
                   </p>
                 )}
                 <BlockConfirmActions
-                  pendingAction={pendingAction === 'reopen' ? null : pendingAction}
+                  pendingAction={pendingAction}
                   onPendingChange={setPendingAction}
                   canConfirm={canConfirm}
                   onConfirm={confirmWithPse}
@@ -626,7 +640,10 @@ export default function AerobicBlockRunCard({
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"
-                    onClick={() => setPendingAction('reopen')}
+                    onClick={() => {
+                      setReopened(true)
+                      setPendingAction(null)
+                    }}
                     className="text-xs text-amber-800 underline"
                   >
                     {t('workout.change')}

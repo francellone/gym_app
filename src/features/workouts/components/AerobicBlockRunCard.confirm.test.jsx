@@ -184,4 +184,24 @@ describe('NO LO HICE', () => {
     await user.click(screen.getByRole('button', { name: /cambiar/i }))
     expect(screen.getByRole('button', { name: /lo hizo tal cual/i })).toBeInTheDocument()
   })
+
+  // Bug 2026-09-28: al tocar "Lo hice tal cual" desde un omitido la tarjeta
+  // volvía a "omitido" sin guardar.
+  it('un omitido se puede pasar a hecho desde Cambiar', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({
+      blockLog: { id: 'bl-1', completed: false, status: 'skipped', skip_reason: 'time' },
+    })
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /cambiar/i }))
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /^4/ }))
+    expect(onSaveLog.mock.calls[0][0]).toMatchObject({
+      actual_minutes: 12,
+      actual_rounds: 6,
+      completed: true,
+      status: 'done',
+      skip_reason: null,
+    })
+  })
 })

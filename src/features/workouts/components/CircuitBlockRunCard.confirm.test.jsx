@@ -221,6 +221,26 @@ describe('NO LO HICE: solo el registro del bloque, ninguno por ejercicio', () =>
     await user.click(screen.getByRole('button', { name: /cambiar/i }))
     expect(screen.getByRole('button', { name: /lo hice tal cual/i })).toBeInTheDocument()
   })
+
+  // Bug 2026-09-28: al tocar "Lo hice tal cual" desde un omitido la tarjeta
+  // volvía a "omitido" sin guardar.
+  it('un bloque omitido se puede pasar a hecho desde Cambiar', async () => {
+    const user = userEvent.setup()
+    const { onSaveBlockLog, onSaveExerciseLog } = renderCard({
+      blockLog: { id: 'bl-1', completed: false, status: 'skipped', skip_reason: 'time' },
+    })
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /cambiar/i }))
+    await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
+    await user.click(screen.getByRole('button', { name: /^7/ }))
+    expect(onSaveBlockLog.mock.calls[0][0]).toMatchObject({
+      completed: true,
+      status: 'done',
+      skip_reason: null,
+      entry_mode: 'confirmed',
+    })
+    expect(onSaveExerciseLog).toHaveBeenCalledTimes(3)
+  })
 })
 
 describe('AJUSTAR: los campos vienen prellenados con lo prescripto', () => {
