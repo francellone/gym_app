@@ -58,7 +58,7 @@ export default function TemplateManager({
   }
 
   return (
-    <div className="fixed inset-0 bg-tinta/40 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-velo/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-tarjeta shadow-flotante w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">

@@ -59,22 +59,22 @@ const TYPE_CONFIG = {
   activity_update: {
     Icon: UserCheck,
     color: 'text-texto2',
-    bg: 'bg-[#f5f0eb]',
+    bg: 'bg-gray-100',
   },
   session_completed: {
     Icon: CheckCheck,
-    color: 'text-[#16a34a]',
-    bg: 'bg-[#dcfce7]',
+    color: 'text-green-600',
+    bg: 'bg-green-100',
   },
   plan_expiring: {
     Icon: Calendar,
-    color: 'text-[#d97706]',
-    bg: 'bg-[#fef3c7]',
+    color: 'text-amber-600',
+    bg: 'bg-amber-100',
   },
   stagnation_alert: {
     Icon: AlertTriangle,
-    color: 'text-[#d97706]',
-    bg: 'bg-[#fef3c7]',
+    color: 'text-amber-600',
+    bg: 'bg-amber-100',
   },
   coach_comment: {
     Icon: MessageSquare,
@@ -89,12 +89,12 @@ const TYPE_CONFIG = {
   weekly_summary: {
     Icon: TrendingUp,
     color: 'text-texto2',
-    bg: 'bg-[#f5f0eb]',
+    bg: 'bg-gray-100',
   },
   form_submitted: {
     Icon: ClipboardCheck,
-    color: 'text-[#16a34a]',
-    bg: 'bg-[#dcfce7]',
+    color: 'text-green-600',
+    bg: 'bg-green-100',
   },
   evaluation_completed: {
     Icon: ClipboardCheck,
@@ -109,29 +109,29 @@ const TYPE_CONFIG = {
   profile_change: {
     Icon: UserCog,
     color: 'text-texto2',
-    bg: 'bg-[#f5f0eb]',
+    bg: 'bg-gray-100',
   }, // v55: avisos informativos de hitos (la celebración es de la persona)
   week_completed: {
     Icon: CalendarCheck,
-    color: 'text-[#16a34a]',
-    bg: 'bg-[#dcfce7]',
+    color: 'text-green-600',
+    bg: 'bg-green-100',
   },
   plan_completed: {
     Icon: Trophy,
-    color: 'text-[#16a34a]',
-    bg: 'bg-[#dcfce7]',
+    color: 'text-green-600',
+    bg: 'bg-green-100',
   },
   // v59: la persona no supo cómo hacer un ejercicio → el plan necesita
   // explicación. Ámbar: conviene mirarlo.
   exercise_unclear: {
     Icon: HelpCircle,
-    color: 'text-[#d97706]',
-    bg: 'bg-[#fef3c7]',
+    color: 'text-amber-600',
+    bg: 'bg-amber-100',
   },
   personal_best_voided: {
     Icon: Undo2,
-    color: 'text-[#d97706]',
-    bg: 'bg-[#fef3c7]',
+    color: 'text-amber-600',
+    bg: 'bg-amber-100',
   },
 }
 

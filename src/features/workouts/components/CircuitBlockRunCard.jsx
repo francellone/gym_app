@@ -415,7 +415,7 @@ export default function CircuitBlockRunCard({
         />
       )}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-tinta/40 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-velo/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4">
             <p className="font-semibold text-gray-900">{t('workout.unmarkCircuitTitle')}</p>
             <p className="text-sm text-gray-600">{t('workout.unmarkCircuitBody')}</p>
@@ -441,9 +441,9 @@ export default function CircuitBlockRunCard({
         ref={cardRef}
         className={`rounded-2xl border transition-all overflow-hidden ${
           completed
-            ? 'border-[#bbf7d0] bg-white'
+            ? 'border-green-200 bg-white'
             : isSkipped
-              ? 'border-[#fde68a] bg-white'
+              ? 'border-amber-200 bg-white'
               : 'border-linea bg-white'
         }`}
       >

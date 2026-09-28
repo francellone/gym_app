@@ -145,7 +145,7 @@ export default function ExerciseFormModal({
   const blockedByDuplicate = !!duplicate && !dupConfirmed
 
   return (
-    <div className="fixed inset-0 bg-tinta/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 bg-velo/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">

@@ -31,11 +31,11 @@ const PERIODS = [
 
 // Colores para cada línea del gráfico
 const LINE_COLORS = {
-  sleep_quality: '#834f72',
-  nutrition_quality: '#22c55e',
+  sleep_quality: 'rgb(var(--c-ciruela-600))',
+  nutrition_quality: 'rgb(var(--c-green-500))',
   hydration_quality: '#3b82f6',
-  energy_level: '#f59e0b',
-  stress_level: '#ef4444',
+  energy_level: 'rgb(var(--c-amber-500))',
+  stress_level: 'rgb(var(--c-red-500))',
   muscle_fatigue: '#ec4899',
 }
 
@@ -238,16 +238,16 @@ export default function StudentWellbeingTab({ studentId }) {
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
-                <PolarGrid stroke="#f0e7df" />
+                <PolarGrid stroke="rgb(var(--c-gray-200))" />
                 <PolarAngleAxis dataKey="metric" tick={{ fontSize: 14 }} />
                 <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 9 }} />
                 <Radar
                   name={t('coach.wellbeing.tab.radarSeries')}
                   dataKey="value"
-                  stroke="#834f72"
-                  fill="#834f72"
+                  stroke="rgb(var(--c-ciruela-600))"
+                  fill="rgb(var(--c-ciruela-600))"
                   fillOpacity={0.25}
-                  dot={{ r: 3, fill: '#834f72' }}
+                  dot={{ r: 3, fill: 'rgb(var(--c-ciruela-600))' }}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
@@ -299,7 +299,7 @@ export default function StudentWellbeingTab({ studentId }) {
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-200))" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis domain={[0, 10]} ticks={[2, 4, 6, 8, 10]} tick={{ fontSize: 10 }} />
               <Tooltip content={<TooltipCard />} />

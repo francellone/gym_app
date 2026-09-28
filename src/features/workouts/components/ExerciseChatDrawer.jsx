@@ -109,7 +109,7 @@ export default function ExerciseChatDrawer({
       aria-label={t('workout.exerciseChatAria', { name: exerciseName || '' })}
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-tinta/40" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-velo/40" onClick={onClose} aria-hidden="true" />
 
       {/* Sheet */}
       <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90vh] sm:max-h-[80vh]">

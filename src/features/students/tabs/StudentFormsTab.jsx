@@ -227,7 +227,7 @@ function ResponsesModal({ assignment, submission, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-tinta/40 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-velo/40 flex items-end sm:items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

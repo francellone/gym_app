@@ -132,7 +132,14 @@
     "photoPrivacy": "Only you and your coach can see your photo.",
     "photoSaving": "Saving…",
     "photoErrorRead": "That image couldn't be opened. Try another one.",
-    "photoErrorSave": "The photo couldn't be saved. Please try again."
+    "photoErrorSave": "The photo couldn't be saved. Please try again.",
+    "theme": {
+      "title": "Appearance",
+      "system": "Automatic",
+      "light": "Light",
+      "dark": "Dark",
+      "hint": "Automatic follows your phone's setting. Saved on this device."
+    }
   },
   "dashboard": {
     "greetingMorning": "Good morning",

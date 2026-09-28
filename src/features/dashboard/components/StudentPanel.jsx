@@ -367,7 +367,7 @@ export default function StudentPanel({
                           innerRadius={32}
                           outerRadius={52}
                           paddingAngle={2}
-                          stroke="#fff"
+                          stroke="rgb(var(--c-white))"
                         >
                           {donutData.map((entry) => (
                             <Cell key={entry.key} fill={entry.color} />

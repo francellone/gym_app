@@ -279,7 +279,7 @@ export default function CoachAdherenceList({
     <div className={`space-y-3 ${className}`}>
       {groups.late.length > 0 && (
         <div>
-          <p className="text-[13px] font-medium text-[#92400e] mb-0.5">
+          <p className="text-[13px] font-medium text-amber-800 mb-0.5">
             {t('coach.dashboard.adherence.behind', { count: groups.late.length })}
           </p>
           <div className="divide-y divide-linea">

@@ -105,7 +105,7 @@ export default function CoachLayout() {
           </Link>
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-texto2 hover:text-[#b91c1c] hover:bg-[#fee2e2] transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-texto2 hover:text-red-700 hover:bg-red-100 transition-colors"
           >
             <LogOut size={13} />
             {t('coach.layout.signOut')}
@@ -186,7 +186,7 @@ export default function CoachLayout() {
 
               <button
                 onClick={handleSignOut}
-                className="mt-4 w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm text-texto2 hover:text-[#b91c1c] hover:bg-[#fee2e2] transition-colors"
+                className="mt-4 w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm text-texto2 hover:text-red-700 hover:bg-red-100 transition-colors"
               >
                 <LogOut size={16} />
                 {t('coach.layout.signOut')}

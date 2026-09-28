@@ -641,7 +641,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {/* Modal: reactivar pisaría a otro activo */}
       {reactivateModal && (
         <div
-          className="fixed inset-0 z-50 bg-tinta/40 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-velo/40 flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setReactivateModal(null)
           }}
@@ -708,7 +708,7 @@ export default function StudentPlansTab({ assignments, allPlans, studentId, onRe
       {/* Modal: el plan tiene evaluaciones asociadas */}
       {linkedEvalsPrompt && (
         <div
-          className="fixed inset-0 z-50 bg-tinta/40 flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-velo/40 flex items-end sm:items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !linkedEvalsLoading) setLinkedEvalsPrompt(null)
           }}
@@ -1006,7 +1006,7 @@ function ExpiryModal({ assignment, saving, onCancel, onSave, onReset }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-tinta/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-velo/40 flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel()
       }}

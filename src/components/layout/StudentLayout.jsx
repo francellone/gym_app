@@ -31,7 +31,7 @@ export default function StudentLayout() {
       <div className="min-h-screen bg-fondo flex flex-col">
         {/* ── Header con campana ─────────────────────────────── */}
         <header
-          className="fixed top-0 inset-x-0 z-40 bg-durazno-100
+          className="barra-superior fixed top-0 inset-x-0 z-40 bg-durazno-100
                          flex items-center justify-between px-4 py-2.5"
         >
           <div className="flex items-center gap-2">

@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import AvatarEditor from '@/features/avatars/AvatarEditor'
+import ThemeSelector from '@/components/ThemeSelector'
 import { initialsOf } from '@/features/avatars/avatarUrls'
 import {
   BIO_MAX,
@@ -317,6 +318,9 @@ export default function CoachProfilePage() {
         </div>
         <p className="text-[11px] text-gray-400 mt-2">{t('coach.profile.appLanguageHint')}</p>
       </div>
+
+      {/* Apariencia: claro / oscuro (manual §9) */}
+      <ThemeSelector />
 
       {/* Contraseña */}
       <div className="card">

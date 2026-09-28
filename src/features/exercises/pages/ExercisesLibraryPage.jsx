@@ -28,16 +28,16 @@ const PRESET_COLORS = [
   // Paleta del manual de identidad (2026-09-27): ciruela, rojo, naranja,
   // ámbar, verde, niebla y gris cálido. Las etiquetas ya creadas conservan
   // el color que tenían.
-  '#834f72',
-  '#9c6589',
-  '#dc2626',
-  '#ea580c',
-  '#fdba74',
-  '#d97706',
-  '#16a34a',
-  '#4a6b80',
-  '#3d5869',
-  '#76675d',
+  'rgb(var(--c-ciruela-600))',
+  'rgb(var(--c-ciruela-500))',
+  'rgb(var(--c-red-600))',
+  'rgb(var(--c-primary-600))',
+  'rgb(var(--c-primary-300))',
+  'rgb(var(--c-amber-600))',
+  'rgb(var(--c-green-600))',
+  'rgb(var(--c-niebla-600))',
+  'rgb(var(--c-niebla-700))',
+  'rgb(var(--c-gray-500))',
 ]
 
 // ============================================================
@@ -77,7 +77,7 @@ function TagManagerModal({ coachId, tags, onClose, onRefresh }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-tinta/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 bg-velo/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">{t('coach.exercises.tagManager.title')}</h2>

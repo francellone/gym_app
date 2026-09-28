@@ -1,5 +1,4 @@
 import defaultTheme from 'tailwindcss/defaultTheme'
-import twColors from 'tailwindcss/colors'
 
 /**
  * Identidad visual "Encabezado durazno" (docs/identidad-visual.md).
@@ -9,50 +8,29 @@ import twColors from 'tailwindcss/colors'
  *   del manual; usarlos en código nuevo.
  * - `primary` sigue siendo la escala naranja de la marca.
  */
-const GRIS_CALIDO = {
-  50: '#fbf8f5',
-  100: '#f5f0eb',
-  200: '#f0e7df',
-  300: '#e3d8cf',
-  400: '#a3958b',
-  500: '#76675d',
-  600: '#6b5d54',
-  700: '#5a4b42',
-  800: '#46382f',
-  900: '#3a2e27',
-  950: '#2b211c',
-}
+import { LIGHT, DARK, paletteVars } from './src/theme/palette.js'
 
-const CIRUELA = {
-  50: '#faf5f8',
-  100: '#f3e8ef',
-  200: '#e7d0df',
-  300: '#d3adc6',
-  400: '#b886a8',
-  500: '#9c6589',
-  600: '#834f72',
-  700: '#6b3f5d',
-  800: '#57344c',
-  900: '#472c3f',
-  950: '#2e1c29',
-}
+/**
+ * Modo oscuro (2026-09-28, manual §9): cada color es una variable CSS con
+ * sus valores claro (:root) y oscuro (.dark), definidos en src/theme/palette.js.
+ * Las clases de siempre (bg-white, text-gray-900, bg-green-100…) cambian
+ * solas de tema. `.tema-claro` fuerza el claro dentro de un bloque (informes).
+ */
+const ref = (name) => `rgb(var(--c-${name}) / <alpha-value>)`
+const scale = (name) =>
+  Object.fromEntries(Object.keys(LIGHT[name]).map((step) => [step, ref(`${name}-${step}`)]))
 
-const NIEBLA = {
-  50: '#f2f6f8',
-  100: '#e3ecf1',
-  200: '#c8d8e2',
-  300: '#a3bccb',
-  400: '#7b9cb0',
-  500: '#5c8198',
-  600: '#4a6b80',
-  700: '#3d5869',
-  800: '#334955',
-  900: '#2b3d47',
-  950: '#1e2a31',
-}
+const GRIS_CALIDO = scale('gray')
+const CIRUELA = scale('ciruela')
+const NIEBLA = scale('niebla')
+const PRIMARY = scale('primary')
+const GREEN = scale('green')
+const AMBER = scale('amber')
+const RED = scale('red')
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
@@ -60,18 +38,14 @@ export default {
         sans: ['Roboto', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
-        },
+        primary: PRIMARY,
+        orange: PRIMARY,
+        white: ref('white'),
+        blanco: '#ffffff',
+        velo: ref('velo'),
+        green: GREEN,
+        amber: AMBER,
+        red: RED,
         gray: GRIS_CALIDO,
         // Colores de categoría (manual §2, "Categorías"): distinguen lo que
         // la coach mira junto sin romper la paleta. Se redefinen las escalas
@@ -87,15 +61,7 @@ export default {
         niebla: NIEBLA,
         // Salvia (2026-09-27): parte "Bienestar". Más gris que el verde de
         // estado para que no se confundan.
-        salvia: {
-          50: '#f3f7f4',
-          100: '#e7f0e8',
-          200: '#cfe0d3',
-          300: '#a9c7b0',
-          500: '#6a9a76',
-          700: '#4f7a5b',
-          800: '#3f6249',
-        },
+        salvia: scale('salvia'),
         slate: GRIS_CALIDO,
         // Escalas saturadas sueltas (2026-09-27): se llevan a la familia del
         // manual que ya significa lo mismo, así nada queda fuera de paleta.
@@ -103,25 +69,20 @@ export default {
         //   yellow        → ámbar de "atención"
         //   rose          → rojo de "problema"
         //   pink, fuchsia → ciruela;  teal, cyan → niebla
-        emerald: twColors.green,
-        lime: twColors.green,
-        yellow: twColors.amber,
-        rose: twColors.red,
+        emerald: GREEN,
+        lime: GREEN,
+        yellow: AMBER,
+        rose: RED,
         pink: CIRUELA,
         fuchsia: CIRUELA,
         teal: NIEBLA,
         cyan: NIEBLA,
-        durazno: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-        },
-        tinta: '#3a2e27',
-        texto2: '#76675d',
-        texto3: '#a3958b',
-        linea: '#f0e7df',
-        fondo: '#fbf8f5',
+        durazno: { 50: PRIMARY[50], 100: PRIMARY[100], 200: PRIMARY[200], 300: PRIMARY[300] },
+        tinta: GRIS_CALIDO[900],
+        texto2: GRIS_CALIDO[500],
+        texto3: GRIS_CALIDO[400],
+        linea: GRIS_CALIDO[200],
+        fondo: GRIS_CALIDO[50],
       },
       borderRadius: {
         tarjeta: '22px',
@@ -141,5 +102,14 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    ({ addBase }) => {
+      const light = paletteVars(LIGHT)
+      addBase({
+        ':root': { ...light, colorScheme: 'light' },
+        '.dark': { ...paletteVars(DARK), colorScheme: 'dark' },
+        '.dark .tema-claro, .tema-claro': { ...light, colorScheme: 'light' },
+      })
+    },
+  ],
 }

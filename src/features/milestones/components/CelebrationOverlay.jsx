@@ -82,7 +82,7 @@ function DayToast({ item, onDismiss }) {
         onClick={onDismiss}
         className="celebrate-up grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-0.5 rounded-2xl bg-white p-4 text-left border border-linea shadow-flotante"
       >
-        <span className="row-span-2 grid h-10 w-10 place-items-center rounded-xl bg-[#dcfce7] text-[#15803d]">
+        <span className="row-span-2 grid h-10 w-10 place-items-center rounded-xl bg-green-100 text-green-700">
           <CheckCircle2 size={22} />
         </span>
         <span className="font-bold text-gray-900">{t(item.titleKey, item.titleVars)}</span>
@@ -208,7 +208,10 @@ function StreakBars({ weeks, freezeUsed }) {
           className="h-2 flex-1 rounded-full bg-durazno-300"
           style={
             freezeUsed && i === n - 1
-              ? { background: 'repeating-linear-gradient(45deg,#fdba74 0 4px,#fff 4px 8px)' }
+              ? {
+                  background:
+                    'repeating-linear-gradient(45deg,rgb(var(--c-primary-300)) 0 4px,rgb(var(--c-white)) 4px 8px)',
+                }
               : undefined
           }
         />

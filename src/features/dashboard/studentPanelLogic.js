@@ -29,8 +29,8 @@ const SECTION_LABELS = {
 
 const SECTION_COLORS = {
   day_a: '#7c3aed', // primary-600
-  day_b: '#22c55e', // green-500
-  day_c: '#f59e0b', // amber-500
+  day_b: 'rgb(var(--c-green-500))', // green-500
+  day_c: 'rgb(var(--c-amber-500))', // amber-500
   day_d: '#0ea5e9', // sky-500
 }
 

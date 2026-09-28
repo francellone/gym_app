@@ -95,7 +95,7 @@ function displayActualReps(log) {
 }
 
 // Mini sparkline SVG para la columna Progreso
-function Sparkline({ values, color = '#834f72' }) {
+function Sparkline({ values, color = 'rgb(var(--c-ciruela-600))' }) {
   if (!values || values.length < 2) return null
   const w = 48,
     h = 18,
@@ -1172,7 +1172,7 @@ export default function StudentProgressTableView({
           (log.skip_note ? ` · «${log.skip_note}»` : '')
         }
       >
-        <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+        <span className="inline-block rounded-md bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
           — {short}
         </span>
       </td>
@@ -1520,7 +1520,13 @@ export default function StudentProgressTableView({
                 </span>
                 <Sparkline
                   values={r.sparklineValues}
-                  color={r.progressPct > 0 ? '#16a34a' : r.progressPct < 0 ? '#dc2626' : '#a3958b'}
+                  color={
+                    r.progressPct > 0
+                      ? 'rgb(var(--c-green-600))'
+                      : r.progressPct < 0
+                        ? 'rgb(var(--c-red-600))'
+                        : 'rgb(var(--c-gray-400))'
+                  }
                 />
               </div>
             ) : (
@@ -1579,7 +1585,7 @@ export default function StudentProgressTableView({
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setActiveNote(null)}
         >
-          <div className="absolute inset-0 bg-tinta/15" />
+          <div className="absolute inset-0 bg-velo/15" />
           <div
             className="relative bg-white shadow-2xl rounded-2xl p-4 max-w-sm w-full border border-gray-100"
             onClick={(e) => e.stopPropagation()}
@@ -1935,7 +1941,7 @@ export default function StudentProgressTableView({
           )}
           {hasVisibleSkipped && (
             <span>
-              <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1 font-medium">
+              <span className="inline-block rounded-md bg-amber-100 text-amber-800 px-1 font-medium">
                 — {t('coach.students.table.skipShort.time')}
               </span>{' '}
               {t('coach.students.table.legend.skipped')}

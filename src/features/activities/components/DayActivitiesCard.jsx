@@ -188,7 +188,7 @@ export default function DayActivitiesCard({
 
       {/* Confirmación de borrado (modal propio, no confirm() nativo) */}
       {confirming && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 p-4">
           <div className="w-full max-w-xs rounded-2xl bg-white p-5">
             <p className="text-sm font-semibold text-gray-900 mb-1">
               {t('activities.confirmDeleteTitle')}

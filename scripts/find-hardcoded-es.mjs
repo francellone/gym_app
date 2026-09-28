@@ -22,7 +22,7 @@ const JSON_OUT = args.includes('--json')
 const targets = args.filter((a) => !a.startsWith('--'))
 const VISIBLE_ATTRS = new Set(['placeholder', 'title', 'aria-label', 'alt', 'label', 'tooltip', 'emptyText', 'confirmLabel', 'cancelLabel', 'subtitle', 'description', 'helper', 'hint'])
 const HAS_WORD = /[A-Za-zÁÉÍÓÚáéíóúÑñ]{2,}/
-const SKIP_VALUE = /^(https?:|\/|#|[a-z0-9_.-]+$|[A-Z0-9_]+$)/ // rutas, ids, claves
+const SKIP_VALUE = /^(https?:|\/|#|rgb\(var\(|[a-z0-9_.-]+$|[A-Z0-9_]+$)/ // rutas, ids, claves, colores del tema
 
 function walk(p, out) {
   const st = fs.statSync(p)

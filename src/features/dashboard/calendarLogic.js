@@ -57,12 +57,12 @@ function parseYMD(s) {
 //   lateClass  el mismo evento cuando ya pasó sin resolverse
 //              (pago o fin de plan atrasado)
 // ============================================================
-const LATE_TAG = 'bg-[#fee2e2] text-[#b91c1c]'
+const LATE_TAG = 'bg-red-100 text-red-700'
 
 export const COACH_EVENT_KIND = {
   plan_start: {
-    tagClass: 'bg-[#dcfce7] text-[#15803d]',
-    lateClass: 'bg-[#dcfce7] text-[#15803d]',
+    tagClass: 'bg-green-100 text-green-700',
+    lateClass: 'bg-green-100 text-green-700',
   },
   plan_end: {
     tagClass: 'bg-gray-100 text-gray-700',
@@ -92,16 +92,16 @@ export const COACH_EVENT_KIND = {
   //                 va en el día en que se envió; ámbar desde los 7 días
   //   respondido    en el día en que la persona lo respondió
   form_scheduled: {
-    tagClass: 'bg-white border border-[#d8ccc1] text-[#5a4b42]',
-    lateClass: 'bg-white border border-[#d8ccc1] text-[#5a4b42]',
+    tagClass: 'bg-white border border-gray-300 text-gray-700',
+    lateClass: 'bg-white border border-gray-300 text-gray-700',
   },
   form_unanswered: {
-    tagClass: 'bg-[#f5f0eb] text-[#5a4b42]',
-    lateClass: 'bg-[#fef3c7] text-[#92400e]',
+    tagClass: 'bg-gray-100 text-gray-700',
+    lateClass: 'bg-amber-100 text-amber-800',
   },
   form_answered: {
-    tagClass: 'bg-[#f5f0eb] text-[#5a4b42]',
-    lateClass: 'bg-[#f5f0eb] text-[#5a4b42]',
+    tagClass: 'bg-gray-100 text-gray-700',
+    lateClass: 'bg-gray-100 text-gray-700',
   },
   // ── Pago cobrado (2026-09-27): el día en que se registró el cobro ──
   payment_done: {
@@ -241,20 +241,20 @@ export const STUDENT_DAY_STYLE = {
   planned_done: {
     labelKey: 'coach.dashboard.calendar.dayStatus.planned_done',
     icon: '✓',
-    cellClass: 'bg-[#dcfce7] border-[#bbf7d0]',
-    textClass: 'text-[#15803d]',
+    cellClass: 'bg-green-100 border-green-200',
+    textClass: 'text-green-700',
   },
   planned_partial: {
     labelKey: 'coach.dashboard.calendar.dayStatus.planned_partial',
     icon: '½',
-    cellClass: 'bg-[#fef3c7] border-[#fde68a]',
-    textClass: 'text-[#92400e]',
+    cellClass: 'bg-amber-100 border-amber-200',
+    textClass: 'text-amber-800',
   },
   planned_missed: {
     labelKey: 'coach.dashboard.calendar.dayStatus.planned_missed',
     icon: '×',
-    cellClass: 'bg-[#fee2e2] border-[#fecaca]',
-    textClass: 'text-[#b91c1c]',
+    cellClass: 'bg-red-100 border-red-200',
+    textClass: 'text-red-700',
   },
   planned_future: {
     labelKey: 'coach.dashboard.calendar.dayStatus.planned_future',
@@ -271,8 +271,8 @@ export const STUDENT_DAY_STYLE = {
   unplanned_partial: {
     labelKey: 'coach.dashboard.calendar.dayStatus.unplanned_partial',
     icon: '½',
-    cellClass: 'bg-[#fef3c7] border-[#fde68a]',
-    textClass: 'text-[#92400e]',
+    cellClass: 'bg-amber-100 border-amber-200',
+    textClass: 'text-amber-800',
   },
   rest: {
     labelKey: 'coach.dashboard.calendar.dayStatus.rest',

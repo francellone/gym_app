@@ -68,7 +68,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-velo/40 p-4"
       onClick={onClose}
     >
       <div

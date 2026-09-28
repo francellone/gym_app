@@ -25,6 +25,7 @@ import {
 import { formPathFor } from '@/features/forms/hooks/usePendingForms'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import AvatarEditor from '@/features/avatars/AvatarEditor'
+import ThemeSelector from '@/components/ThemeSelector'
 
 // ── Opciones del form ──────────────────────────────────────────────────────────
 // Tomadas del intake form (intake_form_submissions.form_snapshot) para mantener
@@ -809,6 +810,9 @@ export default function ProfilePage() {
           </div>
           <p className="text-[11px] text-gray-400 mt-2">{t('profile.language.hint')}</p>
         </div>
+
+        {/* Apariencia: claro / oscuro (manual §9) */}
+        <ThemeSelector />
 
         {/* Cambiar contraseña (sin cambios) */}
         <div className="card">

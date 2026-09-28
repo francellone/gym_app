@@ -1554,7 +1554,7 @@ export default function TodayWorkoutPage() {
               <span className="text-texto2 text-xs">
                 {t('workout.unitsProgress', { completed: completedCount, total: totalCount })}
                 {skippedCount > 0 && (
-                  <span className="ml-1.5 text-[#92400e]">
+                  <span className="ml-1.5 text-amber-800">
                     · {t('workout.skippedCount', { count: skippedCount })}
                   </span>
                 )}
@@ -1824,9 +1824,9 @@ export default function TodayWorkoutPage() {
                 key={id}
                 className={`card text-center py-4 ${
                   isPartialDay
-                    ? 'bg-[#fef3c7] border-[#fde68a]'
+                    ? 'bg-amber-100 border-amber-200'
                     : isFinalBanner
-                      ? 'bg-[#dcfce7] border-[#bbf7d0]'
+                      ? 'bg-green-100 border-green-200'
                       : 'bg-durazno-50 border-durazno-200'
                 }`}
               >

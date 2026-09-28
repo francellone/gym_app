@@ -220,7 +220,42 @@ Las notificaciones usan los colores de estado para el ícono y texto Tinta. Las 
 6. **Pantallas:** primero Inicio, Hoy y Progreso de la persona; después celebraciones; después la coach (lista, perfil, resto); al final informes.
 7. **Verificación:** iPhone, Android y computadora, en cada etapa.
 
+## 11. Modo oscuro "Carbón" (agregado 2026-09-28)
+
+La app tiene dos temas, claro y oscuro. No hay más. El oscuro sigue la configuración del celular ("Automático") y cada persona puede fijarlo en Claro u Oscuro desde **Perfil → Apariencia**. La elección se guarda en el dispositivo.
+
+**La idea.** En claro buscamos calma: pasteles, sin negro. En oscuro buscamos lo que el oscuro hace bien, el contraste. Por eso cambia la regla: fondo carbón casi negro, texto blanco y colores de estado vivos.
+
+| Rol                          | Claro     | Oscuro                     |
+| ---------------------------- | --------- | -------------------------- |
+| Fondo                        | `#fbf8f5` | `#101010`                  |
+| Tarjeta                      | `#ffffff` | `#1b1b1b`                  |
+| Línea                        | `#f0e7df` | `#2e2e2e`                  |
+| Texto                        | `#3a2e27` | `#f5f5f5`                  |
+| Texto secundario             | `#76675d` | `#b3b3b3`                  |
+| Naranja (botón)              | `#ea580c` | `#ff6b0a`, letra `#1b1b1b` |
+| Naranja (números, selección) | `#c2410c` | `#ff8a33`                  |
+| Verde "bien"                 | `#16a34a` | `#22c55e`                  |
+| Ámbar "atención"             | `#d97706` | `#fbbf24`                  |
+| Rojo "problema"              | `#dc2626` | `#f25555`                  |
+
+- **Encabezado:** bloque apenas más claro que el fondo (`#1b1b1b`) con una **línea naranja de 3 px abajo**. Reemplaza al bloque durazno del claro.
+- **Etiquetas de estado:** en oscuro **la letra siempre es blanca**. Las etiquetas verdes y ámbar llevan fondo de color oscuro con letra blanca; las rojas, que piden acción (pago vencido, plan vencido), van en **rojo lleno `#dc2626` con letra blanca**. Nunca letra de color sobre fondo apenas tintado: cuesta leerla.
+- **Lo cumplido es verde**, igual que en claro. No se usa turquesa.
+- **Informes para el cliente:** siempre en claro, aunque la app esté en oscuro (se imprimen y se comparten).
+- **Celebraciones y vista de la coach:** también en oscuro.
+
+**En el código.** Todos los colores viven en `src/theme/palette.js`, con su valor claro y oscuro. Tailwind los expone como variables (`rgb(var(--c-green-700))`), así que las clases de siempre (`bg-white`, `text-gray-900`, `bg-green-100`) cambian solas de tema. Reglas:
+
+1. Nunca escribir un color como `#hex` en un componente. Usar la clase de Tailwind o `themeColor('green', 700)` para estilos en línea y gráficos.
+2. `bg-white` es "superficie de tarjeta", no blanco puro. Para blanco de verdad existe `bg-blanco`.
+3. El velo de las ventanas emergentes es `bg-velo/40` (tinta en claro, negro en oscuro).
+4. Un bloque que debe verse siempre claro lleva la clase `tema-claro`.
+5. El tema se aplica con la clase `dark` en `<html>` (`src/theme/theme.js`); `index.html` la pone antes de pintar para que no haya destello.
+
 ## Historial
+
+- 2026-09-28: modo oscuro "Carbón" (§11). Tres rondas de maqueta; Franco eligió base carbón, encabezado con línea naranja, verde para lo cumplido y letra blanca en las etiquetas.
 
 - v1 (2026-09-26): primera versión. Variante elegida "Encabezado durazno", letra Roboto fija.
 - v1.2 (2026-09-27): colores por parte de la app (suma salvia para Bienestar), dos estilos de ícono y regla de emojis.

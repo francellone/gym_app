@@ -610,12 +610,12 @@ function Legend({
       {(hasLate || hasLateForm || statuses.length > 0 || hasTrainedCounts) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-texto2">
           {hasLate && (
-            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fee2e2] text-[#b91c1c]">
+            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-red-100 text-red-700">
               {t('coach.dashboard.calendar.late')}
             </span>
           )}
           {hasLateForm && (
-            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-[#fef3c7] text-[#92400e]">
+            <span className="inline-block rounded-md px-1.5 py-0.5 text-[11.5px] bg-amber-100 text-amber-800">
               {t('coach.dashboard.calendar.lateForm', { count: FORM_UNANSWERED_WARN_DAYS })}
             </span>
           )}

@@ -134,9 +134,23 @@ function AppRoutes() {
           }
         />
         {/* Informe de progreso descargable (solo coach) */}
-        <Route path="students/:id/informe" element={<CoachReportPage />} />
+        <Route
+          path="students/:id/informe"
+          element={
+            <div className="tema-claro min-h-screen">
+              <CoachReportPage />
+            </div>
+          }
+        />
         {/* Informe cliente: carta 1 página para el alumno (mockup Anto) */}
-        <Route path="students/:id/informe-cliente" element={<ClientReportPage />} />
+        <Route
+          path="students/:id/informe-cliente"
+          element={
+            <div className="tema-claro min-h-screen">
+              <ClientReportPage />
+            </div>
+          }
+        />
         <Route path="plans" element={<PlansPage />} />
         <Route path="plans/new" element={<CreatePlanPage />} />
         <Route path="plans/:id" element={<PlanDetailPage />} />

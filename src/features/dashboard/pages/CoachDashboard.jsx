@@ -178,7 +178,7 @@ export default function CoachDashboard() {
   return (
     <div className="space-y-4">
       {/* Encabezado */}
-      <div className="bg-durazno-100 rounded-encabezado px-5 pt-5 pb-5 space-y-1">
+      <div className="hero bg-durazno-100 rounded-encabezado px-5 pt-5 pb-5 space-y-1">
         <p className="eyebrow">{fechaHoy}</p>
         <h1 className="text-[28px] font-bold leading-tight text-tinta text-balance">
           {saludo}

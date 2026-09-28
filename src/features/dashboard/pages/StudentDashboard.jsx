@@ -208,7 +208,7 @@ export default function StudentDashboard() {
                   <div
                     className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium tabular-nums transition-colors ${
                       trained
-                        ? 'bg-[#16a34a] text-white'
+                        ? 'bg-green-600 text-white'
                         : today
                           ? 'bg-durazno-50 text-primary-700 border-2 border-primary-600'
                           : 'border-2 border-gray-200 text-texto3'

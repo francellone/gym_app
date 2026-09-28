@@ -10,15 +10,43 @@
 // ============================================================
 export const SEGMENTS = {
   // Partes de la app
-  training: { bg: '#ffedd5', fg: '#c2410c', soft: '#fdba74' }, // durazno
-  aerobic: { bg: '#e3ecf1', fg: '#3d5869', soft: '#a3bccb' }, // niebla
-  evaluation: { bg: '#f3e8ef', fg: '#6b3f5d', soft: '#d3adc6' }, // ciruela
-  wellbeing: { bg: '#e7f0e8', fg: '#4f7a5b', soft: '#a9c7b0' }, // salvia
-  messages: { bg: '#f5f0eb', fg: '#5a4b42', soft: '#d8ccc1' }, // arena
+  training: {
+    bg: 'rgb(var(--c-primary-100))',
+    fg: 'rgb(var(--c-primary-700))',
+    soft: 'rgb(var(--c-primary-300))',
+  }, // durazno
+  aerobic: {
+    bg: 'rgb(var(--c-niebla-100))',
+    fg: 'rgb(var(--c-niebla-700))',
+    soft: 'rgb(var(--c-niebla-300))',
+  }, // niebla
+  evaluation: {
+    bg: 'rgb(var(--c-ciruela-100))',
+    fg: 'rgb(var(--c-ciruela-700))',
+    soft: 'rgb(var(--c-ciruela-300))',
+  }, // ciruela
+  wellbeing: {
+    bg: 'rgb(var(--c-salvia-100))',
+    fg: 'rgb(var(--c-salvia-700))',
+    soft: 'rgb(var(--c-salvia-300))',
+  }, // salvia
+  messages: {
+    bg: 'rgb(var(--c-gray-100))',
+    fg: 'rgb(var(--c-gray-700))',
+    soft: 'rgb(var(--c-gray-300))',
+  }, // arena
   // Estados
-  ok: { bg: '#dcfce7', fg: '#15803d', soft: '#86efac' },
-  warn: { bg: '#fef3c7', fg: '#92400e', soft: '#fcd34d' },
-  bad: { bg: '#fee2e2', fg: '#b91c1c', soft: '#fca5a5' },
+  ok: {
+    bg: 'rgb(var(--c-green-100))',
+    fg: 'rgb(var(--c-green-700))',
+    soft: 'rgb(var(--c-green-300))',
+  },
+  warn: {
+    bg: 'rgb(var(--c-amber-100))',
+    fg: 'rgb(var(--c-amber-800))',
+    soft: 'rgb(var(--c-amber-300))',
+  },
+  bad: { bg: 'rgb(var(--c-red-100))', fg: 'rgb(var(--c-red-700))', soft: 'rgb(var(--c-red-300))' },
 }
 
 export function segmentColors(segment) {

@@ -24,10 +24,10 @@ const DAYS = 7
 const ICON = {
   payment_due: { char: '$', cls: 'bg-durazno-100 text-primary-700' },
   plan_end: { char: '■', cls: 'bg-gray-100 text-gray-700' },
-  plan_start: { char: '▸', cls: 'bg-[#dcfce7] text-[#15803d]' },
+  plan_start: { char: '▸', cls: 'bg-green-100 text-green-700' },
   evaluation: { char: '◆', cls: 'bg-ciruela-100 text-ciruela-700' },
   birthday: { char: '🎂', cls: 'bg-durazno-50 text-primary-700' },
-  form_scheduled: { char: '✎', cls: 'bg-[#f5f0eb] text-[#5a4b42]' },
+  form_scheduled: { char: '✎', cls: 'bg-gray-100 text-gray-700' },
 }
 
 function startOfToday() {

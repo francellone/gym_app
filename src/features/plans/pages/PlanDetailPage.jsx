@@ -154,7 +154,7 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-tinta/40 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-velo/40 flex items-end sm:items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -264,22 +264,46 @@ function AssignStudentModal({ planId, planType, isTemplate, onClose, onDone }) {
 
 // ── Helper: bloque → color CSS ──────────────────────────────
 function blockStyle(block) {
-  if (!block) return { bg: '#f5f0eb', color: '#a3958b', border: '#f0e7df' }
+  if (!block)
+    return {
+      bg: 'rgb(var(--c-gray-100))',
+      color: 'rgb(var(--c-gray-400))',
+      border: 'rgb(var(--c-gray-200))',
+    }
   const l = block[0]
-  if (l === 'A') return { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }
-  if (l === 'B') return { bg: '#e3ecf1', color: '#3d5869', border: '#c8d8e2' }
-  if (l === 'C') return { bg: '#f5f0eb', color: '#5a4b42', border: '#e3d8cf' }
-  return { bg: '#fbf8f5', color: '#76675d', border: '#f0e7df' }
+  if (l === 'A')
+    return {
+      bg: 'rgb(var(--c-primary-50))',
+      color: 'rgb(var(--c-primary-700))',
+      border: 'rgb(var(--c-primary-200))',
+    }
+  if (l === 'B')
+    return {
+      bg: 'rgb(var(--c-niebla-100))',
+      color: 'rgb(var(--c-niebla-700))',
+      border: 'rgb(var(--c-niebla-200))',
+    }
+  if (l === 'C')
+    return {
+      bg: 'rgb(var(--c-gray-100))',
+      color: 'rgb(var(--c-gray-700))',
+      border: 'rgb(var(--c-gray-300))',
+    }
+  return {
+    bg: 'rgb(var(--c-gray-50))',
+    color: 'rgb(var(--c-gray-500))',
+    border: 'rgb(var(--c-gray-200))',
+  }
 }
 
 // ── Helper: PSE → color CSS ─────────────────────────────────
 function pseStyle(pse) {
   if (!pse) return null
   const n = parseFloat(pse)
-  if (n >= 8) return { bg: '#fee2e2', color: '#b91c1c' }
-  if (n >= 6) return { bg: '#fff7ed', color: '#c2410c' }
-  if (n >= 4) return { bg: '#fef3c7', color: '#92400e' }
-  return { bg: '#dcfce7', color: '#15803d' }
+  if (n >= 8) return { bg: 'rgb(var(--c-red-100))', color: 'rgb(var(--c-red-700))' }
+  if (n >= 6) return { bg: 'rgb(var(--c-primary-50))', color: 'rgb(var(--c-primary-700))' }
+  if (n >= 4) return { bg: 'rgb(var(--c-amber-100))', color: 'rgb(var(--c-amber-800))' }
+  return { bg: 'rgb(var(--c-green-100))', color: 'rgb(var(--c-green-700))' }
 }
 
 // ── Helper: formatear peso ──────────────────────────────────
@@ -699,16 +723,16 @@ function ExerciseSection({ section, exercises, onDelete, historyByEx = {} }) {
     // Identidad (2026-09-27): sin arcoíris. Los días se distinguen por
     // su nombre; el color solo marca la sección elegida (Naranja 700) y la
     // activación va en texto secundario.
-    activation: '#76675d',
-    day_a: '#c2410c',
-    day_b: '#c2410c',
-    day_c: '#c2410c',
-    day_d: '#c2410c',
-    day_e: '#c2410c',
-    day_f: '#c2410c',
-    day_g: '#c2410c',
+    activation: 'rgb(var(--c-gray-500))',
+    day_a: 'rgb(var(--c-primary-700))',
+    day_b: 'rgb(var(--c-primary-700))',
+    day_c: 'rgb(var(--c-primary-700))',
+    day_d: 'rgb(var(--c-primary-700))',
+    day_e: 'rgb(var(--c-primary-700))',
+    day_f: 'rgb(var(--c-primary-700))',
+    day_g: 'rgb(var(--c-primary-700))',
   }
-  const color = sectionColors[section.id] || '#76675d'
+  const color = sectionColors[section.id] || 'rgb(var(--c-gray-500))'
 
   return (
     <div className="plan-ex-panel">
@@ -867,14 +891,14 @@ export default function PlanDetailPage() {
     // Identidad (2026-09-27): sin arcoíris. Los días se distinguen por
     // su nombre; el color solo marca la sección elegida (Naranja 700) y la
     // activación va en texto secundario.
-    activation: '#76675d',
-    day_a: '#c2410c',
-    day_b: '#c2410c',
-    day_c: '#c2410c',
-    day_d: '#c2410c',
-    day_e: '#c2410c',
-    day_f: '#c2410c',
-    day_g: '#c2410c',
+    activation: 'rgb(var(--c-gray-500))',
+    day_a: 'rgb(var(--c-primary-700))',
+    day_b: 'rgb(var(--c-primary-700))',
+    day_c: 'rgb(var(--c-primary-700))',
+    day_d: 'rgb(var(--c-primary-700))',
+    day_e: 'rgb(var(--c-primary-700))',
+    day_f: 'rgb(var(--c-primary-700))',
+    day_g: 'rgb(var(--c-primary-700))',
   }
 
   if (loading)
@@ -1134,7 +1158,7 @@ export default function PlanDetailPage() {
           {/* ── Tabs de sección ───────────────────────────────── */}
           <div className="plan-tabs-bar">
             {activeSections.map((s) => {
-              const color = sectionColors[s.id] || '#76675d'
+              const color = sectionColors[s.id] || 'rgb(var(--c-gray-500))'
               const isActive = activeSection === s.id
               // Contar: strength = nº de ejercicios, aerobic/circuit = nº de bloques
               const typed = blocksBySectionTyped[s.id] || { strength: [], aerobic: [], circuit: [] }
@@ -1152,12 +1176,16 @@ export default function PlanDetailPage() {
                 >
                   <span
                     className="plan-tab-dot"
-                    style={{ background: isActive ? color : '#e3d8cf' }}
+                    style={{ background: isActive ? color : 'rgb(var(--c-gray-300))' }}
                   />
                   {t(`workout.sections.${s.id}`, { defaultValue: s.label })}
                   <span
                     className={`plan-tab-count ${isActive ? 'plan-tab-count--active' : ''}`}
-                    style={isActive ? { background: color + '18', color } : {}}
+                    style={
+                      isActive
+                        ? { background: `color-mix(in srgb, ${color} 10%, transparent)`, color }
+                        : {}
+                    }
                   >
                     {count}
                   </span>

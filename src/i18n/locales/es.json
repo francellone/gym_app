@@ -132,7 +132,14 @@
     "photoPrivacy": "Tu foto solo la ven vos y tu coach.",
     "photoSaving": "Guardando…",
     "photoErrorRead": "No se pudo abrir esa imagen. Probá con otra.",
-    "photoErrorSave": "No se pudo guardar la foto. Probá de nuevo."
+    "photoErrorSave": "No se pudo guardar la foto. Probá de nuevo.",
+    "theme": {
+      "title": "Apariencia",
+      "system": "Automático",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "hint": "Automático sigue la configuración de tu celular. Se guarda en este dispositivo."
+    }
   },
   "dashboard": {
     "greetingMorning": "Buenos días",

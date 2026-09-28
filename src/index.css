@@ -99,13 +99,13 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
   .pill-ok {
-    @apply bg-[#dcfce7] text-[#15803d];
+    @apply bg-green-100 text-green-700;
   }
   .pill-warn {
-    @apply bg-[#fef3c7] text-[#92400e];
+    @apply bg-amber-100 text-amber-800;
   }
   .pill-bad {
-    @apply bg-[#fee2e2] text-[#b91c1c];
+    @apply bg-red-100 text-red-700;
   }
   .pill-neutral {
     @apply bg-gray-100 text-texto2;
@@ -116,8 +116,8 @@
    Plan Detail — Hero / Stats
 ───────────────────────────────────────────────────────────── */
 .plan-hero {
-  background: white;
-  border: 1px solid #f0e7df;
+  background: rgb(var(--c-white));
+  border: 1px solid rgb(var(--c-gray-200));
   border-radius: 16px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -134,12 +134,12 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid #f0e7df;
+  border: 1px solid rgb(var(--c-gray-200));
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #76675d;
+  color: rgb(var(--c-gray-500));
   flex-shrink: 0;
   margin-top: 3px;
   cursor: pointer;
@@ -148,8 +148,8 @@
     color 0.12s;
 }
 .plan-hero-back:hover {
-  background: #fbf8f5;
-  color: #3a2e27;
+  background: rgb(var(--c-gray-50));
+  color: rgb(var(--c-gray-900));
 }
 
 .plan-hero-info {
@@ -160,13 +160,13 @@
 .plan-hero-title {
   font-size: 19px;
   font-weight: 700;
-  color: #3a2e27;
+  color: rgb(var(--c-gray-900));
   line-height: 1.25;
 }
 
 .plan-hero-desc {
   font-size: 13px;
-  color: #76675d;
+  color: rgb(var(--c-gray-500));
   margin-top: 3px;
 }
 
@@ -183,12 +183,12 @@
   align-items: center;
   gap: 4px;
   font-size: 11.5px;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   font-weight: 500;
 }
 
 .plan-meta-sep {
-  color: #e3d8cf;
+  color: rgb(var(--c-gray-300));
   font-size: 12px;
 }
 
@@ -202,7 +202,7 @@
 /* Stats strip */
 .plan-stats-strip {
   display: flex;
-  border-top: 1px solid #f5f0eb;
+  border-top: 1px solid rgb(var(--c-gray-100));
 }
 
 .plan-stat {
@@ -211,7 +211,7 @@
   flex-direction: column;
   align-items: center;
   padding: 13px 0;
-  border-right: 1px solid #f5f0eb;
+  border-right: 1px solid rgb(var(--c-gray-100));
 }
 .plan-stat:last-child {
   border-right: none;
@@ -220,13 +220,13 @@
 .plan-stat-val {
   font-size: 22px;
   font-weight: 700;
-  color: #3a2e27;
+  color: rgb(var(--c-gray-900));
   line-height: 1;
 }
 
 .plan-stat-lbl {
   font-size: 11px;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   font-weight: 500;
   margin-top: 3px;
 }
@@ -238,27 +238,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #fbf8f5;
-  border: 1px solid #f0e7df;
+  background: rgb(var(--c-gray-50));
+  border: 1px solid rgb(var(--c-gray-200));
   border-radius: 20px;
   padding: 4px 10px 4px 5px;
   transition: border-color 0.12s;
 }
 .plan-student-chip:hover {
-  border-color: #e3d8cf;
+  border-color: rgb(var(--c-gray-300));
 }
 
 .plan-chip-avatar {
   width: 20px;
   height: 20px;
-  background: #ffedd5;
+  background: rgb(var(--c-primary-100));
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
   font-weight: 700;
-  color: #c2410c;
+  color: rgb(var(--c-primary-700));
   flex-shrink: 0;
 }
 
@@ -270,8 +270,8 @@
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
-  color: #a3958b;
-  border: 1.5px dashed #e3d8cf;
+  color: rgb(var(--c-gray-400));
+  border: 1.5px dashed rgb(var(--c-gray-300));
   background: transparent;
   cursor: pointer;
   transition:
@@ -279,8 +279,8 @@
     border-color 0.12s;
 }
 .plan-add-student-chip:hover {
-  color: #c2410c;
-  border-color: #fed7aa;
+  color: rgb(var(--c-primary-700));
+  border-color: rgb(var(--c-primary-200));
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -289,8 +289,8 @@
 .plan-tabs-bar {
   display: flex;
   gap: 2px;
-  background: white;
-  border: 1px solid #f0e7df;
+  background: rgb(var(--c-white));
+  border: 1px solid rgb(var(--c-gray-200));
   border-radius: 14px;
   padding: 6px;
   margin-bottom: 12px;
@@ -304,7 +304,7 @@
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   cursor: pointer;
   border: none;
   background: transparent;
@@ -314,12 +314,12 @@
   white-space: nowrap;
 }
 .plan-tab:hover {
-  color: #76675d;
-  background: #fbf8f5;
+  color: rgb(var(--c-gray-500));
+  background: rgb(var(--c-gray-50));
 }
 .plan-tab--active {
-  background: #fbf8f5;
-  color: var(--tab-color, #c2410c);
+  background: rgb(var(--c-gray-50));
+  color: var(--tab-color, rgb(var(--c-primary-700)));
 }
 
 .plan-tab-dot {
@@ -335,8 +335,8 @@
   font-weight: 600;
   padding: 1px 7px;
   border-radius: 20px;
-  background: #f5f0eb;
-  color: #a3958b;
+  background: rgb(var(--c-gray-100));
+  color: rgb(var(--c-gray-400));
   transition:
     background 0.12s,
     color 0.12s;
@@ -352,8 +352,8 @@
 }
 
 .plan-ex-panel {
-  background: white;
-  border: 1px solid #f0e7df;
+  background: rgb(var(--c-white));
+  border: 1px solid rgb(var(--c-gray-200));
   border-radius: 14px;
   overflow: hidden;
 }
@@ -362,14 +362,14 @@
   display: grid;
   grid-template-columns: var(--ex-cols);
   padding: 8px 18px;
-  background: #fbf8f5;
-  border-bottom: 1px solid #f5f0eb;
+  background: rgb(var(--c-gray-50));
+  border-bottom: 1px solid rgb(var(--c-gray-100));
 }
 
 .plan-ex-col-h {
   font-size: 10px;
   font-weight: 700;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -382,7 +382,7 @@
   display: grid;
   grid-template-columns: var(--ex-cols);
   padding: 11px 18px;
-  border-bottom: 1px solid #fbf8f5;
+  border-bottom: 1px solid rgb(var(--c-gray-50));
   align-items: center;
   transition: background 0.1s;
   cursor: default;
@@ -391,10 +391,10 @@
   border-bottom: none;
 }
 .plan-ex-row:hover {
-  background: #fbf8f5;
+  background: rgb(var(--c-gray-50));
 }
 .plan-ex-row--open {
-  background: #fbf8f5;
+  background: rgb(var(--c-gray-50));
   border-bottom: none;
 }
 
@@ -421,7 +421,7 @@
 .plan-ex-name-text {
   font-size: 13px;
   font-weight: 600;
-  color: #3a2e27;
+  color: rgb(var(--c-gray-900));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -443,36 +443,36 @@
   width: 18px;
   height: 18px;
   border-radius: 5px;
-  border: 1px solid #f0e7df;
-  background: white;
+  border: 1px solid rgb(var(--c-gray-200));
+  background: rgb(var(--c-white));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   cursor: pointer;
   transition: all 0.1s;
 }
 .plan-ex-note-btn:hover,
 .plan-ex-note-btn--on {
-  background: #fff7ed;
-  border-color: #fed7aa;
-  color: #c2410c;
+  background: rgb(var(--c-primary-50));
+  border-color: rgb(var(--c-primary-200));
+  color: rgb(var(--c-primary-700));
 }
 
 .plan-ex-video-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4a6b80;
+  color: rgb(var(--c-niebla-600));
   transition: color 0.1s;
 }
 .plan-ex-video-btn:hover {
-  color: #3d5869;
+  color: rgb(var(--c-niebla-700));
 }
 
 .plan-ex-cell {
   font-size: 12.5px;
-  color: #5a4b42;
+  color: rgb(var(--c-gray-700));
   padding-left: 2px;
 }
 .plan-ex-cell--center {
@@ -484,12 +484,12 @@
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #3a2e27;
+  color: rgb(var(--c-gray-900));
 }
 
 .plan-ex-soft {
   font-size: 12.5px;
-  color: #76675d;
+  color: rgb(var(--c-gray-500));
   font-variant-numeric: tabular-nums;
 }
 
@@ -504,7 +504,7 @@
 }
 
 .plan-ex-dash {
-  color: #e3d8cf;
+  color: rgb(var(--c-gray-300));
   font-size: 12px;
 }
 
@@ -515,7 +515,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   background: transparent;
   border: none;
   cursor: pointer;
@@ -525,14 +525,14 @@
     color 0.1s;
 }
 .plan-ex-menu-btn:hover {
-  background: #f5f0eb;
-  color: #5a4b42;
+  background: rgb(var(--c-gray-100));
+  color: rgb(var(--c-gray-700));
 }
 
 /* Notes inline */
 .plan-ex-notes-row {
   padding: 0 18px 12px 88px;
-  border-bottom: 1px solid #fbf8f5;
+  border-bottom: 1px solid rgb(var(--c-gray-50));
   animation: plan-fadein 0.15s ease;
 }
 .plan-ex-notes-row:last-child {
@@ -540,19 +540,19 @@
 }
 
 .plan-ex-notes-inner {
-  background: #fbf8f5;
-  border: 1px solid #f5f0eb;
+  background: rgb(var(--c-gray-50));
+  border: 1px solid rgb(var(--c-gray-100));
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 12.5px;
-  color: #76675d;
+  color: rgb(var(--c-gray-500));
   line-height: 1.5;
 }
 
 .plan-ex-notes-label {
   font-size: 10px;
   font-weight: 700;
-  color: #a3958b;
+  color: rgb(var(--c-gray-400));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 4px;
@@ -599,4 +599,37 @@
   .celebrate-fade {
     animation: none;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Modo oscuro "Carbón" (manual §9). Los colores cambian solos por las
+   variables de src/theme/palette.js; acá van solo las reglas de forma.
+───────────────────────────────────────────────────────────── */
+/* Encabezado: bloque apenas más claro que el fondo con línea naranja abajo */
+.dark .hero {
+  background: rgb(var(--c-white));
+  border-bottom: 3px solid rgb(var(--c-primary-500));
+}
+.dark .barra-superior {
+  background: rgb(var(--c-white));
+}
+/* Etiquetas de estado: en oscuro la letra siempre es blanca sobre el fondo
+   de color (regla de Franco, 2026-09-28). Lo que pide acción (rojo) va lleno. */
+.dark :is(.bg-green-50, .bg-green-100)[class*='text-green-'],
+.dark :is(.bg-amber-50, .bg-amber-100)[class*='text-amber-'],
+.dark .bg-gray-100.text-texto2,
+.dark .pill-ok,
+.dark .pill-warn,
+.dark .pill-neutral {
+  color: #f5f5f5;
+}
+.dark :is(.bg-red-50, .bg-red-100)[class*='text-red-'],
+.dark .pill-bad {
+  background: #dc2626;
+  color: #ffffff;
+}
+/* Imágenes y fotos no se oscurecen; los informes siempre claros */
+.tema-claro {
+  background: rgb(var(--c-gray-50));
+  color: rgb(var(--c-gray-900));
 }

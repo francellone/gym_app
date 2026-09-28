@@ -39,9 +39,9 @@ export const PSE_SHORT = [
 // Color de fondo según valor de PSE (rojo ≥8, naranja ≥5, verde resto).
 export function pseColor(n) {
   // Identidad visual: pasteles con texto oscuro del mismo tono (sin saturados).
-  if (n >= 8) return 'bg-[#fee2e2] text-[#b91c1c]'
+  if (n >= 8) return 'bg-red-100 text-red-700'
   if (n >= 5) return 'bg-durazno-100 text-primary-700'
-  return 'bg-[#dcfce7] text-[#15803d]'
+  return 'bg-green-100 text-green-700'
 }
 
 // ============================================================

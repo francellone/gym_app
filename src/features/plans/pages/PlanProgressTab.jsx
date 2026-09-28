@@ -604,7 +604,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {weightData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <ComposedChart data={weightData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit="kg" />
                     <YAxis
@@ -620,10 +620,10 @@ export default function PlanProgressTab({ planId, assignments }) {
                       type="monotone"
                       dataKey="Peso"
                       name={t('coach.plans.progress.series.weight')}
-                      fill="#fde68a"
-                      stroke="#ea580c"
+                      fill="rgb(var(--c-amber-200))"
+                      stroke="rgb(var(--c-primary-600))"
                       strokeWidth={2.5}
-                      dot={{ fill: '#ea580c', r: 4 }}
+                      dot={{ fill: 'rgb(var(--c-primary-600))', r: 4 }}
                       unit="kg"
                     />
                     <Line
@@ -631,7 +631,7 @@ export default function PlanProgressTab({ planId, assignments }) {
                       type="monotone"
                       dataKey="PSE"
                       name={t('coach.plans.progress.series.pse')}
-                      stroke="#76675d"
+                      stroke="rgb(var(--c-gray-500))"
                       strokeWidth={1.5}
                       dot={false}
                       strokeDasharray="4 2"
@@ -664,14 +664,14 @@ export default function PlanProgressTab({ planId, assignments }) {
               {volumeData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={volumeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Bar
                       dataKey="Volumen"
                       name={t('coach.plans.progress.series.volume')}
-                      fill="#834f72"
+                      fill="rgb(var(--c-ciruela-600))"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -696,7 +696,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {pseData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={pseData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
@@ -704,10 +704,10 @@ export default function PlanProgressTab({ planId, assignments }) {
                       type="monotone"
                       dataKey="PSE promedio"
                       name={t('coach.plans.progress.series.avgPse')}
-                      stroke="#76675d"
-                      fill="#f5f0eb"
+                      stroke="rgb(var(--c-gray-500))"
+                      fill="rgb(var(--c-gray-100))"
                       strokeWidth={2}
-                      dot={{ fill: '#76675d', r: 3 }}
+                      dot={{ fill: 'rgb(var(--c-gray-500))', r: 3 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -731,14 +731,14 @@ export default function PlanProgressTab({ planId, assignments }) {
               {borgData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={borgData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
                     <Bar
                       dataKey="Intensidad"
                       name={t('coach.plans.progress.series.intensity')}
-                      fill="#fdba74"
+                      fill="rgb(var(--c-primary-300))"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -775,7 +775,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {durationData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={durationData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} unit="min" />
                     <Tooltip content={<TooltipCard />} />
@@ -783,8 +783,8 @@ export default function PlanProgressTab({ planId, assignments }) {
                       type="monotone"
                       dataKey="Minutos"
                       name={t('coach.plans.progress.series.minutes')}
-                      stroke="#4a6b80"
-                      fill="#e3ecf1"
+                      stroke="rgb(var(--c-niebla-600))"
+                      fill="rgb(var(--c-niebla-100))"
                       strokeWidth={2}
                     />
                   </AreaChart>
@@ -809,7 +809,7 @@ export default function PlanProgressTab({ planId, assignments }) {
               {compareData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={compareData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f0eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipCard />} />
@@ -817,13 +817,13 @@ export default function PlanProgressTab({ planId, assignments }) {
                     <Bar
                       dataKey="Series sugeridas"
                       name={t('coach.plans.progress.series.suggestedSets')}
-                      fill="#e3d8cf"
+                      fill="rgb(var(--c-gray-300))"
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
                       dataKey="Series reales"
                       name={t('coach.plans.progress.series.actualSets')}
-                      fill="#ea580c"
+                      fill="rgb(var(--c-primary-600))"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
