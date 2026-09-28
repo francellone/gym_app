@@ -314,48 +314,57 @@ describe('computeDayDoneMap', () => {
   })
 
   // ── v54: cierre por conteo de omisiones ──────────────────────
-  it('v54: una omisión en el día cierra como parcial (y cuenta como cerrado)', () => {
+  // Regla 2026-09-28: con todo resuelto el día cierra siempre; ≥75% hecho
+  // (sobre activación + día, contados juntos) es completo, menos es parcial.
+  // PLAN_ANDREA: 8 de activación + 4 del Día A = 12 ítems.
+  it('una omisión con todo resuelto → complete (11 de 12)', () => {
     const args = {
       activeDays: ACTIVE_DAYS,
       blocksBySection: PLAN_ANDREA,
       logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2', 'pa3']), ...skippedMap(['pa4']) },
       blockLogs: {},
     }
+    expect(computeDayStateMap(args)).toEqual({ day_a: 'complete', day_b: 'none' })
+    expect(computeDayDoneMap(args)).toEqual({ day_a: true, day_b: false })
+  })
+
+  it('varias omisiones con todo resuelto CIERRAN; bajo 75% queda parcial', () => {
+    const args = {
+      activeDays: ACTIVE_DAYS,
+      blocksBySection: PLAN_ANDREA,
+      logs: {
+        ...completedMap([...ACT_EX.slice(4), 'pa1', 'pa2']),
+        ...skippedMap(['a1', 'a2', 'a3', 'a4', 'pa3', 'pa4']),
+      },
+      blockLogs: {},
+    }
     expect(computeDayStateMap(args)).toEqual({ day_a: 'partial', day_b: 'none' })
     expect(computeDayDoneMap(args)).toEqual({ day_a: true, day_b: false })
   })
 
-  it('v54: dos omisiones dejan el día abierto aunque todo esté resuelto', () => {
-    const args = {
-      activeDays: ACTIVE_DAYS,
-      blocksBySection: PLAN_ANDREA,
-      logs: { ...completedMap([...ACT_EX, 'pa1', 'pa2']), ...skippedMap(['pa3', 'pa4']) },
-      blockLogs: {},
-    }
-    expect(computeDayStateMap(args)).toEqual({ day_a: 'open', day_b: 'none' })
-    expect(computeDayDoneMap(args)).toEqual({ day_a: false, day_b: false })
-  })
-
-  it('v54: la omisión en la activación entra en el mismo conteo del día', () => {
-    // 1 omitido en activación + 1 omitido en el día = 2 → abierto.
-    const dos = computeDayStateMap({
+  it('las omisiones de la activación y del día se cuentan juntas', () => {
+    // 2 en activación + 1 en el día = 9 de 12 = 75% → completo.
+    const justo = computeDayStateMap({
       activeDays: ACTIVE_DAYS,
       blocksBySection: PLAN_ANDREA,
       logs: {
-        ...completedMap([...ACT_EX.slice(1), 'pa1', 'pa2', 'pa3']),
-        ...skippedMap(['a1', 'pa4']),
+        ...completedMap([...ACT_EX.slice(2), 'pa1', 'pa2', 'pa3']),
+        ...skippedMap(['a1', 'a2', 'pa4']),
       },
       blockLogs: {},
     })
-    expect(dos.day_a).toBe('open')
-    // Solo el de la activación omitido → parcial.
-    const uno = computeDayStateMap({
+    expect(justo.day_a).toBe('complete')
+    // 2 en activación + 2 en el día = 8 de 12 → parcial.
+    const bajo = computeDayStateMap({
       activeDays: ACTIVE_DAYS,
       blocksBySection: PLAN_ANDREA,
-      logs: { ...completedMap([...ACT_EX.slice(1), ...DAY_A_EX]), ...skippedMap(['a1']) },
+      logs: {
+        ...completedMap([...ACT_EX.slice(2), 'pa1', 'pa2']),
+        ...skippedMap(['a1', 'a2', 'pa3', 'pa4']),
+      },
       blockLogs: {},
     })
-    expect(uno.day_a).toBe('partial')
+    expect(bajo.day_a).toBe('partial')
   })
 
   it('v54: un ítem sin resolver deja el día abierto, con o sin omisión', () => {
@@ -484,5 +493,34 @@ describe('isWeekComplete + computeWeekAdherence (flexible, 3 sesiones/semana)', 
     expect(isWeekComplete(week(['2026-08-17', '2026-08-19', '2026-08-21', '2026-08-24']))).toBe(
       false
     )
+  })
+})
+
+describe('lastEntryAt — hora de fin = última carga del día', () => {
+  it('toma el created_at más tardío de ejercicios y bloques, hechos u omitidos', async () => {
+    const { lastEntryAt } = await import('./sessionProgress')
+    const logs = {
+      a: { completed: true, status: 'done', created_at: '2026-09-28T18:40:04Z' },
+      b: { completed: false, status: 'skipped', created_at: '2026-09-28T18:50:17Z' },
+      c: { completed: true, status: 'done', created_at: '2026-09-28T19:37:55Z' },
+    }
+    const blockLogs = { x: { completed: true, status: 'done', created_at: '2026-09-28T19:10:00Z' } }
+    expect(lastEntryAt({ logs, blockLogs })).toBe('2026-09-28T19:37:55.000Z')
+  })
+
+  it('ignora filas sin resolver; sin nada cargado devuelve null', async () => {
+    const { lastEntryAt } = await import('./sessionProgress')
+    expect(lastEntryAt({ logs: { a: { completed: false, status: 'done' } } })).toBeNull()
+    expect(lastEntryAt({})).toBeNull()
+  })
+
+  it('un registro recién proyectado (sin created_at) cuenta como ahora', async () => {
+    const { lastEntryAt } = await import('./sessionProgress')
+    const now = new Date('2026-09-28T20:00:00Z')
+    const logs = {
+      a: { completed: true, status: 'done', created_at: '2026-09-28T19:00:00Z' },
+      b: { completed: true, status: 'done' },
+    }
+    expect(lastEntryAt({ logs, now })).toBe('2026-09-28T20:00:00.000Z')
   })
 })

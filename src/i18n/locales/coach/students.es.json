@@ -436,7 +436,11 @@
       "choice_one": "{{count}} por elección",
       "choice_other": "{{count}} por elección",
       "unknown_one": "{{count}} sin motivo",
-      "unknown_other": "{{count}} sin motivo"
+      "unknown_other": "{{count}} sin motivo",
+      "unclear_one": "{{count}} por no saber cómo hacerlo",
+      "unclear_other": "{{count}} por no saber cómo hacerlo",
+      "other_one": "{{count}} por otro motivo",
+      "other_other": "{{count}} por otro motivo"
     },
     "skipAnd": " y ",
     "skipped_one": "{{count}} omitido",
@@ -516,13 +520,17 @@
       "choice": "Eligió",
       "time": "Tiempo",
       "discomfort": "Molestia",
-      "none": "Omitido"
+      "none": "Omitido",
+      "unclear": "No sabía",
+      "other": "Otro"
     },
     "skipLong": {
       "choice": "Eligió no hacerlo",
       "time": "No llegó con el tiempo",
       "discomfort": "Le molestaba algo",
-      "none": "Sin motivo"
+      "none": "Sin motivo",
+      "unclear": "No sabía cómo hacerlo",
+      "other": "Otro motivo"
     },
     "skippedTitle": "No lo hizo: {{reason}}",
     "sameDayTitle_one": "{{count}} registro de este ejercicio ese día; la celda muestra el último y los totales los cuentan a todos",

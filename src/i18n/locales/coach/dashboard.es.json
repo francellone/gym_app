@@ -55,7 +55,11 @@
     "highRpe_other": "Esfuerzo alto {{count}} veces",
     "stagnationIn": "Sin progreso en {{names}}",
     "stagnation": "Sin progreso",
-    "noActivePlan": "Sin plan activo"
+    "noActivePlan": "Sin plan activo",
+    "skipUnclear": "No supo cómo hacer un ejercicio",
+    "skipUnclearOne": "No supo cómo hacer {{name}}",
+    "skipUnclearMany": "No supo cómo hacer: {{names}}",
+    "skipUnclearManyMore": "No supo cómo hacer: {{names}} y {{count}} más"
   },
   "alertKinds": {
     "overdue": "Pagos vencidos",
@@ -72,7 +76,8 @@
     "skipDiscomfort": "Omitió por molestia",
     "painStudents": "Dolor repetido",
     "formUnanswered": "Formulario sin responder",
-    "stagnationStudents": "Estancamiento"
+    "stagnationStudents": "Estancamiento",
+    "skipUnclear": "No supo cómo hacerlo"
   },
   "adherence": {
     "empty": "Todavía no hay personas con plan de entrenamiento activo.",

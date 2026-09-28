@@ -52,6 +52,11 @@ function safeDate(value, pattern) {
 export function resolveNotificationText(notification, t) {
   const fallback = { title: notification.title, body: notification.body }
   const type = notification.type
+
+  // v59: dirigido a la COACH, pero nace bilingüe (el panel de la coach ya
+  // tiene inglés): se resuelve por payload como los del alumno.
+  if (type === 'exercise_unclear') return resolveExerciseUnclear(notification, t, fallback)
+
   if (!STUDENT_TYPES.has(type)) return fallback
 
   const data = notification.data || {}
@@ -102,5 +107,21 @@ export function resolveNotificationText(notification, t) {
 
     default:
       return fallback
+  }
+}
+
+// "Franco no supo cómo hacer un ejercicio" / "Sumo walk (28/9): «no había video»"
+function resolveExerciseUnclear(notification, t, fallback) {
+  const data = notification.data || {}
+  const k = (suffix) => `notifications.types.exercise_unclear.${suffix}`
+  const date = safeDate(data.date, t('dates.shortDate'))
+  if (!date) return fallback
+  const name = data.student_name || t(k('fallbackName'))
+  const item = data.item_name || t(k('fallbackItem'))
+  return {
+    title: t(k('title'), { name }),
+    body: data.skip_note
+      ? t(k('bodyWithNote'), { item, date, note: data.skip_note })
+      : t(k('body'), { item, date }),
   }
 }

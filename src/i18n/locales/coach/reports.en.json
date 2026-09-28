@@ -71,7 +71,9 @@
         "aerobic": "Aerobic",
         "circuit": "Circuit",
         "exercise": "Exercise"
-      }
+      },
+      "byUnclear": "{{count}} for not knowing how",
+      "byOther": "{{count}} for another reason"
     },
     "patterns": {
       "title": "Main work by movement pattern",

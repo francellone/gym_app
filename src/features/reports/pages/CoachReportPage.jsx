@@ -67,9 +67,11 @@ function describeSkipsT(summary, t) {
   if (n === 0) return ''
   const by = summary.byReason || {}
   const parts = []
+  if (by.unclear) parts.push(t('coach.reports.coach.entries.byUnclear', { count: by.unclear }))
   if (by.time) parts.push(t('coach.reports.coach.entries.byTime', { count: by.time }))
   if (by.discomfort)
     parts.push(t('coach.reports.coach.entries.byDiscomfort', { count: by.discomfort }))
+  if (by.other) parts.push(t('coach.reports.coach.entries.byOther', { count: by.other }))
   if (by.choice) parts.push(t('coach.reports.coach.entries.byChoice', { count: by.choice }))
   if (by.unknown) parts.push(t('coach.reports.coach.entries.byUnknown', { count: by.unknown }))
   const joined =
@@ -551,6 +553,7 @@ export default function CoachReportPage() {
                             })
                           : t('coach.reports.coach.entries.noReason')}
                       </span>
+                      {it.note && <span className="text-gray-500 italic">«{it.note}»</span>}
                     </li>
                   ))}
                 </ul>

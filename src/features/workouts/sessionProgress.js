@@ -30,6 +30,7 @@ import { sectionResolution } from './helpers'
 import {
   dayStateFromTally,
   isDayStateClosed,
+  isLogResolved,
   isTrainingActivity,
   mergeTallies,
 } from './completionRules'
@@ -204,4 +205,30 @@ export function isWeekComplete(adherence) {
   const expected = Number(adherence.expectedCount) || 0
   const completed = Number(adherence.completedCount) || 0
   return expected > 0 && completed >= expected
+}
+
+// ============================================================
+// lastEntryAt (2026-09-28)
+// ------------------------------------------------------------
+// Hora de fin de la sesión = la de la ÚLTIMA carga del día (hecha u
+// omitida), no la hora en que la persona cerró el PSE. Franco volvió del
+// gimnasio, cargó el PSE más tarde y la sesión le quedaba 30 minutos más
+// larga de lo que entrenó.
+//
+// Toma `created_at` (cuándo se cargó), no `updated_at`: corregir un
+// registro al día siguiente no debe estirar la sesión. Un registro recién
+// proyectado en el front todavía no tiene created_at → cuenta como "ahora".
+// Devuelve ISO string, o null si no hay nada cargado.
+// ============================================================
+export function lastEntryAt({ logs, blockLogs, now = new Date() } = {}) {
+  let max = null
+  const consider = (row) => {
+    if (!row || !isLogResolved(row)) return
+    const ts = row.created_at ? new Date(row.created_at) : now
+    if (Number.isNaN(ts.getTime())) return
+    if (!max || ts > max) max = ts
+  }
+  for (const row of Object.values(logs || {})) consider(row)
+  for (const row of Object.values(blockLogs || {})) consider(row)
+  return max ? max.toISOString() : null
 }

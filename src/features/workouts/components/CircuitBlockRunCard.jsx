@@ -17,6 +17,7 @@ import {
 import { expandPerSet } from '@/features/plans/prescriptionRead'
 import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
 import BlockConfirmActions from './BlockConfirmActions'
+import { SkippedReasonLines } from './SkipReasonPicker'
 import {
   CIRCUIT_TYPES,
   INTENSITY_LEVELS,
@@ -253,6 +254,7 @@ export default function CircuitBlockRunCard({
         // v54
         status: 'done',
         skip_reason: null,
+        skip_note: null,
         entry_mode: entryMode,
       })
       // Guardar logs de ejercicios del circuito (si hay detalle cargado).
@@ -346,7 +348,7 @@ export default function CircuitBlockRunCard({
   // v54 — NO LO HICE: solo el registro del bloque, como omitido. Ningún
   // registro por ejercicio (no se omitieron burpees, se omitió el circuito;
   // decisión Franco 2026-09-23). Datos en NULL, nunca en 0.
-  async function skipWith(reason) {
+  async function skipWith(reason, note = null) {
     if (!SKIP_REASONS.includes(reason)) return
     setSaving(true)
     try {
@@ -358,6 +360,7 @@ export default function CircuitBlockRunCard({
         completed: false,
         status: 'skipped',
         skip_reason: reason,
+        skip_note: note || null,
         entry_mode: null,
       })
       setEditing(false)
@@ -925,15 +928,11 @@ export default function CircuitBlockRunCard({
                   <MinusCircle size={13} />
                   {tv('workout.skippedCheck')}
                 </p>
-                {blockLog?.skip_reason && (
-                  <p className="text-xs text-amber-700">
-                    {t(
-                      coachMode
-                        ? `workout.skipReasonCoach.${blockLog.skip_reason}`
-                        : `workout.skipReason.${blockLog.skip_reason}`
-                    )}
-                  </p>
-                )}
+                <SkippedReasonLines
+                  reason={blockLog?.skip_reason}
+                  note={blockLog?.skip_note}
+                  coachMode={coachMode}
+                />
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"

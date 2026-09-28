@@ -55,7 +55,11 @@
     "highRpe_other": "High effort {{count}} times",
     "stagnationIn": "No progress in {{names}}",
     "stagnation": "No progress",
-    "noActivePlan": "No active plan"
+    "noActivePlan": "No active plan",
+    "skipUnclear": "Didn't know how to do an exercise",
+    "skipUnclearOne": "Didn't know how to do {{name}}",
+    "skipUnclearMany": "Didn't know how to do: {{names}}",
+    "skipUnclearManyMore": "Didn't know how to do: {{names}} and {{count}} more"
   },
   "alertKinds": {
     "overdue": "Overdue payments",
@@ -72,7 +76,8 @@
     "skipDiscomfort": "Skipped due to discomfort",
     "painStudents": "Repeated pain",
     "formUnanswered": "Unanswered form",
-    "stagnationStudents": "Plateau"
+    "stagnationStudents": "Plateau",
+    "skipUnclear": "Didn't know how"
   },
   "adherence": {
     "empty": "No students with an active training plan yet.",

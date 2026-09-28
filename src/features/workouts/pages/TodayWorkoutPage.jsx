@@ -43,6 +43,7 @@ import {
   computeSessionProgress,
   computeDayDoneMap,
   computeDayStateMap,
+  lastEntryAt,
   isSessionBanner,
   dayDotState,
   daysPendingPSE,
@@ -139,6 +140,7 @@ function projectWorkoutLog({ existingLog, rpcArgs, noteBody, source, loggedBy })
     completed: skipped ? false : rpcArgs.p_completed !== false,
     status: rpcArgs.p_status ?? 'done',
     skip_reason: rpcArgs.p_skip_reason ?? null,
+    skip_note: rpcArgs.p_skip_note ?? null,
     entry_mode: rpcArgs.p_entry_mode ?? null,
     source,
     logged_by: loggedBy ?? existingLog?.logged_by ?? null,
@@ -1231,9 +1233,11 @@ export default function TodayWorkoutPage() {
     // (caso raro tras los fixes de saveLog/saveBlockLog), insertamos
     // started_at = now() para cumplir la constraint del back que exige
     // started_at antes que cualquier finished_at.
+    // 2026-09-28: la hora de fin es la de la última carga del día, no la
+    // del cierre del PSE (que puede llegar bastante después del gimnasio).
     const payload = {
       borg_per_day: newPerDay,
-      finished_at: new Date().toISOString(),
+      finished_at: lastEntryAt({ logs, blockLogs }) || new Date().toISOString(),
     }
     if (!session?.started_at) {
       payload.started_at = new Date().toISOString()

@@ -168,6 +168,7 @@ describe('NO LO HICE', () => {
       completed: false,
       status: 'skipped',
       skip_reason: 'discomfort',
+      skip_note: null,
       entry_mode: null,
     })
   })

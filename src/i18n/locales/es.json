@@ -522,7 +522,9 @@
     "skipReason": {
       "choice": "Elegí no hacerlo",
       "time": "No llegué con el tiempo",
-      "discomfort": "Me molestaba algo"
+      "discomfort": "Me molestaba algo",
+      "unclear": "No sabía cómo hacerlo",
+      "other": "Otro motivo"
     },
     "confirmAsPrescribed": "Lo hice tal cual",
     "adjust": "Lo hice distinto",
@@ -551,7 +553,9 @@
     "skipReasonCoach": {
       "choice": "Eligió no hacerlo",
       "time": "No llegó con el tiempo",
-      "discomfort": "Le molestaba algo"
+      "discomfort": "Le molestaba algo",
+      "unclear": "No sabía cómo hacerlo",
+      "other": "Otro motivo"
     },
     "confirmAsPrescribedCoach": "Lo hizo tal cual",
     "adjustCoach": "Lo hizo distinto",
@@ -573,7 +577,11 @@
       "kg": "¿Son {{value}} kg? Tu máximo en este ejercicio es {{max}} kg. Si fue un error de tipeo, corregilo ahora.",
       "reps": "¿Son {{value}} repeticiones? Tu máximo en este ejercicio es {{max}}. Si fue un error de tipeo, corregilo ahora.",
       "seconds": "¿Son {{value}} segundos? Tu máximo en este ejercicio es {{max}} s. Si fue un error de tipeo, corregilo ahora."
-    }
+    },
+    "skipNotePlaceholder": "Contanos en pocas palabras (opcional)",
+    "skipNotePlaceholderCoach": "Aclaración (opcional)",
+    "skipNoteSave": "Guardar",
+    "skipUnclearNotice": "Le avisamos a tu coach para que te lo explique."
   },
   "progress": {
     "title": "Mi progreso",
@@ -923,6 +931,13 @@
         "sessions_other": "{{count}} sesiones",
         "rpeAvg": "{{rpe}} RPE promedio",
         "rpeNone": "sin RPE"
+      },
+      "exercise_unclear": {
+        "title": "{{name}} no supo cómo hacer un ejercicio",
+        "body": "{{item}} ({{date}})",
+        "bodyWithNote": "{{item}} ({{date}}): «{{note}}»",
+        "fallbackItem": "Un ejercicio",
+        "fallbackName": "Una persona"
       }
     }
   },

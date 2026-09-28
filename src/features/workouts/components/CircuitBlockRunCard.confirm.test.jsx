@@ -195,7 +195,9 @@ describe('NO LO HICE: solo el registro del bloque, ninguno por ejercicio', () =>
     const { onSaveBlockLog, onSaveExerciseLog } = renderCard()
     await expand(user)
     await user.click(screen.getByRole('button', { name: /no lo hice/i }))
-    await user.click(screen.getByRole('button', { name: /elegí no hacerlo/i }))
+    // "Elegí no hacerlo" ya no se ofrece (v59): cuatro motivos.
+    expect(screen.queryByRole('button', { name: /elegí no hacerlo/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /no llegué con el tiempo/i }))
     expect(onSaveBlockLog).toHaveBeenCalledTimes(1)
     expect(onSaveBlockLog.mock.calls[0][0]).toEqual({
       actual_minutes: null,
@@ -204,10 +206,27 @@ describe('NO LO HICE: solo el registro del bloque, ninguno por ejercicio', () =>
       notes: null,
       completed: false,
       status: 'skipped',
-      skip_reason: 'choice',
+      skip_reason: 'time',
+      skip_note: null,
       entry_mode: null,
     })
     expect(onSaveExerciseLog).not.toHaveBeenCalled()
+  })
+
+  it('"Otro" pide una aclaración opcional y la guarda con el bloque', async () => {
+    const user = userEvent.setup()
+    const { onSaveBlockLog } = renderCard()
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /no lo hice/i }))
+    await user.click(screen.getByRole('button', { name: /otro motivo/i }))
+    expect(onSaveBlockLog).not.toHaveBeenCalled()
+    await user.type(screen.getByPlaceholderText(/contanos/i), 'la máquina estaba rota')
+    await user.click(screen.getByRole('button', { name: /^guardar$/i }))
+    expect(onSaveBlockLog.mock.calls[0][0]).toMatchObject({
+      status: 'skipped',
+      skip_reason: 'other',
+      skip_note: 'la máquina estaba rota',
+    })
   })
 
   it('un bloque omitido se muestra como tal y permite cambiar', async () => {

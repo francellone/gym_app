@@ -1364,7 +1364,7 @@ function describeSkipsT(summary, t) {
   const n = summary?.skipped || 0
   if (n === 0) return ''
   const by = summary.byReason || {}
-  const parts = ['time', 'discomfort', 'choice', 'unknown']
+  const parts = ['unclear', 'discomfort', 'time', 'other', 'choice', 'unknown']
     .filter((r) => by[r])
     .map((r) => t(`coach.students.progress.skipReason.${r}`, { count: by[r] }))
   const joined =

@@ -17,7 +17,12 @@
 // la cuenta de fechas distintas con entero vs parcial.
 // ============================================================
 
-import { isLogDone } from '@/features/workouts/completionRules'
+import {
+  isLogDone,
+  isLogSkipped,
+  dayStateFromTally,
+  mergeTallies,
+} from '@/features/workouts/completionRules'
 
 /**
  * @typedef {Object} WorkoutLog
@@ -173,6 +178,27 @@ function countCompletedByDateSection({ logs, blockLogs, exerciseToSection, block
   return out
 }
 
+// Map "fecha__seccion" → ítems OMITIDOS esa fecha en esa sección (v54).
+// Mismo índice que countCompletedByDateSection, para que el calendario de
+// la coach use la regla de cierre de completionRules.
+function countSkippedByDateSection({ logs, blockLogs, exerciseToSection, blockToSection }) {
+  const out = new Map()
+  const add = (section, logged) => {
+    if (!section) return
+    const date = String(logged || '').slice(0, 10)
+    if (!date) return
+    const key = `${date}__${section}`
+    out.set(key, (out.get(key) || 0) + 1)
+  }
+  for (const log of logs || []) {
+    if (isLogSkipped(log)) add(exerciseToSection.get(log.plan_exercise_id), log.logged_date)
+  }
+  for (const bl of blockLogs || []) {
+    if (isLogSkipped(bl)) add(blockToSection.get(bl.plan_block_id), bl.logged_date)
+  }
+  return out
+}
+
 function splitKey(key) {
   const sepIdx = key.indexOf('__')
   return { date: key.slice(0, sepIdx), section: key.slice(sepIdx + 2) }
@@ -263,17 +289,31 @@ export function computeDateCompleteness({
     if (ymd) allDates.add(ymd)
   }
 
+  const skippedByDateSection = countSkippedByDateSection({
+    logs,
+    blockLogs,
+    exerciseToSection,
+    blockToSection,
+  })
+  const tallyOf = (date, section, total) => {
+    const done = Math.min(completedByDateSection.get(`${date}__${section}`) || 0, total)
+    const skipped = skippedByDateSection.get(`${date}__${section}`) || 0
+    return { total, done, skipped, resolved: done + skipped }
+  }
+
+  // 2026-09-28: misma regla que ve la persona (completionRules.dayStateFromTally
+  // sobre activación + día, contados juntos). Antes el calendario exigía el
+  // 100% de ambos y no miraba omisiones: la persona veía "completo" y la
+  // coach "parcial" para el mismo día.
   const out = new Map()
   for (const date of allDates) {
-    const activationOk =
-      activationTotal === 0 ||
-      (completedByDateSection.get(`${date}__${ACTIVATION_SECTION}`) || 0) >= activationTotal
-
-    const anyDayComplete = daySections.some(
-      (sec) => (completedByDateSection.get(`${date}__${sec}`) || 0) >= sectionTotals[sec]
-    )
-
-    out.set(date, anyDayComplete && activationOk ? 'complete' : 'partial')
+    const activation = tallyOf(date, ACTIVATION_SECTION, activationTotal)
+    const anyDayComplete = daySections.some((sec) => {
+      const day = tallyOf(date, sec, sectionTotals[sec])
+      if (day.resolved === 0) return false
+      return dayStateFromTally(mergeTallies(activation, day)) === 'complete'
+    })
+    out.set(date, anyDayComplete ? 'complete' : 'partial')
   }
   return out
 }

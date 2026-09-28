@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, MinusCircle, Pencil } from 'lucide-react'
 import RPEScale from './RPEScale'
-import { SKIP_REASONS } from '../completionRules'
+import SkipReasonPicker from './SkipReasonPicker'
 
 // ============================================================
 // BlockConfirmActions — las tres salidas de un BLOQUE (circuito / aeróbico)
@@ -20,7 +20,7 @@ import { SKIP_REASONS } from '../completionRules'
 //   confirmHint       string | null — aviso debajo de la lista (ej. "sin peso: …")
 //   onConfirm         (pse) => Promise
 //   onAdjust          () => void
-//   onSkip            (reason) => Promise
+//   onSkip            (reason, note|null) => Promise
 //   saving            boolean
 //   coachMode         boolean — tercera persona
 //   pseVariant        'circuit' | 'cardio' (los descriptores del RPEScale)
@@ -64,29 +64,12 @@ export default function BlockConfirmActions({
 
   if (pendingAction === 'skip') {
     return (
-      <div className="space-y-2">
-        <p className="text-xs text-gray-700 font-medium">{tv('workout.skipReasonPrompt')}</p>
-        <div className="grid grid-cols-1 gap-1.5">
-          {SKIP_REASONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              disabled={saving}
-              onClick={() => onSkip(r)}
-              className="btn-secondary text-sm text-left disabled:opacity-50"
-            >
-              {t(coachMode ? `workout.skipReasonCoach.${r}` : `workout.skipReason.${r}`)}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => onPendingChange(null)}
-          className="text-xs text-gray-500 underline underline-offset-2"
-        >
-          {t('common.cancel')}
-        </button>
-      </div>
+      <SkipReasonPicker
+        onPick={onSkip}
+        onCancel={() => onPendingChange(null)}
+        saving={saving}
+        coachMode={coachMode}
+      />
     )
   }
 

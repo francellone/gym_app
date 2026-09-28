@@ -475,3 +475,47 @@ describe('computeFormsUnanswered', () => {
     expect(out).toEqual([])
   })
 })
+
+// ============================================================
+// v59 (2026-09-28) — "no sabía cómo hacerlo" en "Necesitan atención"
+// ============================================================
+import { computeSkipUnclear, groupAlertsByStudent as groupRows } from './alerts'
+
+describe('computeSkipUnclear', () => {
+  const hoy = new Date(2026, 8, 28)
+  const students = [
+    { id: 's1', name: 'Franco' },
+    { id: 's2', name: 'Ana' },
+  ]
+
+  it('junta los ejercicios que no supo hacer en 14 días; ignora otros motivos', () => {
+    const out = computeSkipUnclear(
+      students,
+      [
+        { student_id: 's1', logged_date: '2026-09-28', skip_reason: 'unclear', name: 'Sumo walk' },
+        { student_id: 's1', logged_date: '2026-09-28', skip_reason: 'other', name: 'Remo' },
+        { student_id: 's2', logged_date: '2026-09-28', skip_reason: 'discomfort', name: 'Remo' },
+        { student_id: 's2', logged_date: '2026-08-01', skip_reason: 'unclear', name: 'Remo' },
+      ],
+      hoy
+    )
+    expect(out).toEqual([
+      { studentId: 's1', name: 'Franco', exerciseNames: ['Sumo walk'], lastDate: '2026-09-28' },
+    ])
+  })
+
+  it('tono "bad" y primero en la fila después de los pagos vencidos', () => {
+    const { rows } = groupRows(
+      {
+        painStudents: [{ studentId: 's1', name: 'Franco', lastNoteSnippet: 'hombro' }],
+        skipUnclear: [{ studentId: 's1', name: 'Franco', exerciseNames: ['Sumo walk'] }],
+      },
+      i18n.t.bind(i18n)
+    )
+    expect(rows[0].items[0]).toMatchObject({
+      kind: 'skipUnclear',
+      tone: 'bad',
+      text: 'No supo cómo hacer Sumo walk',
+    })
+  })
+})

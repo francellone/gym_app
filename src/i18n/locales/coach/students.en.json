@@ -436,7 +436,11 @@
       "choice_one": "{{count}} by choice",
       "choice_other": "{{count}} by choice",
       "unknown_one": "{{count}} no reason",
-      "unknown_other": "{{count}} no reason"
+      "unknown_other": "{{count}} no reason",
+      "unclear_one": "{{count}} didn't know how",
+      "unclear_other": "{{count}} didn't know how",
+      "other_one": "{{count}} other reason",
+      "other_other": "{{count}} other reason"
     },
     "skipAnd": " and ",
     "skipped_one": "{{count}} skipped",
@@ -516,13 +520,17 @@
       "choice": "Chose",
       "time": "Time",
       "discomfort": "Discomfort",
-      "none": "Skipped"
+      "none": "Skipped",
+      "unclear": "Didn't know",
+      "other": "Other"
     },
     "skipLong": {
       "choice": "Chose not to do it",
       "time": "Ran out of time",
       "discomfort": "Something was bothering them",
-      "none": "No reason"
+      "none": "No reason",
+      "unclear": "Didn't know how to do it",
+      "other": "Other reason"
     },
     "skippedTitle": "Didn't do it: {{reason}}",
     "sameDayTitle_one": "{{count}} log for this exercise that day; the cell shows the latest and the totals count all of them",

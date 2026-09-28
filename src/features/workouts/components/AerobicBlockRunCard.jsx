@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
 import BlockConfirmActions from './BlockConfirmActions'
+import { SkippedReasonLines } from './SkipReasonPicker'
 import {
   AEROBIC_FORMATS,
   AEROBIC_INTERVAL_FORMATS,
@@ -168,6 +169,7 @@ export default function AerobicBlockRunCard({
         // v54
         status: 'done',
         skip_reason: null,
+        skip_note: null,
         entry_mode: entryMode,
       })
       setEditing(false)
@@ -187,7 +189,7 @@ export default function AerobicBlockRunCard({
   }
 
   // v54 — NO LO HICE: datos en NULL, nunca en 0.
-  async function skipWith(reason) {
+  async function skipWith(reason, note = null) {
     if (!SKIP_REASONS.includes(reason)) return
     setSaving(true)
     try {
@@ -199,6 +201,7 @@ export default function AerobicBlockRunCard({
         completed: false,
         status: 'skipped',
         skip_reason: reason,
+        skip_note: note || null,
         entry_mode: null,
       })
       setEditing(false)
@@ -628,15 +631,11 @@ export default function AerobicBlockRunCard({
                   <MinusCircle size={13} />
                   {tv('workout.skippedCheck')}
                 </p>
-                {blockLog?.skip_reason && (
-                  <p className="text-xs text-amber-700">
-                    {t(
-                      coachMode
-                        ? `workout.skipReasonCoach.${blockLog.skip_reason}`
-                        : `workout.skipReason.${blockLog.skip_reason}`
-                    )}
-                  </p>
-                )}
+                <SkippedReasonLines
+                  reason={blockLog?.skip_reason}
+                  note={blockLog?.skip_note}
+                  coachMode={coachMode}
+                />
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"

@@ -187,3 +187,38 @@ describe('plan_expiring — payload v50', () => {
     expect(r.body).toMatch(/17.09.2026|09.17.2026/)
   })
 })
+
+// v59 — dirigido a la coach, resuelto por payload en su idioma
+describe('exercise_unclear', () => {
+  const data = {
+    student_id: 's1',
+    student_name: 'Franco Cellone',
+    date: '2026-09-28',
+    item_name: 'Sumo walk (diagonal)',
+    skip_note: null,
+  }
+
+  it('es, sin nota', async () => {
+    await i18n.changeLanguage('es')
+    expect(resolveNotificationText(notif('exercise_unclear', data), t)).toEqual({
+      title: 'Franco Cellone no supo cómo hacer un ejercicio',
+      body: 'Sumo walk (diagonal) (28/09/2026)',
+    })
+  })
+
+  it('en, con nota', async () => {
+    await i18n.changeLanguage('en')
+    const r = resolveNotificationText(
+      notif('exercise_unclear', { ...data, skip_note: 'no había video' }),
+      t
+    )
+    expect(r.title).toBe("Franco Cellone didn't know how to do an exercise")
+    expect(r.body).toContain('no había video')
+    await i18n.changeLanguage('es')
+  })
+
+  it('payload sin fecha → texto guardado', () => {
+    const r = resolveNotificationText(notif('exercise_unclear', { student_name: 'X' }), t)
+    expect(r.title).toBe('Título guardado en BD')
+  })
+})

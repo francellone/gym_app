@@ -324,11 +324,26 @@ export function computeFormsUnanswered(students, forms, today = new Date()) {
 // persona al omitir: más confiable que buscar palabras en las notas.
 // ============================================================
 export function computeSkipDiscomfort(students, skippedLogs, today = new Date()) {
+  return computeSkipByReason(students, skippedLogs, 'discomfort', today)
+}
+
+// ============================================================
+// 3d. No supo cómo hacer un ejercicio (v59, 2026-09-28)
+// ------------------------------------------------------------
+// Falla del PLAN, no de la persona (sin video, consigna poco clara): la
+// coach tiene que verlo sí o sí (Franco). Además de esta alerta, un
+// trigger le manda una notificación 'exercise_unclear'.
+// ============================================================
+export function computeSkipUnclear(students, skippedLogs, today = new Date()) {
+  return computeSkipByReason(students, skippedLogs, 'unclear', today)
+}
+
+function computeSkipByReason(students, skippedLogs, reason, today) {
   const todayD = startOfDay(today)
   const since = addDays(todayD, -ALERT_THRESHOLDS.SKIP_DISCOMFORT_WINDOW_DAYS)
   const byStudent = new Map()
   for (const l of skippedLogs || []) {
-    if (l.skip_reason !== 'discomfort') continue
+    if (l.skip_reason !== reason) continue
     const d = parseYMD(l.logged_date)
     if (!d || d < since || d > todayD) continue
     if (!byStudent.has(l.student_id)) byStudent.set(l.student_id, { names: [], lastDate: null })
@@ -872,6 +887,7 @@ export function computeAllAlerts({
     lowMotivationStudents: computeLowMotivationStudents(students, wellbeingLogs, today),
     painStudents: computePainStudents(students, wellbeingLogs, today),
     skipDiscomfort: computeSkipDiscomfort(students, skippedLogs, today),
+    skipUnclear: computeSkipUnclear(students, skippedLogs, today),
     formUnanswered: computeFormsUnanswered(students, forms, today),
     stagnationStudents: computeStagnationByExercise(students, recentLogs, today),
   }
@@ -961,6 +977,13 @@ export const ALERT_KIND = {
     borderClass: 'border-l-pink-400',
     accentClass: 'text-pink-600',
   },
+  skipUnclear: {
+    key: 'skipUnclear',
+    label: 'No supo cómo hacerlo',
+    icon: '❓',
+    borderClass: 'border-l-red-400',
+    accentClass: 'text-red-600',
+  },
   skipDiscomfort: {
     key: 'skipDiscomfort',
     label: 'Omitió por molestia',
@@ -994,6 +1017,7 @@ export const ALERT_KIND = {
 // Orden recomendado en la UI (de más urgente a menos).
 export const ALERT_RENDER_ORDER = [
   'overdue',
+  'skipUnclear', // no supo cómo hacer un ejercicio — el plan necesita explicación
   'adherenceDecline', // tendencia a la baja — la señal más accionable
   'lowAdherence', // semana cerrada por debajo del umbral
   'painStudents', // dolor — atender rápido por riesgo de lesión
@@ -1030,6 +1054,7 @@ export const ALERT_RENDER_ORDER = [
 // ============================================================
 const PERSON_ALERT_ORDER = [
   'overdue',
+  'skipUnclear',
   'inactiveStudents',
   'painStudents',
   'skipDiscomfort',
@@ -1068,6 +1093,23 @@ export function describeAlertItem(kind, it, t) {
           ? t(A + 'painQuote', { snippet: it.lastNoteSnippet })
           : t(A + 'pain'),
       }
+    case 'skipUnclear': {
+      const names = it.exerciseNames || []
+      return {
+        tone: 'bad',
+        text:
+          names.length === 0
+            ? t(A + 'skipUnclear')
+            : names.length === 1
+              ? t(A + 'skipUnclearOne', { name: names[0] })
+              : names.length > 2
+                ? t(A + 'skipUnclearManyMore', {
+                    names: names.slice(0, 2).join(', '),
+                    count: names.length - 2,
+                  })
+                : t(A + 'skipUnclearMany', { names: names.join(', ') }),
+      }
+    }
     case 'skipDiscomfort': {
       const names = it.exerciseNames || []
       return {

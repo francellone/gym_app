@@ -1167,7 +1167,10 @@ export default function StudentProgressTableView({
     return (
       <td
         className={`px-2 py-2 text-center border-l border-gray-100 ${bg} ${extraClass}`}
-        title={t('coach.students.table.skippedTitle', { reason: long })}
+        title={
+          t('coach.students.table.skippedTitle', { reason: long }) +
+          (log.skip_note ? ` · «${log.skip_note}»` : '')
+        }
       >
         <span className="inline-block rounded-md bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
           — {short}

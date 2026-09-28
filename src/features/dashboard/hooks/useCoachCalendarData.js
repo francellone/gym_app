@@ -338,7 +338,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               fetchAllRows((from, to) =>
                 supabase
                   .from('workout_logs')
-                  .select('student_id, plan_id, logged_date, completed, plan_exercise_id')
+                  .select('student_id, plan_id, logged_date, completed, status, plan_exercise_id')
                   .in('student_id', sel)
                   .in('plan_id', activeTrainingPlanIds)
                   .gte('logged_date', windowStartYMD)
@@ -349,7 +349,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               fetchAllRows((from, to) =>
                 supabase
                   .from('workout_block_logs')
-                  .select('student_id, plan_id, logged_date, completed, plan_block_id')
+                  .select('student_id, plan_id, logged_date, completed, status, plan_block_id')
                   .in('student_id', sel)
                   .in('plan_id', activeTrainingPlanIds)
                   .gte('logged_date', windowStartYMD)

@@ -14,25 +14,40 @@
 //
 // "Resuelto" = hecho u omitido: la persona se pronunció sobre el ítem.
 //
-// Cierre del día, decidido con Franco el 2026-09-22 CONTANDO omisiones
-// (no por porcentaje: ocho de cada diez días del plan tienen 4 o 5
-// unidades, así que un umbral porcentual se comporta como "cero
-// omisiones"):
-//   0 omisiones y todo hecho      → 'complete'  (día completo)
-//   1 omisión y todo resuelto     → 'partial'   (cierra igual, "4 de 5")
-//   2+ omisiones, o algo sin resolver → 'open'  (no cierra)
-//   nada resuelto                 → 'none'
-// Y un día cerrado necesita AL MENOS UN hecho: un día de un solo ejercicio
-// omitido tiene una omisión, pero "no hice nada" no es una sesión.
-// Los estados 'complete' y 'partial' cuentan como sesión para la
-// adherencia semanal; 'open' y 'none' no.
+// Cierre del día (regla vigente desde 2026-09-28, Franco):
+//   algo sin resolver                      → 'open'     (no cierra)
+//   todo resuelto y ≥75% de lo esperado hecho → 'complete' (aunque haya omisiones)
+//   todo resuelto y menos del 75% hecho    → 'partial'  (cierra igual)
+//   todo resuelto pero nada hecho          → 'open'     ("no hice nada" no es sesión)
+//   nada resuelto                          → 'none'
+// Activación y día se cuentan JUNTOS en el mismo tally, sean cuantos
+// sean los bloques. Los estados 'complete' y 'partial' cuentan como
+// sesión para la adherencia semanal; 'open' y 'none' no.
+//
+// Historia: el 2026-09-22 se había decidido contar omisiones (máximo 1 para
+// cerrar). Franco lo usó, omitió 2 ejercicios de movilidad y el día le
+// quedó abierto; admitió que quiso marcarlos como hechos para cerrarlo.
+// Una regla que empuja a mentir rompe el dato que la app existe para
+// juntar, así que el día pasó a cerrar siempre que esté todo resuelto, y
+// el porcentaje solo separa completo de parcial.
 //
 // Funciones puras, sin React ni Supabase.
 // ============================================================
 
-export const MAX_OMISSIONS_TO_CLOSE = 1
+// Proporción de ítems HECHOS (sobre el total esperado) desde la cual un día
+// resuelto cuenta como completo.
+export const COMPLETE_THRESHOLD = 0.75
 
-export const SKIP_REASONS = ['choice', 'time', 'discomfort']
+// Todos los motivos válidos en la base (v59). 'choice' ("elegí no hacerlo")
+// queda para leer las filas viejas: la pantalla ya no lo ofrece.
+export const SKIP_REASONS = ['choice', 'time', 'discomfort', 'unclear', 'other']
+// Los que se ofrecen al omitir, en este orden (decisión Franco 2026-09-28:
+// pocas opciones; "otro" admite una aclaración corta).
+export const SKIP_REASONS_OFFERED = ['time', 'discomfort', 'unclear', 'other']
+// "No sabía cómo hacerlo" es una falla del plan, no de la persona: le
+// llega a la coach como notificación y como alerta.
+export const SKIP_REASON_NEEDS_COACH = 'unclear'
+export const SKIP_NOTE_MAX = 280
 export const ENTRY_MODES = ['confirmed', 'edited']
 
 // Un registro declarado como "no lo hice".
@@ -94,9 +109,8 @@ export function dayStateFromTally(tally) {
   const resolved = done + skipped
   if (total === 0 || resolved === 0) return 'none'
   if (resolved < total) return 'open'
-  if (skipped > MAX_OMISSIONS_TO_CLOSE) return 'open'
   if (done === 0) return 'open' // todo omitido: no hay sesión que cerrar
-  return skipped === 0 ? 'complete' : 'partial'
+  return done / total >= COMPLETE_THRESHOLD ? 'complete' : 'partial'
 }
 
 // Un día cerrado (completo o parcial) cuenta como sesión.
@@ -117,17 +131,21 @@ export const SKIP_REASON_LABEL = {
   choice: 'Eligió no hacerlo',
   time: 'No llegó con el tiempo',
   discomfort: 'Le molestaba algo',
+  unclear: 'No sabía cómo hacerlo',
+  other: 'Otro motivo',
 }
 export const SKIP_REASON_SHORT = {
   choice: 'Eligió',
   time: 'Tiempo',
   discomfort: 'Molestia',
+  unclear: 'No sabía',
+  other: 'Otro',
 }
 
 export function summarizeEntries(logs) {
   const out = {
     skipped: 0,
-    byReason: { choice: 0, time: 0, discomfort: 0, unknown: 0 },
+    byReason: { choice: 0, time: 0, discomfort: 0, unclear: 0, other: 0, unknown: 0 },
     confirmed: 0,
     edited: 0,
   }
@@ -155,6 +173,8 @@ export function describeSkips(summary) {
   const by = summary.byReason || {}
   if (by.time) parts.push(`${by.time} por tiempo`)
   if (by.discomfort) parts.push(`${by.discomfort} por molestia`)
+  if (by.unclear) parts.push(`${by.unclear} por no saber cómo hacerlo`)
+  if (by.other) parts.push(`${by.other} por otro motivo`)
   if (by.choice) parts.push(`${by.choice} por elección`)
   if (by.unknown) parts.push(`${by.unknown} sin motivo`)
   const joined =

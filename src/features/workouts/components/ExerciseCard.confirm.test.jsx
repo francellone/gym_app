@@ -264,6 +264,59 @@ describe('NO LO HICE: el motivo guarda un omitido sin datos de ejecución', () =
     })
   })
 
+  it('ofrece cuatro motivos: tiempo, molestia, no sabía cómo y otro', async () => {
+    const user = userEvent.setup()
+    renderCard()
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /no lo hice/i }))
+    expect(screen.getByRole('button', { name: /no llegué con el tiempo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /me molestaba algo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /no sabía cómo hacerlo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /otro motivo/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /elegí no hacerlo/i })).not.toBeInTheDocument()
+  })
+
+  it('"Otro" guarda con la aclaración; sin texto guarda igual, con nota null', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard()
+    await expand(user)
+    await user.click(screen.getByRole('button', { name: /no lo hice/i }))
+    await user.click(screen.getByRole('button', { name: /otro motivo/i }))
+    await user.type(screen.getByPlaceholderText(/contanos/i), '  no había video  ')
+    await user.click(screen.getByRole('button', { name: /^guardar$/i }))
+    expect(onSaveLog.mock.calls[0][1]).toMatchObject({
+      p_status: 'skipped',
+      p_skip_reason: 'other',
+      p_skip_note: 'no había video',
+    })
+  })
+
+  it('"No sabía cómo hacerlo" guarda sin nota y avisa que la coach se enteró', async () => {
+    const user = userEvent.setup()
+    const { onSaveLog } = renderCard({
+      log: {
+        id: 'l1',
+        completed: false,
+        status: 'skipped',
+        skip_reason: 'unclear',
+        skip_note: null,
+      },
+    })
+    await expand(user)
+    expect(screen.getByText(/le avisamos a tu coach/i)).toBeInTheDocument()
+    expect(onSaveLog).not.toHaveBeenCalled()
+  })
+
+  it('en modo coach no dice que se le avisó (la registró ella)', async () => {
+    const user = userEvent.setup()
+    renderCard({
+      coachMode: true,
+      log: { id: 'l1', completed: false, status: 'skipped', skip_reason: 'unclear' },
+    })
+    await expand(user)
+    expect(screen.queryByText(/le avisamos a tu coach/i)).not.toBeInTheDocument()
+  })
+
   it('un log omitido se muestra como tal, con el motivo, y permite cambiar', async () => {
     const user = userEvent.setup()
     renderCard({

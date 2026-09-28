@@ -71,7 +71,9 @@
         "aerobic": "Aeróbico",
         "circuit": "Circuito",
         "exercise": "Ejercicio"
-      }
+      },
+      "byUnclear": "{{count}} por no saber cómo hacerlo",
+      "byOther": "{{count}} por otro motivo"
     },
     "patterns": {
       "title": "Trabajo principal por patrón de movimiento",

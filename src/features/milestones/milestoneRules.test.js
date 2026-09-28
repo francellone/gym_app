@@ -143,13 +143,18 @@ describe('closedSessionDates', () => {
     ])
   })
 
-  it('dos omisiones no cierran', () => {
+  it('con todo resuelto cierra aunque haya varias omisiones (regla 2026-09-28)', () => {
     const logs = [
       done('a1', '2026-09-05'),
       done('x1', '2026-09-05'),
       skipped('x2', '2026-09-05'),
       skipped('x3', '2026-09-05'),
     ]
+    expect(closedSessionDates({ activeDays, blocksBySection, logs })).toEqual(['2026-09-05'])
+  })
+
+  it('todo omitido no cierra', () => {
+    const logs = ['a1', 'x1', 'x2', 'x3'].map((id) => skipped(id, '2026-09-05'))
     expect(closedSessionDates({ activeDays, blocksBySection, logs })).toEqual([])
   })
 })

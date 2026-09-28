@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  MAX_OMISSIONS_TO_CLOSE,
+  COMPLETE_THRESHOLD,
   isLogSkipped,
   isLogDone,
   isLogResolved,
@@ -85,24 +85,26 @@ describe('mergeTallies', () => {
   })
 })
 
-describe('dayStateFromTally — la regla de cierre por conteo de omisiones', () => {
-  it('el umbral es una omisión', () => {
-    expect(MAX_OMISSIONS_TO_CLOSE).toBe(1)
+describe('dayStateFromTally — cierra con todo resuelto; ≥75% hecho es completo', () => {
+  it('el umbral de completo es 75%', () => {
+    expect(COMPLETE_THRESHOLD).toBe(0.75)
   })
 
   it('todo hecho → complete', () => {
     expect(dayStateFromTally({ total: 5, done: 5, skipped: 0 })).toBe('complete')
   })
 
-  it('una omisión y el resto hecho → partial (cierra igual: "4 de 5")', () => {
-    expect(dayStateFromTally({ total: 5, done: 4, skipped: 1 })).toBe('partial')
-    // También en días chicos: 3 de 4 con una omisión cierra.
-    expect(dayStateFromTally({ total: 4, done: 3, skipped: 1 })).toBe('partial')
+  it('con omisiones pero 75% o más hecho → complete', () => {
+    expect(dayStateFromTally({ total: 4, done: 3, skipped: 1 })).toBe('complete') // 75% justo
+    expect(dayStateFromTally({ total: 5, done: 4, skipped: 1 })).toBe('complete') // 80%
+    // El día de Franco del 28/9: activación 7 + Día A 5, omitió 2 de movilidad.
+    expect(dayStateFromTally({ total: 12, done: 10, skipped: 2 })).toBe('complete')
   })
 
-  it('dos o más omisiones → open, aunque todo esté resuelto', () => {
-    expect(dayStateFromTally({ total: 5, done: 3, skipped: 2 })).toBe('open')
-    expect(dayStateFromTally({ total: 5, done: 0, skipped: 5 })).toBe('open')
+  it('menos del 75% hecho → partial, pero CIERRA (no importa cuántas omisiones)', () => {
+    expect(dayStateFromTally({ total: 5, done: 3, skipped: 2 })).toBe('partial') // 60%
+    expect(dayStateFromTally({ total: 12, done: 1, skipped: 11 })).toBe('partial')
+    expect(isDayStateClosed(dayStateFromTally({ total: 5, done: 3, skipped: 2 }))).toBe(true)
   })
 
   it('algo sin resolver → open, con o sin omisiones', () => {
@@ -116,16 +118,9 @@ describe('dayStateFromTally — la regla de cierre por conteo de omisiones', () 
     expect(dayStateFromTally(null)).toBe('none')
   })
 
-  it('el caso que motivó contar en vez de porcentaje: 4 de 5 cierra', () => {
-    // Con "más del 80%" esto daba exactamente 80% y NO cerraba.
-    expect(isDayStateClosed(dayStateFromTally({ total: 5, done: 4, skipped: 1 }))).toBe(true)
-  })
-
-  it('un día de un solo ítem omitido NO cierra: "no hice nada" no es una sesión', () => {
-    // 1 omisión ≤ umbral y todo resuelto, pero cero hechos. Hay 13 días de
-    // plan con una sola unidad en producción; sin esta guarda, omitirla
-    // cerraba el día y sumaba a la adherencia semanal.
+  it('todo omitido NO cierra: "no hice nada" no es una sesión', () => {
     expect(dayStateFromTally({ total: 1, done: 0, skipped: 1 })).toBe('open')
+    expect(dayStateFromTally({ total: 5, done: 0, skipped: 5 })).toBe('open')
   })
 })
 
@@ -152,7 +147,14 @@ describe('summarizeEntries / describeSkips (etapa 5)', () => {
       { completed: false, status: 'skipped', skip_reason: 'discomfort' },
     ])
     expect(s.skipped).toBe(3)
-    expect(s.byReason).toEqual({ choice: 0, time: 2, discomfort: 1, unknown: 0 })
+    expect(s.byReason).toEqual({
+      choice: 0,
+      time: 2,
+      discomfort: 1,
+      unclear: 0,
+      other: 0,
+      unknown: 0,
+    })
     expect(s.withMode).toBe(4)
     expect(s.confirmedPct).toBe(75)
     expect(describeSkips(s)).toBe('3 omitidos: 2 por tiempo y 1 por molestia')

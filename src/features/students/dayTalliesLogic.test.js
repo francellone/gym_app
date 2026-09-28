@@ -349,6 +349,40 @@ function logsFor(date, ids) {
 }
 
 describe('computeDateCompleteness', () => {
+  // Regla 2026-09-28 (la misma que ve la persona): todo resuelto y ≥75%
+  // hecho sobre activación + día → completo; menos → parcial.
+  const skippedFor = (date, ids) =>
+    ids.map((id) => ({
+      logged_date: date,
+      plan_exercise_id: id,
+      completed: false,
+      status: 'skipped',
+    }))
+
+  it('con omisiones y 75% o más hecho → completo, igual que en la pantalla de la persona', () => {
+    const out = computeDateCompleteness({
+      logs: [
+        ...logsFor('2026-09-28', [...ACT.slice(2), ...DA]),
+        ...skippedFor('2026-09-28', ['a1', 'a2']),
+      ],
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-09-28')).toBe('complete')
+  })
+
+  it('todo resuelto pero menos del 75% hecho → parcial', () => {
+    const out = computeDateCompleteness({
+      logs: [
+        ...logsFor('2026-09-28', [...ACT.slice(4), 'pa1', 'pa2']),
+        ...skippedFor('2026-09-28', ['a1', 'a2', 'a3', 'a4', 'pa3', 'pa4']),
+      ],
+      planExercises: PLAN_ANDREA,
+      planBlocks: BLOCKS_ANDREA,
+    })
+    expect(out.get('2026-09-28')).toBe('partial')
+  })
+
   it('solo activación → parcial (el caso Andrea)', () => {
     const out = computeDateCompleteness({
       logs: logsFor('2026-08-21', ACT),

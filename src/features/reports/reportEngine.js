@@ -324,6 +324,7 @@ export function buildReport({
     .map((l) => ({
       date: l.logged_date,
       reason: l.skip_reason || null,
+      note: l.skip_note || null,
       // Sin nombre (bloque sin título) → null + `kind`: la pantalla pone el
       // genérico traducido ("Aeróbico" / "Aerobic").
       name: l.plan_exercise?.exercise?.name || l.plan_block?.title || null,

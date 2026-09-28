@@ -19,6 +19,7 @@ import {
 import { cascadeSetValue } from '@/features/plans/seriesCascade'
 import { expandPerSet, isUniformPerSet } from '@/features/plans/prescriptionRead'
 import { isLogDone, isLogSkipped, isLogResolved, SKIP_REASONS } from '../completionRules'
+import SkipReasonPicker, { SkippedReasonLines } from './SkipReasonPicker'
 import { PRESCRIPTION_FIELD_KEYS } from '@/features/plans/prescriptionHistory'
 import {
   displayReps,
@@ -523,6 +524,7 @@ export default function ExerciseCard({
       // v54
       p_status: 'done',
       p_skip_reason: null,
+      p_skip_note: null,
       p_entry_mode: entryMode,
       // Body del alumno para postWorkoutLogNote(). Underscore-prefijado
       // para distinguir de los p_* que van a la RPC; saveLog del padre
@@ -534,7 +536,7 @@ export default function ExerciseCard({
   // v54 — payload de "no lo hice": sin datos de ejecución (NULL, nunca 0),
   // completed=false, motivo obligatorio. La RPC rechaza cualquier dato de
   // ejecución con status=skipped, así que acá no se manda nada de eso.
-  function buildSkipData(reason) {
+  function buildSkipData(reason, note = null) {
     return {
       p_reps: null,
       p_weights: null,
@@ -548,6 +550,7 @@ export default function ExerciseCard({
       p_completed: false,
       p_status: 'skipped',
       p_skip_reason: reason,
+      p_skip_note: note || null,
       p_entry_mode: null,
       _noteBody: '',
     }
@@ -681,7 +684,7 @@ export default function ExerciseCard({
   }
 
   // v54 — NO LO HICE: el toque sobre el motivo guarda.
-  async function skipWith(reason) {
+  async function skipWith(reason, note = null) {
     if (!SKIP_REASONS.includes(reason)) return
     const prevAction = pendingAction
     const wasReopened = reopened
@@ -693,7 +696,7 @@ export default function ExerciseCard({
     setReopened(false)
     setSaving(true)
     try {
-      await onSaveLog(planEx.id, buildSkipData(reason))
+      await onSaveLog(planEx.id, buildSkipData(reason, note))
       clearDraft()
       setDraftHintDismissed(true)
     } catch (err) {
@@ -1210,33 +1213,12 @@ export default function ExerciseCard({
                     </button>
                   </div>
                 ) : pendingAction === 'skip' ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-700 font-medium">
-                      {tv('workout.skipReasonPrompt')}
-                    </p>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {SKIP_REASONS.map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          disabled={saving}
-                          onClick={() => skipWith(r)}
-                          className="btn-secondary text-sm text-left disabled:opacity-50"
-                        >
-                          {t(
-                            coachMode ? `workout.skipReasonCoach.${r}` : `workout.skipReason.${r}`
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPendingAction(null)}
-                      className="text-xs text-gray-500 underline underline-offset-2"
-                    >
-                      {t('common.cancel')}
-                    </button>
-                  </div>
+                  <SkipReasonPicker
+                    onPick={skipWith}
+                    onCancel={() => setPendingAction(null)}
+                    saving={saving}
+                    coachMode={coachMode}
+                  />
                 ) : (
                   <div className="grid grid-cols-1 gap-2">
                     {canConfirm && (
@@ -1558,15 +1540,11 @@ export default function ExerciseCard({
                   <MinusCircle size={13} />
                   {tv('workout.skippedCheck')}
                 </p>
-                {log?.skip_reason && (
-                  <p className="text-xs text-amber-700">
-                    {t(
-                      coachMode
-                        ? `workout.skipReasonCoach.${log.skip_reason}`
-                        : `workout.skipReason.${log.skip_reason}`
-                    )}
-                  </p>
-                )}
+                <SkippedReasonLines
+                  reason={log?.skip_reason}
+                  note={log?.skip_note}
+                  coachMode={coachMode}
+                />
                 <div className="flex items-center gap-3 pt-0.5">
                   <button
                     type="button"

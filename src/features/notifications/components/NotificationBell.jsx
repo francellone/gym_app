@@ -37,6 +37,7 @@ import {
   CalendarCheck,
   Trophy,
   Undo2,
+  HelpCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
@@ -120,6 +121,13 @@ const TYPE_CONFIG = {
     color: 'text-[#16a34a]',
     bg: 'bg-[#dcfce7]',
   },
+  // v59: la persona no supo cómo hacer un ejercicio → el plan necesita
+  // explicación. Ámbar: conviene mirarlo.
+  exercise_unclear: {
+    Icon: HelpCircle,
+    color: 'text-[#d97706]',
+    bg: 'bg-[#fef3c7]',
+  },
   personal_best_voided: {
     Icon: Undo2,
     color: 'text-[#d97706]',
@@ -148,6 +156,7 @@ const TYPE_CONFIG = {
  *     - profile_change           → perfil del alumno, tab Historial (Q6)
  *     - activity_update/session_completed/week_completed/plan_completed → perfil del alumno
  *     - personal_best_voided     → perfil del alumno, tab Progreso (v55)
+ *     - exercise_unclear         → perfil del alumno, tab Progreso (v59)
  *     - stagnation_alert         → perfil del alumno, tab Progreso (Anto 13a)
  *     - plan_expiring/form_submitted → perfil del alumno
  *   Sin destino (alerta interna): schema_health_alert.
@@ -182,6 +191,8 @@ export function getNotificationTargetUrl(notification) {
     case 'plan_completed':
       return data.student_id ? `/coach/students/${data.student_id}` : null
     case 'personal_best_voided':
+    case 'exercise_unclear':
+      // v59: en Progreso la celda del omitido muestra el motivo y la nota.
       return data.student_id ? `/coach/students/${data.student_id}?tab=progress` : null
     case 'evaluation_completed':
       // F1: el alumno cumplió una evaluación → perfil del alumno, tab

@@ -522,7 +522,9 @@
     "skipReason": {
       "choice": "Chose to skip it",
       "time": "Ran out of time",
-      "discomfort": "Something bothered me"
+      "discomfort": "Something bothered me",
+      "unclear": "Didn't know how to do it",
+      "other": "Other reason"
     },
     "confirmAsPrescribed": "Did it as set",
     "adjust": "Did it differently",
@@ -551,7 +553,9 @@
     "skipReasonCoach": {
       "choice": "Chose to skip it",
       "time": "Ran out of time",
-      "discomfort": "Something bothered them"
+      "discomfort": "Something bothered them",
+      "unclear": "Didn't know how to do it",
+      "other": "Other reason"
     },
     "confirmAsPrescribedCoach": "Did it as set",
     "adjustCoach": "Did it differently",
@@ -573,7 +577,11 @@
       "kg": "Is it {{value}} kg? Your best in this exercise is {{max}} kg. If it was a typo, fix it now.",
       "reps": "Is it {{value}} reps? Your best in this exercise is {{max}}. If it was a typo, fix it now.",
       "seconds": "Is it {{value}} seconds? Your best in this exercise is {{max}} s. If it was a typo, fix it now."
-    }
+    },
+    "skipNotePlaceholder": "Tell us briefly (optional)",
+    "skipNotePlaceholderCoach": "Note (optional)",
+    "skipNoteSave": "Save",
+    "skipUnclearNotice": "We let your coach know so they can explain it."
   },
   "progress": {
     "title": "My progress",
@@ -923,6 +931,13 @@
         "sessions_other": "{{count}} sessions",
         "rpeAvg": "{{rpe}} avg RPE",
         "rpeNone": "no RPE"
+      },
+      "exercise_unclear": {
+        "title": "{{name}} didn't know how to do an exercise",
+        "body": "{{item}} ({{date}})",
+        "bodyWithNote": "{{item}} ({{date}}): “{{note}}”",
+        "fallbackItem": "An exercise",
+        "fallbackName": "Someone"
       }
     }
   },

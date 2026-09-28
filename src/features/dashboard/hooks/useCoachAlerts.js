@@ -116,7 +116,7 @@ export default function useCoachAlerts() {
                 .order('id', { ascending: true })
                 .range(from, to)
             ),
-            // v54: bloques (circuito / aeróbico) omitidos por molestia. Solo
+            // v54/v59: bloques (circuito / aeróbico) omitidos por molestia o por no saber cómo. Solo
             // esos: el resto de las alertas sigue mirando workout_logs.
             fetchAllRows((from, to) =>
               supabase
@@ -126,7 +126,7 @@ export default function useCoachAlerts() {
                  block:plan_blocks!plan_block_id(title, block_type)`
                 )
                 .eq('status', 'skipped')
-                .eq('skip_reason', 'discomfort')
+                .in('skip_reason', ['discomfort', 'unclear'])
                 .gte('logged_date', ymdWellbeingSince)
                 .lte('logged_date', ymdToday)
                 .order('id', { ascending: true })
