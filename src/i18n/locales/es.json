@@ -138,7 +138,9 @@
       "system": "Automático",
       "light": "Claro",
       "dark": "Oscuro",
-      "hint": "Automático sigue la configuración de tu celular. Se guarda en este dispositivo."
+      "hint": "Automático sigue la configuración de tu celular. Se guarda en este dispositivo.",
+      "toDark": "Pasar a modo oscuro",
+      "toLight": "Pasar a modo claro"
     }
   },
   "dashboard": {

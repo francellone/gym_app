@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
+import ThemeToggleButton from '@/components/ThemeToggleButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
 import PendingFormsBanner from '@/features/forms/components/PendingFormsBanner'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
@@ -40,7 +41,10 @@ export default function StudentLayout() {
             </div>
             <span className="font-bold text-tinta text-sm">GymCoach</span>
           </div>
-          <NotificationBell userId={profile?.id} theme="light" />
+          <div className="flex items-center gap-1">
+            <ThemeToggleButton />
+            <NotificationBell userId={profile?.id} theme="light" />
+          </div>
         </header>
 
         {/* Main content (ajustado por el header fijo) */}

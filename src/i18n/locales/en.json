@@ -138,7 +138,9 @@
       "system": "Automatic",
       "light": "Light",
       "dark": "Dark",
-      "hint": "Automatic follows your phone's setting. Saved on this device."
+      "hint": "Automatic follows your phone's setting. Saved on this device.",
+      "toDark": "Switch to dark mode",
+      "toLight": "Switch to light mode"
     }
   },
   "dashboard": {

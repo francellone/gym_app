@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
+import ThemeToggleButton from '@/components/ThemeToggleButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
 import { useTranslation } from 'react-i18next'
 import AvatarImage from '@/features/avatars/AvatarImage'
@@ -83,7 +84,10 @@ export default function CoachLayout() {
             <span className="text-xs text-texto2 font-medium">
               {t('coach.layout.notifications')}
             </span>
-            <NotificationBell userId={profile?.id} theme="light" placement="right" />
+            <div className="flex items-center">
+              <ThemeToggleButton />
+              <NotificationBell userId={profile?.id} theme="light" placement="right" />
+            </div>
           </div>
           <Link
             to="/coach/profile"
@@ -122,6 +126,7 @@ export default function CoachLayout() {
           <span className="font-bold text-tinta text-sm">GymCoach</span>
         </div>
         <div className="flex items-center gap-1">
+          <ThemeToggleButton />
           <NotificationBell userId={profile?.id} theme="light" />
           <button
             onClick={() => setMenuOpen(!menuOpen)}
