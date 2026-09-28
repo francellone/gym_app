@@ -216,15 +216,17 @@ export function isWeekComplete(adherence) {
 // larga de lo que entrenó.
 //
 // Toma `created_at` (cuándo se cargó), no `updated_at`: corregir un
-// registro al día siguiente no debe estirar la sesión. Un registro recién
-// proyectado en el front todavía no tiene created_at → cuenta como "ahora".
-// Devuelve ISO string, o null si no hay nada cargado.
+// registro al día siguiente no debe estirar la sesión. Una fila SIN
+// created_at se ignora (antes contaba como "ahora" y bastaba una para que
+// la hora de fin volviera a ser la del PSE): las proyecciones del front
+// ya nacen con created_at.
+// Devuelve ISO string, o null si no hay nada cargado con hora.
 // ============================================================
-export function lastEntryAt({ logs, blockLogs, now = new Date() } = {}) {
+export function lastEntryAt({ logs, blockLogs } = {}) {
   let max = null
   const consider = (row) => {
-    if (!row || !isLogResolved(row)) return
-    const ts = row.created_at ? new Date(row.created_at) : now
+    if (!row || !isLogResolved(row) || !row.created_at) return
+    const ts = new Date(row.created_at)
     if (Number.isNaN(ts.getTime())) return
     if (!max || ts > max) max = ts
   }

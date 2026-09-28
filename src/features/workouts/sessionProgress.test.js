@@ -514,13 +514,12 @@ describe('lastEntryAt — hora de fin = última carga del día', () => {
     expect(lastEntryAt({})).toBeNull()
   })
 
-  it('un registro recién proyectado (sin created_at) cuenta como ahora', async () => {
+  it('una fila sin created_at se ignora (no vuelve a ser "ahora")', async () => {
     const { lastEntryAt } = await import('./sessionProgress')
-    const now = new Date('2026-09-28T20:00:00Z')
     const logs = {
-      a: { completed: true, status: 'done', created_at: '2026-09-28T19:00:00Z' },
+      a: { completed: true, status: 'done', created_at: '2026-09-28T19:37:55Z' },
       b: { completed: true, status: 'done' },
     }
-    expect(lastEntryAt({ logs, now })).toBe('2026-09-28T20:00:00.000Z')
+    expect(lastEntryAt({ logs })).toBe('2026-09-28T19:37:55.000Z')
   })
 })

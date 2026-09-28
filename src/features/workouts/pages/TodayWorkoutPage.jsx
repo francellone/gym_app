@@ -121,6 +121,8 @@ function projectWorkoutLog({ existingLog, rpcArgs, noteBody, source, loggedBy })
     : null
   return {
     ...(existingLog || {}),
+    // Hora de carga (la usa lastEntryAt para el fin de la sesión).
+    created_at: existingLog?.created_at ?? new Date().toISOString(),
     student_id: rpcArgs.p_student_id,
     plan_id: rpcArgs.p_plan_id,
     plan_exercise_id: rpcArgs.p_plan_exercise_id,
@@ -948,6 +950,8 @@ export default function TodayWorkoutPage() {
     const projected = {
       ...(existing || {}),
       ...dataForDb,
+      // Hora de carga (la usa lastEntryAt para el fin de la sesión).
+      created_at: existing?.created_at ?? new Date().toISOString(),
       student_id: studentId,
       plan_id: assignment?.plan_id ?? existing?.plan_id ?? null,
       plan_block_id: planBlockId,
