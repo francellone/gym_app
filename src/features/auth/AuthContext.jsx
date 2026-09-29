@@ -32,6 +32,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(initialAuth?.user ?? null)
   const [profile, setProfile] = useState(initialAuth?.profile ?? null)
   const [loading, setLoading] = useState(!initialAuth)
+  // v65: sesión abierta pero sin fila en profiles = se registró sola y todavía
+  // no hizo el alta (persona / coach / ambas). App la manda a /onboarding.
+  const [profileMissing, setProfileMissing] = useState(false)
   // Ref al user más reciente para poder snapshotear (id + email) en fetchProfile.
   const userRef = useRef(initialAuth?.user ?? null)
 
@@ -76,6 +79,7 @@ export function AuthProvider({ children }) {
         }
       } else {
         setProfile(null)
+        setProfileMissing(false)
         setLoading(false)
         // logout → limpiar snapshots y volver al default pre-login
         clearAuthSnapshot()
@@ -91,9 +95,18 @@ export function AuthProvider({ children }) {
     const userId = userObj?.id
     if (!userId) return
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
 
-      if (!error) {
+      if (!error && !data) {
+        setProfile(null)
+        setProfileMissing(true)
+        clearAuthSnapshot()
+      } else if (!error) {
+        setProfileMissing(false)
         setProfile(data)
         // Persistir el snapshot para el próximo pintado instantáneo.
         writeAuthSnapshot({ user: userRef.current || userObj, profile: data })
@@ -145,6 +158,7 @@ export function AuthProvider({ children }) {
       userRef.current = null
       setUser(null)
       setProfile(null)
+      setProfileMissing(false)
     }
   }
 
@@ -153,7 +167,9 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ user, profile, profileMissing, loading, signIn, signOut, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   )

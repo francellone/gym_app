@@ -24,6 +24,8 @@ import {
 } from '@/features/plans/helpers'
 
 // LoginPage usa useAuth → mock directo (mismo patrón que LoginPage.test.jsx)
+import { MemoryRouter } from 'react-router-dom'
+
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({ signIn: vi.fn(), user: null, profile: null, loading: false }),
 }))
@@ -70,7 +72,11 @@ describe('vista del alumno en inglés (smoke)', () => {
   })
 
   it('LoginPage no muestra español', () => {
-    const { container } = render(<LoginPage />)
+    const { container } = render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    )
     expectEnglishOnly(container, 'LoginPage')
   })
 

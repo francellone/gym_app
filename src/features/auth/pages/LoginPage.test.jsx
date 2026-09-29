@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 
 // Mock del AuthContext antes del import de LoginPage
 const signIn = vi.fn()
@@ -19,7 +20,13 @@ vi.mock('../AuthContext', () => ({
   useAuth: () => ({ signIn, user: null, profile: null, loading: false }),
 }))
 
-const { default: LoginPage } = await import('./LoginPage')
+const { default: LoginPageRaw } = await import('./LoginPage')
+// LoginPage tiene links (crear cuenta, olvidé mi contraseña): necesita router.
+const LoginPage = () => (
+  <MemoryRouter>
+    <LoginPageRaw />
+  </MemoryRouter>
+)
 
 describe('LoginPage', () => {
   beforeEach(() => {
@@ -101,5 +108,14 @@ describe('LoginPage', () => {
       resolveSignIn({ user: { id: 'u1' } })
     })
     await waitFor(() => expect(submit).not.toBeDisabled())
+  })
+
+  it('ofrece crear cuenta y recuperar la contraseña', () => {
+    render(<LoginPage />)
+    expect(screen.getByRole('link', { name: /creala/i })).toHaveAttribute('href', '/signup')
+    expect(screen.getByRole('link', { name: /olvidé mi contraseña/i })).toHaveAttribute(
+      'href',
+      '/forgot-password'
+    )
   })
 })

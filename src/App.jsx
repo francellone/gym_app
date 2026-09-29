@@ -4,6 +4,12 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 
 // Pages
 import LoginPage from '@/features/auth/pages/LoginPage'
+import SignupPage from '@/features/auth/pages/SignupPage'
+import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
+import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage'
+import OnboardingPage from '@/features/auth/pages/OnboardingPage'
+import JoinInvitePage from '@/features/auth/pages/JoinInvitePage'
+import { homePathFor } from '@/features/auth/authLinks'
 
 // Recuerda/restaura la última pantalla al reabrir la app (opción A)
 import RouteMemory from '@/features/navigation/RouteMemory'
@@ -42,9 +48,26 @@ import FormsListPage from '@/features/forms/pages/FormsListPage'
 import FollowUpFormPage from '@/features/forms/pages/FollowUpFormPage'
 import NotesPage from '@/features/notes/pages/StudentNotesPage'
 
+function FullScreenSpinner({ label }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm">{label}</p>
+      </div>
+    </div>
+  )
+}
+
 function PrivateRoute({ children, requiredRole }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileMissing, loading } = useAuth()
   const { t } = useTranslation()
+
+  // Sesión abierta con el perfil todavía en camino: esperar en vez de
+  // redirigir por un rol que aún no se conoce.
+  if (!loading && user && !profile && !profileMissing) {
+    return <FullScreenSpinner label={t('common.loading')} />
+  }
 
   if (loading) {
     return (
@@ -59,15 +82,17 @@ function PrivateRoute({ children, requiredRole }) {
 
   if (!user) return <Navigate to="/login" replace />
 
+  if (profileMissing) return <Navigate to="/onboarding" replace />
+
   if (requiredRole && profile?.role !== requiredRole) {
-    return <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
+    return <Navigate to={homePathFor(profile, profileMissing)} replace />
   }
 
   return children
 }
 
 function AppRoutes() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileMissing, loading } = useAuth()
   const { t } = useTranslation()
 
   if (loading) {
@@ -86,10 +111,31 @@ function AppRoutes() {
       <Route
         path="/login"
         element={
-          user ? (
-            <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
+          user ? <Navigate to={homePathFor(profile, profileMissing)} replace /> : <LoginPage />
+        }
+      />
+
+      {/* v65 — registro propio, recuperación de contraseña y link de invitación */}
+      <Route
+        path="/signup"
+        element={
+          user ? <Navigate to={homePathFor(profile, profileMissing)} replace /> : <SignupPage />
+        }
+      />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/unirme/:code" element={<JoinInvitePage />} />
+      <Route
+        path="/onboarding"
+        element={
+          !user ? (
+            <Navigate to="/login" replace />
+          ) : profileMissing ? (
+            <OnboardingPage />
+          ) : profile ? (
+            <Navigate to={homePathFor(profile, false)} replace />
           ) : (
-            <LoginPage />
+            <FullScreenSpinner label={t('common.loading')} />
           )
         }
       />
@@ -207,7 +253,7 @@ function AppRoutes() {
         path="/"
         element={
           user ? (
-            <Navigate to={profile?.role === 'coach' ? '/coach' : '/student'} replace />
+            <Navigate to={homePathFor(profile, profileMissing)} replace />
           ) : (
             <Navigate to="/login" replace />
           )
