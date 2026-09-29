@@ -22,6 +22,8 @@ import WellbeingStatusBadge from '@/features/wellbeing/components/WellbeingStatu
 import { summarizeByStudent, formatYMD } from '@/features/wellbeing/wellbeingSummaryLogic'
 import { ALERT_THRESHOLDS } from '@/features/dashboard/alerts'
 import AvatarImage from '@/features/avatars/AvatarImage'
+import CoachInviteCard from '../components/CoachInviteCard'
+import LinkRequestsPanel from '../components/LinkRequestsPanel'
 
 export default function StudentsPage() {
   const { profile } = useAuth()
@@ -213,6 +215,10 @@ export default function StudentsPage() {
           <span className="hidden sm:inline">{t('coach.students.list.newStudent')}</span>
         </Link>
       </div>
+
+      {/* v65: pedidos de quienes entraron por el link + el link para compartir */}
+      <LinkRequestsPanel onAccepted={fetchStudents} />
+      <CoachInviteCard />
 
       {/* v40: filtro de estado del perfil (default: solo activos) */}
       <div className="flex items-center gap-2">

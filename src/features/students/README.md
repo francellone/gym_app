@@ -27,6 +27,7 @@ students/
 ```
 
 > Los tabs que viven en OTRAS features pero se montan dentro de `StudentDetailPage`:
+>
 > - `StudentPlansTab` → `features/plans/pages/`
 > - `StudentEvaluationsTab` → `features/evaluations/pages/`
 > - `StudentNotesTab` → `features/notes/pages/`
@@ -34,12 +35,12 @@ students/
 
 ## Quién consume
 
-| Consumidor | Importa |
-|---|---|
-| `src/App.jsx` | `StudentsPage`, `StudentDetailPage`, `CreateStudentPage` |
-| Internamente | `StudentDetailPage` monta los 5 tabs locales + los 4 cross-feature |
-| `features/plans/pages/PlanProgressTab.jsx` | `StudentProgressTableView` (vista compartida) |
-| `src/pages/student/StudentDashboard.jsx` | `dashboardLogic` (computeStreak, computeWeekTrainingDays, filterTrainingLogs) — cuando StudentDashboard se mueva a `features/dashboard/`, este import sigue igual con el alias |
+| Consumidor                                 | Importa                                                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/App.jsx`                              | `StudentsPage`, `StudentDetailPage`, `CreateStudentPage`                                                                                                                       |
+| Internamente                               | `StudentDetailPage` monta los 5 tabs locales + los 4 cross-feature                                                                                                             |
+| `features/plans/pages/PlanProgressTab.jsx` | `StudentProgressTableView` (vista compartida)                                                                                                                                  |
+| `src/pages/student/StudentDashboard.jsx`   | `dashboardLogic` (computeStreak, computeWeekTrainingDays, filterTrainingLogs) — cuando StudentDashboard se mueva a `features/dashboard/`, este import sigue igual con el alias |
 
 Importar con alias:
 
@@ -57,6 +58,7 @@ import { computeStreak } from '@/features/students/dashboardLogic'
 Tabla principal: **`profiles`** (14 filas al 2026-05-20). Sin policy `DELETE` por diseño — "borrar" = `active=false` + `is_test=true`. Comentarios completos en `supabase/README.md`.
 
 Tablas secundarias del módulo:
+
 - **`student_edit_history`** (21 filas) — auditoría automática vía trigger `audit_profile_changes`.
 - **`profiles.last_payment_date`, `next_payment_due`, `payment_notes`** (3 columnas agregadas por la migración `add_payment_tracking.sql` el 04/2026) — alimentan `getPaymentStatus`. Vencimiento del PAGO.
 - **`payments`** (v49) — historial de cobros con RLS de coach (el alumno no ve ni una fila). `profiles.last_payment_date` y `next_payment_due` son CACHÉ que mantiene el trigger `trg_payments_sync_profile`: no se escriben a mano. Dos pagos del mismo alumno no pueden solapar períodos (`payments_no_overlap`, error 23P01 traducido en `payments.js`). `profiles.payment_notes` quedó vacía y se elimina en la v50.
@@ -64,6 +66,7 @@ Tablas secundarias del módulo:
 - **`intake_form_assignments`** + **`intake_form_submissions`** — el detalle del alumno trae el último submission para mostrar las respuestas del intake.
 
 Edge function relacionada:
+
 - **`create-student`** — sign-up + creación de `profiles` sin tocar la sesión del coach. Usada por `CreateStudentPage`.
 
 ## Reglas que NO se rompen
@@ -81,9 +84,9 @@ Edge function relacionada:
 
 ## Tamaño y deuda
 
-| Archivo | LOC | Deuda |
-|---|--:|---|
-| `tabs/StudentProgressTab.jsx` | 798 | Mucha lógica de filtrado y gráficos — candidato a partir en sub-componentes por tipo de chart. |
-| `components/StudentProgressTableView.jsx` | 1021 | Tabla pivot compleja. Si crece más, partir filas/columnas/render en componentes. |
-| `pages/StudentDetailPage.jsx` | ~270 | Razonable. Es sólo orquestación. |
-| `tabs/StudentInfoTab.jsx` | 779 | Datos personales + edit form + intake summary — partir en cards. |
+| Archivo                                   |  LOC | Deuda                                                                                          |
+| ----------------------------------------- | ---: | ---------------------------------------------------------------------------------------------- |
+| `tabs/StudentProgressTab.jsx`             |  798 | Mucha lógica de filtrado y gráficos — candidato a partir en sub-componentes por tipo de chart. |
+| `components/StudentProgressTableView.jsx` | 1021 | Tabla pivot compleja. Si crece más, partir filas/columnas/render en componentes.               |
+| `pages/StudentDetailPage.jsx`             | ~270 | Razonable. Es sólo orquestación.                                                               |
+| `tabs/StudentInfoTab.jsx`                 |  779 | Datos personales + edit form + intake summary — partir en cards.                               |

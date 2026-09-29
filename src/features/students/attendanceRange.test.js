@@ -30,7 +30,9 @@ describe('rango de asistencia', () => {
   it('incluye el día de hoy en la última semana', () => {
     for (const dia of DIAS) {
       const hoy = new Date(dia)
-      const ultima = attendanceWeeks(hoy).at(-1).map((d) => format(d, 'yyyy-MM-dd'))
+      const ultima = attendanceWeeks(hoy)
+        .at(-1)
+        .map((d) => format(d, 'yyyy-MM-dd'))
       expect(ultima).toContain(format(hoy, 'yyyy-MM-dd'))
     }
   })

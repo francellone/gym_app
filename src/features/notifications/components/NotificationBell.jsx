@@ -38,6 +38,8 @@ import {
   Trophy,
   Undo2,
   HelpCircle,
+  UserPlus,
+  UserX,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
@@ -128,6 +130,22 @@ const TYPE_CONFIG = {
     color: 'text-amber-600',
     bg: 'bg-amber-100',
   },
+  // v65: vínculo persona ↔ coach
+  coach_link_request: {
+    Icon: UserPlus,
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
+  },
+  coach_link_accepted: {
+    Icon: UserCheck,
+    color: 'text-green-600',
+    bg: 'bg-green-100',
+  },
+  coach_link_rejected: {
+    Icon: UserX,
+    color: 'text-texto2',
+    bg: 'bg-gray-100',
+  },
   personal_best_voided: {
     Icon: Undo2,
     color: 'text-amber-600',
@@ -178,8 +196,14 @@ export function getNotificationTargetUrl(notification) {
       return '/student/workout'
     case 'weekly_summary':
       return '/student/progress'
+    case 'coach_link_accepted':
+    case 'coach_link_rejected':
+      return '/student'
 
     // ── Notificaciones al COACH ───────────────────────────────
+    case 'coach_link_request':
+      // v65: la lista de personas muestra los pedidos pendientes arriba.
+      return '/coach/students'
     case 'student_note':
       return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
     case 'profile_change':

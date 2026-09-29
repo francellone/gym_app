@@ -947,6 +947,21 @@
         "bodyWithNote": "{{item}} ({{date}}): “{{note}}”",
         "fallbackItem": "An exercise",
         "fallbackName": "Someone"
+      },
+      "coach_link_request": {
+        "title": "{{name}} wants to join",
+        "body": "Accept or decline the request from your people list.",
+        "fallbackName": "Someone"
+      },
+      "coach_link_accepted": {
+        "title": "{{coach}} accepted your request",
+        "body": "You're on the same team now.",
+        "fallbackCoach": "Your coach"
+      },
+      "coach_link_rejected": {
+        "title": "{{coach}} didn't accept your request",
+        "body": "You can keep training on your own.",
+        "fallbackCoach": "The coach"
       }
     }
   },

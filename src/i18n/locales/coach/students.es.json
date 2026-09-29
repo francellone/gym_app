@@ -608,5 +608,25 @@
     "langEn": "inglés",
     "message": "¡Hola {{name}}! Ya tenés tu cuenta en la app de entrenamiento de {{coach}}.\n\nEntrá desde acá: {{url}}\nUsuario: {{email}}\nContraseña: {{password}}\n\nCuando entres, podés cambiar la contraseña desde tu perfil. Para usarla como una app, desde el navegador elegí \"Agregar a pantalla de inicio\".",
     "messageNoCoach": "¡Hola {{name}}! Ya tenés tu cuenta en la app de entrenamiento.\n\nEntrá desde acá: {{url}}\nUsuario: {{email}}\nContraseña: {{password}}\n\nCuando entres, podés cambiar la contraseña desde tu perfil. Para usarla como una app, desde el navegador elegí \"Agregar a pantalla de inicio\"."
+  },
+  "invite": {
+    "title": "Tu link de invitación",
+    "hint": "Compartilo con quien quiera entrenar con vos. Cuando se registre te llega un pedido para aceptar o rechazar.",
+    "copy": "Copiar link",
+    "renew": "Renovar link",
+    "renewConfirm": "El link actual deja de funcionar.",
+    "renewYes": "Renovar",
+    "shareMessage": "¡Hola! Para entrenar conmigo, creá tu cuenta en la app desde este link: {{link}}"
+  },
+  "linkRequests": {
+    "title_one": "{{count}} persona quiere sumarse",
+    "title_other": "{{count}} personas quieren sumarse",
+    "sharesHistory": "Comparte lo que entrenó antes",
+    "noHistory": "Solo vas a ver lo que entrene desde que aceptes",
+    "accept": "Aceptar a {{name}}",
+    "reject": "Rechazar a {{name}}",
+    "acceptShort": "Aceptar",
+    "rejectShort": "Rechazar",
+    "error": "No se pudo guardar. Probá de nuevo."
   }
 }

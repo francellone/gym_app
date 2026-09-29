@@ -947,6 +947,21 @@
         "bodyWithNote": "{{item}} ({{date}}): «{{note}}»",
         "fallbackItem": "Un ejercicio",
         "fallbackName": "Una persona"
+      },
+      "coach_link_request": {
+        "title": "{{name}} quiere sumarse",
+        "body": "Aceptá o rechazá el pedido desde tu lista de personas.",
+        "fallbackName": "Alguien"
+      },
+      "coach_link_accepted": {
+        "title": "{{coach}} aceptó tu pedido",
+        "body": "Ya forman parte del mismo equipo.",
+        "fallbackCoach": "Tu coach"
+      },
+      "coach_link_rejected": {
+        "title": "{{coach}} no aceptó tu pedido",
+        "body": "Podés seguir entrenando por tu cuenta.",
+        "fallbackCoach": "La coach"
       }
     }
   },

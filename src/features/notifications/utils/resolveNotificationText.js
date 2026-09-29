@@ -57,6 +57,14 @@ export function resolveNotificationText(notification, t) {
   // tiene inglés): se resuelve por payload como los del alumno.
   if (type === 'exercise_unclear') return resolveExerciseUnclear(notification, t, fallback)
 
+  // v65: vínculo persona ↔ coach, en el idioma de quien lo lee.
+  if (
+    type === 'coach_link_request' ||
+    type === 'coach_link_accepted' ||
+    type === 'coach_link_rejected'
+  )
+    return resolveCoachLink(notification, t)
+
   if (!STUDENT_TYPES.has(type)) return fallback
 
   const data = notification.data || {}
@@ -123,5 +131,21 @@ function resolveExerciseUnclear(notification, t, fallback) {
     body: data.skip_note
       ? t(k('bodyWithNote'), { item, date, note: data.skip_note })
       : t(k('body'), { item, date }),
+  }
+}
+
+// "Ana quiere sumarse" (a la coach) / "Anto aceptó tu pedido" (a la persona)
+function resolveCoachLink(notification, t) {
+  const data = notification.data || {}
+  const k = (suffix) => `notifications.types.${notification.type}.${suffix}`
+  if (notification.type === 'coach_link_request') {
+    return {
+      title: t(k('title'), { name: data.student_name || t(k('fallbackName')) }),
+      body: t(k('body')),
+    }
+  }
+  return {
+    title: t(k('title'), { coach: data.coach_name || t(k('fallbackCoach')) }),
+    body: t(k('body')),
   }
 }

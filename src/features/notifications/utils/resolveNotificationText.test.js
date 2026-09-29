@@ -222,3 +222,25 @@ describe('exercise_unclear', () => {
     expect(r.title).toBe('Título guardado en BD')
   })
 })
+
+describe('v65 — vínculo persona ↔ coach', () => {
+  it('a la coach, con el nombre de quien pide', async () => {
+    const { default: i18n } = await import('@/i18n')
+    const t = i18n.getFixedT('es')
+    const r = resolveNotificationText(
+      { type: 'coach_link_request', title: 'x', body: 'y', data: { student_name: 'Ana' } },
+      t
+    )
+    expect(r.title).toBe('Ana quiere sumarse')
+  })
+
+  it('a la persona, en su idioma', async () => {
+    const { default: i18n } = await import('@/i18n')
+    const t = i18n.getFixedT('en')
+    const r = resolveNotificationText(
+      { type: 'coach_link_accepted', title: 'x', body: 'y', data: { coach_name: 'Anto' } },
+      t
+    )
+    expect(r.title).toBe('Anto accepted your request')
+  })
+})

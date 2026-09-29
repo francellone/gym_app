@@ -608,5 +608,25 @@
     "langEn": "English",
     "message": "Hi {{name}}! Your account for {{coach}}'s training app is ready.\n\nOpen it here: {{url}}\nUser: {{email}}\nPassword: {{password}}\n\nAfter you log in, you can change your password from your profile. To use it like an app, choose \"Add to Home Screen\" in your browser.",
     "messageNoCoach": "Hi {{name}}! Your training app account is ready.\n\nOpen it here: {{url}}\nUser: {{email}}\nPassword: {{password}}\n\nAfter you log in, you can change your password from your profile. To use it like an app, choose \"Add to Home Screen\" in your browser."
+  },
+  "invite": {
+    "title": "Your invitation link",
+    "hint": "Share it with anyone who wants to train with you. When they sign up, you get a request to accept or decline.",
+    "copy": "Copy link",
+    "renew": "Renew link",
+    "renewConfirm": "The current link will stop working.",
+    "renewYes": "Renew",
+    "shareMessage": "Hi! To train with me, create your account in the app from this link: {{link}}"
+  },
+  "linkRequests": {
+    "title_one": "{{count}} person wants to join",
+    "title_other": "{{count}} people want to join",
+    "sharesHistory": "Shares what they trained before",
+    "noHistory": "You will only see what they train after you accept",
+    "accept": "Accept {{name}}",
+    "reject": "Decline {{name}}",
+    "acceptShort": "Accept",
+    "rejectShort": "Decline",
+    "error": "Couldn't save. Please try again."
   }
 }
