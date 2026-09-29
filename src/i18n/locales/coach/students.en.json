@@ -593,5 +593,20 @@
       "worse": "dropping",
       "noPrev": "no previous"
     }
+  },
+  "welcome": {
+    "title": "Account created",
+    "subtitle": "Send this message to {{name}}. It is in {{language}}, the language you chose for their app.",
+    "passwordOnce": "The password is only shown now. If you lose it, you can change it from their profile.",
+    "copy": "Copy message",
+    "copied": "Copied!",
+    "whatsapp": "Send via WhatsApp",
+    "viewProfile": "View profile",
+    "createAnother": "Create another account",
+    "backToList": "Back to the list",
+    "langEs": "Spanish",
+    "langEn": "English",
+    "message": "Hi {{name}}! Your account for {{coach}}'s training app is ready.\n\nOpen it here: {{url}}\nUser: {{email}}\nPassword: {{password}}\n\nAfter you log in, you can change your password from your profile. To use it like an app, choose \"Add to Home Screen\" in your browser.",
+    "messageNoCoach": "Hi {{name}}! Your training app account is ready.\n\nOpen it here: {{url}}\nUser: {{email}}\nPassword: {{password}}\n\nAfter you log in, you can change your password from your profile. To use it like an app, choose \"Add to Home Screen\" in your browser."
   }
 }

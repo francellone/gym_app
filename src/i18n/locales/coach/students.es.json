@@ -593,5 +593,20 @@
       "worse": "baja",
       "noPrev": "sin previo"
     }
+  },
+  "welcome": {
+    "title": "Cuenta creada",
+    "subtitle": "Mandale este mensaje a {{name}}. Está en {{language}}, el idioma que elegiste para su app.",
+    "passwordOnce": "La contraseña se muestra solo ahora. Si la perdés, la podés cambiar desde su ficha.",
+    "copy": "Copiar mensaje",
+    "copied": "¡Copiado!",
+    "whatsapp": "Mandar por WhatsApp",
+    "viewProfile": "Ver su ficha",
+    "createAnother": "Crear otra cuenta",
+    "backToList": "Volver a la lista",
+    "langEs": "español",
+    "langEn": "inglés",
+    "message": "¡Hola {{name}}! Ya tenés tu cuenta en la app de entrenamiento de {{coach}}.\n\nEntrá desde acá: {{url}}\nUsuario: {{email}}\nContraseña: {{password}}\n\nCuando entres, podés cambiar la contraseña desde tu perfil. Para usarla como una app, desde el navegador elegí \"Agregar a pantalla de inicio\".",
+    "messageNoCoach": "¡Hola {{name}}! Ya tenés tu cuenta en la app de entrenamiento.\n\nEntrá desde acá: {{url}}\nUsuario: {{email}}\nContraseña: {{password}}\n\nCuando entres, podés cambiar la contraseña desde tu perfil. Para usarla como una app, desde el navegador elegí \"Agregar a pantalla de inicio\"."
   }
 }
