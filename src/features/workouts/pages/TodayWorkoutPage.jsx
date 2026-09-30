@@ -70,6 +70,8 @@ import ExerciseChatDrawer from '../components/ExerciseChatDrawer'
 import useSaveErrorBanner from '../hooks/useSaveErrorBanner'
 import { pseColor } from '../helpers'
 import WellbeingModal from '@/features/wellbeing/components/WellbeingModal'
+import SelfTrainingActions from '@/features/selfTraining/components/SelfTrainingActions'
+import { isSelfCoached } from '@/features/selfTraining/api'
 import { computeDayTallies, formatTallyForDisplay } from '@/features/students/dayTalliesLogic'
 import {
   pickLastLogPerExercise,
@@ -164,6 +166,8 @@ export default function TodayWorkoutPage() {
   // source='coach' + logged_by=auth.uid() para inserts de coach.
   const { id: routeStudentId } = useParams()
   const coachMode = Boolean(routeStudentId)
+  // v68: la persona entrena sin coach (en modo coach, profile es la coach).
+  const selfCoached = !coachMode && isSelfCoached(profile)
   const studentId = routeStudentId || profile?.id
   // v35 — autoría real de las notas mirror (comentarios del registro).
   // Antes se hardcodeaba la alumna: en modo coach la RLS rechazaba el INSERT
@@ -1388,8 +1392,17 @@ export default function TodayWorkoutPage() {
         <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Dumbbell className="w-8 h-8 text-gray-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">{t('workout.noPlanTitle')}</h2>
-        <p className="text-gray-500 text-sm">{t('workout.noPlanBody')}</p>
+        <h2 className="text-lg font-bold text-gray-900 mb-2">
+          {selfCoached ? t('selfTraining.today.title') : t('workout.noPlanTitle')}
+        </h2>
+        <p className="text-gray-500 text-sm">
+          {selfCoached ? t('selfTraining.today.body') : t('workout.noPlanBody')}
+        </p>
+        {selfCoached && (
+          <div className="mt-5 text-left">
+            <SelfTrainingActions compact />
+          </div>
+        )}
       </div>
     )
 

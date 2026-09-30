@@ -6,6 +6,7 @@ import {
   INTENSITY_LEVELS,
   EXERCISE_MODES,
   WEIGHT_MODES,
+  WEIGHT_MODES_LOGGABLE,
   WEIGHT_MODE_BY_KEY,
   emptyCircuitExercise,
   getEffectiveWeightMode,
@@ -25,6 +26,7 @@ import StudentExerciseHistoryLine from '../StudentExerciseHistoryLine'
  */
 export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises }) {
   const { t } = useTranslation()
+  const { basic } = usePlanTargetPerson()
   const circuitType = block.circuit_type || 'hiit'
   const list = block.exercises || []
 
@@ -168,32 +170,34 @@ export default function CircuitBlockEditor({ block, onUpdate, onUpdateExercises 
       </div>
 
       {/* Todo el circuito al X% del máximo (lo heredan los ejercicios) */}
-      <div>
-        <label className="text-xs text-gray-500 mb-1 block">
-          {t('coach.planEditor.circuitBlock.blockPct')}
-        </label>
-        <div className="relative">
-          <input
-            type="number"
-            min="1"
-            max="200"
-            step="1"
-            className="input text-sm pr-7"
-            placeholder={t('coach.planEditor.circuitBlock.blockPctPlaceholder')}
-            value={block.default_pct_1rm || ''}
-            onChange={(e) => onUpdate({ default_pct_1rm: e.target.value })}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-            %
-          </span>
+      {!basic && (
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">
+            {t('coach.planEditor.circuitBlock.blockPct')}
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              min="1"
+              max="200"
+              step="1"
+              className="input text-sm pr-7"
+              placeholder={t('coach.planEditor.circuitBlock.blockPctPlaceholder')}
+              value={block.default_pct_1rm || ''}
+              onChange={(e) => onUpdate({ default_pct_1rm: e.target.value })}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+              %
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+            <Trans
+              i18nKey="coach.planEditor.circuitBlock.blockPctHint"
+              components={{ strong: <strong className="font-medium" /> }}
+            />
+          </p>
         </div>
-        <p className="text-[11px] text-gray-500 mt-1 leading-snug">
-          <Trans
-            i18nKey="coach.planEditor.circuitBlock.blockPctHint"
-            components={{ strong: <strong className="font-medium" /> }}
-          />
-        </p>
-      </div>
+      )}
 
       {/* Lista de ejercicios */}
       <div className="space-y-2">
@@ -346,7 +350,7 @@ function CircuitExerciseRow({ ex, index, total, blockDefaultPct, onUpdate, onRem
                       })
                     : t('coach.planEditor.weightModes.inherit')}
                 </option>
-                {WEIGHT_MODES.map((m) => (
+                {(target.basic ? WEIGHT_MODES_LOGGABLE : WEIGHT_MODES).map((m) => (
                   <option key={m.key} value={m.key}>
                     {t(`coach.planEditor.weightModes.${m.key}.short`)}
                   </option>

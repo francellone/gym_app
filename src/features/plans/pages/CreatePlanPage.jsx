@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
+import { startOwnPlan } from '@/features/selfTraining/api'
 import BlockCard from '../components/blocks/BlockCard'
 import { PlanTargetPersonProvider, PlanTargetPersonPicker } from '../PlanTargetPersonContext'
 import {
@@ -35,18 +36,22 @@ import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 // ============================================================
 // El catálogo de ejercicios se publica por context para que cualquier fila
 // del armador pueda leerlo Y darlo de alta sin salir del plan.
-export default function CreatePlanPage() {
+// selfMode (v68): la persona sin coach arma su propio plan. Mismo armador,
+// sin lo que es de coach (tipo evaluación, elegir persona, mensaje de cierre,
+// duración, %RM). Guardar = crear la plantilla + asignársela (startOwnPlan).
+export default function CreatePlanPage({ selfMode = false }) {
   const catalog = useExerciseCatalogData()
+  const { profile } = useAuth()
   return (
     <ExerciseCatalogProvider catalog={catalog}>
-      <PlanTargetPersonProvider>
-        <CreatePlanPageInner />
+      <PlanTargetPersonProvider fixedStudentId={selfMode ? profile?.id : null} basic={selfMode}>
+        <CreatePlanPageInner selfMode={selfMode} />
       </PlanTargetPersonProvider>
     </ExerciseCatalogProvider>
   )
 }
 
-function CreatePlanPageInner() {
+function CreatePlanPageInner({ selfMode = false }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -313,6 +318,11 @@ function CreatePlanPageInner() {
         }
       }
 
+      if (selfMode) {
+        await startOwnPlan(supabase, { templateId: newPlan.id, studentId: profile.id })
+        navigate('/student/workout')
+        return
+      }
       navigate(`/coach/plans/${newPlan.id}`)
     } catch (err) {
       console.error(err)
@@ -356,7 +366,9 @@ function CreatePlanPageInner() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{t('coach.plans.list.newPlan')}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {selfMode ? t('selfTraining.builder.newTitle') : t('coach.plans.list.newPlan')}
+        </h1>
       </div>
 
       {/* Plan info */}
@@ -364,7 +376,7 @@ function CreatePlanPageInner() {
         <h2 className="font-semibold text-gray-900">{t('coach.plans.form.infoTitle')}</h2>
 
         {/* Tipo de plan */}
-        <div>
+        <div hidden={selfMode}>
           <label className="label">{t('coach.plans.form.planType')}</label>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -415,7 +427,7 @@ function CreatePlanPageInner() {
         </div>
 
         {/* ¿Para quién es? Define qué datos reales se ven al armar. */}
-        {!isEval && <PlanTargetPersonPicker />}
+        {!isEval && !selfMode && <PlanTargetPersonPicker />}
 
         {/* Categoría de evaluación */}
         {isEval && (
@@ -508,7 +520,7 @@ function CreatePlanPageInner() {
             />
           </div>
 
-          {!isEval && (
+          {!isEval && !selfMode && (
             <CompletionMessageField
               value={plan.completion_message}
               onChange={(v) => setPlan((p) => ({ ...p, completion_message: v }))}
@@ -537,7 +549,7 @@ function CreatePlanPageInner() {
                   onChange={(e) => setPlan((p) => ({ ...p, sessions_per_week: e.target.value }))}
                 />
               </div>
-              <div>
+              <div hidden={selfMode}>
                 <label className="label">{t('coach.plans.form.durationWeeks')}</label>
                 <input
                   type="number"

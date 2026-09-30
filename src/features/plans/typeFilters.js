@@ -27,6 +27,7 @@
 //
 // Reglas:
 //   - plan.plan_type === 'training'  → incluir
+//   - plan.plan_type === 'free'      → incluir (registro libre, v68)
 //   - plan.plan_type === 'evaluation' → excluir
 //   - plan_type ausente / plan null  → incluir (default training,
 //                                       compat con datos viejos
@@ -35,6 +36,7 @@
 export function filterTrainingLogs(rows) {
   return (rows || []).filter((r) => {
     const pt = r?.plan?.plan_type
-    return !pt || pt === 'training'
+    // v68: 'free' (registro libre de la persona sin coach) es entrenamiento real.
+    return !pt || pt === 'training' || pt === 'free'
   })
 }

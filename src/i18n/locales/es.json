@@ -1298,5 +1298,47 @@
       "emailInvalid": "Ese mail no parece válido."
     },
     "signOutOther": "Salir y usar otra cuenta"
+  },
+  "selfTraining": {
+    "actions": {
+      "eyebrow": "Tu entrenamiento",
+      "noPlan": "Registrá lo que hiciste o armá tu plan por días y bloques.",
+      "withPlan": "Además de tu plan, podés registrar lo que hagas por fuera.",
+      "logToday": "Registrar lo que hice hoy",
+      "buildPlan": "Armar mi plan",
+      "editPlan": "Editar mi plan"
+    },
+    "today": {
+      "title": "Todavía no tenés un plan",
+      "body": "Podés registrar lo que hiciste hoy o armar tu propio plan."
+    },
+    "builder": {
+      "newTitle": "Armar mi plan",
+      "editTitle": "Editar mi plan"
+    },
+    "free": {
+      "title": "Hoy hice esto",
+      "subtitle": "Registrá cada ejercicio con sus series.",
+      "date": "Fecha",
+      "empty": "Todavía no registraste nada este día.",
+      "hint": "Lo que registres acá aparece en tu Historial y en Progreso.",
+      "addExercise": "Agregar ejercicio",
+      "exercise": "Ejercicio",
+      "prefilled": "Precargado con lo que hiciste el {{date}}. Ajustalo si cambió.",
+      "weightMode": "Tipo de peso",
+      "reps": "Reps",
+      "kg": "Kg",
+      "repsOfSet": "Repeticiones de la serie {{n}}",
+      "kgOfSet": "Kilos de la serie {{n}}",
+      "removeSet": "Quitar serie {{n}}",
+      "addSet": "Agregar serie",
+      "comment": "Comentario (opcional)",
+      "commentPlaceholder": "Cómo te sentiste, qué cambiarías…",
+      "save": "Guardar",
+      "errorExercise": "Elegí un ejercicio.",
+      "errorReps": "Cargá las repeticiones de al menos una serie.",
+      "saveError": "No se pudo guardar. Probá de nuevo.",
+      "loadError": "No se pudo cargar lo registrado."
+    }
   }
 }

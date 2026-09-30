@@ -56,6 +56,7 @@ const EMPTY = {
   historyMap: null,
   loading: false,
   setStudentId: () => {},
+  basic: false,
 }
 
 const PlanTargetPersonContext = createContext(EMPTY)
@@ -64,9 +65,15 @@ export function usePlanTargetPerson() {
   return useContext(PlanTargetPersonContext) || EMPTY
 }
 
-export function PlanTargetPersonProvider({ children }) {
+// fixedStudentId: la persona arma su propio plan (v68). No se elige a nadie:
+// los datos que se muestran son los suyos. basic: armador sin %RM (la persona
+// sin coach arma "lo básico": series, repeticiones, peso, descanso, notas).
+export function PlanTargetPersonProvider({ children, fixedStudentId = null, basic = false }) {
   const [students, setStudents] = useState([])
-  const [studentId, setStudentIdState] = useState(() => readRemembered())
+  const [studentIdState, setStudentIdState] = useState(() =>
+    fixedStudentId ? null : readRemembered()
+  )
+  const studentId = fixedStudentId || studentIdState
   const [oneRmMap, setOneRmMap] = useState(null)
   const [historyMap, setHistoryMap] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -78,6 +85,7 @@ export function PlanTargetPersonProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false
+    if (fixedStudentId) return undefined
     supabase
       .from('profiles')
       .select('id, name, email, active')
@@ -89,7 +97,7 @@ export function PlanTargetPersonProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [fixedStudentId])
 
   useEffect(() => {
     let cancelled = false
@@ -131,8 +139,9 @@ export function PlanTargetPersonProvider({ children }) {
       historyMap,
       loading,
       setStudentId,
+      basic,
     }),
-    [students, studentId, oneRmMap, historyMap, loading]
+    [students, studentId, oneRmMap, historyMap, loading, basic]
   )
 
   return (

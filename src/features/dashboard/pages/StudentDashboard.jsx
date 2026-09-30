@@ -22,6 +22,8 @@ import { filterTrainingLogs, computeWeekTrainingDays } from '@/features/students
 import { useCelebrations } from '@/features/milestones/celebrationContextValue'
 import { computeDayTallies } from '@/features/students/dayTalliesLogic'
 import DayTalliesBadge from '@/features/students/components/DayTalliesBadge'
+import SelfTrainingActions from '@/features/selfTraining/components/SelfTrainingActions'
+import { isSelfCoached } from '@/features/selfTraining/api'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
@@ -234,20 +236,31 @@ export default function StudentDashboard() {
           )}
         </div>
 
+        {/* v68: persona sin coach sin plan → registrar libre o armar su plan */}
+        {isSelfCoached(profile) && !activePlan && <SelfTrainingActions />}
+
         {/* Entrenamiento de hoy */}
-        <div className="card p-5">
-          <p className="eyebrow">{t('dashboard.todayWorkout')}</p>
-          <p className="text-[21px] font-bold text-tinta leading-snug mt-1 break-words">
-            {activePlan?.plan?.title || t('workout.noPlanTitle')}
-          </p>
-          <Link
-            to="/student/workout"
-            className="btn-primary w-full mt-4 flex items-center justify-center gap-2 text-base"
-          >
-            {t('dashboard.seeYourRoutine')}
-            <ChevronRight size={18} aria-hidden="true" />
-          </Link>
-        </div>
+        {!(isSelfCoached(profile) && !activePlan) && (
+          <div className="card p-5">
+            <p className="eyebrow">{t('dashboard.todayWorkout')}</p>
+            <p className="text-[21px] font-bold text-tinta leading-snug mt-1 break-words">
+              {activePlan?.plan?.title || t('workout.noPlanTitle')}
+            </p>
+            <Link
+              to="/student/workout"
+              className="btn-primary w-full mt-4 flex items-center justify-center gap-2 text-base"
+            >
+              {t('dashboard.seeYourRoutine')}
+              <ChevronRight size={18} aria-hidden="true" />
+            </Link>
+          </div>
+        )}
+
+        {isSelfCoached(profile) && activePlan && (
+          <SelfTrainingActions
+            ownPlanId={activePlan.plan?.created_by === profile.id ? activePlan.plan_id : null}
+          />
+        )}
 
         {/* Descripción del plan activo — colapsable. Solo si el coach cargó texto. */}
         {activePlan?.plan?.description?.trim() && (

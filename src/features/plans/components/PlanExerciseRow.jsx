@@ -15,6 +15,7 @@ import {
   PSE_OPTIONS,
   PSE_OPTION_KEY,
   WEIGHT_MODES,
+  WEIGHT_MODES_LOGGABLE,
   WEIGHT_MODE_BY_KEY,
   getEffectiveWeightMode,
   getEffectiveUnilateral,
@@ -300,7 +301,7 @@ export default function PlanExerciseRow({
                       })
                     : t('coach.planEditor.weightModes.inherit')}
                 </option>
-                {WEIGHT_MODES.map((m) => (
+                {(target.basic ? WEIGHT_MODES_LOGGABLE : WEIGHT_MODES).map((m) => (
                   <option key={m.key} value={m.key}>
                     {t(`coach.planEditor.weightModes.${m.key}.label`)}
                   </option>

@@ -27,6 +27,8 @@ import PlanDetailPage from '@/features/plans/pages/PlanDetailPage'
 import CreatePlanPage from '@/features/plans/pages/CreatePlanPage'
 import ExercisesLibraryPage from '@/features/exercises/pages/ExercisesLibraryPage'
 import EditPlanPage from '@/features/plans/pages/EditPlanPage'
+import FreeLogPage from '@/features/selfTraining/pages/FreeLogPage'
+import SelfCoachedOnly from '@/features/selfTraining/components/SelfCoachedOnly'
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import EvaluationDetailPage from '@/features/evaluations/pages/EvaluationDetailPage'
 
@@ -226,6 +228,31 @@ function AppRoutes() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="forms" element={<FormsListPage />} />
         <Route path="notes" element={<NotesPage />} />
+        {/* v68: persona sin coach — registro libre y plan propio */}
+        <Route
+          path="libre"
+          element={
+            <SelfCoachedOnly>
+              <FreeLogPage />
+            </SelfCoachedOnly>
+          }
+        />
+        <Route
+          path="plan/nuevo"
+          element={
+            <SelfCoachedOnly>
+              <CreatePlanPage selfMode />
+            </SelfCoachedOnly>
+          }
+        />
+        <Route
+          path="plan/:id/editar"
+          element={
+            <SelfCoachedOnly>
+              <EditPlanPage selfMode />
+            </SelfCoachedOnly>
+          }
+        />
       </Route>
 
       {/* Intake form — fuera del StudentLayout para evitar conflicto de navbars */}

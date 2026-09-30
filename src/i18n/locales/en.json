@@ -1298,5 +1298,47 @@
       "emailInvalid": "That email doesn't look valid."
     },
     "signOutOther": "Log out and use another account"
+  },
+  "selfTraining": {
+    "actions": {
+      "eyebrow": "Your training",
+      "noPlan": "Log what you did or build your plan by days and blocks.",
+      "withPlan": "Besides your plan, you can log anything you do outside it.",
+      "logToday": "Log what I did today",
+      "buildPlan": "Build my plan",
+      "editPlan": "Edit my plan"
+    },
+    "today": {
+      "title": "You don't have a plan yet",
+      "body": "You can log what you did today or build your own plan."
+    },
+    "builder": {
+      "newTitle": "Build my plan",
+      "editTitle": "Edit my plan"
+    },
+    "free": {
+      "title": "Today I did this",
+      "subtitle": "Log each exercise with its sets.",
+      "date": "Date",
+      "empty": "Nothing logged on this day yet.",
+      "hint": "What you log here shows up in your History and Progress.",
+      "addExercise": "Add exercise",
+      "exercise": "Exercise",
+      "prefilled": "Prefilled with what you did on {{date}}. Adjust it if it changed.",
+      "weightMode": "Weight type",
+      "reps": "Reps",
+      "kg": "Kg",
+      "repsOfSet": "Reps for set {{n}}",
+      "kgOfSet": "Kilos for set {{n}}",
+      "removeSet": "Remove set {{n}}",
+      "addSet": "Add set",
+      "comment": "Comment (optional)",
+      "commentPlaceholder": "How it felt, what you'd change…",
+      "save": "Save",
+      "errorExercise": "Pick an exercise.",
+      "errorReps": "Enter the reps for at least one set.",
+      "saveError": "Couldn't save. Try again.",
+      "loadError": "Couldn't load what you logged."
+    }
   }
 }

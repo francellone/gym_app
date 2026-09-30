@@ -4,6 +4,7 @@ import CompletionMessageField from '../components/CompletionMessageField'
 import { normalizeCompletionMessage } from '../completionMessage'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthContext'
 import { ArrowLeft, Save, AlertCircle, Dumbbell, BarChart2, Tag, X } from 'lucide-react'
 import BlockCard from '../components/blocks/BlockCard'
 import {
@@ -49,18 +50,20 @@ import EvalTypeIcon from '@/features/evaluations/components/EvalTypeIcon'
 // ============================================================
 // El catálogo de ejercicios se publica por context para que cualquier fila
 // del armador pueda leerlo Y darlo de alta sin salir del plan.
-export default function EditPlanPage() {
+// selfMode (v68): la persona sin coach edita su propio plan (ver CreatePlanPage).
+export default function EditPlanPage({ selfMode = false }) {
   const catalog = useExerciseCatalogData()
+  const { profile } = useAuth()
   return (
     <ExerciseCatalogProvider catalog={catalog}>
-      <PlanTargetPersonProvider>
-        <EditPlanPageInner />
+      <PlanTargetPersonProvider fixedStudentId={selfMode ? profile?.id : null} basic={selfMode}>
+        <EditPlanPageInner selfMode={selfMode} />
       </PlanTargetPersonProvider>
     </ExerciseCatalogProvider>
   )
 }
 
-function EditPlanPageInner() {
+function EditPlanPageInner({ selfMode = false }) {
   const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
@@ -440,7 +443,8 @@ function EditPlanPageInner() {
   // Guardar
   // ============================================================
   function goToDetail() {
-    if (plan.plan_type === 'evaluation') navigate(`/coach/evaluations/${id}`)
+    if (selfMode) navigate('/student/workout')
+    else if (plan.plan_type === 'evaluation') navigate(`/coach/evaluations/${id}`)
     else navigate(`/coach/plans/${id}`)
   }
 
@@ -637,7 +641,7 @@ function EditPlanPageInner() {
       // algún ejercicio, registrar el cambio y ofrecer adjuntar un motivo. El
       // registro se inserta YA (note=null) para garantizar la trazabilidad
       // aunque la coach cierre el modal; el modal solo agrega el motivo.
-      if (!plan.is_template && histChanges.length > 0) {
+      if (!selfMode && !plan.is_template && histChanges.length > 0) {
         try {
           const rows = histChanges.map((h) => ({
             plan_exercise_id: h.plan_exercise_id,
@@ -710,7 +714,9 @@ function EditPlanPageInner() {
         <button onClick={() => navigate(-1)} className="btn-ghost p-2">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{t('coach.plans.form.editTitle')}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {selfMode ? t('selfTraining.builder.editTitle') : t('coach.plans.form.editTitle')}
+        </h1>
       </div>
 
       {/* Plan info */}
@@ -718,7 +724,7 @@ function EditPlanPageInner() {
         <h2 className="font-semibold text-gray-900">{t('coach.plans.form.infoTitle')}</h2>
 
         {/* Tipo de plan */}
-        <div>
+        <div hidden={selfMode}>
           <label className="label">{t('coach.plans.form.planType')}</label>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -769,7 +775,7 @@ function EditPlanPageInner() {
         </div>
 
         {/* ¿Para quién es? Define qué datos reales se ven al armar. */}
-        {!isEval && <PlanTargetPersonPicker locked={plan.is_template === false} />}
+        {!isEval && !selfMode && <PlanTargetPersonPicker locked={plan.is_template === false} />}
 
         {/* Categoría y método de evaluación */}
         {isEval && (
@@ -851,7 +857,7 @@ function EditPlanPageInner() {
             />
           </div>
 
-          {!isEval && (
+          {!isEval && !selfMode && (
             <CompletionMessageField
               value={plan.completion_message}
               onChange={(v) => setPlan((p) => ({ ...p, completion_message: v }))}
@@ -880,7 +886,7 @@ function EditPlanPageInner() {
                   onChange={(e) => setPlan((p) => ({ ...p, sessions_per_week: e.target.value }))}
                 />
               </div>
-              <div>
+              <div hidden={selfMode}>
                 <label className="label">{t('coach.plans.form.durationWeeks')}</label>
                 <input
                   type="number"
@@ -1113,7 +1119,7 @@ function EditPlanPageInner() {
       )}
 
       {/* Panel: evaluaciones asociadas a este plan (solo training) */}
-      {!isEval && <EvaluationsLinkedPanel planId={id} />}
+      {!isEval && !selfMode && <EvaluationsLinkedPanel planId={id} />}
 
       {error && (
         <div className="flex items-center gap-2 text-red-600 bg-red-50 rounded-xl p-3 text-sm">
