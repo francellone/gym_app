@@ -29,7 +29,7 @@ import NoteComposer from './NoteComposer'
 
 const FILTER_REFETCH_DEBOUNCE_MS = 1500
 
-export default function NotesPanel({ threadId, viewerRole = 'coach', authorId }) {
+export default function NotesPanel({ threadId, viewerRole = 'coach', authorId, personal = false }) {
   const { t } = useTranslation()
   const [filters, setFilters] = useState({})
   const [availableTags, setAvailableTags] = useState([])
@@ -231,7 +231,11 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
             <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm font-medium text-gray-500">{t('notes.emptyTitle')}</p>
             <p className="text-xs text-gray-400 mt-1">
-              {viewerRole === 'coach' ? t('notes.emptyCoach') : t('notes.emptyStudent')}
+              {viewerRole === 'coach'
+                ? t('notes.emptyCoach')
+                : personal
+                  ? t('notes.emptyPersonal')
+                  : t('notes.emptyStudent')}
             </p>
           </div>
         )}
@@ -278,6 +282,7 @@ export default function NotesPanel({ threadId, viewerRole = 'coach', authorId })
         defaultMuscleGroup={filters.muscleGroup}
         onCancelReply={() => setReplyingTo(null)}
         onCreated={handleNoteSent}
+        personal={personal}
       />
     </div>
   )

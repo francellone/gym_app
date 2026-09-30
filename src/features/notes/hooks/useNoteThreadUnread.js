@@ -36,9 +36,10 @@ export function useNoteThreadUnread(studentId, role = 'coach') {
         .from('note_threads')
         .select(`id, ${field}`)
         .eq('student_id', studentId)
-        .maybeSingle()
       if (!alive) return
-      setCount(data?.[field] || 0)
+      // v67: la persona puede tener dos hilos (coach + personal); se suman.
+      // Para la coach, RLS solo devuelve el suyo.
+      setCount((data || []).reduce((acc, row) => acc + (row?.[field] || 0), 0))
       setLoading(false)
     }
 
@@ -56,10 +57,8 @@ export function useNoteThreadUnread(studentId, role = 'coach') {
           table: 'note_threads',
           filter: `student_id=eq.${studentId}`,
         },
-        (payload) => {
-          if (alive && payload.new) {
-            setCount(payload.new[field] || 0)
-          }
+        () => {
+          if (alive) load()
         }
       )
       .on(

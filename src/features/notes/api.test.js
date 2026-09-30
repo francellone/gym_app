@@ -195,10 +195,9 @@ function authorRoleFilters() {
 describe('mirror writers — autoría (v35)', () => {
   beforeEach(() => {
     resetSupabaseMock(supabaseMock)
-    // 1º maybeSingle = lookup del mirror (no existe) · 2º = getStudentThread
-    supabaseMock._chain.maybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: { id: 'thread-1' }, error: null })
+    // maybeSingle = lookup del mirror (no existe) · rpc my_note_thread = getStudentThread (v67)
+    supabaseMock._chain.maybeSingle.mockResolvedValueOnce({ data: null, error: null })
+    supabaseMock.rpc.mockResolvedValue({ data: { id: 'thread-1' }, error: null })
     supabaseMock._chain.single.mockResolvedValue({ data: { id: 'note-new' }, error: null })
   })
 

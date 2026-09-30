@@ -838,7 +838,14 @@
     "sharedTooltip": "El alumno la va a ver",
     "send": "Enviar",
     "sendFailed": "No se pudo enviar la nota.",
-    "sendShortcut": "Cmd/Ctrl + Enter para enviar"
+    "sendShortcut": "Cmd/Ctrl + Enter para enviar",
+    "pageTitlePersonal": "Notas",
+    "pageSubtitlePersonal": "Tus notas y comentarios de entrenamiento. Solo vos las ves.",
+    "tabCoach": "Con tu coach",
+    "tabPrivate": "Privadas",
+    "privateHint": "Solo vos ves estas notas. Tu coach no tiene acceso.",
+    "emptyPersonal": "Todavía no escribiste notas.",
+    "noteForSelfPlaceholder": "Escribir una nota para vos…"
   },
   "wellbeing": {
     "sleepQuality": "Calidad de sueño",

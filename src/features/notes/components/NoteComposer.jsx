@@ -70,6 +70,7 @@ export default function NoteComposer({
   defaultMuscleGroup = null,
   onCancelReply,
   onCreated,
+  personal = false,
 }) {
   const { t } = useTranslation()
   const [body, setBody] = useState('')
@@ -258,6 +259,7 @@ export default function NoteComposer({
     if (contextTab === 'day' && noteDate)
       return t('notes.commentOnDayPlaceholder', { date: prettyDate(noteDate) })
     if (isCoach) return t('notes.noteForStudentPlaceholder')
+    if (personal) return t('notes.noteForSelfPlaceholder')
     return t('notes.noteForCoachPlaceholder')
   })()
 
@@ -272,7 +274,9 @@ export default function NoteComposer({
             <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
               {t('notes.replyingTo', {
                 role:
-                  parentNote.author_role === 'coach' ? t('notes.roleCoach') : t('notes.roleStudent'),
+                  parentNote.author_role === 'coach'
+                    ? t('notes.roleCoach')
+                    : t('notes.roleStudent'),
               })}
             </p>
             <p className="italic line-clamp-2">
@@ -524,13 +528,9 @@ export default function NoteComposer({
       </div>
 
       {/* ── Error inline ── */}
-      {error && (
-        <p className="text-xs text-red-600">{error.message || t('notes.sendFailed')}</p>
-      )}
+      {error && <p className="text-xs text-red-600">{error.message || t('notes.sendFailed')}</p>}
 
-      {!error && (
-        <p className="text-[10px] text-gray-400 text-right">{t('notes.sendShortcut')}</p>
-      )}
+      {!error && <p className="text-[10px] text-gray-400 text-right">{t('notes.sendShortcut')}</p>}
     </div>
   )
 }

@@ -143,24 +143,25 @@ export async function getOrCreateThreadForStudent(studentId, coachId) {
 }
 
 // ============================================================
-// B.2 — getStudentThread(studentId)
+// B.2 — getStudentThread(studentId, { private })
 // ------------------------------------------------------------
-// Para el alumno: busca su único thread por student_id.
+// Hilo de notas de una persona (v67, RPC my_note_thread):
+//   - con coach: el hilo con su coach actual;
+//   - sin coach, o con { private: true }: su hilo personal (solo ella lo ve).
+// El RPC crea el hilo si falta. Lo puede pedir la persona o su coach
+// (la coach nunca obtiene el hilo privado).
 // Devuelve: { data: thread | null, error }
 // ============================================================
-export async function getStudentThread(studentId) {
+export async function getStudentThread(studentId, { private: isPrivate = false } = {}) {
   if (!studentId) return { data: null, error: null }
-  const { data, error } = await supabase
-    .from('note_threads')
-    .select(
-      'id, coach_id, student_id, pinned, last_message_at, unread_for_coach, unread_for_student'
-    )
-    .eq('student_id', studentId)
-    .maybeSingle()
-  if (error && !isNoRowsError(error)) {
+  const { data, error } = await supabase.rpc('my_note_thread', {
+    p_student_id: studentId,
+    p_private: isPrivate,
+  })
+  if (error) {
     return { data: null, error: normalizeError(error, 'No se pudo obtener tu hilo de notas.') }
   }
-  return { data: data || null, error: null }
+  return { data: data?.id ? data : null, error: null }
 }
 
 // ============================================================

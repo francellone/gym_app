@@ -838,7 +838,14 @@
     "sharedTooltip": "The student will see it",
     "send": "Send",
     "sendFailed": "The note couldn't be sent.",
-    "sendShortcut": "Cmd/Ctrl + Enter to send"
+    "sendShortcut": "Cmd/Ctrl + Enter to send",
+    "pageTitlePersonal": "Notes",
+    "pageSubtitlePersonal": "Your notes and training comments. Only you can see them.",
+    "tabCoach": "With your coach",
+    "tabPrivate": "Private",
+    "privateHint": "Only you can see these notes. Your coach has no access.",
+    "emptyPersonal": "You haven't written any notes yet.",
+    "noteForSelfPlaceholder": "Write a note for yourself…"
   },
   "wellbeing": {
     "sleepQuality": "Sleep quality",
