@@ -91,7 +91,7 @@ function FreeLogInner() {
     ).name || t('history.exerciseFallback')
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+    <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
         <button
           type="button"

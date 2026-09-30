@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, CheckCircle2, ChevronRight, Globe, Lock, LogOut } from 'lucide-react'
+import {
+  Camera,
+  CheckCircle2,
+  ChevronRight,
+  Circle,
+  Globe,
+  Lock,
+  LogOut,
+  Users,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -10,8 +19,12 @@ import ThemeSelector from '@/components/ThemeSelector'
 import { initialsOf } from '@/features/avatars/avatarUrls'
 import {
   BIO_MAX,
+  CITY_MAX,
   PHONE_MAX,
   WORK_LANGS,
+  WORK_MODES,
+  directoryMissing,
+  isDirectoryIncompleteError,
   formFromProfile,
   payloadFromForm,
   sameAsSaved,
@@ -50,6 +63,13 @@ export default function CoachProfilePage() {
 
   const dirty = !sameAsSaved(form, profile)
 
+  // Llegada desde "Completar mi perfil" (tarjeta del catálogo): bajar a esa sección.
+  useEffect(() => {
+    if (window.location.hash === '#catalogo') {
+      document.getElementById('catalogo')?.scrollIntoView({ block: 'start' })
+    }
+  }, [])
+
   function toggleLanguage(l) {
     setStatus(null)
     setForm((f) => ({
@@ -82,9 +102,42 @@ export default function CoachProfilePage() {
       setStatus({ kind: 'ok', text: t('coach.profile.saved') })
     } catch (e) {
       console.error('[coach profile] save', e)
-      setStatus({ kind: 'error', text: t('coach.profile.errors.save') })
+      setStatus({
+        kind: 'error',
+        text: isDirectoryIncompleteError(e)
+          ? t('coach.profile.errors.directoryIncomplete')
+          : t('coach.profile.errors.save'),
+      })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // v69: aparecer o no en el catálogo de coaches (se guarda al tocar).
+  const [dirSaving, setDirSaving] = useState(false)
+  const [dirError, setDirError] = useState(null)
+  const listed = Boolean(profile?.directory_listed)
+  const missing = directoryMissing(profile)
+  async function toggleDirectory() {
+    if (!profile?.id || dirSaving) return
+    setDirSaving(true)
+    setDirError(null)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ directory_listed: !listed })
+        .eq('id', profile.id)
+      if (error) throw error
+      await refreshProfile()
+    } catch (e) {
+      console.error('[coach profile] directory', e)
+      setDirError(
+        isDirectoryIncompleteError(e)
+          ? t('coach.profile.errors.directoryIncomplete')
+          : t('coach.profile.errors.save')
+      )
+    } finally {
+      setDirSaving(false)
     }
   }
 
@@ -270,6 +323,44 @@ export default function CoachProfilePage() {
           )
         })}
 
+        <div>
+          <label className="label" htmlFor="cp-city">
+            {t('coach.profile.city')}
+          </label>
+          <input
+            id="cp-city"
+            className="input"
+            maxLength={CITY_MAX}
+            value={form.city}
+            placeholder={t('coach.profile.cityPlaceholder')}
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+          />
+        </div>
+
+        <div>
+          <p className="label">{t('coach.profile.workMode')}</p>
+          <div className="flex gap-2">
+            {WORK_MODES.map((m) => {
+              const on = form.workMode === m
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setForm((f) => ({ ...f, workMode: m }))}
+                  className={`flex-1 py-2 rounded-xl border-2 text-sm font-medium transition-colors ${
+                    on
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {t(`coach.profile.workModes.${m}`)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {status && (
           <p
             className={`text-sm rounded-xl p-3 flex items-center gap-2 ${
@@ -287,6 +378,41 @@ export default function CoachProfilePage() {
 
         <button className="btn-primary w-full" onClick={saveForm} disabled={saving}>
           {saving ? t('coach.profile.saving') : t('coach.profile.save')}
+        </button>
+      </div>
+
+      {/* Catálogo de coaches (v69) */}
+      <div className="card space-y-3" id="catalogo">
+        <div className="flex items-center gap-2">
+          <Users size={16} className="text-gray-500" />
+          <h2 className="font-semibold text-tinta">{t('coach.profile.directory.title')}</h2>
+        </div>
+        <p className="text-sm text-texto2">
+          {listed ? t('coach.profile.directory.listedText') : t('coach.profile.directory.text')}
+        </p>
+        {!listed && missing.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-1.5">
+              {t('coach.profile.directory.missingTitle')}
+            </p>
+            <ul className="space-y-1">
+              {missing.map((m) => (
+                <li key={m} className="flex items-center gap-2 text-sm text-gray-600">
+                  <Circle size={12} className="text-amber-500" aria-hidden="true" />
+                  {t(`coach.profile.directory.missing.${m}`)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {dirError && <p className="text-sm rounded-xl p-3 bg-red-50 text-red-600">{dirError}</p>}
+        <button
+          type="button"
+          className={listed ? 'btn-secondary w-full' : 'btn-primary w-full'}
+          onClick={toggleDirectory}
+          disabled={dirSaving || (!listed && missing.length > 0)}
+        >
+          {listed ? t('coach.profile.directory.leave') : t('coach.profile.directory.join')}
         </button>
       </div>
 

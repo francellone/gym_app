@@ -1,6 +1,6 @@
 {
   "title": "My profile",
-  "photoPrivacy": "Your photo is visible to you and the people you train.",
+  "photoPrivacy": "Your photo is visible to you and the people you train. If you're in the coach directory, registered people see it too.",
   "personalData": "My details",
   "name": "Name",
   "namePlaceholder": "Your name",
@@ -25,10 +25,35 @@
     "pickLanguage": "Pick at least one working language.",
     "bioTooLong": "The bio can be up to {{max}} characters.",
     "phoneTooLong": "The phone number is too long.",
-    "save": "Changes couldn't be saved. Please try again."
+    "save": "Changes couldn't be saved. Please try again.",
+    "cityTooLong": "The city is too long.",
+    "directoryIncomplete": "To be in the directory your profile needs a photo, an intro in each language, a city and a work mode."
   },
   "lang": {
     "es": "Spanish",
     "en": "English"
+  },
+  "city": "City",
+  "cityPlaceholder": "E.g.: Córdoba",
+  "workMode": "How you work",
+  "workModes": {
+    "online": "Online",
+    "in_person": "In person",
+    "both": "Both"
+  },
+  "directory": {
+    "title": "Coach directory",
+    "text": "If you're listed, registered people who train without a coach can see your photo, city, work mode, languages and intro, and ask to join you. You accept or decline each request.",
+    "listedText": "You're listed in the directory. Registered people can see your card and ask to join you.",
+    "missingTitle": "To be listed you still need:",
+    "missing": {
+      "photo": "A photo",
+      "languages": "To pick the languages you work in",
+      "bio": "Your intro in each language you picked",
+      "city": "Your city",
+      "work_mode": "How you work (online, in person or both)"
+    },
+    "join": "Show me in the directory",
+    "leave": "Leave the directory"
   }
 }

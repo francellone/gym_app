@@ -1,6 +1,6 @@
 {
   "title": "Mi perfil",
-  "photoPrivacy": "Tu foto la ven vos y las personas que entrenás.",
+  "photoPrivacy": "Tu foto la ven vos y las personas que entrenás. Si aparecés en el catálogo de coaches, también las personas registradas.",
   "personalData": "Mis datos",
   "name": "Nombre",
   "namePlaceholder": "Tu nombre",
@@ -25,10 +25,35 @@
     "pickLanguage": "Elegí al menos un idioma de trabajo.",
     "bioTooLong": "La presentación puede tener hasta {{max}} caracteres.",
     "phoneTooLong": "El teléfono es demasiado largo.",
-    "save": "No se pudieron guardar los cambios. Probá de nuevo."
+    "save": "No se pudieron guardar los cambios. Probá de nuevo.",
+    "cityTooLong": "La ciudad es demasiado larga.",
+    "directoryIncomplete": "Para estar en el catálogo tu perfil necesita foto, presentación en cada idioma, ciudad y modalidad."
   },
   "lang": {
     "es": "Español",
     "en": "Inglés"
+  },
+  "city": "Ciudad",
+  "cityPlaceholder": "Ej.: Córdoba",
+  "workMode": "Cómo trabajás",
+  "workModes": {
+    "online": "Online",
+    "in_person": "Presencial",
+    "both": "Ambas"
+  },
+  "directory": {
+    "title": "Catálogo de coaches",
+    "text": "Si aparecés, las personas registradas que entrenan sin coach pueden ver tu foto, ciudad, modalidad, idiomas y presentación, y pedirte sumarse. Vos aceptás o rechazás cada pedido.",
+    "listedText": "Aparecés en el catálogo. Las personas registradas pueden ver tu ficha y pedirte sumarse.",
+    "missingTitle": "Para aparecer te falta:",
+    "missing": {
+      "photo": "Una foto",
+      "languages": "Elegir en qué idiomas trabajás",
+      "bio": "La presentación en cada idioma que elegiste",
+      "city": "Tu ciudad",
+      "work_mode": "Cómo trabajás (online, presencial o ambas)"
+    },
+    "join": "Aparecer en el catálogo",
+    "leave": "Salir del catálogo"
   }
 }

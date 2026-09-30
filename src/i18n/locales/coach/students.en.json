@@ -628,5 +628,11 @@
     "acceptShort": "Accept",
     "rejectShort": "Decline",
     "error": "Couldn't save. Please try again."
+  },
+  "directory": {
+    "title": "Want to appear in the coach directory?",
+    "text": "People training without a coach can find you and ask to join. To be listed, complete your profile: photo, intro, city and how you work.",
+    "cta": "Complete my profile",
+    "later": "Not now"
   }
 }

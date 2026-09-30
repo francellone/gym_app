@@ -6,7 +6,7 @@
 // ============================================================
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, PencilLine, PenSquare } from 'lucide-react'
+import { ClipboardList, PencilLine, PenSquare, Users } from 'lucide-react'
 
 export default function SelfTrainingActions({ ownPlanId = null, compact = false }) {
   const { t } = useTranslation()
@@ -37,6 +37,13 @@ export default function SelfTrainingActions({ ownPlanId = null, compact = false 
           <ClipboardList size={18} aria-hidden="true" />
         )}
         {ownPlanId ? t('selfTraining.actions.editPlan') : t('selfTraining.actions.buildPlan')}
+      </Link>
+      <Link
+        to="/student/coaches"
+        className="w-full flex items-center justify-center gap-2 text-sm text-primary-700 font-medium py-2"
+      >
+        <Users size={16} aria-hidden="true" />
+        {t('selfTraining.actions.findCoach')}
       </Link>
     </div>
   )

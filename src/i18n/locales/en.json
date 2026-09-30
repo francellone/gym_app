@@ -1306,7 +1306,8 @@
       "withPlan": "Besides your plan, you can log anything you do outside it.",
       "logToday": "Log what I did today",
       "buildPlan": "Build my plan",
-      "editPlan": "Edit my plan"
+      "editPlan": "Edit my plan",
+      "findCoach": "Find a coach"
     },
     "today": {
       "title": "You don't have a plan yet",
@@ -1339,6 +1340,24 @@
       "errorReps": "Enter the reps for at least one set.",
       "saveError": "Couldn't save. Try again.",
       "loadError": "Couldn't load what you logged."
+    },
+    "directory": {
+      "title": "Find a coach",
+      "subtitle": "Coaches who chose to be listed. If you like one, ask to join.",
+      "cityFilter": "Search by city",
+      "modeFilter": "Work mode",
+      "anyMode": "Any work mode",
+      "languageFilter": "Language",
+      "anyLanguage": "Any language",
+      "emptyAll": "There are no coaches in the directory yet.",
+      "emptyFiltered": "No coaches match those filters.",
+      "ask": "Ask to join",
+      "requested": "Request sent. We'll let you know when they reply.",
+      "pending": "Your request to {{coach}} is pending. Meanwhile you can't ask another coach.",
+      "cancelRequest": "Cancel request",
+      "cancelError": "Couldn't cancel the request.",
+      "askError": "Couldn't send the request. Try again.",
+      "loadError": "Couldn't load the directory."
     }
   }
 }

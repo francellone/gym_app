@@ -28,6 +28,7 @@ import CreatePlanPage from '@/features/plans/pages/CreatePlanPage'
 import ExercisesLibraryPage from '@/features/exercises/pages/ExercisesLibraryPage'
 import EditPlanPage from '@/features/plans/pages/EditPlanPage'
 import FreeLogPage from '@/features/selfTraining/pages/FreeLogPage'
+import CoachDirectoryPage from '@/features/selfTraining/pages/CoachDirectoryPage'
 import SelfCoachedOnly from '@/features/selfTraining/components/SelfCoachedOnly'
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import EvaluationDetailPage from '@/features/evaluations/pages/EvaluationDetailPage'
@@ -234,6 +235,14 @@ function AppRoutes() {
           element={
             <SelfCoachedOnly>
               <FreeLogPage />
+            </SelfCoachedOnly>
+          }
+        />
+        <Route
+          path="coaches"
+          element={
+            <SelfCoachedOnly>
+              <CoachDirectoryPage />
             </SelfCoachedOnly>
           }
         />

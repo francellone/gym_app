@@ -1306,7 +1306,8 @@
       "withPlan": "Además de tu plan, podés registrar lo que hagas por fuera.",
       "logToday": "Registrar lo que hice hoy",
       "buildPlan": "Armar mi plan",
-      "editPlan": "Editar mi plan"
+      "editPlan": "Editar mi plan",
+      "findCoach": "Buscar una coach"
     },
     "today": {
       "title": "Todavía no tenés un plan",
@@ -1339,6 +1340,24 @@
       "errorReps": "Cargá las repeticiones de al menos una serie.",
       "saveError": "No se pudo guardar. Probá de nuevo.",
       "loadError": "No se pudo cargar lo registrado."
+    },
+    "directory": {
+      "title": "Buscar coach",
+      "subtitle": "Coaches que eligieron aparecer. Si te interesa una, pedile sumarte.",
+      "cityFilter": "Buscar por ciudad",
+      "modeFilter": "Modalidad",
+      "anyMode": "Cualquier modalidad",
+      "languageFilter": "Idioma",
+      "anyLanguage": "Cualquier idioma",
+      "emptyAll": "Todavía no hay coaches en el catálogo.",
+      "emptyFiltered": "No hay coaches con esos filtros.",
+      "ask": "Pedir sumarme",
+      "requested": "Pedido enviado. Te avisamos cuando responda.",
+      "pending": "Tu pedido a {{coach}} está pendiente. Mientras tanto no podés pedirle a otra coach.",
+      "cancelRequest": "Cancelar pedido",
+      "cancelError": "No se pudo cancelar el pedido.",
+      "askError": "No se pudo mandar el pedido. Probá de nuevo.",
+      "loadError": "No se pudo cargar el catálogo."
     }
   }
 }
