@@ -634,5 +634,9 @@
     "text": "People training without a coach can find you and ask to join. To be listed, complete your profile: photo, intro, city and how you work.",
     "cta": "Complete my profile",
     "later": "Not now"
+  },
+  "self": {
+    "title": "Me",
+    "hint": "Your own training: assign yourself plans and track your progress."
   }
 }

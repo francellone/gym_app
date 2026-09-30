@@ -55,5 +55,9 @@
     },
     "join": "Show me in the directory",
     "leave": "Leave the directory"
+  },
+  "alsoTrains": {
+    "title": "I also train",
+    "hint": "Adds \"My training\" to log your own workouts and lists you as \"Me\" among your people."
   }
 }

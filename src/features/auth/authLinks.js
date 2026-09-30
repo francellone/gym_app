@@ -4,6 +4,8 @@
 // Base: migración v65 (coach_invites, complete_signup, coach_link_requests).
 // ============================================================
 
+import { hasBothViews, readPreferredView } from './viewMode'
+
 // Mismo alfabeto que public._new_invite_code(): sin I, O, 0 ni 1.
 const INVITE_RE = /^[A-HJ-NP-Z2-9]{7}$/
 const PENDING_INVITE_KEY = 'gymcoach_pending_invite'
@@ -86,5 +88,7 @@ export function validatePasswords(password, repeat) {
  */
 export function homePathFor(profile, profileMissing) {
   if (profileMissing) return '/onboarding'
-  return profile?.role === 'coach' ? '/coach' : '/student'
+  if (profile?.role !== 'coach') return '/student'
+  // v71: la coach que también entrena vuelve a la última vista que usó.
+  return hasBothViews(profile) && readPreferredView() === 'student' ? '/student' : '/coach'
 }

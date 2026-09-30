@@ -23,6 +23,7 @@ import {
   computeRestoreTarget,
   isRestorablePath,
 } from '@/features/navigation/lastRoute'
+import { hasBothViews } from '@/features/auth/viewMode'
 
 export default function RouteMemory() {
   const location = useLocation()
@@ -35,7 +36,8 @@ export default function RouteMemory() {
   const didAttemptRestore = useRef(false)
 
   const userId = user?.id
-  const role = profile?.role
+  // v71: la coach que también entrena puede volver a cualquiera de sus dos vistas.
+  const role = hasBothViews(profile) ? 'both' : profile?.role
   const path = location.pathname + location.search
 
   // ── Restaurar (una vez, cuando auth queda listo) ─────────────

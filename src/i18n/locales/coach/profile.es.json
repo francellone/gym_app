@@ -55,5 +55,9 @@
     },
     "join": "Aparecer en el catálogo",
     "leave": "Salir del catálogo"
+  },
+  "alsoTrains": {
+    "title": "También entreno",
+    "hint": "Suma \"Mi entrenamiento\" para registrar lo tuyo y te agrega como \"Yo\" en tu lista de personas."
   }
 }

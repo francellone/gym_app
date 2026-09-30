@@ -30,6 +30,7 @@ import EditPlanPage from '@/features/plans/pages/EditPlanPage'
 import FreeLogPage from '@/features/selfTraining/pages/FreeLogPage'
 import CoachDirectoryPage from '@/features/selfTraining/pages/CoachDirectoryPage'
 import SelfCoachedOnly from '@/features/selfTraining/components/SelfCoachedOnly'
+import { canTrain } from '@/features/auth/viewMode'
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import EvaluationDetailPage from '@/features/evaluations/pages/EvaluationDetailPage'
 
@@ -87,7 +88,12 @@ function PrivateRoute({ children, requiredRole }) {
 
   if (profileMissing) return <Navigate to="/onboarding" replace />
 
-  if (requiredRole && profile?.role !== requiredRole) {
+  // v71: la coach que también entrena entra además a las rutas de entrenamiento.
+  const allowed =
+    !requiredRole ||
+    profile?.role === requiredRole ||
+    (requiredRole === 'student' && canTrain(profile))
+  if (!allowed) {
     return <Navigate to={homePathFor(profile, profileMissing)} replace />
   }
 
@@ -241,7 +247,7 @@ function AppRoutes() {
         <Route
           path="coaches"
           element={
-            <SelfCoachedOnly>
+            <SelfCoachedOnly allowCoach={false}>
               <CoachDirectoryPage />
             </SelfCoachedOnly>
           }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
+import { savePreferredView } from '@/features/auth/viewMode'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ArrowLeft, ClipboardEdit, FileBarChart, FileHeart } from 'lucide-react'
 import { LEVEL_LABELS, MODALITY_LABELS } from '../helpers'
@@ -36,6 +37,9 @@ const TABS = [
   { id: 'history', labelKey: 'coach.students.detail.tabs.history' },
 ]
 
+// v71: pestañas que no aplican a la ficha propia de la coach
+const SELF_HIDDEN_TABS = new Set(['info', 'notas', 'formularios'])
+
 // ─────────────────────────────────────────────────────────────
 // StudentDetailPage — orquestador
 //
@@ -53,9 +57,14 @@ export default function StudentDetailPage() {
   // campana de notificaciones al clickear una notif de nota del alumno).
   // Se valida contra TABS para evitar tabs inexistentes vía URL.
   const [searchParams] = useSearchParams()
+  // v71: la ficha propia ("Yo") de la coach que también entrena no tiene
+  // datos de alta, formularios ni hilo con coach: esas pestañas se ocultan.
+  const isSelf = Boolean(profile?.id) && id === profile.id
+  const tabs = isSelf ? TABS.filter((tb) => !SELF_HIDDEN_TABS.has(tb.id)) : TABS
   const initialTab = (() => {
     const fromUrl = searchParams.get('tab')
-    return TABS.some((tb) => tb.id === fromUrl) ? fromUrl : 'info'
+    if (tabs.some((tb) => tb.id === fromUrl)) return fromUrl
+    return isSelf ? 'plans' : 'info'
   })()
 
   const [student, setStudent] = useState(null)
@@ -249,16 +258,24 @@ export default function StudentDetailPage() {
           <FileBarChart size={16} />
           {t('coach.students.detail.report')}
         </button>
+        {!isSelf && (
+          <button
+            onClick={() => navigate(`/coach/students/${id}/informe-cliente`)}
+            className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
+            title={t('coach.students.detail.clientReportTitle')}
+          >
+            <FileHeart size={16} />
+            {t('coach.students.detail.clientReport')}
+          </button>
+        )}
         <button
-          onClick={() => navigate(`/coach/students/${id}/informe-cliente`)}
-          className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
-          title={t('coach.students.detail.clientReportTitle')}
-        >
-          <FileHeart size={16} />
-          {t('coach.students.detail.clientReport')}
-        </button>
-        <button
-          onClick={() => navigate(`/coach/students/${id}/workout`)}
+          onClick={() => {
+            // "Yo": se entrena desde "Mi entrenamiento", no en modo coach
+            if (isSelf) {
+              savePreferredView('student')
+              navigate('/student/workout')
+            } else navigate(`/coach/students/${id}/workout`)
+          }}
           className="btn-primary flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
         >
           <ClipboardEdit size={16} />
@@ -342,7 +359,7 @@ export default function StudentDetailPage() {
 
       {/* Tabs de navegación */}
       <div className="flex gap-2 flex-wrap">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}

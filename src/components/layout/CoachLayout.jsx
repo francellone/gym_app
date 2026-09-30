@@ -16,6 +16,7 @@ import {
 import { useState } from 'react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeToggleButton from '@/components/ThemeToggleButton'
+import ViewSwitchButton from '@/features/auth/components/ViewSwitchButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
 import { useTranslation } from 'react-i18next'
 import AvatarImage from '@/features/avatars/AvatarImage'
@@ -58,6 +59,7 @@ export default function CoachLayout() {
 
         {/* Nav */}
         <nav className="flex-1 px-2.5 py-4 space-y-0.5">
+          <ViewSwitchButton to="student" className="mx-1 mb-3" />
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -126,6 +128,7 @@ export default function CoachLayout() {
           <span className="font-bold text-tinta text-sm">GymCoach</span>
         </div>
         <div className="flex items-center gap-1">
+          <ViewSwitchButton to="student" />
           <ThemeToggleButton />
           <NotificationBell userId={profile?.id} theme="light" />
           <button

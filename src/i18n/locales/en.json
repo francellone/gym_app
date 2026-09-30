@@ -1359,5 +1359,9 @@
       "askError": "Couldn't send the request. Try again.",
       "loadError": "Couldn't load the directory."
     }
+  },
+  "viewSwitch": {
+    "toTraining": "My training",
+    "toCoach": "Coach panel"
   }
 }

@@ -7,6 +7,7 @@ import ThemeToggleButton from '@/components/ThemeToggleButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
 import PendingFormsBanner from '@/features/forms/components/PendingFormsBanner'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
+import ViewSwitchButton from '@/features/auth/components/ViewSwitchButton'
 import { CelebrationProvider } from '@/features/milestones/CelebrationContext'
 
 // i18n (doc 46): labels como keys de traducción, se resuelven con t() en render
@@ -42,6 +43,7 @@ export default function StudentLayout() {
             <span className="font-bold text-tinta text-sm">GymCoach</span>
           </div>
           <div className="flex items-center gap-1">
+            <ViewSwitchButton to="coach" />
             <ThemeToggleButton />
             <NotificationBell userId={profile?.id} theme="light" />
           </div>
@@ -64,7 +66,12 @@ export default function StudentLayout() {
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
           <div className="flex items-center justify-around px-1.5 py-1.5">
-            {navItems.map((item) => {
+            {navItems.map((baseItem) => {
+              // v71: la coach que entrena edita su perfil de coach
+              const item =
+                baseItem.to === '/student/profile' && profile?.role === 'coach'
+                  ? { ...baseItem, to: '/coach/profile' }
+                  : baseItem
               const showBadge = item.key === 'notes' && unreadNotes > 0
               return (
                 <NavLink

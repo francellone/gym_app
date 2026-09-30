@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Circle,
+  Dumbbell,
   Globe,
   Lock,
   LogOut,
@@ -13,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { savePreferredView } from '../viewMode'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import AvatarEditor from '@/features/avatars/AvatarEditor'
 import ThemeSelector from '@/components/ThemeSelector'
@@ -138,6 +140,27 @@ export default function CoachProfilePage() {
       )
     } finally {
       setDirSaving(false)
+    }
+  }
+
+  // v71: "También entreno" — habilita "Mi entrenamiento" y "Yo" en la lista.
+  const [trainSaving, setTrainSaving] = useState(false)
+  async function toggleAlsoTrains() {
+    if (!profile?.id || trainSaving) return
+    setTrainSaving(true)
+    try {
+      const next = !profile.also_trains
+      const { error } = await supabase
+        .from('profiles')
+        .update({ also_trains: next })
+        .eq('id', profile.id)
+      if (error) throw error
+      if (!next) savePreferredView('coach')
+      await refreshProfile()
+    } catch (e) {
+      console.error('[coach profile] also_trains', e)
+    } finally {
+      setTrainSaving(false)
     }
   }
 
@@ -378,6 +401,32 @@ export default function CoachProfilePage() {
 
         <button className="btn-primary w-full" onClick={saveForm} disabled={saving}>
           {saving ? t('coach.profile.saving') : t('coach.profile.save')}
+        </button>
+      </div>
+
+      {/* También entreno (v71) */}
+      <div className="card flex items-start gap-3">
+        <Dumbbell size={18} className="text-gray-500 mt-0.5" aria-hidden="true" />
+        <div className="flex-1">
+          <p className="font-semibold text-tinta text-sm">{t('coach.profile.alsoTrains.title')}</p>
+          <p className="text-xs text-texto2 mt-0.5">{t('coach.profile.alsoTrains.hint')}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={Boolean(profile?.also_trains)}
+          aria-label={t('coach.profile.alsoTrains.title')}
+          onClick={toggleAlsoTrains}
+          disabled={trainSaving}
+          className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+            profile?.also_trains ? 'bg-primary-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+              profile?.also_trains ? 'left-[22px]' : 'left-0.5'
+            }`}
+          />
         </button>
       </div>
 

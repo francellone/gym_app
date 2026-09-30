@@ -6,10 +6,14 @@
 // ============================================================
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/features/auth/AuthContext'
 import { ClipboardList, PencilLine, PenSquare, Users } from 'lucide-react'
 
 export default function SelfTrainingActions({ ownPlanId = null, compact = false }) {
   const { t } = useTranslation()
+  const { profile } = useAuth()
+  // v71: la coach que entrena no busca coach (decisión: más adelante)
+  const isCoach = profile?.role === 'coach'
   return (
     <div className={compact ? 'space-y-2' : 'card p-5 space-y-3'}>
       {!compact && (
@@ -38,13 +42,15 @@ export default function SelfTrainingActions({ ownPlanId = null, compact = false 
         )}
         {ownPlanId ? t('selfTraining.actions.editPlan') : t('selfTraining.actions.buildPlan')}
       </Link>
-      <Link
-        to="/student/coaches"
-        className="w-full flex items-center justify-center gap-2 text-sm text-primary-700 font-medium py-2"
-      >
-        <Users size={16} aria-hidden="true" />
-        {t('selfTraining.actions.findCoach')}
-      </Link>
+      {!isCoach && (
+        <Link
+          to="/student/coaches"
+          className="w-full flex items-center justify-center gap-2 text-sm text-primary-700 font-medium py-2"
+        >
+          <Users size={16} aria-hidden="true" />
+          {t('selfTraining.actions.findCoach')}
+        </Link>
+      )}
     </div>
   )
 }

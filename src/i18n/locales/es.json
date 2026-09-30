@@ -1359,5 +1359,9 @@
       "askError": "No se pudo mandar el pedido. Probá de nuevo.",
       "loadError": "No se pudo cargar el catálogo."
     }
+  },
+  "viewSwitch": {
+    "toTraining": "Mi entrenamiento",
+    "toCoach": "Panel de coach"
   }
 }

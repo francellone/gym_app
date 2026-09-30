@@ -44,8 +44,7 @@ export function isRestorablePath(pathname) {
   // Comparamos solo el pathname (sin querystring) contra las landings,
   // normalizando un eventual trailing slash.
   const rawPath = pathname.split('?')[0]
-  const normalized =
-    rawPath.length > 1 && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath
+  const normalized = rawPath.length > 1 && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath
   return !LANDING_PATHS.has(normalized)
 }
 
@@ -53,6 +52,13 @@ export function isRestorablePath(pathname) {
 // viceversa tras un cambio de cuenta en el mismo browser.
 export function pathMatchesRole(pathname, role) {
   if (typeof pathname !== 'string') return false
+  if (role === 'both')
+    return (
+      pathname === '/coach' ||
+      pathname.startsWith('/coach/') ||
+      pathname === '/student' ||
+      pathname.startsWith('/student/')
+    )
   if (role === 'coach') return pathname === '/coach' || pathname.startsWith('/coach/')
   if (role === 'student') return pathname === '/student' || pathname.startsWith('/student/')
   return false

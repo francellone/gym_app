@@ -24,6 +24,7 @@ import { ALERT_THRESHOLDS } from '@/features/dashboard/alerts'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import CoachInviteCard from '../components/CoachInviteCard'
 import DirectorySuggestionCard from '../components/DirectorySuggestionCard'
+import SelfRowCard from '../components/SelfRowCard'
 import LinkRequestsPanel from '../components/LinkRequestsPanel'
 
 export default function StudentsPage() {
@@ -221,6 +222,7 @@ export default function StudentsPage() {
       <LinkRequestsPanel onAccepted={fetchStudents} />
       <CoachInviteCard />
       <DirectorySuggestionCard />
+      <SelfRowCard />
 
       {/* v40: filtro de estado del perfil (default: solo activos) */}
       <div className="flex items-center gap-2">

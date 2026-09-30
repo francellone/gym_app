@@ -56,7 +56,11 @@ export default function EditPlanPage({ selfMode = false }) {
   const { profile } = useAuth()
   return (
     <ExerciseCatalogProvider catalog={catalog}>
-      <PlanTargetPersonProvider fixedStudentId={selfMode ? profile?.id : null} basic={selfMode}>
+      <PlanTargetPersonProvider
+        fixedStudentId={selfMode ? profile?.id : null}
+        // v71: la coach que entrena usa el armador completo (%RM incluido)
+        basic={selfMode && profile?.role !== 'coach'}
+      >
         <EditPlanPageInner selfMode={selfMode} />
       </PlanTargetPersonProvider>
     </ExerciseCatalogProvider>

@@ -634,5 +634,9 @@
     "text": "Las personas que entrenan sin coach pueden encontrarte y pedirte sumarse. Para aparecer completá tu perfil: foto, presentación, ciudad y cómo trabajás.",
     "cta": "Completar mi perfil",
     "later": "Ahora no"
+  },
+  "self": {
+    "title": "Yo",
+    "hint": "Tu propio entrenamiento: asignate planes y seguí tu progreso."
   }
 }
