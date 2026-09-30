@@ -183,6 +183,26 @@
       "evals_other": "{{count}} evaluaciones",
       "notes_one": "{{count}} nota",
       "notes_other": "{{count}} notas"
-    }
+    },
+    "notOwnerTitle": "Es de otra cuenta: lo podés usar, pero solo quien lo creó lo modifica, archiva o fusiona."
+  },
+  "catalogAccess": {
+    "askTitle": "¿Querés usar el catálogo de {{owner}}?",
+    "askText": "Tiene cientos de ejercicios cargados con video y descripción. Si lo aprueba, los vas a poder usar en tus planes (sin modificarlos) y lo que cargues vos también se suma al catálogo compartido.",
+    "deniedText": "{{owner}} no aprobó tu pedido. Podés seguir armando tu propio catálogo o volver a pedirlo.",
+    "ask": "Pedir el catálogo",
+    "askAgain": "Volver a pedir",
+    "pendingTitle": "Pedido enviado",
+    "pendingText": "Esperando que {{owner}} lo apruebe. Te avisamos en la campanita.",
+    "usingCatalog": "Estás usando el catálogo de {{owner}}.",
+    "ownerPendingTitle": "Pedidos para usar tu catálogo",
+    "ownerPendingText": "Si aprobás, quien lo pidió ve y usa tus ejercicios (no los puede modificar) y lo que cargue se suma al catálogo compartido.",
+    "approve": "Aprobar",
+    "deny": "Rechazar",
+    "ownerApprovedTitle_one": "{{count}} coach usa tu catálogo",
+    "ownerApprovedTitle_other": "{{count}} coaches usan tu catálogo",
+    "revoke": "Quitar acceso",
+    "revokeConfirm": "Sí, quitar",
+    "error": "No se pudo completar. Probá de nuevo."
   }
 }

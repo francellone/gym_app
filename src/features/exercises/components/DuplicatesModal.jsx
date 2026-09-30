@@ -41,7 +41,11 @@ export default function DuplicatesModal({ exercises, refreshKey, onClose, onMerg
         const { data, error: e } = await supabase.rpc('exercise_duplicate_candidates')
         if (e) throw e
         if (alive) setError(null)
-        const gs = data || []
+        // v72: solo se fusiona entre ejercicios propios (exercises = propios);
+        // de cada grupo quedan los propios y se descartan grupos de uno.
+        const gs = (data || [])
+          .map((g) => ({ ...g, exercise_ids: g.exercise_ids.filter((id) => byId[id]) }))
+          .filter((g) => g.exercise_ids.length > 1)
         const ids = [...new Set(gs.flatMap((g) => g.exercise_ids))]
         const usages = await Promise.all(ids.map((id) => fetchUsage(id).catch(() => null)))
         if (!alive) return

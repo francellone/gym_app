@@ -969,6 +969,20 @@
         "title": "{{coach}} no aceptó tu pedido",
         "body": "Podés seguir entrenando por tu cuenta.",
         "fallbackCoach": "La coach"
+      },
+      "catalog_access_request": {
+        "title": "{{name}} pidió usar tu catálogo",
+        "body": "Aprobalo o rechazalo desde Ejercicios.",
+        "fallbackName": "Un coach"
+      },
+      "catalog_access_approved": {
+        "title": "{{owner}} aprobó tu pedido de catálogo",
+        "body": "Ya podés usar sus ejercicios en tus planes.",
+        "fallbackOwner": "La dueña del catálogo"
+      },
+      "catalog_access_denied": {
+        "title": "{{owner}} no aprobó tu pedido de catálogo",
+        "body": "Podés seguir armando tu propio catálogo."
       }
     }
   },

@@ -183,6 +183,26 @@
       "evals_other": "{{count}} evaluations",
       "notes_one": "{{count}} note",
       "notes_other": "{{count}} notes"
-    }
+    },
+    "notOwnerTitle": "It belongs to another account: you can use it, but only its creator can edit, archive or merge it."
+  },
+  "catalogAccess": {
+    "askTitle": "Want to use {{owner}}'s catalog?",
+    "askText": "It has hundreds of exercises with video and description. If approved, you can use them in your plans (without editing them) and what you add also joins the shared catalog.",
+    "deniedText": "{{owner}} didn't approve your request. You can keep building your own catalog or ask again.",
+    "ask": "Request the catalog",
+    "askAgain": "Ask again",
+    "pendingTitle": "Request sent",
+    "pendingText": "Waiting for {{owner}} to approve it. We'll let you know in the bell.",
+    "usingCatalog": "You're using {{owner}}'s catalog.",
+    "ownerPendingTitle": "Requests to use your catalog",
+    "ownerPendingText": "If you approve, that coach sees and uses your exercises (can't edit them) and what they add joins the shared catalog.",
+    "approve": "Approve",
+    "deny": "Decline",
+    "ownerApprovedTitle_one": "{{count}} coach uses your catalog",
+    "ownerApprovedTitle_other": "{{count}} coaches use your catalog",
+    "revoke": "Remove access",
+    "revokeConfirm": "Yes, remove",
+    "error": "Couldn't complete it. Try again."
   }
 }

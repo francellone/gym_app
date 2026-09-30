@@ -13,6 +13,7 @@ import {
   Archive,
   ArchiveRestore,
   GitMerge,
+  Lock,
   Copy,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -22,6 +23,7 @@ import MergeExerciseModal from '../components/MergeExerciseModal'
 import { fetchUsage, isReferenced, usageSummary } from '../exerciseUsage'
 import { filledSummary } from '../mergeFill'
 import DuplicatesModal from '../components/DuplicatesModal'
+import CatalogAccessCard from '../components/CatalogAccessCard'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
@@ -339,6 +341,9 @@ export default function ExercisesLibraryPage() {
     return matchSearch && matchTag && matchMode && matchIncomplete
   })
 
+  // Fusionar exige ser dueña de origen y destino (v62): solo los propios.
+  const ownExercises = exercises.filter((e) => e.created_by === profile?.id)
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -378,6 +383,9 @@ export default function ExercisesLibraryPage() {
           </button>
         </div>
       </div>
+
+      {/* v72: pedir el catálogo de la dueña / aprobar pedidos */}
+      <CatalogAccessCard onChanged={fetchAll} />
 
       {/* Búsqueda + filtro por etiqueta */}
       <div className="flex gap-2 flex-wrap">
@@ -573,7 +581,17 @@ export default function ExercisesLibraryPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {ex.archived_at ? (
+                  {/* v62/v72: solo quien creó el ejercicio lo modifica, archiva,
+                      fusiona o elimina. Los ajenos se usan tal cual. */}
+                  {profile?.id && ex.created_by !== profile.id ? (
+                    <span
+                      className="p-2"
+                      title={t('coach.exercises.library.notOwnerTitle')}
+                      aria-label={t('coach.exercises.library.notOwnerTitle')}
+                    >
+                      <Lock size={14} className="text-texto3" />
+                    </span>
+                  ) : ex.archived_at ? (
                     !ex.merged_into_id && (
                       <button
                         onClick={() => setArchived(ex, false)}
@@ -637,7 +655,7 @@ export default function ExercisesLibraryPage() {
 
       {showDuplicates && (
         <DuplicatesModal
-          exercises={exercises}
+          exercises={ownExercises}
           refreshKey={refreshKey}
           onClose={() => setShowDuplicates(false)}
           onMergeRequest={(from, into) => setMergeFrom({ from, into })}
@@ -649,7 +667,7 @@ export default function ExercisesLibraryPage() {
         <MergeExerciseModal
           from={mergeFrom.from}
           into={mergeFrom.into || null}
-          exercises={exercises}
+          exercises={ownExercises}
           onClose={() => setMergeFrom(null)}
           onMerged={handleMerged}
         />

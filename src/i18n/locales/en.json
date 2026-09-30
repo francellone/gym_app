@@ -969,6 +969,20 @@
         "title": "{{coach}} didn't accept your request",
         "body": "You can keep training on your own.",
         "fallbackCoach": "The coach"
+      },
+      "catalog_access_request": {
+        "title": "{{name}} asked to use your catalog",
+        "body": "Approve or decline it from Exercises.",
+        "fallbackName": "A coach"
+      },
+      "catalog_access_approved": {
+        "title": "{{owner}} approved your catalog request",
+        "body": "You can now use their exercises in your plans.",
+        "fallbackOwner": "The catalog owner"
+      },
+      "catalog_access_denied": {
+        "title": "{{owner}} declined your catalog request",
+        "body": "You can keep building your own catalog."
       }
     }
   },

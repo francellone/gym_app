@@ -146,6 +146,22 @@ const TYPE_CONFIG = {
     color: 'text-texto2',
     bg: 'bg-gray-100',
   },
+  // v72: catálogo compartido de ejercicios
+  catalog_access_request: {
+    Icon: UserPlus,
+    color: 'text-primary-700',
+    bg: 'bg-durazno-100',
+  },
+  catalog_access_approved: {
+    Icon: UserCheck,
+    color: 'text-green-600',
+    bg: 'bg-green-100',
+  },
+  catalog_access_denied: {
+    Icon: UserX,
+    color: 'text-texto2',
+    bg: 'bg-gray-100',
+  },
   personal_best_voided: {
     Icon: Undo2,
     color: 'text-amber-600',
@@ -204,6 +220,11 @@ export function getNotificationTargetUrl(notification) {
     case 'coach_link_request':
       // v65: la lista de personas muestra los pedidos pendientes arriba.
       return '/coach/students'
+    // v72: pedidos y respuestas del catálogo viven en Ejercicios
+    case 'catalog_access_request':
+    case 'catalog_access_approved':
+    case 'catalog_access_denied':
+      return '/coach/exercises'
     case 'student_note':
       return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
     case 'profile_change':

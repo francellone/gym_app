@@ -65,6 +65,23 @@ export function resolveNotificationText(notification, t) {
   )
     return resolveCoachLink(notification, t)
 
+  // v72: catálogo compartido (entre coaches)
+  if (
+    type === 'catalog_access_request' ||
+    type === 'catalog_access_approved' ||
+    type === 'catalog_access_denied'
+  ) {
+    const data = notification.data || {}
+    const k = (s) => `notifications.types.${type}.${s}`
+    return {
+      title: t(k('title'), {
+        name: data.coach_name || t('notifications.types.catalog_access_request.fallbackName'),
+        owner: data.owner_name || t('notifications.types.catalog_access_approved.fallbackOwner'),
+      }),
+      body: t(k('body')),
+    }
+  }
+
   if (!STUDENT_TYPES.has(type)) return fallback
 
   const data = notification.data || {}
