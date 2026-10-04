@@ -28,6 +28,8 @@ import {
 } from '../helpers'
 import StudentProgressTableView from '@/features/students/components/StudentProgressTableView'
 import AvatarImage from '@/features/avatars/AvatarImage'
+import { fetchNoteThreads } from '@/features/notes/api'
+import { attachNoteThreads } from '@/features/notes/notePreview'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes
@@ -159,7 +161,14 @@ export default function PlanProgressTab({ planId, assignments }) {
       supabase.from('profiles').select('weight_kg').eq('id', selectedStudentId).maybeSingle(),
     ])
 
-    const logData = logsRes.data || []
+    // 2026-10-04: las notas viven en `notes`, no en workout_logs.notes
+    // (vacía); sin esto la tabla de este plan no mostraba ninguna.
+    const logThreads = await fetchNoteThreads({
+      contextType: 'workout_log',
+      contextIds: (logsRes.data || []).map((l) => l.id),
+      viewerRole: 'coach',
+    })
+    const logData = attachNoteThreads(logsRes.data || [], logThreads)
     setProgressLogs(logData)
     setSessions(sessionsRes.data || [])
     setStudentWeightKg(studentRes.data?.weight_kg ?? null)

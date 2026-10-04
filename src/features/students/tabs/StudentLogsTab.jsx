@@ -8,6 +8,7 @@ import {
   blockTypeLabel,
   blockTypeIcon,
 } from '@/features/plans/helpers'
+import NotePreviewLine from '@/features/notes/components/NoteThreadPreview'
 import { blockRowName, blockPrescriptionSummary, displayBlockLogMain } from '../blockRowsLogic'
 
 // PSE con color según nivel (compartido por las dos tarjetas)
@@ -70,7 +71,7 @@ function BlockLogCard({ log }) {
               .filter(Boolean)
               .join(' · ')}
           </p>
-          {log.notes && <p className="text-xs text-gray-400 mt-1 italic truncate">"{log.notes}"</p>}
+          <NotePreviewLine log={log} className="mt-1" />
         </div>
         <div className="text-right flex-shrink-0">
           <p className="text-xs text-gray-500">
@@ -164,9 +165,7 @@ export default function StudentLogsTab({ logs, blockLogs = [] }) {
                     </p>
                   )
                 })()}
-                {log.notes && (
-                  <p className="text-xs text-gray-400 mt-1 italic truncate">"{log.notes}"</p>
-                )}
+                <NotePreviewLine log={log} className="mt-1" />
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-xs text-gray-500">

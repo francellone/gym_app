@@ -845,7 +845,16 @@
     "tabPrivate": "Private",
     "privateHint": "Only you can see these notes. Your coach has no access.",
     "emptyPersonal": "You haven't written any notes yet.",
-    "noteForSelfPlaceholder": "Write a note for yourself…"
+    "noteForSelfPlaceholder": "Write a note for yourself…",
+    "preview": {
+      "you": "You",
+      "coach": "Coach",
+      "person": "Client",
+      "seeNote": "View note",
+      "seeAll": "View all {{count}} notes",
+      "threadTitle_one": "Note on this log",
+      "threadTitle_other": "Notes on this log ({{count}})"
+    }
   },
   "wellbeing": {
     "sleepQuality": "Sleep quality",

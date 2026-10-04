@@ -845,7 +845,16 @@
     "tabPrivate": "Privadas",
     "privateHint": "Solo vos ves estas notas. Tu coach no tiene acceso.",
     "emptyPersonal": "Todavía no escribiste notas.",
-    "noteForSelfPlaceholder": "Escribir una nota para vos…"
+    "noteForSelfPlaceholder": "Escribir una nota para vos…",
+    "preview": {
+      "you": "Vos",
+      "coach": "Coach",
+      "person": "Persona",
+      "seeNote": "Ver nota",
+      "seeAll": "Ver las {{count}} notas",
+      "threadTitle_one": "Nota del registro",
+      "threadTitle_other": "Notas del registro ({{count}})"
+    }
   },
   "wellbeing": {
     "sleepQuality": "Calidad de sueño",

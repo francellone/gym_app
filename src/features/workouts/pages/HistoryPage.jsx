@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { dateLocale } from '@/i18n/dateLocale'
 import { Clock, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react'
 import { readLogReps, readLogWeights } from '@/features/plans/helpers'
-import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import { fetchNoteThreads } from '@/features/notes/api'
+import { attachNoteThreads } from '@/features/notes/notePreview'
+import NotePreviewLine from '@/features/notes/components/NoteThreadPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 
 function SessionGroup({ date, logs, session }) {
@@ -124,9 +126,7 @@ function SessionGroup({ date, logs, session }) {
                     </p>
                   )
                 })()}
-                {log.notes && (
-                  <p className="text-xs text-gray-400 mt-0.5 italic truncate">"{log.notes}"</p>
-                )}
+                <NotePreviewLine log={log} className="mt-0.5" />
               </div>
               {log.plan_exercise?.block_label && (
                 <span className="badge bg-gray-100 text-gray-500 flex-shrink-0 text-xs">
@@ -176,14 +176,13 @@ export default function HistoryPage() {
       // y reemplazar log.notes con el panel. La columna workout_logs.notes
       // sigue viva como compat; en round 2b se dropea.
       const logIds = data.map((l) => l.id)
-      const bodiesMap = await fetchSingleMirrorBodies({
+      // 2026-10-04: la persona ve primero la nota de su coach.
+      const logThreads = await fetchNoteThreads({
         contextType: 'workout_log',
         contextIds: logIds,
+        viewerRole: 'student',
       })
-      const dataWithMirror = data.map((l) => ({
-        ...l,
-        notes: bodiesMap.get(l.id) ?? l.notes ?? null,
-      }))
+      const dataWithMirror = attachNoteThreads(data, logThreads)
 
       const newLogs = page === 0 ? dataWithMirror : [...logs, ...dataWithMirror]
       setLogs(newLogs)

@@ -14,6 +14,11 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { CircleIcon } from '@/components/icons/SegmentIcon'
+import {
+  NoteThreadModal,
+  NotePreviewText,
+  noteAuthorLabel,
+} from '@/features/notes/components/NoteThreadPreview'
 import { format, parseISO } from 'date-fns'
 import { SKIP_REASON_LABEL, SKIP_REASON_SHORT } from '@/features/workouts/completionRules'
 import {
@@ -236,7 +241,7 @@ export default function StudentProgressTableView({
   const [showFieldsPicker, setShowFieldsPicker] = useState(false)
 
   // Modal de notas
-  const [activeNote, setActiveNote] = useState(null) // { key, text }
+  const [activeNote, setActiveNote] = useState(null) // { key, log }
 
   // ── Planes que tocó el alumno en el período ────────────────
   // Los registros ya vienen filtrados por fecha desde el padre, así que de
@@ -960,9 +965,10 @@ export default function StudentProgressTableView({
   }, [skippedLogs, allSessionDates])
 
   // Abrir/cerrar modal de nota
-  const handleNoteClick = (e, key, text) => {
+  // 2026-10-04: se abre la conversación completa del registro.
+  const handleNoteClick = (e, key, log) => {
     e.stopPropagation()
-    setActiveNote((prev) => (prev?.key === key ? null : { key, text }))
+    setActiveNote((prev) => (prev?.key === key ? null : { key, log }))
   }
 
   // Estado comparando log actual con el anterior (ícono en círculo, identidad 2026-09-27)
@@ -1199,7 +1205,11 @@ export default function StudentProgressTableView({
         </td>
       )
     }
-    const hasNotes = !!(log.notes && log.notes.trim())
+    const hasNotes = !!(log.notePreview || (log.notes && log.notes.trim()))
+    // Ícono lleno = hay nota del otro (de la persona) para leer; tenue =
+    // solo notas propias. Número = cuántas hay en la conversación.
+    const notePv = log.notePreview || null
+    const fromOther = notePv ? !notePv.mine : true
     const status = isField('status') ? getStatusEmoji(log, prevLog, isBlock) : null
 
     return (
@@ -1247,14 +1257,26 @@ export default function StudentProgressTableView({
           {isField('notes') &&
             (hasNotes ? (
               <button
-                className={`text-[13px] leading-none cursor-pointer transition-opacity ${
-                  activeNote?.key === noteKey ? 'opacity-100' : 'opacity-50 hover:opacity-100'
+                className={`inline-flex items-center gap-0.5 text-[13px] leading-none cursor-pointer transition-opacity ${
+                  activeNote?.key === noteKey || fromOther
+                    ? 'opacity-100'
+                    : 'opacity-50 hover:opacity-100'
                 }`}
-                onClick={(e) => handleNoteClick(e, noteKey, log.notes)}
-                title={t('coach.students.table.seeNote')}
+                onClick={(e) => handleNoteClick(e, noteKey, log)}
+                title={
+                  notePv
+                    ? `${noteAuthorLabel(notePv, t)}: ${notePv.body}`
+                    : t('coach.students.table.seeNote')
+                }
                 aria-label={t('coach.students.table.seeNoteFull')}
               >
-                <MessageCircle size={14} className="text-texto2" />
+                <MessageCircle
+                  size={14}
+                  className={fromOther ? 'text-primary-600' : 'text-texto2'}
+                />
+                {notePv?.total > 1 && (
+                  <span className="text-[9px] font-semibold text-primary-700">{notePv.total}</span>
+                )}
               </button>
             ) : (
               <span className="text-[10px] text-gray-200">—</span>
@@ -1438,9 +1460,13 @@ export default function StudentProgressTableView({
             {r.recentLogs[0]?.notes ? (
               <button
                 className="text-left text-xs italic text-gray-600 hover:text-primary-600 transition-colors cursor-pointer w-full"
-                onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0].notes)}
+                onClick={(e) => handleNoteClick(e, `last-${r.id}`, r.recentLogs[0])}
               >
-                <span className="line-clamp-2">{r.recentLogs[0].notes}</span>
+                <NotePreviewText
+                  preview={r.recentLogs[0].notePreview}
+                  fallback={r.recentLogs[0].notes}
+                  className="line-clamp-2"
+                />
               </button>
             ) : (
               <span className="text-gray-300 text-xs not-italic">—</span>
@@ -1579,32 +1605,13 @@ export default function StudentProgressTableView({
   // ── Render ─────────────────────────────────────────────────
   return (
     <div className="space-y-3">
-      {/* ── Modal de nota completa ── */}
+      {/* ── Conversación completa del registro ── */}
       {activeNote && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setActiveNote(null)}
-        >
-          <div className="absolute inset-0 bg-velo/15" />
-          <div
-            className="relative bg-white shadow-2xl rounded-2xl p-4 max-w-sm w-full border border-gray-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <CircleIcon icon={MessageCircle} segment="messages" size="md" />
-              <p className="text-sm text-gray-800 flex-1 leading-relaxed whitespace-pre-wrap">
-                {activeNote.text}
-              </p>
-              <button
-                onClick={() => setActiveNote(null)}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-700 ml-1"
-                aria-label={t('common.close')}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
+        <NoteThreadModal
+          thread={activeNote.log?.noteThread}
+          fallback={activeNote.log?.notes}
+          onClose={() => setActiveNote(null)}
+        />
       )}
 
       {/* ── Cómo se arma cada fila ── */}

@@ -33,7 +33,8 @@ import { computeProgression, repsMaxOfLog } from '@/features/progress/progressio
 import { planWindowsFromLogs, previousPlanStart, NO_PLAN } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import PersonalBestsCard from '@/features/milestones/components/PersonalBestsCard'
-import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import { fetchNoteThreads } from '@/features/notes/api'
+import { attachNoteThreads } from '@/features/notes/notePreview'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import {
   isLogSkipped,
@@ -292,14 +293,14 @@ export default function StudentProgressTab({ studentId }) {
     // muestre la última versión del panel (en lugar de workout_logs.notes
     // legacy que vamos a dropear en round 2b).
     const logIds = logData.map((l) => l.id)
-    const bodiesMap = await fetchSingleMirrorBodies({
+    // 2026-10-04: toda la conversación del registro, no una sola nota
+    // (la respuesta de la coach a la nota de la persona se perdía).
+    const logThreads = await fetchNoteThreads({
       contextType: 'workout_log',
       contextIds: logIds,
+      viewerRole: 'coach',
     })
-    const logDataWithMirror = logData.map((l) => ({
-      ...l,
-      notes: bodiesMap.get(l.id) ?? l.notes ?? null,
-    }))
+    const logDataWithMirror = attachNoteThreads(logData, logThreads)
     setProgressLogs(logDataWithMirror)
     setSessions(sessionsRes.data || [])
     setExerciseTags(tagsRes.data || [])
@@ -329,13 +330,12 @@ export default function StudentProgressTab({ studentId }) {
     )
     setBlockDatesInPeriod(new Set(blockRowsInPeriod.map((b) => b.logged_date)))
     // La nota del bloque vive en el panel (mirror), igual que la del ejercicio.
-    const blockBodies = await fetchSingleMirrorBodies({
+    const blockThreads = await fetchNoteThreads({
       contextType: 'workout_block_log',
       contextIds: blockRowsInPeriod.map((b) => b.id),
+      viewerRole: 'coach',
     })
-    setProgressBlockLogs(
-      blockRowsInPeriod.map((b) => ({ ...b, notes: blockBodies.get(b.id) ?? null }))
-    )
+    setProgressBlockLogs(attachNoteThreads(blockRowsInPeriod, blockThreads, { keepLegacy: false }))
     setAttendanceDates(
       new Set([
         ...filterTrainingLogs(attLogsRes.data || []).map((l) => l.logged_date),

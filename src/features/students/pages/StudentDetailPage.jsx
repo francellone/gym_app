@@ -21,7 +21,8 @@ import StudentActivitiesTab from '@/features/activities/pages/StudentActivitiesT
 import StudentFormsTab from '../tabs/StudentFormsTab'
 import StudentNotesTab from '@/features/notes/pages/StudentNotesTab'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
-import { fetchSingleMirrorBodies } from '@/features/notes/api'
+import { fetchNoteThreads } from '@/features/notes/api'
+import { attachNoteThreads } from '@/features/notes/notePreview'
 import AvatarImage from '@/features/avatars/AvatarImage'
 
 const TABS = [
@@ -174,23 +175,22 @@ export default function StudentDetailPage() {
       // Mientras tanto, prefer mirror.body sobre log.notes si existe.
       const rawLogs = logsRes.data || []
       const logIds = rawLogs.map((l) => l.id)
-      const bodiesMap = await fetchSingleMirrorBodies({
+      const logThreads = await fetchNoteThreads({
         contextType: 'workout_log',
         contextIds: logIds,
+        viewerRole: 'coach',
       })
-      const logsWithMirror = rawLogs.map((l) => ({
-        ...l,
-        notes: bodiesMap.get(l.id) ?? l.notes ?? null,
-      }))
+      const logsWithMirror = attachNoteThreads(rawLogs, logThreads)
       setLogs(logsWithMirror)
 
       if (blockLogsRes.error) console.error('[StudentDetailPage] block logs', blockLogsRes.error)
       const rawBlockLogs = blockLogsRes.data || []
-      const blockBodies = await fetchSingleMirrorBodies({
+      const blockThreads = await fetchNoteThreads({
         contextType: 'workout_block_log',
         contextIds: rawBlockLogs.map((b) => b.id),
+        viewerRole: 'coach',
       })
-      setBlockLogs(rawBlockLogs.map((b) => ({ ...b, notes: blockBodies.get(b.id) ?? null })))
+      setBlockLogs(attachNoteThreads(rawBlockLogs, blockThreads, { keepLegacy: false }))
       setAllPlans(plansRes.data || [])
       setEditHistory(historyRes.data || [])
       setFormAssignment(formAssignmentRes.data || null)

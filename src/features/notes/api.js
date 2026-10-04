@@ -16,6 +16,7 @@
 // ============================================================
 
 import { supabase } from '@/lib/supabase'
+import { groupNoteThreads } from './notePreview'
 
 // ── Constantes ────────────────────────────────────────────────
 const DEFAULT_PAGE_SIZE = 50
@@ -1262,6 +1263,28 @@ export async function fetchSingleMirrorBodies({ contextType, contextIds, authorR
     map.set(n.context_id, n.body)
   }
   return map
+}
+
+// 2026-10-04 — conversación completa por registro (no una sola nota).
+// Trae TODAS las notas vivas de esos context_id, en tandas de 100 ids
+// (un .in() con cientos de UUID arma una URL demasiado larga), y las
+// devuelve agrupadas con la nota que se ve primero según quién mira.
+// Ver notePreview.js. Devuelve Map<context_id, { thread, preview }>.
+export async function fetchNoteThreads({ contextType, contextIds, viewerRole }) {
+  const ids = [...new Set((contextIds || []).filter(Boolean))]
+  if (!contextType || ids.length === 0) return new Map()
+  const CHUNK = 100
+  const parts = []
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    parts.push(fetchMirrorNotes({ contextType, contextIds: ids.slice(i, i + CHUNK) }))
+  }
+  const results = await Promise.all(parts)
+  const rows = []
+  for (const r of results) {
+    if (r.error) console.error('[fetchNoteThreads]', contextType, r.error)
+    rows.push(...(r.data || []))
+  }
+  return groupNoteThreads(rows, viewerRole)
 }
 
 // Helper de conveniencia para evaluation_test: hasta 3 mirrors por
