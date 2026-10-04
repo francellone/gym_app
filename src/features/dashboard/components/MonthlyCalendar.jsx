@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, X, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { dateLocale } from '@/i18n/dateLocale'
 import useCoachCalendarData, {
@@ -16,6 +16,8 @@ import {
   FORM_UNANSWERED_WARN_DAYS,
 } from '../calendarLogic'
 import useCalendarVisibility from '../hooks/useCalendarVisibility'
+import AvatarImage from '@/features/avatars/AvatarImage'
+import { initialsOf } from '@/features/avatars/avatarUrls'
 
 // ============================================================
 // MonthlyCalendar
@@ -71,7 +73,8 @@ const firstName = (name) => String(name || '').split(' ')[0]
 function dayStatus(data, ymd, today) {
   if (!data) return 'rest'
   return computeStudentDayStatus(ymd, data.expected, data.completed, today, {
-    scheduleMode: data.scheduleMode,
+    // El modo del plan vigente ESE día (historial completo, 2026-10-04).
+    scheduleMode: data.modeByDate?.get(ymd) ?? data.scheduleMode,
     flexibleOverflowSet: data.flexibleOverflow,
     partialSet: data.partial,
   })
@@ -187,29 +190,11 @@ export default function MonthlyCalendar({
         </div>
         <div className="flex items-center gap-1.5">
           {onSelectStudent && (
-            <label
-              className={[
-                'relative flex-1 sm:flex-none inline-flex items-center h-9 rounded-full border text-sm',
-                studentId
-                  ? 'bg-durazno-50 border-durazno-200 text-primary-700 font-medium'
-                  : 'bg-white border-linea text-tinta',
-              ].join(' ')}
-            >
-              <span className="sr-only">{t('coach.dashboard.calendar.seeCalendarOf')}</span>
-              <select
-                value={studentId || ''}
-                onChange={(e) => onSelectStudent(e.target.value || null)}
-                className="appearance-none bg-transparent pl-3 pr-8 h-full w-full sm:w-auto sm:max-w-[220px] truncate focus:outline-none cursor-pointer"
-              >
-                <option value="">{t('coach.dashboard.calendar.allPeople')}</option>
-                {studentOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="absolute right-2.5 pointer-events-none" />
-            </label>
+            <PersonPicker
+              studentId={studentId}
+              options={studentOptions}
+              onChange={onSelectStudent}
+            />
           )}
           <button
             onClick={goToday}
@@ -641,6 +626,70 @@ function Legend({
             </span>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// PersonPicker — a quién se le ve el calendario (2026-10-04)
+// ─────────────────────────────────────────────────────────────
+// Píldora con foto (o iniciales) y nombre; sin persona, ícono de grupo y
+// "Todas las personas". Debajo hay un <select> nativo transparente que
+// ocupa toda la píldora: la lista es la del sistema (cómoda en el
+// teléfono, accesible) y la píldora es solo la cara visible. Con una
+// persona elegida aparece una cruz para volver a todas.
+function PersonPicker({ studentId, options = [], onChange }) {
+  const { t } = useTranslation()
+  const selected = studentId ? options.find((s) => s.id === studentId) || null : null
+  return (
+    <div className="relative flex-1 sm:flex-none min-w-0 flex items-center">
+      <label
+        className={[
+          'relative flex-1 min-w-0 inline-flex items-center gap-2 h-9 rounded-full border pl-1 pr-8 text-sm transition-colors',
+          'focus-within:ring-2 focus-within:ring-primary-200',
+          selected
+            ? 'bg-durazno-50 border-durazno-200 text-primary-700 font-semibold'
+            : 'bg-white border-linea text-tinta hover:bg-durazno-50',
+        ].join(' ')}
+      >
+        <span className="w-7 h-7 rounded-full bg-durazno-100 text-primary-700 text-[11px] font-bold grid place-items-center flex-shrink-0 overflow-hidden">
+          {selected ? (
+            <AvatarImage path={selected.avatar_url} alt="">
+              {initialsOf(selected.name)}
+            </AvatarImage>
+          ) : (
+            <Users size={15} />
+          )}
+        </span>
+        <span className="truncate sm:max-w-[180px]">
+          {selected ? selected.name : t('coach.dashboard.calendar.allPeople')}
+        </span>
+        <ChevronDown size={16} className="absolute right-2.5 pointer-events-none text-texto2" />
+        <select
+          value={studentId || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          aria-label={t('coach.dashboard.calendar.seeCalendarOf')}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        >
+          <option value="">{t('coach.dashboard.calendar.allPeople')}</option>
+          {options.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {selected && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="ml-1 w-7 h-7 grid place-items-center rounded-full text-texto2 hover:bg-durazno-50 hover:text-primary-700 flex-shrink-0"
+          aria-label={t('coach.dashboard.calendar.clearPerson')}
+          title={t('coach.dashboard.calendar.clearPerson')}
+        >
+          <X size={15} />
+        </button>
       )}
     </div>
   )

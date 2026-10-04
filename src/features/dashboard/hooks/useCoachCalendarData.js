@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getExpectedSessionDates, getScheduleMode } from '@/features/plans/assignmentHelpers'
+import { getScheduleMode } from '@/features/plans/assignmentHelpers'
 import { computeDateCompleteness } from '@/features/students/dayTalliesLogic'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import i18n from '@/i18n'
@@ -13,6 +13,7 @@ import {
   computeStudentDayStatus,
   computeFlexibleOverflowSet,
   MILESTONE_KINDS_IN_CALENDAR,
+  buildStudentCalendarDays,
 } from '../calendarLogic'
 
 // Re-exports para mantener la API histórica del hook
@@ -25,12 +26,6 @@ export {
   computeStudentDayStatus,
   computeFlexibleOverflowSet,
 }
-
-// ── Constantes locales ───────────────────────────────────────
-// schedule_mode posibles. Se replican acá para no acoplar este
-// hook con el shape exacto de SCHEDULE_MODES en assignmentHelpers.
-const SCHED_FIXED = 'fixed'
-const SCHED_FLEXIBLE = 'flexible'
 
 // ============================================================
 // useCoachCalendarData
@@ -143,9 +138,9 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   const [evalResults, setEvalResults] = useState([])
   // 2026-09-27: formularios, pagos cobrados, actividades extra y festejos.
   const [extras, setExtras] = useState({})
-  const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Set<YMD> }
+  const [completedByStudent, setCompletedByStudent] = useState({}) // { studentId: Map<plan_id, Set<YMD>> }
   // Días CON sesión pero SIN el entrenamiento completo (ver computeDateCompleteness).
-  const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Set<YMD> }
+  const [partialByStudent, setPartialByStudent] = useState({}) // { studentId: Map<plan_id, Set<YMD>> }
   const [refreshTick, setRefreshTick] = useState(0)
 
   // Evitamos pisarnos con respuestas viejas si el coach navega rápido.
@@ -294,53 +289,59 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           }
         }
         if (!eventsOnly && sel.length > 0) {
-          // ── IMPORTANTE: filtrar por plan_id del plan ACTIVO de TRAINING ──
-          // Sin este filtro, el Set de "días entrenados" se contamina con:
-          //   1. Sesiones de planes 'replaced' que solapan la ventana
-          //      cuando hay transición de un plan al siguiente.
-          //   2. Sesiones legacy con plan_id de evaluaciones (escritas
-          //      por flujos viejos antes de existir EvalWorkoutPage).
-          // Eso inflaba el conteo semanal y empujaba días reales al
-          // overflow set (false "Día extra"). Bug reportado: solapamiento
-          // entre PLAN 10 (replaced) y PLAN 11 (active) en mayo 2026.
-          const activeTrainingPlanIds = assignmentsData
-            .filter(
-              (a) =>
-                sel.includes(a.student_id) && a.status === 'active' && a.plan_type === 'training'
-            )
-            .map((a) => a.plan_id)
+          // ── Historial completo (2026-10-04) ──────────────────────
+          // Antes solo se traían las sesiones del plan ACTIVO: con una
+          // persona elegida, los meses de planes anteriores salían vacíos.
+          // Ahora entran todos sus planes de TRAINING que tocan la ventana
+          // (activos, reemplazados, terminados); cada día se evalúa con el
+          // plan vigente ese día (buildStudentCalendarDays). Las sesiones
+          // de evaluaciones siguen afuera porque assignmentsData es solo
+          // training, y el cupo flexible se calcula por plan, así que la
+          // transición entre planes no inventa "días extra".
+          const trainingPlanIds = [
+            ...new Set(
+              assignmentsData
+                .filter(
+                  (a) => sel.includes(a.student_id) && (a.plan_type || 'training') === 'training'
+                )
+                .map((a) => a.plan_id)
+            ),
+          ]
 
-          if (activeTrainingPlanIds.length > 0) {
-            const sessionsRes = await supabase
-              .from('workout_sessions')
-              .select('student_id, plan_id, logged_date')
-              .in('student_id', sel)
-              .in('plan_id', activeTrainingPlanIds)
-              .gte('logged_date', windowStartYMD)
-              .lte('logged_date', windowEndYMD)
+          if (trainingPlanIds.length > 0) {
+            const sessionRows = await fetchAllRows((from, to) =>
+              supabase
+                .from('workout_sessions')
+                .select('id, student_id, plan_id, logged_date')
+                .in('student_id', sel)
+                .in('plan_id', trainingPlanIds)
+                .gte('logged_date', windowStartYMD)
+                .lte('logged_date', windowEndYMD)
+                .order('id', { ascending: true })
+                .range(from, to)
+            )
 
             if (cancelled || reqIdRef.current !== myReqId) return
 
-            for (const row of sessionsRes.data || []) {
+            // completedMap[sid] = Map<plan_id, Set<YMD>>
+            for (const row of sessionRows) {
               const sid = row.student_id
-              if (!completedMap[sid]) completedMap[sid] = new Set()
-              completedMap[sid].add(String(row.logged_date).slice(0, 10))
+              if (!completedMap[sid]) completedMap[sid] = new Map()
+              if (!completedMap[sid].has(row.plan_id)) completedMap[sid].set(row.plan_id, new Set())
+              completedMap[sid].get(row.plan_id).add(String(row.logged_date).slice(0, 10))
             }
 
             // ── Completo vs parcial (2026-08-27) ──────────────────
             // "Existe sesión" no alcanza: Andrea entrenaba solo la
             // activación y el calendario la marcaba Cumplido en verde.
-            // Para decidirlo necesitamos, por fecha, qué ítems del plan
-            // completó. Paginado con fetchAllRows: son varias alumnas ×
-            // 6 semanas × ~12 logs por día y el corte mudo de 1000 filas
-            // de PostgREST ya nos mordió una vez.
+            // Paginado con fetchAllRows (corte mudo de 1000 filas).
             const [logRows, blockLogRows, peRows, pbRows] = await Promise.all([
               fetchAllRows((from, to) =>
                 supabase
                   .from('workout_logs')
                   .select('student_id, plan_id, logged_date, completed, status, plan_exercise_id')
                   .in('student_id', sel)
-                  .in('plan_id', activeTrainingPlanIds)
+                  .in('plan_id', trainingPlanIds)
                   .gte('logged_date', windowStartYMD)
                   .lte('logged_date', windowEndYMD)
                   .order('id', { ascending: true })
@@ -351,7 +352,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
                   .from('workout_block_logs')
                   .select('student_id, plan_id, logged_date, completed, status, plan_block_id')
                   .in('student_id', sel)
-                  .in('plan_id', activeTrainingPlanIds)
+                  .in('plan_id', trainingPlanIds)
                   .gte('logged_date', windowStartYMD)
                   .lte('logged_date', windowEndYMD)
                   .order('id', { ascending: true })
@@ -361,7 +362,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
                 supabase
                   .from('plan_exercises')
                   .select('id, plan_id, section, block_id')
-                  .in('plan_id', activeTrainingPlanIds)
+                  .in('plan_id', trainingPlanIds)
                   .order('id', { ascending: true })
                   .range(from, to)
               ),
@@ -369,7 +370,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
                 supabase
                   .from('plan_blocks')
                   .select('id, plan_id, section, block_type')
-                  .in('plan_id', activeTrainingPlanIds)
+                  .in('plan_id', trainingPlanIds)
                   .order('id', { ascending: true })
                   .range(from, to)
               ),
@@ -377,33 +378,28 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
             if (cancelled || reqIdRef.current !== myReqId) return
 
-            const planIdByStudent = new Map(
-              assignmentsData
-                .filter(
-                  (a) =>
-                    sel.includes(a.student_id) &&
-                    a.status === 'active' &&
-                    a.plan_type === 'training'
-                )
-                .map((a) => [a.student_id, a.plan_id])
-            )
-
             for (const sid of sel) {
-              const planId = planIdByStudent.get(sid)
-              const sessionDates = completedMap[sid]
-              if (!planId || !sessionDates || sessionDates.size === 0) continue
-              const completeness = computeDateCompleteness({
-                logs: logRows.filter((l) => l.student_id === sid && l.plan_id === planId),
-                blockLogs: blockLogRows.filter((b) => b.student_id === sid && b.plan_id === planId),
-                planExercises: peRows.filter((pe) => pe.plan_id === planId),
-                planBlocks: pbRows.filter((pb) => pb.plan_id === planId),
-                dates: [...sessionDates],
-              })
-              const partial = new Set()
-              for (const ymd of sessionDates) {
-                if (completeness.get(ymd) === 'partial') partial.add(ymd)
+              const byPlan = completedMap[sid]
+              if (!byPlan) continue
+              for (const [planId, sessionDates] of byPlan) {
+                const completeness = computeDateCompleteness({
+                  logs: logRows.filter((l) => l.student_id === sid && l.plan_id === planId),
+                  blockLogs: blockLogRows.filter(
+                    (b) => b.student_id === sid && b.plan_id === planId
+                  ),
+                  planExercises: peRows.filter((pe) => pe.plan_id === planId),
+                  planBlocks: pbRows.filter((pb) => pb.plan_id === planId),
+                  dates: [...sessionDates],
+                })
+                const partial = new Set()
+                for (const ymd of sessionDates) {
+                  if (completeness.get(ymd) === 'partial') partial.add(ymd)
+                }
+                if (partial.size > 0) {
+                  if (!partialMap[sid]) partialMap[sid] = new Map()
+                  partialMap[sid].set(planId, partial)
+                }
               }
-              if (partial.size > 0) partialMap[sid] = partial
             }
           }
         }
@@ -476,44 +472,30 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     if (sel.size === 0) return out
 
     for (const sid of sel) {
-      // Tomamos la asignación 'active' de training de ese alumno
-      // (debería ser una sola gracias al índice parcial único
-      // one_active_training_per_student de migration_v21).
-      // El check explícito de plan_type es defensivo: aunque
-      // assignmentsData ya viene filtrado a training, blinda contra
-      // regresiones si ese filtro upstream cambia.
-      const a =
-        assignments.find(
-          (x) =>
-            x.student_id === sid &&
-            x.status === 'active' &&
-            (x.plan_type || 'training') === 'training'
-        ) || null
+      // Todas sus asignaciones de training en la ventana (2026-10-04).
+      const own = assignments.filter(
+        (x) => x.student_id === sid && (x.plan_type || 'training') === 'training'
+      )
+      // La activa sigue mandando en el resumen ("Plan: lunes y
+      // miércoles") y en el modo por defecto.
+      const a = own.find((x) => x.status === 'active') || null
 
-      const scheduleMode = getScheduleMode(a)
-      const completed = completedByStudent[sid] || new Set()
-      const partial = partialByStudent[sid] || new Set()
-
-      const expected = new Set()
-      if (a && scheduleMode === SCHED_FIXED) {
-        for (const ymd of getExpectedSessionDates(a, window.start, window.end)) {
-          expected.add(ymd)
-        }
-      }
-
-      let flexibleOverflow = null
-      if (a && scheduleMode === SCHED_FLEXIBLE) {
-        const spw = Number(a?.plan?.sessions_per_week ?? a?.sessions_per_week ?? 0)
-        flexibleOverflow = computeFlexibleOverflowSet(completed, spw)
-      }
+      const days = buildStudentCalendarDays({
+        assignments: own,
+        sessionsByPlan: completedByStudent[sid] || new Map(),
+        partialByPlan: partialByStudent[sid] || new Map(),
+        windowStart: window.start,
+        windowEnd: window.end,
+      })
 
       out.set(sid, {
         assignment: a,
-        scheduleMode,
-        expected,
-        completed,
-        partial,
-        flexibleOverflow,
+        scheduleMode: getScheduleMode(a),
+        expected: days.expected,
+        completed: days.completed,
+        partial: days.partial,
+        flexibleOverflow: days.flexibleOverflow,
+        modeByDate: days.modeByDate,
       })
     }
     return out

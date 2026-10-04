@@ -10,7 +10,11 @@
 // mantener compatibilidad con quien las importa desde ahí.
 // ============================================================
 
-import { startOfWeekMonday } from '@/features/plans/assignmentHelpers'
+import {
+  startOfWeekMonday,
+  getExpectedSessionDates,
+  getScheduleMode,
+} from '@/features/plans/assignmentHelpers'
 
 // ── Constantes locales ───────────────────────────────────────
 const SCHED_FIXED = 'fixed'
@@ -782,4 +786,82 @@ export function agendaPhrase(ev, t) {
     default:
       return { lead: title, name, detail: '' }
   }
+}
+
+// ============================================================
+// buildStudentCalendarDays (PURA) — 2026-10-04
+// ------------------------------------------------------------
+// Antes el calendario de una persona usaba SOLO el plan vigente: los
+// días entrenados con planes anteriores no aparecían y los días
+// planificados salían todos del plan actual. Ahora cada día se evalúa
+// con el plan que estaba vigente ESE día.
+//
+//   assignments     asignaciones de TRAINING de la persona que tocan la
+//                   ventana (activas, reemplazadas, terminadas)
+//   sessionsByPlan  Map<plan_id, Set<YMD>>  días con sesión por plan
+//   partialByPlan   Map<plan_id, Set<YMD>>  de esos, los incompletos
+//   windowStart/End Date
+//
+// Devuelve { expected, completed, partial, flexibleOverflow, modeByDate }
+// con modeByDate: Map<YMD, 'fixed'|'flexible'> según el plan del día.
+// El cupo semanal de un plan flexible se calcula solo con las sesiones
+// de ESE plan dentro de su vigencia (si no, la transición entre planes
+// inventa "días extra", el bug del 2026-05-10).
+// ============================================================
+const ymdOf = (v) => (v ? String(v).slice(0, 10) : null)
+
+export function assignmentForDate(assignments, ymd) {
+  let best = null
+  for (const a of assignments || []) {
+    const start = ymdOf(a.start_date)
+    const end = ymdOf(a.closed_at)
+    if (!start || start > ymd) continue
+    if (end && end < ymd) continue
+    if (!best || start > ymdOf(best.start_date)) best = a
+  }
+  return best
+}
+
+export function buildStudentCalendarDays({
+  assignments = [],
+  sessionsByPlan = new Map(),
+  partialByPlan = new Map(),
+  windowStart,
+  windowEnd,
+}) {
+  const expected = new Set()
+  const completed = new Set()
+  const partial = new Set()
+  const flexibleOverflow = new Set()
+  const modeByDate = new Map()
+
+  for (const set of sessionsByPlan.values()) for (const d of set) completed.add(d)
+  for (const set of partialByPlan.values()) for (const d of set) partial.add(d)
+
+  for (const a of assignments) {
+    if (getScheduleMode(a) === 'fixed') {
+      for (const d of getExpectedSessionDates(a, windowStart, windowEnd)) expected.add(d)
+    } else {
+      const start = ymdOf(a.start_date)
+      const end = ymdOf(a.closed_at)
+      const own = new Set(
+        [...(sessionsByPlan.get(a.plan_id) || [])].filter(
+          (d) => (!start || d >= start) && (!end || d <= end)
+        )
+      )
+      const spw = Number(a?.plan?.sessions_per_week ?? a?.sessions_per_week ?? 0)
+      for (const d of computeFlexibleOverflowSet(own, spw)) flexibleOverflow.add(d)
+    }
+  }
+
+  let cursor = startOfDay(windowStart)
+  const last = startOfDay(windowEnd)
+  while (cursor <= last) {
+    const ymd = toYMD(cursor)
+    const a = assignmentForDate(assignments, ymd)
+    if (a) modeByDate.set(ymd, getScheduleMode(a))
+    cursor = addDays(cursor, 1)
+  }
+
+  return { expected, completed, partial, flexibleOverflow, modeByDate }
 }

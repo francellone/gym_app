@@ -15,6 +15,8 @@ import {
   agendaPhrase,
   milestoneText,
   filterEventsByDate,
+  buildStudentCalendarDays,
+  assignmentForDate,
 } from './calendarLogic'
 
 // Las frases salen de i18n (panel de la coach); los tests corren en español.
@@ -475,5 +477,79 @@ describe('filterEventsByDate — persona elegida (2026-10-04)', () => {
   it('combina persona y temas apagados', () => {
     const out = filterEventsByDate(map, new Set(['payment_due']), 'a')
     expect(out.get('2026-10-05').map((e) => e.type)).toEqual(['plan_end'])
+  })
+})
+
+describe('buildStudentCalendarDays — todo el historial, no solo el plan vigente (2026-10-04)', () => {
+  // Plan viejo (fijo lun-mié) hasta el 14/9; plan nuevo (flexible, 2 por
+  // semana) desde el 15/9.
+  const viejo = {
+    plan_id: 'P1',
+    status: 'replaced',
+    schedule_mode: 'fixed',
+    preferred_days: [1, 3],
+    start_date: '2026-08-01',
+    closed_at: '2026-09-14T12:00:00Z',
+  }
+  const nuevo = {
+    plan_id: 'P2',
+    status: 'active',
+    schedule_mode: 'flexible',
+    plan: { sessions_per_week: 2 },
+    start_date: '2026-09-15',
+    closed_at: null,
+  }
+  const win = { windowStart: new Date(2026, 8, 1), windowEnd: new Date(2026, 8, 30) }
+
+  it('cada día toma el modo del plan vigente ese día', () => {
+    expect(assignmentForDate([viejo, nuevo], '2026-09-10').plan_id).toBe('P1')
+    expect(assignmentForDate([viejo, nuevo], '2026-09-15').plan_id).toBe('P2')
+    expect(assignmentForDate([viejo, nuevo], '2026-07-01')).toBeNull()
+  })
+
+  it('suma los días entrenados de los dos planes y los planificados del viejo', () => {
+    const r = buildStudentCalendarDays({
+      assignments: [viejo, nuevo],
+      sessionsByPlan: new Map([
+        ['P1', new Set(['2026-09-07', '2026-09-09'])],
+        ['P2', new Set(['2026-09-16', '2026-09-17', '2026-09-18'])],
+      ]),
+      partialByPlan: new Map([['P1', new Set(['2026-09-09'])]]),
+      ...win,
+    })
+    expect([...r.completed].sort()).toEqual([
+      '2026-09-07',
+      '2026-09-09',
+      '2026-09-16',
+      '2026-09-17',
+      '2026-09-18',
+    ])
+    expect(r.partial.has('2026-09-09')).toBe(true)
+    // Lunes y miércoles del plan viejo, solo hasta su cierre.
+    expect(r.expected.has('2026-09-07')).toBe(true)
+    expect(r.expected.has('2026-09-14')).toBe(true)
+    expect(r.expected.has('2026-09-16')).toBe(false)
+    expect(r.modeByDate.get('2026-09-09')).toBe('fixed')
+    expect(r.modeByDate.get('2026-09-16')).toBe('flexible')
+    // Tercera sesión de la semana en el plan flexible = día extra.
+    expect([...r.flexibleOverflow]).toEqual(['2026-09-18'])
+  })
+
+  it('con el estado del día, el plan viejo se ve cumplido / parcial', () => {
+    const r = buildStudentCalendarDays({
+      assignments: [viejo, nuevo],
+      sessionsByPlan: new Map([['P1', new Set(['2026-09-07', '2026-09-09'])]]),
+      partialByPlan: new Map([['P1', new Set(['2026-09-09'])]]),
+      ...win,
+    })
+    const st = (ymd) =>
+      computeStudentDayStatus(ymd, r.expected, r.completed, new Date(2026, 9, 4), {
+        scheduleMode: r.modeByDate.get(ymd),
+        flexibleOverflowSet: r.flexibleOverflow,
+        partialSet: r.partial,
+      })
+    expect(st('2026-09-07')).toBe('planned_done')
+    expect(st('2026-09-09')).toBe('planned_partial')
+    expect(st('2026-09-02')).toBe('planned_missed')
   })
 })
