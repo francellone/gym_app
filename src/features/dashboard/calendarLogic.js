@@ -176,13 +176,16 @@ export const PAST_ONLY_KINDS = new Set([
 // (y entra en "Necesitan atención").
 export const FORM_UNANSWERED_WARN_DAYS = 7
 
-// Filtra un Map<YMD, CoachEvent[]> sacando los tipos apagados.
-export function filterEventsByDate(eventsByDate, hidden) {
+// Filtra un Map<YMD, CoachEvent[]> sacando los tipos apagados y, si hay
+// persona elegida, los eventos de las demás personas (2026-10-04: el
+// calendario filtrado por una persona mostraba pagos, cumpleaños, planes,
+// etc. de todas; la agenda de 7 días ya filtraba, el calendario no).
+export function filterEventsByDate(eventsByDate, hidden, studentId = null) {
   const h = hidden instanceof Set ? hidden : new Set(hidden || [])
-  if (h.size === 0) return eventsByDate
+  if (h.size === 0 && !studentId) return eventsByDate
   const out = new Map()
   for (const [ymd, arr] of eventsByDate || []) {
-    const keep = arr.filter((e) => !h.has(e.type))
+    const keep = arr.filter((e) => !h.has(e.type) && (!studentId || e.studentId === studentId))
     if (keep.length > 0) out.set(ymd, keep)
   }
   return out

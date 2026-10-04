@@ -14,6 +14,7 @@ import {
   buildAgendaDays,
   agendaPhrase,
   milestoneText,
+  filterEventsByDate,
 } from './calendarLogic'
 
 // Las frases salen de i18n (panel de la coach); los tests corren en español.
@@ -445,5 +446,34 @@ describe('computeCalendarEvents — pagos cobrados, actividades y festejos', () 
     const days = buildAgendaDays(map, today, 7)
     expect(days.flatMap((d) => d.events.map((e) => e.type))).toEqual(['form_scheduled'])
     expect(buildAgendaDays(map, today, 7, null, new Set(['form_scheduled']))).toEqual([])
+  })
+})
+
+describe('filterEventsByDate — persona elegida (2026-10-04)', () => {
+  const map = new Map([
+    [
+      '2026-10-05',
+      [
+        { type: 'payment_due', studentId: 'a' },
+        { type: 'birthday', studentId: 'b' },
+        { type: 'plan_end', studentId: 'a' },
+      ],
+    ],
+    ['2026-10-06', [{ type: 'payment_due', studentId: 'b' }]],
+  ])
+
+  it('sin persona ni temas apagados devuelve todo', () => {
+    expect(filterEventsByDate(map, new Set())).toBe(map)
+  })
+
+  it('con persona deja solo sus eventos y saca los días vacíos', () => {
+    const out = filterEventsByDate(map, new Set(), 'a')
+    expect(out.get('2026-10-05').map((e) => e.type)).toEqual(['payment_due', 'plan_end'])
+    expect(out.has('2026-10-06')).toBe(false)
+  })
+
+  it('combina persona y temas apagados', () => {
+    const out = filterEventsByDate(map, new Set(['payment_due']), 'a')
+    expect(out.get('2026-10-05').map((e) => e.type)).toEqual(['plan_end'])
   })
 })

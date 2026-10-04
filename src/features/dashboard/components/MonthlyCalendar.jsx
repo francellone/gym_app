@@ -107,8 +107,8 @@ export default function MonthlyCalendar({
   } = useCoachCalendarData(monthAnchor, selectedIds)
   const { hidden, toggle, reset, isDefault } = useCalendarVisibility()
   const eventsByDate = useMemo(
-    () => filterEventsByDate(allEventsByDate, hidden),
-    [allEventsByDate, hidden]
+    () => filterEventsByDate(allEventsByDate, hidden, studentId),
+    [allEventsByDate, hidden, studentId]
   )
   const showTrained = !hidden.has('trained')
 
