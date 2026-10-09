@@ -4,12 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { TrendingUp, BarChart3, Table as TableIcon, Tag } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import {
-  ComposedChart,
   BarChart,
   AreaChart,
   Area,
   Bar,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,18 +16,18 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import {
-  borgColor,
-  BORG_LABELS,
-  maxWeightOfLog,
-  calculateLogVolume,
-  getEffectiveWeightMode,
-  getLoggingWeightMode,
-  getEffectiveUnilateral,
-} from '@/features/plans/helpers'
+import { borgColor, BORG_LABELS, maxWeightOfLog } from '@/features/plans/helpers'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
 import { ATTENDANCE_WEEKS, attendanceWeeks, attendanceRangeStart } from '../attendanceRange'
 import { computeProgression, repsMaxOfLog } from '@/features/progress/progression'
+import {
+  buildRepsWeightSeries,
+  buildExerciseVolumeSeries,
+  describeExerciseSeries,
+  progressionPoints,
+} from '@/features/progress/exerciseSeries'
+import ChartHeader from '@/features/progress/components/ChartHeader'
+import RepsWeightChart from '@/features/progress/components/RepsWeightChart'
 import { planWindowsFromLogs, previousPlanStart, NO_PLAN } from '../planWindows'
 import StudentProgressTableView from '../components/StudentProgressTableView'
 import PersonalBestsCard from '@/features/milestones/components/PersonalBestsCard'
@@ -86,24 +84,6 @@ function TooltipCard({ active, payload, label }) {
   )
 }
 
-// Volumen real respetando weight_mode + unilateral + bodyweight.
-// Necesita el peso corporal del alumno para BW.
-function volumeOf(l, bodyWeightKg) {
-  const weightMode = getLoggingWeightMode(
-    getEffectiveWeightMode({
-      log: l,
-      planExercise: l.plan_exercise,
-      exercise: l.plan_exercise?.exercise,
-    })
-  )
-  const unilateral = getEffectiveUnilateral({
-    log: l,
-    planExercise: l.plan_exercise,
-    exercise: l.plan_exercise?.exercise,
-  })
-  return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
-}
-
 // Nombre corto del plan para el rótulo de la línea del gráfico.
 function shortPlanTitle(title = '') {
   const head = String(title).split('—')[0].trim()
@@ -138,10 +118,6 @@ export default function StudentProgressTab({ studentId }) {
   const [exerciseTags, setExerciseTags] = useState([])
   const [tagAssignments, setTagAssignments] = useState([])
   const [selectedTag, setSelectedTag] = useState('')
-  const [groupByTag, setGroupByTag] = useState(false)
-
-  // Peso corporal del alumno (para calcular volumen de ejercicios bodyweight)
-  const [studentWeightKg, setStudentWeightKg] = useState(null)
 
   // Días entrenados que NO dejan workout_logs: los bloques aeróbicos registran
   // en workout_block_logs. Sin esto, un día de solo aeróbico figuraba como
@@ -202,7 +178,7 @@ export default function StudentProgressTab({ studentId }) {
         exercise:exercises!exercise_id(id, name, muscle_group),
         plan_exercise:plan_exercises!plan_exercise_id(
           block_label, section, suggested_sets, suggested_weight,
-          weight_mode, unilateral,
+          weight_mode, unilateral, exercise_mode,
           exercise:exercises!exercise_id(id, name, default_weight_mode, default_unilateral)
         )
       `
@@ -232,28 +208,19 @@ export default function StudentProgressTab({ studentId }) {
     if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
     sessionsQuery = sessionsQuery.order('logged_date')
 
-    const [
-      logsRes,
-      sessionsRes,
-      tagsRes,
-      tagAssignRes,
-      studentRes,
-      blockLogsRes,
-      attLogsRes,
-      assignRes,
-    ] = await Promise.all([
-      fetchAllRows(buildLogsQuery).then(
-        (data) => ({ data, error: null }),
-        (error) => ({ data: [], error })
-      ),
-      sessionsQuery,
-      supabase.from('exercise_tags').select('*').order('name'),
-      supabase.from('exercise_tag_assignments').select('*'),
-      supabase.from('profiles').select('weight_kg').eq('id', studentId).maybeSingle(),
-      supabase
-        .from('workout_block_logs')
-        .select(
-          `
+    const [logsRes, sessionsRes, tagsRes, tagAssignRes, blockLogsRes, attLogsRes, assignRes] =
+      await Promise.all([
+        fetchAllRows(buildLogsQuery).then(
+          (data) => ({ data, error: null }),
+          (error) => ({ data: [], error })
+        ),
+        sessionsQuery,
+        supabase.from('exercise_tags').select('*').order('name'),
+        supabase.from('exercise_tag_assignments').select('*'),
+        supabase
+          .from('workout_block_logs')
+          .select(
+            `
           *,
           plan:plans!plan_id(plan_type, title),
           exercise:exercises!exercise_id(id, name, muscle_group),
@@ -265,21 +232,21 @@ export default function StudentProgressTab({ studentId }) {
             circuit_work_seconds, circuit_rest_seconds
           )
         `
-        )
-        .eq('student_id', studentId)
-        .gte('logged_date', blocksFrom)
-        .order('logged_date'),
-      supabase
-        .from('workout_logs')
-        .select('logged_date, plan:plans!plan_id(plan_type)')
-        .eq('student_id', studentId)
-        .gte('logged_date', attendanceFrom)
-        .neq('status', 'skipped'), // v54: omitir no es asistir
-      supabase
-        .from('plan_assignments')
-        .select('plan_id, active, created_at, start_date')
-        .eq('student_id', studentId),
-    ])
+          )
+          .eq('student_id', studentId)
+          .gte('logged_date', blocksFrom)
+          .order('logged_date'),
+        supabase
+          .from('workout_logs')
+          .select('logged_date, plan:plans!plan_id(plan_type)')
+          .eq('student_id', studentId)
+          .gte('logged_date', attendanceFrom)
+          .neq('status', 'skipped'), // v54: omitir no es asistir
+        supabase
+          .from('plan_assignments')
+          .select('plan_id, active, created_at, start_date')
+          .eq('student_id', studentId),
+      ])
 
     if (logsRes.error) console.error('StudentProgressTab: workout_logs', logsRes.error)
     // Excluir logs de evaluaciones del cómputo de gráficos.
@@ -305,7 +272,6 @@ export default function StudentProgressTab({ studentId }) {
     setSessions(sessionsRes.data || [])
     setExerciseTags(tagsRes.data || [])
     setTagAssignments(tagAssignRes.data || [])
-    setStudentWeightKg(studentRes.data?.weight_kg ?? null)
     setPrevPlanStart(previousPlanStart(assignRes.data || []))
 
     // Las evaluaciones no cuentan como entrenamiento, misma regla que en los
@@ -428,43 +394,29 @@ export default function StudentProgressTab({ studentId }) {
     return days > 330 ? 'dd/MM/yy' : 'dd/MM'
   }, [progressLogs])
 
-  const weightData = useMemo(
-    () =>
-      progressLogs
-        .filter((l) => logExerciseId(l) === selectedExercise)
-        .map((l) => ({
-          iso: l.logged_date,
-          date: format(parseISO(l.logged_date), axisFormat),
-          Peso: maxWeightOfLog(l),
-          PSE: l.perceived_difficulty,
-        }))
-        .filter((d) => d.Peso > 0),
-    [progressLogs, selectedExercise, axisFormat]
+  // ── Peso y reps del ejercicio elegido (2026-10-09) ──────
+  // Un punto por día: mejor serie, promedio por serie y kilos máximos. Antes
+  // el gráfico cambiaba solo de peso a reps según hubiera kilos, y las
+  // sesiones sin kilos desaparecían. Ver features/progress/exerciseSeries.js.
+  // Decisión 2026-08-28 que sigue en pie: NO se reconstruye carga total con
+  // profiles.weight_kg (valor único actual, sin historia).
+  const selectedLogs = useMemo(
+    () => progressLogs.filter((l) => logExerciseId(l) === selectedExercise),
+    [progressLogs, selectedExercise]
   )
-
-  // Reps por sesión del ejercicio seleccionado. Es la métrica de progresión
-  // cuando el ejercicio no registra peso (bodyweight): ahí lo que progresa
-  // son las reps — mismo criterio que la vista Tabla usa como fallback.
-  // Decisión 2026-08-28: NO se reconstruye carga total con profiles.weight_kg
-  // (es un único valor actual, sin historia; usarlo hacia atrás fabrica datos).
-  const repsData = useMemo(
+  const repsWeightData = useMemo(
     () =>
-      progressLogs
-        .filter((l) => logExerciseId(l) === selectedExercise)
-        .map((l) => ({
-          iso: l.logged_date,
-          date: format(parseISO(l.logged_date), axisFormat),
-          Reps: repsMaxOfLog(l),
-          PSE: l.perceived_difficulty,
-        }))
-        .filter((d) => d.Reps > 0),
-    [progressLogs, selectedExercise, axisFormat]
+      buildRepsWeightSeries(selectedLogs).map((p) => ({
+        ...p,
+        date: format(parseISO(p.iso), axisFormat),
+      })),
+    [selectedLogs, axisFormat]
   )
-
-  // Con al menos un registro de peso, el gráfico mide peso (si un BW empieza
-  // a usar lastre, la serie de peso arranca sola el día que arranca el dato).
-  // Sin ninguno, mide reps.
-  const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
+  const seriesInfo = useMemo(
+    () => describeExerciseSeries(selectedLogs, repsWeightData),
+    [selectedLogs, repsWeightData]
+  )
+  const chartMetric = seriesInfo.hasKg ? 'weight' : 'reps'
 
   // Dónde arranca cada plan dentro del gráfico. El eje X es categórico, así
   // que la marca se ancla en el primer punto de la serie que cae en o después
@@ -474,7 +426,7 @@ export default function StudentProgressTab({ studentId }) {
   const planCutLabels = useMemo(() => {
     const windows = planWindowsFromLogs(progressLogs).filter((w) => w.planId !== NO_PLAN)
     if (windows.length === 0) return []
-    const series = chartMetric === 'weight' ? weightData : repsData
+    const series = repsWeightData
     const titles = new Map(
       progressLogs.filter((l) => l.plan_id).map((l) => [l.plan_id, l.plan?.title || ''])
     )
@@ -491,71 +443,26 @@ export default function StudentProgressTab({ studentId }) {
     // Con un solo plan en el período no hay nada que separar.
     if (windows.length < 2) return []
     return out
-  }, [progressLogs, weightData, repsData, chartMetric])
+  }, [progressLogs, repsWeightData])
 
   // Lectura calculada de progresión del ejercicio seleccionado: promedio de
   // la primera semana vs la última (ver features/progress/progression.js).
-  const progression = useMemo(() => {
-    const src = chartMetric === 'weight' ? weightData : repsData
-    return computeProgression(
-      src.map((d) => ({ date: d.iso, value: chartMetric === 'weight' ? d.Peso : d.Reps }))
-    )
-  }, [chartMetric, weightData, repsData])
+  // Kilos si el ejercicio tiene kilos; si no, la mejor serie.
+  const progression = useMemo(
+    () => computeProgression(progressionPoints(repsWeightData, seriesInfo.hasKg)),
+    [repsWeightData, seriesInfo.hasKg]
+  )
 
-  // Volumen (filtrado por etiqueta). Respeta weight_mode, unilateral y BW.
-  const { volumeData, bwUncomputable } = useMemo(() => {
-    const byDate = {}
-    let uncomp = false
-    logsForTag.forEach((l) => {
-      const vol = volumeOf(l, studentWeightKg)
-      if (vol === null) {
-        uncomp = true
-        return
-      }
-      if (vol > 0) {
-        const date = format(parseISO(l.logged_date), 'dd/MM')
-        byDate[date] = (byDate[date] || 0) + Math.round(vol)
-      }
-    })
-    return {
-      volumeData: Object.entries(byDate).map(([date, Volumen]) => ({ date, Volumen })),
-      bwUncomputable: uncomp,
-    }
-  }, [logsForTag, studentWeightKg])
-
-  // Volumen agrupado por etiqueta (para el agrupador)
-  const { tagsWithVolume, volumeGroupedData } = useMemo(() => {
-    const byTagAndDate = {}
-    exerciseTags.forEach((tag) => {
-      byTagAndDate[tag.id] = {}
-    })
-    progressLogs.forEach((l) => {
-      const exId = logExerciseId(l)
-      if (!exId) return
-      const myTags = tagAssignments.filter((ta) => ta.exercise_id === exId).map((ta) => ta.tag_id)
-      if (!myTags.length) return
-      const vol = volumeOf(l, studentWeightKg)
-      if (vol === null || vol <= 0) return
-      const date = format(parseISO(l.logged_date), 'dd/MM')
-      myTags.forEach((tagId) => {
-        if (byTagAndDate[tagId] !== undefined)
-          byTagAndDate[tagId][date] = (byTagAndDate[tagId][date] || 0) + vol
-      })
-    })
-    const withVol = exerciseTags.filter((tag) =>
-      Object.values(byTagAndDate[tag.id] || {}).some((v) => v > 0)
-    )
-    const allDates = [...new Set(progressLogs.map((l) => format(parseISO(l.logged_date), 'dd/MM')))]
-    const grouped = allDates.map((date) => {
-      const entry = { date }
-      withVol.forEach((tag) => {
-        const v = byTagAndDate[tag.id]?.[date]
-        if (v) entry[tag.name] = Math.round(v)
-      })
-      return entry
-    })
-    return { tagsWithVolume: withVol, volumeGroupedData: grouped }
-  }, [progressLogs, exerciseTags, tagAssignments, studentWeightKg])
+  // Volumen del ejercicio elegido, solo con kilos reales (2026-10-09). Antes
+  // sumaba toda la sesión y usaba el peso del perfil en peso corporal.
+  const volumeData = useMemo(
+    () =>
+      buildExerciseVolumeSeries(selectedLogs).map((p) => ({
+        date: format(parseISO(p.iso), axisFormat),
+        Volumen: p.volume,
+      })),
+    [selectedLogs, axisFormat]
+  )
 
   // PSE (filtrado por etiqueta). v53: la PSE de los bloques aeróbicos y de
   // circuito entra en el promedio del día junto con la de los ejercicios;
@@ -977,189 +884,107 @@ export default function StudentProgressTab({ studentId }) {
                 </div>
               </div>
 
-              {/* ── Peso (o reps si el ejercicio es de peso corporal) ── */}
+              {/* ── Peso y reps del ejercicio elegido (2026-10-09) ── */}
               {activeChart === 'weight' && (
                 <div className="card space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">
-                        {chartMetric === 'weight'
-                          ? t('coach.students.progress.weightProgression')
-                          : t('coach.students.progress.repsProgression')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {chartMetric === 'weight'
-                          ? t('coach.students.progress.weightProgressionHint')
-                          : t('coach.students.progress.repsProgressionHint')}
-                      </p>
-                    </div>
-                    {progression && (
-                      <div className="flex flex-col items-end flex-shrink-0">
-                        <span
-                          className={`text-lg font-bold ${
-                            progression.pct > 0
-                              ? 'text-green-600'
-                              : progression.pct < 0
-                                ? 'text-red-500'
-                                : 'text-gray-500'
-                          }`}
-                        >
-                          {progression.pct > 0 ? '+' : ''}
-                          {progression.pct}%
-                        </span>
-                        <span className="text-[10px] text-gray-400 text-right leading-tight">
-                          {progression.basis === 'weeks'
-                            ? t('coach.students.progress.basisWeeks', {
-                                first: progression.firstAvg,
-                                last: progression.lastAvg,
-                              })
-                            : t('coach.students.progress.basisLogs', {
-                                first: progression.firstAvg,
-                                last: progression.lastAvg,
-                              })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  {(chartMetric === 'weight' ? weightData : repsData).length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <ComposedChart data={chartMetric === 'weight' ? weightData : repsData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis
-                          yAxisId="left"
-                          tick={{ fontSize: 10 }}
-                          unit={chartMetric === 'weight' ? 'kg' : ''}
+                  <ChartHeader
+                    title={t('coach.students.progress.repsWeightTitle')}
+                    subtitle={[
+                      seriesInfo.hasKg
+                        ? t('coach.students.progress.repsWeightHintKg')
+                        : t('coach.students.progress.repsWeightHintBw'),
+                      seriesInfo.unit !== 'reps'
+                        ? t('coach.students.progress.unitNote', {
+                            unit: t(`workout.repsUnitShort.${seriesInfo.unit}`, {
+                              defaultValue: seriesInfo.unit,
+                            }),
+                          })
+                        : null,
+                      seriesInfo.unilateral ? t('coach.students.progress.perSideNote') : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    info={t('coach.students.progress.info.repsWeight')}
+                    right={
+                      progression && (
+                        <div className="flex flex-col items-end flex-shrink-0">
+                          <span
+                            className={`text-lg font-bold ${
+                              progression.pct > 0
+                                ? 'text-green-600'
+                                : progression.pct < 0
+                                  ? 'text-red-500'
+                                  : 'text-gray-500'
+                            }`}
+                          >
+                            {progression.pct > 0 ? '+' : ''}
+                            {progression.pct}%
+                          </span>
+                          <span className="text-[10px] text-gray-400 text-right leading-tight">
+                            {chartMetric === 'weight'
+                              ? t('coach.students.progress.progressionOfKg')
+                              : t('coach.students.progress.progressionOfBest')}{' '}
+                            ·{' '}
+                            {progression.basis === 'weeks'
+                              ? t('coach.students.progress.basisWeeks', {
+                                  first: progression.firstAvg,
+                                  last: progression.lastAvg,
+                                })
+                              : t('coach.students.progress.basisLogs', {
+                                  first: progression.firstAvg,
+                                  last: progression.lastAvg,
+                                })}
+                          </span>
+                        </div>
+                      )
+                    }
+                  />
+                  {repsWeightData.length > 0 ? (
+                    <RepsWeightChart
+                      data={repsWeightData}
+                      hasKg={seriesInfo.hasKg}
+                      unit={seriesInfo.unit}
+                      unilateral={seriesInfo.unilateral}
+                    >
+                      {/* Dónde arranca otro plan: una caída después de esta
+                          línea puede ser un cambio de esquema, no un retroceso. */}
+                      {planCutLabels.map((c) => (
+                        <ReferenceLine
+                          key={`cut-${c.date}`}
+                          yAxisId="reps"
+                          x={c.date}
+                          stroke="rgb(var(--c-amber-600))"
+                          strokeDasharray="4 3"
+                          label={{
+                            value: c.title
+                              ? shortPlanTitle(c.title)
+                              : t('coach.students.progress.newPlan'),
+                            position: 'insideTopRight',
+                            fontSize: 9,
+                            fill: 'rgb(var(--c-amber-800))',
+                          }}
                         />
-                        <YAxis
-                          yAxisId="right"
-                          orientation="right"
-                          domain={[0, 10]}
-                          tick={{ fontSize: 10 }}
-                        />
-                        <Tooltip content={<TooltipCard />} />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {/* Dónde arranca otro plan: una caída después de esta
-                            línea puede ser un cambio de esquema, no un retroceso. */}
-                        {planCutLabels.map((c) => (
-                          <ReferenceLine
-                            key={`cut-${c.date}`}
-                            yAxisId="left"
-                            x={c.date}
-                            stroke="rgb(var(--c-amber-600))"
-                            strokeDasharray="4 3"
-                            label={{
-                              value: c.title
-                                ? shortPlanTitle(c.title)
-                                : t('coach.students.progress.newPlan'),
-                              position: 'insideTopRight',
-                              fontSize: 9,
-                              fill: 'rgb(var(--c-amber-800))',
-                            }}
-                          />
-                        ))}
-                        <Area
-                          yAxisId="left"
-                          type="monotone"
-                          dataKey={chartMetric === 'weight' ? 'Peso' : 'Reps'}
-                          name={
-                            chartMetric === 'weight'
-                              ? t('coach.students.progress.series.weight')
-                              : t('coach.students.progress.series.reps')
-                          }
-                          fill="rgb(var(--c-amber-200))"
-                          stroke="rgb(var(--c-primary-600))"
-                          strokeWidth={2.5}
-                          dot={{ fill: 'rgb(var(--c-primary-600))', r: 4 }}
-                          unit={chartMetric === 'weight' ? 'kg' : ''}
-                        />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="PSE"
-                          name={t('coach.students.progress.series.pse')}
-                          stroke="rgb(var(--c-gray-500))"
-                          strokeWidth={1.5}
-                          dot={false}
-                          strokeDasharray="4 2"
-                        />
-                      </ComposedChart>
-                    </ResponsiveContainer>
+                      ))}
+                    </RepsWeightChart>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      {t('coach.students.progress.emptyWeight')}
+                      {seriesInfo.timeOnly
+                        ? t('coach.students.progress.timeNoData')
+                        : t('coach.students.progress.emptyWeight')}
                     </p>
                   )}
                 </div>
               )}
 
-              {/* ── Volumen ── */}
+              {/* ── Volumen del ejercicio elegido (2026-10-09) ── */}
               {activeChart === 'volume' && (
                 <div className="card space-y-3">
-                  {bwUncomputable && !studentWeightKg && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                      <strong>{t('coach.students.progress.bwMissingTitle')}</strong>{' '}
-                      {t('coach.students.progress.bwMissingBody')}
-                    </div>
-                  )}
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">
-                        {t('coach.students.progress.volumeTitle')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {selectedTag
-                          ? t('coach.students.progress.tagLabel', {
-                              tag: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
-                            })
-                          : t('coach.students.progress.volumeHint')}
-                      </p>
-                    </div>
-                    {tagsWithVolume.length > 1 && !selectedTag && (
-                      <button
-                        onClick={() => setGroupByTag((g) => !g)}
-                        className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all border ${
-                          groupByTag
-                            ? 'bg-primary-50 text-primary-700 border-primary-200'
-                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <Tag className="w-3 h-3" />
-                        {t('coach.students.progress.byTag')}
-                      </button>
-                    )}
-                  </div>
-
-                  {groupByTag && !selectedTag && tagsWithVolume.length > 0 ? (
-                    volumeGroupedData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={volumeGroupedData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} />
-                          <Tooltip content={<TooltipCard />} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          {tagsWithVolume.map((tag) => (
-                            <Area
-                              key={tag.id}
-                              type="monotone"
-                              dataKey={tag.name}
-                              stroke={tag.color}
-                              fill={tag.color}
-                              fillOpacity={0.15}
-                              strokeWidth={2}
-                              dot={{ fill: tag.color, r: 3 }}
-                              connectNulls
-                            />
-                          ))}
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <p className="text-center text-sm text-gray-400 py-6">
-                        {t('coach.students.progress.emptyVolume')}
-                      </p>
-                    )
-                  ) : volumeData.length > 0 ? (
+                  <ChartHeader
+                    title={t('coach.students.progress.volumeTitle')}
+                    subtitle={t('coach.students.progress.volumeHint')}
+                    info={t('coach.students.progress.info.volume')}
+                  />
+                  {volumeData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={volumeData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-100))" />
@@ -1171,12 +996,15 @@ export default function StudentProgressTab({ studentId }) {
                           name={t('coach.students.progress.series.volume')}
                           fill="rgb(var(--c-ciruela-600))"
                           radius={[4, 4, 0, 0]}
+                          unit=" kg"
                         />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
                     <p className="text-center text-sm text-gray-400 py-6">
-                      {t('coach.students.progress.emptyVolume')}
+                      {repsWeightData.length > 0 && !seriesInfo.hasKg
+                        ? t('coach.students.progress.volumeNoKg')
+                        : t('coach.students.progress.emptyVolume')}
                     </p>
                   )}
                 </div>
@@ -1185,21 +1013,20 @@ export default function StudentProgressTab({ studentId }) {
               {/* ── PSE ── */}
               {activeChart === 'pse' && (
                 <div className="card space-y-3">
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">
-                      {t('coach.students.progress.pseTitle')}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {selectedTag
+                  <ChartHeader
+                    title={t('coach.students.progress.pseTitle')}
+                    subtitle={
+                      selectedTag
                         ? `${t('coach.students.progress.pseHintShort')} · ${t(
                             'coach.students.progress.tagLabel',
                             {
                               tag: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
                             }
                           )}`
-                        : t('coach.students.progress.pseHint')}
-                    </p>
-                  </div>
+                        : t('coach.students.progress.pseHint')
+                    }
+                    info={t('coach.students.progress.info.pse')}
+                  />
                   {pseData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={pseData}>
@@ -1229,12 +1056,11 @@ export default function StudentProgressTab({ studentId }) {
               {/* ── Borg ── */}
               {activeChart === 'borg' && (
                 <div className="card space-y-3">
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">
-                      {t('coach.students.progress.borgTitle')}
-                    </p>
-                    <p className="text-xs text-gray-500">{t('coach.students.progress.borgHint')}</p>
-                  </div>
+                  <ChartHeader
+                    title={t('coach.students.progress.borgTitle')}
+                    subtitle={t('coach.students.progress.borgHint')}
+                    info={t('coach.students.progress.info.borg')}
+                  />
                   {borgData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={borgData}>
@@ -1261,26 +1087,23 @@ export default function StudentProgressTab({ studentId }) {
               {/* ── Duración ── */}
               {activeChart === 'duration' && (
                 <div className="card space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">
-                        {t('coach.students.progress.durationTitle')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t('coach.students.progress.durationHint')}
-                      </p>
-                    </div>
-                    {medianDuration !== null && (
-                      <div className="flex flex-col items-end">
-                        <span className="text-2xl font-bold text-emerald-600">
-                          {medianDuration}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {t('coach.students.progress.median')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <ChartHeader
+                    title={t('coach.students.progress.durationTitle')}
+                    subtitle={t('coach.students.progress.durationHint')}
+                    info={t('coach.students.progress.info.duration')}
+                    right={
+                      medianDuration !== null && (
+                        <div className="flex flex-col items-end">
+                          <span className="text-2xl font-bold text-emerald-600">
+                            {medianDuration}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {t('coach.students.progress.median')}
+                          </span>
+                        </div>
+                      )
+                    }
+                  />
                   {durationData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={durationData}>
@@ -1309,14 +1132,11 @@ export default function StudentProgressTab({ studentId }) {
               {/* ── Plan vs Real ── */}
               {activeChart === 'compare' && (
                 <div className="card space-y-3">
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">
-                      {t('coach.students.progress.charts.compare')}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {t('coach.students.progress.compareHint')}
-                    </p>
-                  </div>
+                  <ChartHeader
+                    title={t('coach.students.progress.charts.compare')}
+                    subtitle={t('coach.students.progress.compareHint')}
+                    info={t('coach.students.progress.info.compare')}
+                  />
                   {compareData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={compareData}>

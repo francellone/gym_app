@@ -363,7 +363,7 @@
     "viewCharts": "Gráficos",
     "viewTable": "Tabla",
     "charts": {
-      "weight": "Peso",
+      "weight": "Peso y reps",
       "volume": "Volumen",
       "pse": "PSE",
       "borg": "Intensidad",
@@ -389,17 +389,10 @@
     "attendanceHint": "Rango fijo, no sigue el filtro de período",
     "noTraining": "Sin entrenamiento",
     "withTraining": "Con entrenamiento",
-    "weightProgression": "Progresión de peso",
-    "repsProgression": "Progresión de reps",
-    "weightProgressionHint": "Peso máximo levantado por sesión",
-    "repsProgressionHint": "Máximo de reps por sesión · ejercicio de peso corporal",
     "basisWeeks": "prom. 1ª vs última semana ({{first}} → {{last}})",
     "basisLogs": "primer vs último registro ({{first}} → {{last}})",
     "newPlan": "plan nuevo",
     "series": {
-      "weight": "Peso",
-      "reps": "Reps",
-      "pse": "PSE",
       "volume": "Volumen",
       "avgPse": "PSE promedio",
       "intensity": "Intensidad",
@@ -408,12 +401,9 @@
       "actualSets": "Series reales"
     },
     "emptyWeight": "Sin datos de peso ni reps para este ejercicio",
-    "bwMissingTitle": "Peso corporal de la persona sin registrar.",
-    "bwMissingBody": "Los ejercicios de peso corporal (BW) no entran al cálculo del volumen hasta que se cargue el peso de la persona desde su perfil.",
-    "volumeTitle": "Volumen total por sesión",
+    "volumeTitle": "Volumen del ejercicio",
     "tagLabel": "Etiqueta: {{tag}}",
-    "volumeHint": "Reps × peso (peso corporal en BW). Unilateral × 2.",
-    "byTag": "Por etiqueta",
+    "volumeHint": "Kilos × reps por sesión · solo series con kilos",
     "emptyVolume": "Sin datos de volumen",
     "pseTitle": "PSE promedio por sesión",
     "pseHintShort": "Esfuerzo percibido",
@@ -446,7 +436,24 @@
     "skipped_one": "{{count}} omitido",
     "skipped_other": "{{count}} omitidos",
     "entryModeTitle": "De los registros hechos desde que existe el registro por confirmación (22/9)",
-    "entryMode": "{{asIs}} % tal cual · {{adjusted}} % con ajustes"
+    "entryMode": "{{asIs}} % tal cual · {{adjusted}} % con ajustes",
+    "repsWeightTitle": "Peso y reps",
+    "repsWeightHintKg": "Reps por sesión y kilos máximos",
+    "repsWeightHintBw": "Reps por sesión · sin kilos cargados",
+    "unitNote": "en {{unit}}",
+    "perSideNote": "reps por lado",
+    "progressionOfKg": "kg máx.",
+    "progressionOfBest": "mejor serie",
+    "timeNoData": "Este ejercicio va por tiempo y todavía no se registra cuánto se sostuvo, así que no hay datos para graficar.",
+    "volumeNoKg": "Este ejercicio no tiene kilos cargados en el período, así que el volumen en kilos no aplica. Mirá Peso y reps.",
+    "info": {
+      "repsWeight": "Cada sesión tiene dos barras. La oscura es la mejor serie (la de más reps) y la clara es el promedio de reps por serie. La línea marca los kilos máximos del día, cuando se cargaron.\n\nSi la mejor serie sube y el promedio no la acompaña, la persona logra una serie buena pero no sostiene las demás. Tocá una sesión para ver cada serie. En unilaterales las reps son por lado.\n\nEl porcentaje compara el promedio de la primera semana del período con el de la última (con menos de dos semanas, primer registro contra último). Mide kilos si el ejercicio tiene kilos y, si no, la mejor serie.",
+      "volume": "Kilos × reps de todas las series de este ejercicio en la sesión. En unilaterales cuenta los dos lados.\n\nSube si la persona levanta más peso o hace más reps con el mismo peso. Solo usa kilos cargados, así que no aparece en ejercicios de peso corporal y las series sin kilos no suman.",
+      "pse": "Promedio del esfuerzo percibido (1 a 10) que la persona marcó en cada ejercicio del día, aeróbicos y circuitos incluidos. Con una etiqueta elegida, solo esos ejercicios.\n\nSi el plan no cambió y la PSE baja, el mismo trabajo le cuesta menos. Si sube semana a semana sin cambios en el plan, puede haber cansancio acumulado.",
+      "borg": "Cómo sintió la sesión completa, en escala de Borg de 0 a 10. Es una sola marca por día, que la persona pone al cerrar el entrenamiento.\n\nA diferencia de la PSE, que es por ejercicio, esta mira el día entero.",
+      "duration": "Minutos entre que la persona empezó y cerró el entrenamiento, solo cuando las dos cosas pasaron el mismo día.\n\nLa mediana es la duración típica y no se mueve por una sesión que quedó abierta por error.",
+      "compare": "Series que pedía el plan para este ejercicio contra las series que la persona registró.\n\nSi las reales quedan por debajo varias sesiones seguidas, puede faltar tiempo o el volumen indicado es alto."
+    }
   },
   "table": {
     "columns": {

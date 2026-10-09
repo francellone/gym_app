@@ -363,7 +363,7 @@
     "viewCharts": "Charts",
     "viewTable": "Table",
     "charts": {
-      "weight": "Weight",
+      "weight": "Weight & reps",
       "volume": "Volume",
       "pse": "RPE",
       "borg": "Intensity",
@@ -389,17 +389,10 @@
     "attendanceHint": "Fixed range, doesn't follow the period filter",
     "noTraining": "No training",
     "withTraining": "Trained",
-    "weightProgression": "Weight progression",
-    "repsProgression": "Reps progression",
-    "weightProgressionHint": "Max weight lifted per session",
-    "repsProgressionHint": "Max reps per session · bodyweight exercise",
     "basisWeeks": "avg. 1st vs last week ({{first}} → {{last}})",
     "basisLogs": "first vs last log ({{first}} → {{last}})",
     "newPlan": "new plan",
     "series": {
-      "weight": "Weight",
-      "reps": "Reps",
-      "pse": "RPE",
       "volume": "Volume",
       "avgPse": "Avg RPE",
       "intensity": "Intensity",
@@ -408,12 +401,9 @@
       "actualSets": "Actual sets"
     },
     "emptyWeight": "No weight or reps data for this exercise",
-    "bwMissingTitle": "Student's bodyweight not recorded.",
-    "bwMissingBody": "Bodyweight (BW) exercises aren't included in volume until the student's weight is entered in their profile.",
-    "volumeTitle": "Total volume per session",
+    "volumeTitle": "Exercise volume",
     "tagLabel": "Tag: {{tag}}",
-    "volumeHint": "Reps × weight (bodyweight for BW). Unilateral × 2.",
-    "byTag": "By tag",
+    "volumeHint": "Kg × reps per session · only sets with kg",
     "emptyVolume": "No volume data",
     "pseTitle": "Average RPE per session",
     "pseHintShort": "Perceived exertion",
@@ -446,7 +436,24 @@
     "skipped_one": "{{count}} skipped",
     "skipped_other": "{{count}} skipped",
     "entryModeTitle": "Out of logs made since confirmation logging was introduced (9/22)",
-    "entryMode": "{{asIs}}% as prescribed · {{adjusted}}% adjusted"
+    "entryMode": "{{asIs}}% as prescribed · {{adjusted}}% adjusted",
+    "repsWeightTitle": "Weight & reps",
+    "repsWeightHintKg": "Reps per session and max kg",
+    "repsWeightHintBw": "Reps per session · no kg logged",
+    "unitNote": "in {{unit}}",
+    "perSideNote": "reps per side",
+    "progressionOfKg": "max kg",
+    "progressionOfBest": "best set",
+    "timeNoData": "This exercise is done for time and how long it was held isn't logged yet, so there's nothing to chart.",
+    "volumeNoKg": "This exercise has no kg logged in this period, so volume in kg doesn't apply. Check Weight & reps.",
+    "info": {
+      "repsWeight": "Each session has two bars. The dark one is the best set (the one with the most reps) and the light one is the average reps per set. The line shows the day's max kg, when it was logged.\n\nIf the best set goes up and the average doesn't follow, the client manages one good set but can't hold the rest. Tap a session to see every set. On unilateral exercises, reps are per side.\n\nThe percentage compares the average of the first week in the period with the last one (under two weeks, first log against last). It tracks kg if the exercise has kg and the best set otherwise.",
+      "volume": "Kg × reps across every set of this exercise in the session. Unilateral exercises count both sides.\n\nIt goes up if the client lifts more weight or does more reps with the same weight. It only uses logged kg, so it doesn't show for bodyweight exercises and sets without kg don't add up.",
+      "pse": "Average perceived effort (1 to 10) the client rated on each exercise of the day, including cardio and circuits. With a tag selected, only those exercises.\n\nIf the plan didn't change and RPE goes down, the same work feels easier. If it climbs week after week with no plan changes, fatigue may be building up.",
+      "borg": "How the whole session felt, on the Borg 0 to 10 scale. It's a single rating per day, given when the client closes the workout.\n\nUnlike RPE, which is per exercise, this one looks at the whole day.",
+      "duration": "Minutes between when the client started and closed the workout, only when both happened the same day.\n\nThe median is the typical duration and isn't thrown off by a session left open by mistake.",
+      "compare": "Sets the plan asked for on this exercise against the sets the client logged.\n\nIf actual sets fall short several sessions in a row, time may be tight or the prescribed volume may be too high."
+    }
   },
   "table": {
     "columns": {

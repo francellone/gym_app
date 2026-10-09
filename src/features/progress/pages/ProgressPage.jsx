@@ -17,22 +17,19 @@ import {
   BarChart,
   Bar,
   Legend,
-  AreaChart,
-  Area,
-  ComposedChart,
 } from 'recharts'
-import {
-  borgColor,
-  BORG_LABELS,
-  maxWeightOfLog,
-  calculateLogVolume,
-  getEffectiveWeightMode,
-  getLoggingWeightMode,
-  getEffectiveUnilateral,
-} from '@/features/plans/helpers'
+import { borgColor, BORG_LABELS, maxWeightOfLog } from '@/features/plans/helpers'
 import { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
 import { filterTrainingLogs } from '@/features/plans/typeFilters'
 import { computeProgression, repsMaxOfLog } from '../progression'
+import {
+  buildRepsWeightSeries,
+  buildExerciseVolumeSeries,
+  describeExerciseSeries,
+  progressionPoints,
+} from '../exerciseSeries'
+import ChartHeader from '../components/ChartHeader'
+import RepsWeightChart from '../components/RepsWeightChart'
 
 const PERIODS = [
   { label: '1m', days: 30 },
@@ -130,8 +127,6 @@ export default function ProgressPage() {
 
   // Nombres de series de los gráficos: son también las keys de los objetos
   // de datos que consume recharts (legend/tooltip los muestran tal cual).
-  const sWeight = t('progress.seriesWeight')
-  const sPse = t('progress.seriesPse')
   const sVolume = t('progress.seriesVolume')
   const sPseAvg = t('progress.seriesPseAvg')
   const sIntensity = t('progress.seriesIntensity')
@@ -139,7 +134,6 @@ export default function ProgressPage() {
   const sActualSets = t('progress.seriesActualSets')
   const sSuggestedSets = t('progress.seriesSuggestedSets')
   const sActualWeight = t('progress.seriesActualWeight')
-  const sReps = t('progress.seriesReps')
   const [logs, setLogs] = useState([])
   const [sessions, setSessions] = useState([])
   const [wellbeingLogs, setWellbeingLogs] = useState([])
@@ -156,7 +150,6 @@ export default function ProgressPage() {
   const [exerciseTags, setExerciseTags] = useState([])
   const [tagAssignments, setTagAssignments] = useState([])
   const [selectedTag, setSelectedTag] = useState('') // '' = todas
-  const [groupByTag, setGroupByTag] = useState(false)
 
   useEffect(() => {
     if (profile?.id) fetchData()
@@ -222,7 +215,7 @@ export default function ProgressPage() {
           plan:plans!plan_id(plan_type),
           plan_exercise:plan_exercises!plan_exercise_id(
             block_label, section, suggested_sets, suggested_weight,
-            weight_mode, unilateral,
+            weight_mode, unilateral, exercise_mode,
             exercise:exercises!exercise_id(id, name, i18n, default_weight_mode, default_unilateral)
           )
         `
@@ -299,123 +292,30 @@ export default function ProgressPage() {
 
   // ── DATOS PARA GRÁFICOS ──────────────────────────────────
 
-  const bodyWeightKg = profile?.weight_kg || null
-
-  // Helper: ¿este log tiene info para mostrar peso/volumen?
-  // (acepta jsonb nuevo o legacy con datos)
-  const hasWeightOrReps = (l) =>
-    Array.isArray(l.actual_weights_jsonb) ||
-    l.actual_weights ||
-    l.actual_weight ||
-    Array.isArray(l.actual_reps_jsonb) ||
-    l.actual_reps
-
-  // Volumen real respetando weight_mode + unilateral + bodyweight.
-  // Devuelve null si bodyweight sin weight_kg (no calculable).
-  function volumeOfLog(l) {
-    const weightMode = getLoggingWeightMode(
-      getEffectiveWeightMode({
-        log: l,
-        planExercise: l.plan_exercise,
-        exercise: l.plan_exercise?.exercise,
-      })
-    )
-    const unilateral = getEffectiveUnilateral({
-      log: l,
-      planExercise: l.plan_exercise,
-      exercise: l.plan_exercise?.exercise,
-    })
-    return calculateLogVolume(l, bodyWeightKg, { weightMode, unilateral })
-  }
-
-  // 1. Progresión de peso por ejercicio (usa exercisesForTag)
-  const weightData = logs
-    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise && hasWeightOrReps(l))
-    .map((l) => ({
-      iso: l.logged_date,
-      date: format(parseISO(l.logged_date), 'dd/MM'),
-      [sWeight]: maxWeightOfLog(l),
-      [sPse]: l.perceived_difficulty,
-    }))
-    .filter((d) => d[sWeight] > 0)
-
-  // 1b. Reps por sesión: métrica de progresión cuando el ejercicio no registra
-  // peso (bodyweight) — ahí lo que progresa son las reps. Misma decisión que
-  // en la vista del coach (2026-08-28): NO se reconstruye carga total con el
-  // peso corporal del perfil, porque es un valor único sin historia.
-  const repsData = logs
-    .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
-    .map((l) => ({
-      iso: l.logged_date,
-      date: format(parseISO(l.logged_date), 'dd/MM'),
-      [sReps]: repsMaxOfLog(l),
-      [sPse]: l.perceived_difficulty,
-    }))
-    .filter((d) => d[sReps] > 0)
-
-  // Con al menos un registro de peso el gráfico mide peso; sin ninguno, reps.
-  // Si un BW empieza a usar lastre, la serie de peso arranca sola ese día.
-  const chartMetric = weightData.length > 0 ? 'weight' : 'reps'
-  const activeSeriesData = chartMetric === 'weight' ? weightData : repsData
+  // 1. Peso y reps del ejercicio elegido (2026-10-09): un punto por día con
+  // la mejor serie, el promedio por serie y los kilos máximos. Antes el
+  // gráfico cambiaba solo de peso a reps y las sesiones sin kilos no se
+  // veían. NO se reconstruye carga total con el peso corporal del perfil
+  // (decisión 2026-08-28). Ver features/progress/exerciseSeries.js.
+  const selectedLogs = logs.filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
+  const repsWeightData = buildRepsWeightSeries(selectedLogs).map((p) => ({
+    ...p,
+    date: format(parseISO(p.iso), 'dd/MM'),
+  }))
+  const seriesInfo = describeExerciseSeries(selectedLogs, repsWeightData)
+  const chartMetric = seriesInfo.hasKg ? 'weight' : 'reps'
 
   // Progresión calculada: promedio de la 1ª semana vs la última
   // (ver features/progress/progression.js — misma definición en toda la app).
-  const progression = computeProgression(
-    activeSeriesData.map((d) => ({
-      date: d.iso,
-      value: chartMetric === 'weight' ? d[sWeight] : d[sReps],
-    }))
-  )
+  // Kilos si el ejercicio tiene kilos; si no, la mejor serie.
+  const progression = computeProgression(progressionPoints(repsWeightData, seriesInfo.hasKg))
 
-  // 2. Volumen por sesión (filtrado por etiqueta)
-  // Bodyweight sin weight_kg → bandera para mostrar CTA.
-  let bwUncomputable = false
-  const volumeByDate = {}
-  logsForTag.forEach((l) => {
-    const date = format(parseISO(l.logged_date), 'dd/MM')
-    const vol = volumeOfLog(l)
-    if (vol === null) {
-      bwUncomputable = true
-      return
-    }
-    if (vol > 0) volumeByDate[date] = (volumeByDate[date] || 0) + vol
-  })
-  const volumeData = Object.entries(volumeByDate).map(([date, vol]) => ({
-    date,
-    [sVolume]: Math.round(vol),
+  // 2. Volumen del ejercicio elegido, solo con kilos reales cargados. Antes
+  // sumaba toda la sesión y usaba el peso del perfil en peso corporal.
+  const volumeData = buildExerciseVolumeSeries(selectedLogs).map((p) => ({
+    date: format(parseISO(p.iso), 'dd/MM'),
+    [sVolume]: p.volume,
   }))
-
-  // 2b. Volumen agrupado por etiqueta (para el agrupador)
-  const volumeByTagAndDate = {}
-  exerciseTags.forEach((tag) => {
-    volumeByTagAndDate[tag.id] = {}
-  })
-  logs.forEach((l) => {
-    const exId = l.plan_exercise?.exercise?.id
-    if (!exId) return
-    const myTags = tagAssignments.filter((ta) => ta.exercise_id === exId).map((ta) => ta.tag_id)
-    if (!myTags.length) return
-    const vol = volumeOfLog(l)
-    if (vol === null || vol <= 0) return
-    const date = format(parseISO(l.logged_date), 'dd/MM')
-    myTags.forEach((tagId) => {
-      if (volumeByTagAndDate[tagId] !== undefined) {
-        volumeByTagAndDate[tagId][date] = (volumeByTagAndDate[tagId][date] || 0) + vol
-      }
-    })
-  })
-  const tagsWithVolume = exerciseTags.filter((tag) =>
-    Object.values(volumeByTagAndDate[tag.id] || {}).some((v) => v > 0)
-  )
-  const allLogDates = [...new Set(logs.map((l) => format(parseISO(l.logged_date), 'dd/MM')))]
-  const volumeGroupedData = allLogDates.map((date) => {
-    const entry = { date }
-    tagsWithVolume.forEach((tag) => {
-      const v = volumeByTagAndDate[tag.id]?.[date]
-      if (v) entry[tag.name] = Math.round(v)
-    })
-    return entry
-  })
 
   // 3. PSE promedio por sesión (filtrado por etiqueta)
   const pseByDate = {}
@@ -689,93 +589,76 @@ export default function ProgressPage() {
               </div>
             </div>
 
-            {/* ── Gráfico: Peso ─────────────────────────────────── */}
+            {/* ── Gráfico: Peso y reps (2026-10-09) ─────────────── */}
             {activeChart === 'weight' && (
               <Card>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {chartMetric === 'weight'
-                        ? t('progress.weightProgressTitle')
-                        : t('progress.repsProgressTitle')}
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      {chartMetric === 'weight'
-                        ? t('progress.weightProgressSubtitle')
-                        : t('progress.repsProgressSubtitle')}
-                    </p>
-                  </div>
-                  {progression && (
-                    <div className="flex flex-col items-end flex-shrink-0">
-                      <span
-                        className={`text-lg font-bold ${
-                          progression.pct > 0
-                            ? 'text-green-600'
-                            : progression.pct < 0
-                              ? 'text-red-500'
-                              : 'text-gray-500'
-                        }`}
-                      >
-                        {progression.pct > 0 ? '+' : ''}
-                        {progression.pct}%
-                      </span>
-                      <span className="text-[10px] text-gray-400 text-right leading-tight">
-                        {t(
-                          progression.basis === 'weeks'
-                            ? 'progress.progressionBasisWeeks'
-                            : 'progress.progressionBasisPoints',
-                          { from: progression.firstAvg, to: progression.lastAvg }
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {activeSeriesData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <ComposedChart data={activeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-200))" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      <YAxis
-                        yAxisId="left"
-                        tick={{ fontSize: 10 }}
-                        unit={chartMetric === 'weight' ? 'kg' : ''}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        domain={[0, 10]}
-                        tick={{ fontSize: 10 }}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Area
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey={chartMetric === 'weight' ? sWeight : sReps}
-                        fill="rgb(var(--c-primary-50))"
-                        stroke="rgb(var(--c-primary-600))"
-                        strokeWidth={2.5}
-                        dot={{ fill: 'rgb(var(--c-primary-600))', r: 4 }}
-                        unit={chartMetric === 'weight' ? 'kg' : ''}
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey={sPse}
-                        stroke="rgb(var(--c-gray-500))"
-                        strokeWidth={1.5}
-                        dot={false}
-                        strokeDasharray="4 2"
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('progress.repsWeightTitle')}
+                  subtitle={[
+                    seriesInfo.hasKg
+                      ? t('progress.repsWeightSubtitleKg')
+                      : t('progress.repsWeightSubtitleBw'),
+                    seriesInfo.unit !== 'reps'
+                      ? t('progress.unitNote', {
+                          unit: t(`workout.repsUnitShort.${seriesInfo.unit}`, {
+                            defaultValue: seriesInfo.unit,
+                          }),
+                        })
+                      : null,
+                    seriesInfo.unilateral ? t('progress.perSideNote') : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  info={t('progress.info.repsWeight')}
+                  right={
+                    progression && (
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span
+                          className={`text-lg font-bold ${
+                            progression.pct > 0
+                              ? 'text-green-600'
+                              : progression.pct < 0
+                                ? 'text-red-500'
+                                : 'text-gray-500'
+                          }`}
+                        >
+                          {progression.pct > 0 ? '+' : ''}
+                          {progression.pct}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 text-right leading-tight">
+                          {seriesInfo.hasKg
+                            ? t('progress.progressionOfKg')
+                            : t('progress.progressionOfBest')}{' '}
+                          ·{' '}
+                          {t(
+                            progression.basis === 'weeks'
+                              ? 'progress.progressionBasisWeeks'
+                              : 'progress.progressionBasisPoints',
+                            { from: progression.firstAvg, to: progression.lastAvg }
+                          )}
+                        </span>
+                      </div>
+                    )
+                  }
+                />
+                {repsWeightData.length > 0 ? (
+                  <RepsWeightChart
+                    data={repsWeightData}
+                    hasKg={seriesInfo.hasKg}
+                    unit={seriesInfo.unit}
+                    unilateral={seriesInfo.unilateral}
+                  />
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    {t('progress.noWeightOrRepsData')}
+                    {seriesInfo.timeOnly
+                      ? t('progress.timeNoData')
+                      : t('progress.noWeightOrRepsData')}
                   </p>
                 )}
                 {/* doc 50: aviso para ampliar el período cuando hay 0-1 puntos */}
-                {activeSeriesData.length <= 1 && period < 365 && (
+                {repsWeightData.length <= 1 && !seriesInfo.timeOnly && period < 365 && (
                   <p className="text-xs text-amber-600 mt-2 text-center">
                     {t('progress.widenPeriodHint')}
                   </p>
@@ -786,10 +669,13 @@ export default function ProgressPage() {
             {/* ── Gráfico: Sugerido vs Real ─────────────────────── */}
             {activeChart === 'compare' && (
               <Card>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{t('progress.chartCompare')}</h3>
-                  <p className="text-xs text-gray-500">{t('progress.compareSubtitle')}</p>
-                </div>
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('progress.chartCompare')}
+                  subtitle={t('progress.compareSubtitle')}
+                  info={t('progress.info.compare')}
+                />
                 {compareData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={compareData}>
@@ -818,91 +704,36 @@ export default function ProgressPage() {
               </Card>
             )}
 
-            {/* ── Gráfico: Volumen ──────────────────────────────── */}
+            {/* ── Gráfico: Volumen del ejercicio (2026-10-09) ───── */}
             {activeChart === 'volume' && (
               <Card>
-                {bwUncomputable && !bodyWeightKg && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                    <strong>{t('progress.bodyWeightMissingTitle')}</strong>{' '}
-                    {t('progress.bodyWeightMissingBody')}
-                  </div>
-                )}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{t('progress.volumeTitle')}</h3>
-                    <p className="text-xs text-gray-500">
-                      {selectedTag
-                        ? t('progress.volumeTagSubtitle', {
-                            name: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
-                          })
-                        : t('progress.volumeSubtitle')}
-                    </p>
-                  </div>
-                  {tagsWithVolume.length > 1 && !selectedTag && (
-                    <button
-                      onClick={() => setGroupByTag((g) => !g)}
-                      className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all border ${
-                        groupByTag
-                          ? 'bg-primary-50 text-primary-700 border-primary-200'
-                          : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <Tag className="w-3 h-3" />
-                      {t('progress.byTag')}
-                    </button>
-                  )}
-                </div>
-
-                {/* Modo agrupado por etiqueta */}
-                {groupByTag && !selectedTag && tagsWithVolume.length > 0 ? (
-                  volumeGroupedData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <AreaChart data={volumeGroupedData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-200))" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        {tagsWithVolume.map((tag) => (
-                          <Area
-                            key={tag.id}
-                            type="monotone"
-                            dataKey={tag.name}
-                            stroke={tag.color}
-                            fill={tag.color}
-                            fillOpacity={0.15}
-                            strokeWidth={2}
-                            dot={{ fill: tag.color, r: 3 }}
-                            connectNulls
-                          />
-                        ))}
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-sm text-gray-400 py-6">
-                      {t('progress.noVolumeData')}
-                    </p>
-                  )
-                ) : volumeData.length > 0 ? (
-                  /* Modo normal (una sola serie) */
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('progress.volumeTitle')}
+                  subtitle={t('progress.volumeSubtitle')}
+                  info={t('progress.info.volume')}
+                />
+                {volumeData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={180}>
-                    <AreaChart data={volumeData}>
+                    <BarChart data={volumeData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-200))" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area
-                        type="monotone"
+                      <Bar
                         dataKey={sVolume}
-                        fill="rgb(var(--c-primary-200))"
-                        stroke="rgb(var(--c-primary-600))"
-                        strokeWidth={2}
+                        fill="rgb(var(--c-primary-600))"
+                        radius={[4, 4, 0, 0]}
+                        unit=" kg"
                       />
-                    </AreaChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-sm text-gray-400 py-6">
-                    {t('progress.noVolumeDataPeriod')}
+                    {repsWeightData.length > 0 && !seriesInfo.hasKg
+                      ? t('progress.volumeNoKg')
+                      : t('progress.noVolumeDataPeriod')}
                   </p>
                 )}
               </Card>
@@ -911,20 +742,19 @@ export default function ProgressPage() {
             {/* ── Gráfico: PSE ─────────────────────────────────── */}
             {activeChart === 'pse' && (
               <Card>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {t('workout.perceivedEffortPSE')}
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      {selectedTag
-                        ? t('progress.pseTagSubtitle', {
-                            name: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
-                          })
-                        : t('progress.pseSubtitle')}
-                    </p>
-                  </div>
-                </div>
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('workout.perceivedEffortPSE')}
+                  subtitle={
+                    selectedTag
+                      ? t('progress.pseTagSubtitle', {
+                          name: tagsInLogs.find((tg) => tg.id === selectedTag)?.name,
+                        })
+                      : t('progress.pseSubtitle')
+                  }
+                  info={t('progress.info.pse')}
+                />
                 {pseData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>
                     <LineChart data={pseData}>
@@ -952,10 +782,13 @@ export default function ProgressPage() {
             {/* ── Gráfico: Intensidad Borg ──────────────────────── */}
             {activeChart === 'borg' && borgData.length > 0 && (
               <Card>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{t('progress.borgTitle')}</h3>
-                  <p className="text-xs text-gray-500">{t('progress.borgSubtitle')}</p>
-                </div>
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('progress.borgTitle')}
+                  subtitle={t('progress.borgSubtitle')}
+                  info={t('progress.info.borg')}
+                />
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={borgData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-gray-200))" />
@@ -986,18 +819,23 @@ export default function ProgressPage() {
             {/* ── Gráfico: Duración ────────────────────────────── */}
             {activeChart === 'duration' && (
               <Card>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{t('progress.durationTitle')}</h3>
-                    <p className="text-xs text-gray-500">{t('progress.durationSubtitle')}</p>
-                  </div>
-                  {medianDuration !== null && (
-                    <div className="flex flex-col items-end">
-                      <span className="text-2xl font-bold text-primary-600">{medianDuration}</span>
-                      <span className="text-xs text-gray-400">{t('progress.medianMin')}</span>
-                    </div>
-                  )}
-                </div>
+                <ChartHeader
+                  as="h3"
+                  titleClassName="font-semibold text-gray-900"
+                  title={t('progress.durationTitle')}
+                  subtitle={t('progress.durationSubtitle')}
+                  info={t('progress.info.duration')}
+                  right={
+                    medianDuration !== null && (
+                      <div className="flex flex-col items-end">
+                        <span className="text-2xl font-bold text-primary-600">
+                          {medianDuration}
+                        </span>
+                        <span className="text-xs text-gray-400">{t('progress.medianMin')}</span>
+                      </div>
+                    )
+                  }
+                />
                 {durationData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={durationData}>
