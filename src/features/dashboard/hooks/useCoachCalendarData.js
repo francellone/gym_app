@@ -97,6 +97,23 @@ function toYMD(date) {
   return `${y}-${m}-${day}`
 }
 
+// Columnas y filtro de ventana de plan_assignments (los usan las dos partes).
+const ASSIGNMENT_COLUMNS = `
+  id, student_id, plan_id, status, plan_type, active,
+  start_date, closed_at, expected_end_date, expected_end_source,
+  schedule_mode, preferred_days,
+  plan:plans!plan_id(title, sessions_per_week, plan_type)
+`
+function assignmentWindowFilter(startYMD, endYMD) {
+  return (
+    `and(start_date.lte.${endYMD},closed_at.gte.${startYMD}),` +
+    `and(start_date.lte.${endYMD},closed_at.is.null)`
+  )
+}
+function isTrainingAssignment(a) {
+  return (a.plan_type || a.plan?.plan_type || 'training') === 'training'
+}
+
 // ============================================================
 // Hook principal
 // ============================================================
@@ -125,7 +142,6 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     [selectedStudentIds]
   )
 
-  const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState([])
   const [assignments, setAssignments] = useState([])
   // Todas las asignaciones (training + evaluaciones) para los eventos.
@@ -144,12 +160,23 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   const [refreshTick, setRefreshTick] = useState(0)
 
   // Evitamos pisarnos con respuestas viejas si el coach navega rápido.
-  const reqIdRef = useRef(0)
+  // Un contador por efecto: el global y el de la persona son independientes.
+  const globalReqRef = useRef(0)
+  const personReqRef = useRef(0)
+  const [globalLoading, setGlobalLoading] = useState(true)
+  const [personLoading, setPersonLoading] = useState(false)
 
+  // ── Parte GLOBAL (2026-10-09) ──────────────────────────────
+  // Depende solo de la ventana. Antes estaba en el mismo efecto que la parte
+  // de la persona, así que elegir a alguien volvía a traer TODO (personas,
+  // asignaciones, evaluaciones, formularios, pagos, actividades, festejos y
+  // el conteo de "N entrenaron") y recién después, en serie, lo de esa
+  // persona. Con la instancia de Supabase lenta y el resto del dashboard
+  // recargando a la vez, eran 25-30 requests contra un pool de 10.
   useEffect(() => {
     let cancelled = false
-    const myReqId = ++reqIdRef.current
-    setLoading(true)
+    const myReqId = ++globalReqRef.current
+    setGlobalLoading(true)
 
     async function run() {
       try {
@@ -172,6 +199,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           paymentRows,
           activityRows,
           milestoneRows,
+          trainedRows,
         ] = await Promise.all([
           supabase
             .from('profiles')
@@ -185,18 +213,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           // Filtramos por coach via RLS — ya está cubierto.
           supabase
             .from('plan_assignments')
-            .select(
-              `
-              id, student_id, plan_id, status, plan_type, active,
-              start_date, closed_at, expected_end_date, expected_end_source,
-              schedule_mode, preferred_days,
-              plan:plans!plan_id(title, sessions_per_week)
-            `
-            )
-            .or(
-              `and(start_date.lte.${windowEndYMD},closed_at.gte.${windowStartYMD}),` +
-                `and(start_date.lte.${windowEndYMD},closed_at.is.null)`
-            ),
+            .select(ASSIGNMENT_COLUMNS)
+            .or(assignmentWindowFilter(windowStartYMD, windowEndYMD)),
           // Evaluaciones HECHAS en la ventana: van al calendario en el día
           // en que se hicieron (antes desaparecían al completarse).
           fetchAllRows((from, to) =>
@@ -207,11 +225,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               .lte('eval_date', windowEndYMD)
               .order('id', { ascending: true })
               .range(from, to)
-          ).catch((err) => {
-            // Si falla, el calendario sigue andando sin las hechas.
-            console.error('[useCoachCalendarData] evaluation_results', err)
-            return []
-          }),
+          ).catch(soft('evaluation_results')),
           // Formularios: todos (son pocos); la función pura decide en qué
           // día y con qué estado va cada uno.
           fetchAllRows((from, to) =>
@@ -252,160 +266,38 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
               .order('id', { ascending: true })
               .range(from, to)
           ).catch(soft('student_milestones')),
+          // "N entrenaron" del modo todas las personas. Se trae siempre
+          // (es una sola consulta) para que volver a "todas" sea inmediato.
+          eventsOnly
+            ? Promise.resolve([])
+            : fetchAllRows((from, to) =>
+                supabase
+                  .from('workout_sessions')
+                  .select('id, student_id, logged_date, plans!inner(plan_type)')
+                  .eq('plans.plan_type', 'training')
+                  .gte('logged_date', windowStartYMD)
+                  .lte('logged_date', windowEndYMD)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ).catch(soft('workout_sessions')),
         ])
 
-        if (cancelled || reqIdRef.current !== myReqId) return
+        if (cancelled || globalReqRef.current !== myReqId) return
 
         const studentsData = studentsRes.data || []
-        // Filtramos asignaciones a las de TRAINING por defecto. Las
-        // evaluaciones se podrían sumar después como otro toggle.
-        const assignmentsData = (assignmentsRes.data || []).filter((a) => {
-          const t = a.plan_type || a.plan?.plan_type || 'training'
-          return t === 'training'
-        })
-
-        let completedMap = {}
-        let partialMap = {}
-        let trainedMap = new Map()
-        const sel = (selectionKey || '').split(',').filter(Boolean)
-        if (!eventsOnly && sel.length === 0) {
-          const activeIds = new Set(studentsData.map((s) => s.id))
-          const rows = await fetchAllRows((from, to) =>
-            supabase
-              .from('workout_sessions')
-              .select('id, student_id, logged_date, plans!inner(plan_type)')
-              .eq('plans.plan_type', 'training')
-              .gte('logged_date', windowStartYMD)
-              .lte('logged_date', windowEndYMD)
-              .order('id', { ascending: true })
-              .range(from, to)
-          )
-          if (cancelled || reqIdRef.current !== myReqId) return
-          for (const r of rows) {
-            if (!activeIds.has(r.student_id)) continue
-            const ymd = String(r.logged_date).slice(0, 10)
-            if (!trainedMap.has(ymd)) trainedMap.set(ymd, new Set())
-            trainedMap.get(ymd).add(r.student_id)
-          }
-        }
-        if (!eventsOnly && sel.length > 0) {
-          // ── Historial completo (2026-10-04) ──────────────────────
-          // Antes solo se traían las sesiones del plan ACTIVO: con una
-          // persona elegida, los meses de planes anteriores salían vacíos.
-          // Ahora entran todos sus planes de TRAINING que tocan la ventana
-          // (activos, reemplazados, terminados); cada día se evalúa con el
-          // plan vigente ese día (buildStudentCalendarDays). Las sesiones
-          // de evaluaciones siguen afuera porque assignmentsData es solo
-          // training, y el cupo flexible se calcula por plan, así que la
-          // transición entre planes no inventa "días extra".
-          const trainingPlanIds = [
-            ...new Set(
-              assignmentsData
-                .filter(
-                  (a) => sel.includes(a.student_id) && (a.plan_type || 'training') === 'training'
-                )
-                .map((a) => a.plan_id)
-            ),
-          ]
-
-          if (trainingPlanIds.length > 0) {
-            const sessionRows = await fetchAllRows((from, to) =>
-              supabase
-                .from('workout_sessions')
-                .select('id, student_id, plan_id, logged_date')
-                .in('student_id', sel)
-                .in('plan_id', trainingPlanIds)
-                .gte('logged_date', windowStartYMD)
-                .lte('logged_date', windowEndYMD)
-                .order('id', { ascending: true })
-                .range(from, to)
-            )
-
-            if (cancelled || reqIdRef.current !== myReqId) return
-
-            // completedMap[sid] = Map<plan_id, Set<YMD>>
-            for (const row of sessionRows) {
-              const sid = row.student_id
-              if (!completedMap[sid]) completedMap[sid] = new Map()
-              if (!completedMap[sid].has(row.plan_id)) completedMap[sid].set(row.plan_id, new Set())
-              completedMap[sid].get(row.plan_id).add(String(row.logged_date).slice(0, 10))
-            }
-
-            // ── Completo vs parcial (2026-08-27) ──────────────────
-            // "Existe sesión" no alcanza: Andrea entrenaba solo la
-            // activación y el calendario la marcaba Cumplido en verde.
-            // Paginado con fetchAllRows (corte mudo de 1000 filas).
-            const [logRows, blockLogRows, peRows, pbRows] = await Promise.all([
-              fetchAllRows((from, to) =>
-                supabase
-                  .from('workout_logs')
-                  .select('student_id, plan_id, logged_date, completed, status, plan_exercise_id')
-                  .in('student_id', sel)
-                  .in('plan_id', trainingPlanIds)
-                  .gte('logged_date', windowStartYMD)
-                  .lte('logged_date', windowEndYMD)
-                  .order('id', { ascending: true })
-                  .range(from, to)
-              ),
-              fetchAllRows((from, to) =>
-                supabase
-                  .from('workout_block_logs')
-                  .select('student_id, plan_id, logged_date, completed, status, plan_block_id')
-                  .in('student_id', sel)
-                  .in('plan_id', trainingPlanIds)
-                  .gte('logged_date', windowStartYMD)
-                  .lte('logged_date', windowEndYMD)
-                  .order('id', { ascending: true })
-                  .range(from, to)
-              ),
-              fetchAllRows((from, to) =>
-                supabase
-                  .from('plan_exercises')
-                  .select('id, plan_id, section, block_id')
-                  .in('plan_id', trainingPlanIds)
-                  .order('id', { ascending: true })
-                  .range(from, to)
-              ),
-              fetchAllRows((from, to) =>
-                supabase
-                  .from('plan_blocks')
-                  .select('id, plan_id, section, block_type')
-                  .in('plan_id', trainingPlanIds)
-                  .order('id', { ascending: true })
-                  .range(from, to)
-              ),
-            ])
-
-            if (cancelled || reqIdRef.current !== myReqId) return
-
-            for (const sid of sel) {
-              const byPlan = completedMap[sid]
-              if (!byPlan) continue
-              for (const [planId, sessionDates] of byPlan) {
-                const completeness = computeDateCompleteness({
-                  logs: logRows.filter((l) => l.student_id === sid && l.plan_id === planId),
-                  blockLogs: blockLogRows.filter(
-                    (b) => b.student_id === sid && b.plan_id === planId
-                  ),
-                  planExercises: peRows.filter((pe) => pe.plan_id === planId),
-                  planBlocks: pbRows.filter((pb) => pb.plan_id === planId),
-                  dates: [...sessionDates],
-                })
-                const partial = new Set()
-                for (const ymd of sessionDates) {
-                  if (completeness.get(ymd) === 'partial') partial.add(ymd)
-                }
-                if (partial.size > 0) {
-                  if (!partialMap[sid]) partialMap[sid] = new Map()
-                  partialMap[sid].set(planId, partial)
-                }
-              }
-            }
-          }
+        const activeIds = new Set(studentsData.map((s) => s.id))
+        const trainedMap = new Map()
+        for (const r of trainedRows || []) {
+          if (!activeIds.has(r.student_id)) continue
+          const ymd = String(r.logged_date).slice(0, 10)
+          if (!trainedMap.has(ymd)) trainedMap.set(ymd, new Set())
+          trainedMap.get(ymd).add(r.student_id)
         }
 
         setStudents(studentsData)
-        setAssignments(assignmentsData)
+        // Solo TRAINING para los días por persona; las evaluaciones van
+        // como eventos (eventAssignments).
+        setAssignments((assignmentsRes.data || []).filter(isTrainingAssignment))
         setEventAssignments(assignmentsRes.data || [])
         setTrainedByDate(trainedMap)
         setEvalResults(evalResultsRows || [])
@@ -415,13 +307,148 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           activities: (activityRows || []).map(toActivityEvent),
           milestones: milestoneRows || [],
         })
+      } catch (err) {
+        // No reventamos el dashboard; logueamos.
+        console.error('[useCoachCalendarData] fetch global', err)
+      } finally {
+        if (!cancelled && globalReqRef.current === myReqId) setGlobalLoading(false)
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [windowStartYMD, windowEndYMD, refreshTick, eventsOnly])
+
+  // ── Parte de la PERSONA elegida (2026-10-09) ───────────────
+  // Solo lo de las personas seleccionadas, en dos tandas en vez de tres:
+  //   1. sus asignaciones de la ventana + sesiones + registros (en paralelo)
+  //   2. la estructura de sus planes (ejercicios y bloques) para distinguir
+  //      completo de parcial.
+  // Mientras carga, lo que ya estaba en pantalla no se borra.
+  useEffect(() => {
+    const sel = (selectionKey || '').split(',').filter(Boolean)
+    if (eventsOnly || sel.length === 0) {
+      setPersonLoading(false)
+      return undefined
+    }
+    let cancelled = false
+    const myReqId = ++personReqRef.current
+    setPersonLoading(true)
+
+    async function run() {
+      try {
+        // ── Historial completo (2026-10-04) ──────────────────────
+        // Entran todos sus planes de TRAINING que tocan la ventana (activos,
+        // reemplazados, terminados); cada día se evalúa con el plan vigente
+        // ese día (buildStudentCalendarDays). Las sesiones de evaluaciones
+        // quedan afuera porque se filtra por los planes de training, y el
+        // cupo flexible se calcula por plan, así que la transición entre
+        // planes no inventa "días extra".
+        const inWindow = (q) =>
+          q
+            .in('student_id', sel)
+            .gte('logged_date', windowStartYMD)
+            .lte('logged_date', windowEndYMD)
+            .order('id', { ascending: true })
+
+        const [assignRes, sessionRows, logRows, blockLogRows] = await Promise.all([
+          supabase
+            .from('plan_assignments')
+            .select('plan_id, student_id, plan_type, plan:plans!plan_id(plan_type)')
+            .in('student_id', sel)
+            .or(assignmentWindowFilter(windowStartYMD, windowEndYMD)),
+          fetchAllRows((from, to) =>
+            inWindow(
+              supabase.from('workout_sessions').select('id, student_id, plan_id, logged_date')
+            ).range(from, to)
+          ),
+          // "Existe sesión" no alcanza para pintar verde (2026-08-27: Andrea
+          // entrenaba solo la activación). Paginado (corte mudo de 1000).
+          fetchAllRows((from, to) =>
+            inWindow(
+              supabase
+                .from('workout_logs')
+                .select('student_id, plan_id, logged_date, completed, status, plan_exercise_id')
+            ).range(from, to)
+          ),
+          fetchAllRows((from, to) =>
+            inWindow(
+              supabase
+                .from('workout_block_logs')
+                .select('student_id, plan_id, logged_date, completed, status, plan_block_id')
+            ).range(from, to)
+          ),
+        ])
+        if (cancelled || personReqRef.current !== myReqId) return
+
+        const trainingPlanIds = [
+          ...new Set((assignRes.data || []).filter(isTrainingAssignment).map((a) => a.plan_id)),
+        ]
+        const isTrainingPlan = new Set(trainingPlanIds)
+
+        const [peRows, pbRows] =
+          trainingPlanIds.length > 0
+            ? await Promise.all([
+                fetchAllRows((from, to) =>
+                  supabase
+                    .from('plan_exercises')
+                    .select('id, plan_id, section, block_id')
+                    .in('plan_id', trainingPlanIds)
+                    .order('id', { ascending: true })
+                    .range(from, to)
+                ),
+                fetchAllRows((from, to) =>
+                  supabase
+                    .from('plan_blocks')
+                    .select('id, plan_id, section, block_type')
+                    .in('plan_id', trainingPlanIds)
+                    .order('id', { ascending: true })
+                    .range(from, to)
+                ),
+              ])
+            : [[], []]
+        if (cancelled || personReqRef.current !== myReqId) return
+
+        // completedMap[sid] = Map<plan_id, Set<YMD>>
+        const completedMap = {}
+        for (const row of sessionRows) {
+          if (!isTrainingPlan.has(row.plan_id)) continue
+          const sid = row.student_id
+          if (!completedMap[sid]) completedMap[sid] = new Map()
+          if (!completedMap[sid].has(row.plan_id)) completedMap[sid].set(row.plan_id, new Set())
+          completedMap[sid].get(row.plan_id).add(String(row.logged_date).slice(0, 10))
+        }
+
+        const partialMap = {}
+        for (const sid of sel) {
+          const byPlan = completedMap[sid]
+          if (!byPlan) continue
+          for (const [planId, sessionDates] of byPlan) {
+            const completeness = computeDateCompleteness({
+              logs: logRows.filter((l) => l.student_id === sid && l.plan_id === planId),
+              blockLogs: blockLogRows.filter((b) => b.student_id === sid && b.plan_id === planId),
+              planExercises: peRows.filter((pe) => pe.plan_id === planId),
+              planBlocks: pbRows.filter((pb) => pb.plan_id === planId),
+              dates: [...sessionDates],
+            })
+            const partial = new Set()
+            for (const ymd of sessionDates) {
+              if (completeness.get(ymd) === 'partial') partial.add(ymd)
+            }
+            if (partial.size > 0) {
+              if (!partialMap[sid]) partialMap[sid] = new Map()
+              partialMap[sid].set(planId, partial)
+            }
+          }
+        }
+
         setCompletedByStudent(completedMap)
         setPartialByStudent(partialMap)
       } catch (err) {
-        // No reventamos el dashboard; logueamos.
-        console.error('[useCoachCalendarData] fetch', err)
+        console.error('[useCoachCalendarData] fetch persona', err)
       } finally {
-        if (!cancelled && reqIdRef.current === myReqId) setLoading(false)
+        if (!cancelled && personReqRef.current === myReqId) setPersonLoading(false)
       }
     }
     run()
@@ -429,6 +456,8 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
       cancelled = true
     }
   }, [windowStartYMD, windowEndYMD, selectionKey, refreshTick, eventsOnly])
+
+  const loading = globalLoading || personLoading
 
   // Eventos del coach (siempre).
   const eventsByDate = useMemo(
