@@ -922,7 +922,11 @@
     "continue": "Continue →",
     "submitting": "Submitting...",
     "submit": "Submit form",
-    "saveDraft": "Save draft"
+    "saveDraft": "Save draft",
+    "missingRequired_one": "{{count}} required answer is missing (marked in red).",
+    "missingRequired_other": "{{count}} required answers are missing (marked in red).",
+    "draftSaved": "Saved ✓",
+    "draftSaveError": "Not saved, try again"
   },
   "notifications": {
     "title": "Notifications",

@@ -14,6 +14,16 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import FormRenderer from '@/features/forms/intake/components/student/FormRenderer'
 
+// Respuestas de un borrador guardado en la base (si la persona ya empezó).
+async function loadDraftResponses(assignmentId) {
+  const { data } = await supabase
+    .from('intake_form_submissions')
+    .select('responses')
+    .eq('assignment_id', assignmentId)
+    .maybeSingle()
+  return data?.responses || null
+}
+
 export default function FollowUpFormPage() {
   const { t } = useTranslation()
   const { profile } = useAuth()
@@ -22,6 +32,8 @@ export default function FollowUpFormPage() {
   const [assignment, setAssignment] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [initialResponses, setInitialResponses] = useState(null)
+  const [submitError, setSubmitError] = useState(null)
 
   useEffect(() => {
     if (!profile?.id || !assignmentId) return
@@ -37,6 +49,7 @@ export default function FollowUpFormPage() {
           .maybeSingle()
 
         if (data && (data.status === 'pending' || data.status === 'in_progress')) {
+          if (data.status === 'in_progress') setInitialResponses(await loadDraftResponses(data.id))
           setAssignment({
             ...data,
             template_name: data.intake_form_templates?.name,
@@ -52,14 +65,17 @@ export default function FollowUpFormPage() {
     load()
   }, [profile?.id, assignmentId])
 
+  // 2026-10-14: antes se ignoraban los errores de la base, así que un envío
+  // fallido mostraba igual "¡Listo!" y la persona creía haber terminado.
   async function handleSaveDraft(responses) {
     if (!assignment) return
-    await supabase
+    const { error: statusError } = await supabase
       .from('intake_form_assignments')
       .update({ status: 'in_progress' })
       .eq('id', assignment.id)
+    if (statusError) throw statusError
 
-    await supabase.from('intake_form_submissions').upsert(
+    const { error } = await supabase.from('intake_form_submissions').upsert(
       {
         assignment_id: assignment.id,
         student_id: profile.id,
@@ -69,12 +85,14 @@ export default function FollowUpFormPage() {
       },
       { onConflict: 'assignment_id' }
     )
+    if (error) throw error
   }
 
   async function handleSubmit(responses) {
     if (!assignment) return
+    setSubmitError(null)
 
-    await supabase.from('intake_form_submissions').upsert(
+    const { error: submissionError } = await supabase.from('intake_form_submissions').upsert(
       {
         assignment_id: assignment.id,
         student_id: profile.id,
@@ -85,14 +103,22 @@ export default function FollowUpFormPage() {
       },
       { onConflict: 'assignment_id' }
     )
+    if (submissionError) {
+      setSubmitError(t('forms.submitFallbackError'))
+      throw submissionError
+    }
 
-    await supabase
+    const { error: assignmentError } = await supabase
       .from('intake_form_assignments')
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
       })
       .eq('id', assignment.id)
+    if (assignmentError) {
+      setSubmitError(t('forms.submitFallbackError'))
+      throw assignmentError
+    }
 
     // No llamamos process_intake_submission — la función de v20 ya
     // detecta form_kind='follow_up' y returnea sin hacer nada,
@@ -126,12 +152,28 @@ export default function FollowUpFormPage() {
   }
 
   return (
-    <FormRenderer
-      assignment={assignment}
-      studentId={profile.id}
-      onSubmit={handleSubmit}
-      onSaveDraft={handleSaveDraft}
-      onFinish={() => navigate('/student/forms')}
-    />
+    <>
+      {submitError && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-1.5rem)] bg-rose-50 border-2 border-rose-200 rounded-xl p-3 shadow-lg flex items-start gap-2">
+          <span className="text-rose-500 text-lg leading-none">⚠</span>
+          <p className="text-xs text-rose-800 flex-1 leading-relaxed">{submitError}</p>
+          <button
+            onClick={() => setSubmitError(null)}
+            className="text-rose-500 hover:text-rose-700 flex-shrink-0"
+            aria-label={t('common.close')}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <FormRenderer
+        assignment={assignment}
+        studentId={profile.id}
+        initialResponses={initialResponses}
+        onSubmit={handleSubmit}
+        onSaveDraft={handleSaveDraft}
+        onFinish={() => navigate('/student/forms')}
+      />
+    </>
   )
 }

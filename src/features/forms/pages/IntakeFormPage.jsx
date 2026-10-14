@@ -23,6 +23,16 @@ function intakeFriendlyError(err, t) {
   return getFriendlyErrorMessage(err) || t('forms.submitFallbackError')
 }
 
+// Respuestas de un borrador guardado en la base (si la persona ya empezó).
+async function loadDraftResponses(assignmentId) {
+  const { data } = await supabase
+    .from('intake_form_submissions')
+    .select('responses')
+    .eq('assignment_id', assignmentId)
+    .maybeSingle()
+  return data?.responses || null
+}
+
 export default function IntakeFormPage() {
   const { t } = useTranslation()
   const { profile } = useAuth()
@@ -31,6 +41,7 @@ export default function IntakeFormPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [initialResponses, setInitialResponses] = useState(null)
 
   // ── Cargar asignación pendiente ──────────────────────────
   useEffect(() => {
@@ -43,12 +54,17 @@ export default function IntakeFormPage() {
           .from('intake_form_assignments')
           .select('*')
           .eq('student_id', profile.id)
+          // Solo el de ingreso: los mensuales se responden en /student/form/:id.
+          // Antes tomaba "el último pendiente de cualquier tipo" y podía
+          // abrir un mensual acá y procesarlo como ingreso.
+          .eq('form_kind', 'intake')
           .in('status', ['pending', 'in_progress'])
           .order('sent_at', { ascending: false })
           .limit(1)
           .maybeSingle()
 
         if (data) {
+          if (data.status === 'in_progress') setInitialResponses(await loadDraftResponses(data.id))
           setAssignment(data)
         } else {
           setNotFound(true)
@@ -64,13 +80,14 @@ export default function IntakeFormPage() {
   // ── Guardar borrador ─────────────────────────────────────
   const handleSaveDraft = async (responses) => {
     if (!assignment) return
-    await supabase
+    const { error: statusError } = await supabase
       .from('intake_form_assignments')
       .update({ status: 'in_progress' })
       .eq('id', assignment.id)
+    if (statusError) throw statusError
 
     // Guardar respuestas parciales en una submission temporal
-    await supabase.from('intake_form_submissions').upsert(
+    const { error } = await supabase.from('intake_form_submissions').upsert(
       {
         assignment_id: assignment.id,
         student_id: profile.id,
@@ -80,6 +97,7 @@ export default function IntakeFormPage() {
       },
       { onConflict: 'assignment_id' }
     )
+    if (error) throw error
   }
 
   // ── Envío final ──────────────────────────────────────────
@@ -185,6 +203,7 @@ export default function IntakeFormPage() {
       <FormRenderer
         assignment={assignment}
         studentId={profile.id}
+        initialResponses={initialResponses}
         onSubmit={handleSubmit}
         onSaveDraft={handleSaveDraft}
         onFinish={() => navigate('/student')}

@@ -13,10 +13,16 @@
  *   - assignment: objeto { id, form_snapshot } de Supabase
  *   - studentId: string
  *   - onSubmit: fn(responses) → guarda en Supabase
- *   - onSaveDraft: fn(responses) → guarda borrador
+ *   - onSaveDraft: fn(responses) → guarda borrador (debe tirar error si falla)
+ *   - initialResponses: respuestas de un borrador guardado en la base
+ *
+ * 2026-10-14 (reporte "Finalizar no hace nada", Diana): el avance se guarda
+ * solo en el dispositivo y en la base al pasar de página; al volver se
+ * recupera; al enviar con algo incompleto se baja hasta la pregunta y se
+ * avisa cuántas faltan.
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import QuestionField from './QuestionField'
 import {
@@ -27,12 +33,19 @@ import {
   isQuestionRequired,
 } from '../shared/conditionalLogic.js'
 import { resolveFormForLanguage, resolveTemplateName } from '../../schema/resolve-form-language.js'
+import {
+  readLocalDraft,
+  writeLocalDraft,
+  clearLocalDraft,
+  pickInitialResponses,
+} from '../shared/draftStorage.js'
 
 export default function FormRenderer({
   assignment,
   studentId: _studentId,
   onSubmit,
   onSaveDraft,
+  initialResponses = null,
   onFinish, // fn() opcional → botón "Ir al inicio" en pantalla de éxito
   previewLanguage, // opcional: fuerza el idioma (preview del coach en modo bilingüe)
 }) {
@@ -66,10 +79,33 @@ export default function FormRenderer({
   const hasSteps = allModules.length > 0
 
   const [currentStep, setCurrentStep] = useState(0) // 0 = intro
-  const [responses, setResponses] = useState({})
+  const assignmentId = assignment?.id || null
+  const [responses, setResponses] = useState(() =>
+    pickInitialResponses(readLocalDraft(assignmentId), initialResponses)
+  )
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  // 'idle' | 'saving' | 'saved' | 'error' — feedback del botón "Guardar borrador"
+  const [draftState, setDraftState] = useState('idle')
+  // Pedido de bajar hasta la primera pregunta con error DESPUÉS de renderizar
+  // (al enviar, el paso cambia y las preguntas todavía no están en pantalla).
+  const [scrollToError, setScrollToError] = useState(false)
+
+  // Respaldo local en cada cambio (el preview del coach no tiene asignación).
+  useEffect(() => {
+    if (!submitted) writeLocalDraft(assignmentId, responses)
+  }, [assignmentId, responses, submitted])
+
+  useEffect(() => {
+    if (!scrollToError) return
+    const id = requestAnimationFrame(() => {
+      const firstError = document.querySelector('[data-error="true"]')
+      firstError?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      setScrollToError(false)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [scrollToError, currentStep, errors])
 
   const totalSteps = allModules.length + 1 // +1 por intro
   const isIntro = currentStep === 0
@@ -82,6 +118,7 @@ export default function FormRenderer({
 
   const handleAnswer = useCallback((questionId, value) => {
     setResponses((prev) => ({ ...prev, [questionId]: value }))
+    setDraftState('idle')
     // Limpiar error de esa pregunta al responder
     setErrors((prev) => {
       const next = { ...prev }
@@ -115,15 +152,29 @@ export default function FormRenderer({
 
   const handleNext = () => {
     if (!validateCurrentModule()) {
-      // Scroll al primer error
-      const firstError = document.querySelector('[data-error="true"]')
-      firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setScrollToError(true)
       return
     }
     if (currentStep < totalSteps - 1) {
+      // Al dejar una página con respuestas, borrador en la base sin molestar:
+      // si falla, el respaldo local sigue estando.
+      if (!isIntro) saveDraftQuietly()
       setCurrentStep((s) => s + 1)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+  }
+
+  const cleanedResponses = () =>
+    cleanHiddenResponses(
+      allModules.flatMap((m) => m.questions),
+      responses
+    )
+
+  const saveDraftQuietly = () => {
+    if (!onSaveDraft) return
+    Promise.resolve()
+      .then(() => onSaveDraft(cleanedResponses()))
+      .catch((err) => console.warn('Borrador no guardado en la base:', err))
   }
 
   const handleBack = () => {
@@ -135,11 +186,15 @@ export default function FormRenderer({
   }
 
   const handleSaveDraft = async () => {
-    const cleaned = cleanHiddenResponses(
-      allModules.flatMap((m) => m.questions),
-      responses
-    )
-    await onSaveDraft?.(cleaned)
+    if (!onSaveDraft) return
+    setDraftState('saving')
+    try {
+      await onSaveDraft(cleanedResponses())
+      setDraftState('saved')
+    } catch (err) {
+      console.error('Draft save failed:', err)
+      setDraftState('error')
+    }
   }
 
   // ──────────────────────────────────────────────────────────
@@ -162,6 +217,7 @@ export default function FormRenderer({
             q?.displayRequiredMessage || q?.requiredMessage || t('forms.requiredField')
         })
         setErrors(newErrors)
+        setScrollToError(true)
       }
       return
     }
@@ -181,6 +237,7 @@ export default function FormRenderer({
         cleaned.descripcion_lesiones = cleaned.lesiones_detalle
       }
       await onSubmit?.(cleaned)
+      clearLocalDraft(assignmentId)
       setSubmitted(true)
     } catch (err) {
       // El caller (IntakeFormPage / FollowUpFormPage) ya muestra el error en
@@ -359,6 +416,11 @@ export default function FormRenderer({
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
+          {Object.keys(errors).length > 0 && (
+            <p role="alert" className="max-w-xl mx-auto px-4 pt-3 text-xs text-red-600">
+              {t('forms.missingRequired', { count: Object.keys(errors).length })}
+            </p>
+          )}
           <div className="max-w-xl mx-auto px-4 py-4 flex items-center gap-3">
             {currentStep > 0 && (
               <button
@@ -389,9 +451,20 @@ export default function FormRenderer({
             {!isLastStep && onSaveDraft && (
               <button
                 onClick={handleSaveDraft}
-                className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+                disabled={draftState === 'saving'}
+                className={`text-xs whitespace-nowrap ${
+                  draftState === 'error'
+                    ? 'text-red-600'
+                    : draftState === 'saved'
+                      ? 'text-green-600'
+                      : 'text-gray-400 hover:text-gray-600'
+                }`}
               >
-                {t('forms.saveDraft')}
+                {draftState === 'saved'
+                  ? t('forms.draftSaved')
+                  : draftState === 'error'
+                    ? t('forms.draftSaveError')
+                    : t('forms.saveDraft')}
               </button>
             )}
           </div>

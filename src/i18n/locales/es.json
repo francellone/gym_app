@@ -922,7 +922,11 @@
     "continue": "Continuar →",
     "submitting": "Enviando...",
     "submit": "Enviar formulario",
-    "saveDraft": "Guardar borrador"
+    "saveDraft": "Guardar borrador",
+    "missingRequired_one": "Falta {{count}} respuesta obligatoria (marcada en rojo).",
+    "missingRequired_other": "Faltan {{count}} respuestas obligatorias (marcadas en rojo).",
+    "draftSaved": "Guardado ✓",
+    "draftSaveError": "No se guardó, reintentá"
   },
   "notifications": {
     "title": "Notificaciones",
