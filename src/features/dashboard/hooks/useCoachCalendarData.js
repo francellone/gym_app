@@ -135,6 +135,21 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   )
   const windowStartYMD = toYMD(window.start)
   const windowEndYMD = toYMD(window.end)
+  // Si la ventana incluye hoy, se estira hasta hoy + 6: así la agenda de los
+  // próximos 7 días y el calendario del mes actual piden exactamente lo mismo
+  // y comparten la carga global (ver loadGlobalCalendar).
+  const todayYMD = toYMD(new Date())
+  const fetchEndYMD = useMemo(() => {
+    if (todayYMD < windowStartYMD || todayYMD > windowEndYMD) return windowEndYMD
+    const d = parseLocalYMD(todayYMD)
+    d.setDate(d.getDate() + 6)
+    const plus6 = toYMD(d)
+    return plus6 > windowEndYMD ? plus6 : windowEndYMD
+  }, [todayYMD, windowStartYMD, windowEndYMD])
+  const eventsWindow = useMemo(
+    () => ({ start: parseLocalYMD(windowStartYMD), end: parseLocalYMD(fetchEndYMD) }),
+    [windowStartYMD, fetchEndYMD]
+  )
 
   // Normalizamos la selección en una clave estable para el effect.
   const selectionKey = useMemo(
@@ -180,18 +195,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
 
     async function run() {
       try {
-        // Rango con hora para las columnas timestamptz (festejos).
-        const tsStart = parseLocalYMD(windowStartYMD).toISOString()
-        const tsEndD = parseLocalYMD(windowEndYMD)
-        tsEndD.setDate(tsEndD.getDate() + 1)
-        const tsEnd = tsEndD.toISOString()
-        // Si alguno de estos falla, el calendario sigue sin ese tipo.
-        const soft = (label) => (err) => {
-          console.error(`[useCoachCalendarData] ${label}`, err)
-          return []
-        }
-
-        const [
+        const {
           studentsRes,
           assignmentsRes,
           evalResultsRows,
@@ -200,87 +204,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           activityRows,
           milestoneRows,
           trainedRows,
-        ] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('id, name, avatar_url, birth_date, next_payment_due, active')
-            .eq('role', 'student')
-            .eq('active', true)
-            .order('name', { ascending: true }),
-          // Asignaciones que tocan la ventana visible de alguna forma.
-          // Consulta amplia: cualquier asignación cuyo rango intersecte
-          // la ventana, o sin closed_at (todavía vigente).
-          // Filtramos por coach via RLS — ya está cubierto.
-          supabase
-            .from('plan_assignments')
-            .select(ASSIGNMENT_COLUMNS)
-            .or(assignmentWindowFilter(windowStartYMD, windowEndYMD)),
-          // Evaluaciones HECHAS en la ventana: van al calendario en el día
-          // en que se hicieron (antes desaparecían al completarse).
-          fetchAllRows((from, to) =>
-            supabase
-              .from('evaluation_results')
-              .select('id, student_id, plan_id, eval_date, plan:plans!plan_id(title)')
-              .gte('eval_date', windowStartYMD)
-              .lte('eval_date', windowEndYMD)
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch(soft('evaluation_results')),
-          // Formularios: todos (son pocos); la función pura decide en qué
-          // día y con qué estado va cada uno.
-          fetchAllRows((from, to) =>
-            supabase
-              .from('intake_form_assignments')
-              .select(
-                'id, student_id, status, form_kind, sent_at, scheduled_for, completed_at, created_at, template:intake_form_templates!template_id(name)'
-              )
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch(soft('intake_form_assignments')),
-          fetchAllRows((from, to) =>
-            supabase
-              .from('payments')
-              .select('id, student_id, paid_on')
-              .gte('paid_on', windowStartYMD)
-              .lte('paid_on', windowEndYMD)
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch(soft('payments')),
-          fetchAllRows((from, to) =>
-            supabase
-              .from('activity_logs')
-              .select('id, student_id, date, activity_type, label')
-              .gte('date', windowStartYMD)
-              .lte('date', windowEndYMD)
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch(soft('activity_logs')),
-          fetchAllRows((from, to) =>
-            supabase
-              .from('student_milestones')
-              .select('id, student_id, kind, created_at, voided_at, payload')
-              .in('kind', MILESTONE_KINDS_IN_CALENDAR)
-              .is('voided_at', null)
-              .gte('created_at', tsStart)
-              .lt('created_at', tsEnd)
-              .order('id', { ascending: true })
-              .range(from, to)
-          ).catch(soft('student_milestones')),
-          // "N entrenaron" del modo todas las personas. Se trae siempre
-          // (es una sola consulta) para que volver a "todas" sea inmediato.
-          eventsOnly
-            ? Promise.resolve([])
-            : fetchAllRows((from, to) =>
-                supabase
-                  .from('workout_sessions')
-                  .select('id, student_id, logged_date, plans!inner(plan_type)')
-                  .eq('plans.plan_type', 'training')
-                  .gte('logged_date', windowStartYMD)
-                  .lte('logged_date', windowEndYMD)
-                  .order('id', { ascending: true })
-                  .range(from, to)
-              ).catch(soft('workout_sessions')),
-        ])
+        } = await loadGlobalCalendar(windowStartYMD, fetchEndYMD, { force: refreshTick > 0 })
 
         if (cancelled || globalReqRef.current !== myReqId) return
 
@@ -318,7 +242,7 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     return () => {
       cancelled = true
     }
-  }, [windowStartYMD, windowEndYMD, refreshTick, eventsOnly])
+  }, [windowStartYMD, fetchEndYMD, refreshTick])
 
   // ── Parte de la PERSONA elegida (2026-10-09) ───────────────
   // Solo lo de las personas seleccionadas, en dos tandas en vez de tres:
@@ -462,8 +386,15 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
   // Eventos del coach (siempre).
   const eventsByDate = useMemo(
     () =>
-      computeCalendarEvents(students, eventAssignments, window, new Date(), evalResults, extras),
-    [students, eventAssignments, window, evalResults, extras]
+      computeCalendarEvents(
+        students,
+        eventAssignments,
+        eventsWindow,
+        new Date(),
+        evalResults,
+        extras
+      ),
+    [students, eventAssignments, eventsWindow, evalResults, extras]
   )
 
   // Nombres de quienes entrenaron cada día, en orden alfabético.
@@ -550,6 +481,142 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
     perStudentDays,
     trainedCountByDate,
     trainedNamesByDate,
+  }
+}
+
+// ── Carga global compartida (2026-10-09) ─────────────────────
+// La agenda "Próximos 7 días" y el calendario del mes montan cada uno este
+// hook y pedían por separado lo mismo (personas, asignaciones, pagos,
+// evaluaciones, formularios, actividades, festejos): las 7 consultas salían
+// duplicadas en cada apertura del inicio. Ahora las dos piden la misma
+// ventana (ver fetchEndYMD) y esta función reutiliza la promesa en curso o
+// reciente para esa ventana. refresh() la saltea.
+const GLOBAL_CACHE_MS = 15000
+const globalCache = new Map() // key → { at, promise }
+
+export function __clearCalendarGlobalCache() {
+  globalCache.clear()
+}
+
+function loadGlobalCalendar(startYMD, endYMD, { force = false } = {}) {
+  const key = `${startYMD}|${endYMD}`
+  const hit = globalCache.get(key)
+  if (!force && hit && Date.now() - hit.at < GLOBAL_CACHE_MS) return hit.promise
+  const promise = fetchGlobalCalendar(startYMD, endYMD)
+  globalCache.set(key, { at: Date.now(), promise })
+  promise.catch(() => globalCache.delete(key))
+  return promise
+}
+
+async function fetchGlobalCalendar(startYMD, endYMD) {
+  // Rango con hora para las columnas timestamptz (festejos).
+  const tsStart = parseLocalYMD(startYMD).toISOString()
+  const tsEndD = parseLocalYMD(endYMD)
+  tsEndD.setDate(tsEndD.getDate() + 1)
+  const tsEnd = tsEndD.toISOString()
+  // Si alguno de estos falla, el calendario sigue sin ese tipo.
+  const soft = (label) => (err) => {
+    console.error(`[useCoachCalendarData] ${label}`, err)
+    return []
+  }
+
+  const [
+    studentsRes,
+    assignmentsRes,
+    evalResultsRows,
+    formRows,
+    paymentRows,
+    activityRows,
+    milestoneRows,
+    trainedRows,
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, name, avatar_url, birth_date, next_payment_due, active')
+      .eq('role', 'student')
+      .eq('active', true)
+      .order('name', { ascending: true }),
+    // Asignaciones que tocan la ventana visible de alguna forma.
+    // Consulta amplia: cualquier asignación cuyo rango intersecte
+    // la ventana, o sin closed_at (todavía vigente).
+    // Filtramos por coach via RLS — ya está cubierto.
+    supabase
+      .from('plan_assignments')
+      .select(ASSIGNMENT_COLUMNS)
+      .or(assignmentWindowFilter(startYMD, endYMD)),
+    // Evaluaciones HECHAS en la ventana: van al calendario en el día
+    // en que se hicieron (antes desaparecían al completarse).
+    fetchAllRows((from, to) =>
+      supabase
+        .from('evaluation_results')
+        .select('id, student_id, plan_id, eval_date, plan:plans!plan_id(title)')
+        .gte('eval_date', startYMD)
+        .lte('eval_date', endYMD)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('evaluation_results')),
+    // Formularios: todos (son pocos); la función pura decide en qué
+    // día y con qué estado va cada uno.
+    fetchAllRows((from, to) =>
+      supabase
+        .from('intake_form_assignments')
+        .select(
+          'id, student_id, status, form_kind, sent_at, scheduled_for, completed_at, created_at, template:intake_form_templates!template_id(name)'
+        )
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('intake_form_assignments')),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('payments')
+        .select('id, student_id, paid_on')
+        .gte('paid_on', startYMD)
+        .lte('paid_on', endYMD)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('payments')),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('activity_logs')
+        .select('id, student_id, date, activity_type, label')
+        .gte('date', startYMD)
+        .lte('date', endYMD)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('activity_logs')),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('student_milestones')
+        .select('id, student_id, kind, created_at, voided_at, payload')
+        .in('kind', MILESTONE_KINDS_IN_CALENDAR)
+        .is('voided_at', null)
+        .gte('created_at', tsStart)
+        .lt('created_at', tsEnd)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('student_milestones')),
+    // "N entrenaron" del modo todas las personas. Se trae siempre
+    // (es una sola consulta) para que volver a "todas" sea inmediato.
+    fetchAllRows((from, to) =>
+      supabase
+        .from('workout_sessions')
+        .select('id, student_id, logged_date, plans!inner(plan_type)')
+        .eq('plans.plan_type', 'training')
+        .gte('logged_date', startYMD)
+        .lte('logged_date', endYMD)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(soft('workout_sessions')),
+  ])
+  return {
+    studentsRes,
+    assignmentsRes,
+    evalResultsRows,
+    formRows,
+    paymentRows,
+    activityRows,
+    milestoneRows,
+    trainedRows,
   }
 }
 

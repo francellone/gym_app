@@ -39,16 +39,10 @@ function startOfToday() {
 export default function UpcomingAgenda({ studentId = null }) {
   const { t } = useTranslation()
   const today = useMemo(startOfToday, [])
-  const win = useMemo(() => {
-    const end = new Date(today)
-    end.setDate(end.getDate() + DAYS - 1)
-    return { start: today, end }
-  }, [today])
-
-  const { loading, eventsByDate } = useCoachCalendarData(today, [], {
-    window: win,
-    eventsOnly: true,
-  })
+  // Misma ventana que el calendario del mes actual (2026-10-09): el hook la
+  // estira hasta hoy + 6 y las dos partes comparten una sola carga global en
+  // vez de pedir todo dos veces.
+  const { loading, eventsByDate } = useCoachCalendarData(today, [], { eventsOnly: true })
   const { hidden } = useCalendarVisibility()
   const days = useMemo(
     () => buildAgendaDays(eventsByDate, today, DAYS, studentId, hidden),
