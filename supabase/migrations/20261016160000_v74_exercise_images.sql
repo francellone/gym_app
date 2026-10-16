@@ -48,7 +48,7 @@ create policy exercise_images_select on storage.objects for select to authentica
     bucket_id = 'exercise-images'
     and exists (
       select 1 from public.exercises e
-      where e.id = public._exercise_image_owner_id(name)
+      where e.id = public._exercise_image_owner_id(objects.name)
     )
   );
 
@@ -58,7 +58,7 @@ create policy exercise_images_insert_owner on storage.objects for insert to auth
     bucket_id = 'exercise-images'
     and exists (
       select 1 from public.exercises e
-      where e.id = public._exercise_image_owner_id(name)
+      where e.id = public._exercise_image_owner_id(objects.name)
         and e.created_by = (select auth.uid())
     )
   );
@@ -69,7 +69,7 @@ create policy exercise_images_update_owner on storage.objects for update to auth
     bucket_id = 'exercise-images'
     and exists (
       select 1 from public.exercises e
-      where e.id = public._exercise_image_owner_id(name)
+      where e.id = public._exercise_image_owner_id(objects.name)
         and e.created_by = (select auth.uid())
     )
   )
@@ -77,7 +77,7 @@ create policy exercise_images_update_owner on storage.objects for update to auth
     bucket_id = 'exercise-images'
     and exists (
       select 1 from public.exercises e
-      where e.id = public._exercise_image_owner_id(name)
+      where e.id = public._exercise_image_owner_id(objects.name)
         and e.created_by = (select auth.uid())
     )
   );
@@ -88,7 +88,7 @@ create policy exercise_images_delete_owner on storage.objects for delete to auth
     bucket_id = 'exercise-images'
     and exists (
       select 1 from public.exercises e
-      where e.id = public._exercise_image_owner_id(name)
+      where e.id = public._exercise_image_owner_id(objects.name)
         and e.created_by = (select auth.uid())
     )
   );
