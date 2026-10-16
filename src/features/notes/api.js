@@ -397,7 +397,7 @@ export async function replyNote(parentNoteId, payload = {}) {
 
   const { data: parent, error: parentError } = await supabase
     .from('notes')
-    .select('id, thread_id, context_type, context_id, visibility, deleted_at')
+    .select('id, thread_id, context_type, context_id, visibility, deleted_at, parent_note_id')
     .eq('id', parentNoteId)
     .maybeSingle()
 
@@ -435,7 +435,8 @@ export async function replyNote(parentNoteId, payload = {}) {
     contextType: payload.contextType ?? parent.context_type,
     contextId: payload.contextId ?? parent.context_id,
     tags: payload.tags ?? [],
-    parentNoteId,
+    // v76: un solo nivel de respuesta (la base también lo garantiza)
+    parentNoteId: parent.parent_note_id || parentNoteId,
     authorId: payload.authorId,
     authorRole: payload.authorRole,
   })
@@ -897,6 +898,12 @@ export async function postWorkoutLogNote({ studentId, logId, body, authorId, aut
     .eq('context_id', logId)
     .eq('author_role', author.role)
     .is('deleted_at', null)
+    // v76: el comentario "propio" del registro es el original (no una
+    // respuesta del chat ni una copia); si hubiera varios, el más reciente.
+    .is('parent_note_id', null)
+    .is('source_note_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (findErr && !isNoRowsError(findErr)) {
@@ -981,6 +988,12 @@ export async function postWorkoutBlockLogNote({
     .eq('context_id', blockLogId)
     .eq('author_role', author.role)
     .is('deleted_at', null)
+    // v76: el comentario "propio" del registro es el original (no una
+    // respuesta del chat ni una copia); si hubiera varios, el más reciente.
+    .is('parent_note_id', null)
+    .is('source_note_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (findErr && !isNoRowsError(findErr)) {
@@ -1057,6 +1070,12 @@ export async function postEvalResultNote({ studentId, resultId, body, authorId, 
     .eq('context_id', resultId)
     .eq('author_role', author.role)
     .is('deleted_at', null)
+    // v76: el comentario "propio" del registro es el original (no una
+    // respuesta del chat ni una copia); si hubiera varios, el más reciente.
+    .is('parent_note_id', null)
+    .is('source_note_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (findErr && !isNoRowsError(findErr)) {

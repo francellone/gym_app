@@ -1,21 +1,117 @@
-// Caja para escribir. Para la coach, si el texto nombra un ejercicio del
-// catálogo, ofrece guardarlo también en el plan apenas se envía.
+// Caja para escribir.
+// - "Va a:": a qué queda asociado el mensaje (General, un comentario sin
+//   responder u otro mensaje que se elige tocándolo). El destino se congela
+//   apenas hay texto, para que no cambie si entra un mensaje mientras se escribe.
+// - Para la coach: si el texto nombra un ejercicio del catálogo, ofrece
+//   guardarlo también en el plan apenas se envía.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Send, Dumbbell, Lock, X, CornerDownRight } from 'lucide-react'
+import {
+  Send,
+  Dumbbell,
+  Lock,
+  X,
+  CornerDownRight,
+  ChevronDown,
+  MousePointerClick,
+  MessageSquare,
+} from 'lucide-react'
 import { detectExercise } from '../chatModel'
+
+function TargetPicker({ pending, labelOf, current, onChoose, onPickOther, onClose }) {
+  const { t } = useTranslation()
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-velo/30 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chat-target-title"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-3 pb-5 sm:pb-3 flex flex-col gap-1 max-h-[80dvh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <h2 id="chat-target-title" className="text-sm font-bold text-tinta">
+            {t('chat.target.title')}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('chat.cancel')}
+            className="p-1 text-texto2"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <Row
+          active={!current}
+          Icon={MessageSquare}
+          title={t('chat.target.general')}
+          hint={t('chat.target.generalHint')}
+          onClick={() => onChoose(null)}
+        />
+        {pending.length > 0 && (
+          <p className="px-2 pt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-texto3">
+            {t('chat.target.unanswered')}
+          </p>
+        )}
+        {pending.map((n) => (
+          <Row
+            key={n.id}
+            active={current?.id === n.id}
+            Icon={CornerDownRight}
+            title={labelOf(n) || t('chat.target.comment')}
+            hint={`“${n.body}”`}
+            onClick={() => onChoose(n)}
+          />
+        ))}
+        <Row
+          Icon={MousePointerClick}
+          title={t('chat.target.other')}
+          hint={t('chat.target.otherHint')}
+          onClick={onPickOther}
+        />
+      </div>
+    </div>
+  )
+}
+
+function Row({ active, Icon, title, hint, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={Boolean(active)}
+      className={`w-full text-left flex items-start gap-2.5 rounded-xl px-2.5 py-2 ${
+        active ? 'bg-durazno-50 ring-1 ring-primary-600' : 'hover:bg-durazno-50/60'
+      }`}
+    >
+      <Icon size={15} className="mt-0.5 text-texto2 flex-shrink-0" aria-hidden="true" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-tinta break-words">{title}</span>
+        {hint && <span className="block text-xs text-texto2 line-clamp-2 break-words">{hint}</span>}
+      </span>
+    </button>
+  )
+}
 
 export default function ChatComposer({
   onSend,
   catalog,
   privateMode = false,
-  replyTo,
-  replyMode = null, // 'manual' | 'auto' | 'general' | null
-  replyLabel,
-  onChooseGeneral,
-  onChooseReply,
-  onCancelReply,
+  target, // nota a la que va como respuesta, o null (General)
+  targetIsAuto = false, // vino marcada sola
+  suggestion, // (persona) comentario sugerido, sin marcar
+  pending = [],
+  labelOf = () => '',
+  onChooseTarget, // (note|null) => void
+  onPickOther,
+  picking = false,
+  onCancelPicking,
+  onTypingChange,
   disabled = false,
 }) {
   const { t } = useTranslation()
@@ -24,12 +120,18 @@ export default function ChatComposer({
   const [alsoPlan, setAlsoPlan] = useState(false)
   const [dismissed, setDismissed] = useState(null)
   const [debounced, setDebounced] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
   const ref = useRef(null)
+  const hasText = text.trim().length > 0
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(text), 250)
     return () => clearTimeout(id)
   }, [text])
+
+  useEffect(() => {
+    onTypingChange?.(hasText)
+  }, [hasText, onTypingChange])
 
   const detection = useMemo(
     () => (catalog && !privateMode ? detectExercise(debounced, catalog) : { match: null }),
@@ -46,8 +148,8 @@ export default function ChatComposer({
   }, [text])
 
   useEffect(() => {
-    if (replyMode === 'manual') ref.current?.focus()
-  }, [replyMode, replyTo])
+    if (target && !targetIsAuto) ref.current?.focus()
+  }, [target, targetIsAuto])
 
   async function send() {
     const body = text.trim()
@@ -70,60 +172,76 @@ export default function ChatComposer({
     }
   }
 
+  const targetLabel = target ? labelOf(target) || t('chat.target.comment') : null
+
   return (
     <div className="border-t border-linea bg-white px-3 sm:px-4 pt-2 pb-3 flex flex-col gap-2">
-      {replyMode === 'manual' && replyTo && (
-        <div className="flex items-start gap-2 text-xs text-texto2 bg-gray-50 rounded-lg px-2.5 py-1.5">
-          <CornerDownRight size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
-          <p className="flex-1 min-w-0 line-clamp-2 break-words">
-            <span className="font-medium text-tinta">{t('chat.replyingTo')}</span>{' '}
-            {replyLabel ? `${replyLabel}: ` : ''}
-            {replyTo.body}
-          </p>
-          <button type="button" onClick={onCancelReply} aria-label={t('chat.cancel')}>
-            <X size={14} />
+      {picking && (
+        <div className="flex items-center gap-2 text-xs text-primary-700 bg-durazno-50 rounded-lg px-2.5 py-1.5">
+          <MousePointerClick size={13} aria-hidden="true" />
+          <p className="flex-1">{t('chat.target.pickHint')}</p>
+          <button type="button" onClick={onCancelPicking} className="font-medium">
+            {t('chat.cancel')}
           </button>
         </div>
       )}
-      {(replyMode === 'auto' || replyMode === 'general') && replyTo && (
+
+      {!privateMode && !picking && (
         <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-texto2">
-            <span>{t('chat.target.goesTo')}</span>
+          <div className="flex items-center gap-1.5 text-xs text-texto2 min-w-0">
+            <span className="flex-shrink-0">{t('chat.target.goesTo')}</span>
             <button
               type="button"
-              onClick={onChooseReply}
-              aria-pressed={replyMode === 'auto'}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 border text-xs font-medium max-w-full ${
-                replyMode === 'auto'
+              onClick={() => setPickerOpen(true)}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 border text-xs font-medium min-w-0 max-w-full ${
+                target
                   ? 'bg-durazno-50 border-primary-600 text-primary-700'
                   : 'bg-white border-gray-300 text-texto2'
               }`}
+              aria-haspopup="dialog"
             >
-              <CornerDownRight size={12} aria-hidden="true" />
+              {target && <CornerDownRight size={12} aria-hidden="true" className="flex-shrink-0" />}
               <span className="truncate">
-                {t('chat.target.replyTo', { what: replyLabel || t('chat.target.lastComment') })}
+                {target
+                  ? t('chat.target.replyTo', { what: targetLabel })
+                  : t('chat.target.general')}
               </span>
+              <ChevronDown size={12} aria-hidden="true" className="flex-shrink-0" />
             </button>
-            <button
-              type="button"
-              onClick={onChooseGeneral}
-              aria-pressed={replyMode === 'general'}
-              className={`rounded-full px-2.5 py-1 border text-xs font-medium ${
-                replyMode === 'general'
-                  ? 'bg-durazno-50 border-primary-600 text-primary-700'
-                  : 'bg-white border-gray-300 text-texto2'
-              }`}
-            >
-              {t('chat.target.general')}
-            </button>
+            {target && (
+              <button
+                type="button"
+                onClick={() => onChooseTarget(null)}
+                className="p-1 rounded-full text-texto3 hover:text-tinta flex-shrink-0"
+                aria-label={t('chat.target.toGeneral')}
+                title={t('chat.target.toGeneral')}
+              >
+                <X size={13} />
+              </button>
+            )}
+            {!target && suggestion && (
+              <button
+                type="button"
+                onClick={() => onChooseTarget(suggestion)}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 border border-dashed border-primary-600 text-primary-700 text-xs min-w-0"
+              >
+                <CornerDownRight size={12} aria-hidden="true" className="flex-shrink-0" />
+                <span className="truncate">
+                  {t('chat.target.suggest', {
+                    what: labelOf(suggestion) || t('chat.target.comment'),
+                  })}
+                </span>
+              </button>
+            )}
           </div>
-          {replyMode === 'auto' && (
+          {target && (
             <p className="text-[11px] text-texto3 line-clamp-1 break-words pl-1">
-              “{replyTo.body}”
+              {targetIsAuto ? `${t('chat.target.autoNote')} ` : ''}“{target.body}”
             </p>
           )}
         </div>
       )}
+
       {match && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-texto2">
           <Dumbbell size={13} className="text-primary-700" aria-hidden="true" />
@@ -152,6 +270,7 @@ export default function ChatComposer({
           </button>
         </div>
       )}
+
       <div className="flex items-end gap-2">
         {privateMode && (
           <span
@@ -173,18 +292,35 @@ export default function ChatComposer({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder={privateMode ? t('chat.placeholderPrivate') : t('chat.placeholder')}
-          className="input flex-1 resize-none min-h-[42px] text-sm"
+          className="input flex-1 min-w-0 resize-none min-h-[42px] text-sm"
         />
         <button
           type="button"
           onClick={send}
-          disabled={!text.trim() || sending || disabled}
+          disabled={!hasText || sending || disabled}
           className="w-10 h-10 rounded-full bg-primary-700 text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40"
           aria-label={t('chat.send')}
         >
           <Send size={17} />
         </button>
       </div>
+
+      {pickerOpen && (
+        <TargetPicker
+          pending={pending}
+          labelOf={labelOf}
+          current={target}
+          onChoose={(n) => {
+            onChooseTarget(n)
+            setPickerOpen(false)
+          }}
+          onPickOther={() => {
+            setPickerOpen(false)
+            onPickOther?.()
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }

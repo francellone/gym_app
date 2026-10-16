@@ -14,6 +14,9 @@ import {
   Reply,
   X,
   CornerDownRight,
+  CornerUpLeft,
+  CheckCheck,
+  Undo2,
 } from 'lucide-react'
 import { linkKindOf } from '../chatModel'
 import { linkLabel, contextLabel } from '../chatText'
@@ -37,6 +40,9 @@ export default function ChatMessage({
   onAction,
   onUnlink,
   onEdit,
+  pending = false,
+  picking = false,
+  onPick,
 }) {
   const { t } = useTranslation()
   const note = item.note
@@ -62,6 +68,51 @@ export default function ChatMessage({
     (l) => viewerRole === 'coach' || linkKindOf(l) !== 'private'
   )
   const ownCoachMsg = canManage && mine && viewerRole === 'coach' && !item.fromCopy
+  const canReply = !mine && !isPrivate && !item.fromCopy
+  const canDismiss =
+    viewerRole === 'coach' &&
+    !mine &&
+    note.author_role === 'student' &&
+    (pending || note.reply_dismissed_at)
+  const edited =
+    note.updated_at &&
+    Math.abs((Date.parse(note.updated_at) || 0) - (Date.parse(note.created_at) || 0)) > 2000
+
+  // Deslizar a la derecha = responder; mantener apretado = menú (celular).
+  // No arranca desde el borde izquierdo para no chocar con "volver" de Android.
+  const gesture = useRef(null)
+  const [dx, setDx] = useState(0)
+  function onPointerDown(e) {
+    if (e.pointerType !== 'touch' || picking) return
+    const startX = e.clientX
+    gesture.current = {
+      x: startX,
+      y: e.clientY,
+      edge: startX < 28,
+      moved: false,
+      timer: setTimeout(() => {
+        if (gesture.current && !gesture.current.moved) setMenu(true)
+      }, 500),
+    }
+  }
+  function onPointerMove(e) {
+    const g = gesture.current
+    if (!g) return
+    const mx = e.clientX - g.x
+    const my = e.clientY - g.y
+    if (Math.abs(mx) > 8 || Math.abs(my) > 8) {
+      g.moved = true
+      clearTimeout(g.timer)
+    }
+    if (!g.edge && canReply && mx > 0 && Math.abs(my) < 30) setDx(Math.min(mx, 72))
+  }
+  function onPointerEnd() {
+    const g = gesture.current
+    if (g) clearTimeout(g.timer)
+    if (g && !g.edge && canReply && dx > 56) onAction?.('reply', note)
+    gesture.current = null
+    setDx(0)
+  }
 
   let bubble = 'bg-white border border-gray-300 rounded-bl-md'
   if (mine) bubble = 'bg-durazno-100 rounded-br-md'
@@ -101,8 +152,37 @@ export default function ChatMessage({
     <div className={`flex flex-col gap-1 ${mine ? 'items-end' : 'items-start'}`}>
       <div
         className={`relative group max-w-[85%] sm:max-w-md flex items-start gap-1 ${mine ? 'flex-row-reverse' : ''}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        style={
+          dx ? { transform: `translateX(${dx}px)`, touchAction: 'pan-y' } : { touchAction: 'pan-y' }
+        }
       >
-        <div className={`rounded-2xl px-3 py-2 text-sm text-tinta min-w-0 ${bubble}`}>
+        {dx > 0 && (
+          <CornerUpLeft
+            size={16}
+            className={`absolute -left-6 top-3 ${dx > 56 ? 'text-primary-700' : 'text-texto3'}`}
+            aria-hidden="true"
+          />
+        )}
+        <div
+          className={`relative rounded-2xl px-3 py-2 text-sm text-tinta min-w-0 ${bubble} ${
+            picking && !isPrivate && !item.fromCopy
+              ? 'cursor-pointer ring-2 ring-primary-300 hover:ring-primary-600'
+              : ''
+          }`}
+          onClick={picking && !isPrivate && !item.fromCopy ? () => onPick?.(note) : undefined}
+          role={picking && !isPrivate && !item.fromCopy ? 'button' : undefined}
+        >
+          {pending && (
+            <span
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary-600 ring-2 ring-white"
+              title={t('chat.pendingDot')}
+              aria-label={t('chat.pendingDot')}
+            />
+          )}
           {isPrivate && (
             <p className="text-[11px] font-bold text-texto2 flex items-center gap-1 mb-0.5">
               <Lock size={11} aria-hidden="true" />
@@ -154,14 +234,23 @@ export default function ChatMessage({
           {timeLabel && (
             <p className="text-[10.5px] text-texto3 mt-0.5 text-right">
               {timeLabel}
-              {note.updated_at && note.updated_at !== note.created_at && !isPrivate
-                ? ` · ${t('chat.edited')}`
-                : ''}
+              {edited && !isPrivate ? ` · ${t('chat.edited')}` : ''}
             </p>
           )}
         </div>
 
-        {(ownCoachMsg || (canManage && !mine)) && !editing && (
+        {canReply && !editing && !picking && (
+          <button
+            type="button"
+            onClick={() => onAction?.('reply', note)}
+            className="hidden [@media(hover:hover)]:group-hover:flex p-1 rounded-full text-texto3 hover:text-primary-700 hover:bg-durazno-50"
+            aria-label={t('chat.menu.reply')}
+            title={t('chat.menu.reply')}
+          >
+            <CornerUpLeft size={15} />
+          </button>
+        )}
+        {(ownCoachMsg || canReply) && !editing && !picking && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"

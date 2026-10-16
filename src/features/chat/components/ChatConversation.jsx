@@ -1,7 +1,7 @@
 // Conversación coach↔persona: mensajes, eventos y caja para escribir.
 // La usan la sección Chat de la coach y el Chat de la persona.
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, Lock, MessagesSquare } from 'lucide-react'
 import { createNote, replyNote, editNote } from '@/features/notes/api'
@@ -12,16 +12,17 @@ import {
   countPrivate,
   localDateKey,
   prepareCatalog,
-  suggestReplyTarget,
+  pendingFor,
+  preselectTarget,
 } from '../chatModel'
 import { contextLabel } from '../chatText'
-import { fetchCatalog, fetchActivePlans, linkNote, unlinkNote } from '../chatApi'
+import { fetchCatalog, fetchActivePlans, linkNote, unlinkNote, dismissReply } from '../chatApi'
 import ChatEventCard from './ChatEventCard'
 import ChatMessage from './ChatMessage'
 import ChatComposer from './ChatComposer'
 import LinkSheet from './LinkSheet'
 
-const FILTERS_COACH = ['all', 'messages', 'events', 'plan', 'private']
+const FILTERS_COACH = ['all', 'pending', 'messages', 'events', 'plan', 'private']
 // La persona no tiene notas privadas en el chat
 const FILTERS_STUDENT = ['all', 'messages', 'events', 'plan']
 
@@ -68,7 +69,6 @@ export default function ChatConversation({
     viewerRole,
   })
   const [filter, setFilter] = useState('all')
-  const [replyTo, setReplyTo] = useState(null)
   const [sheet, setSheet] = useState(null) // { note, mode, preset }
   const [catalog, setCatalog] = useState(null)
   const [catalogNames, setCatalogNames] = useState(null)
@@ -101,29 +101,58 @@ export default function ChatConversation({
   }, [isCoach, studentId])
 
   const timeline = useMemo(() => buildTimeline({ notes, events }), [notes, events])
-  const visible = useMemo(
-    () => filterTimeline(timeline, filter, { notes }),
-    [timeline, filter, notes, isCoach]
-  )
+  const visible = useMemo(() => {
+    if (filter === 'pending') {
+      const ids = new Set(pendingFor(notes, viewerRole).map((n) => n.id))
+      return timeline.filter((it) => it.type === 'note' && ids.has(it.id))
+    }
+    return filterTimeline(timeline, filter, { notes })
+  }, [timeline, filter, notes, viewerRole])
   const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
   const privateCount = useMemo(() => countPrivate(notes), [notes])
 
-  // A qué va el próximo mensaje: respuesta elegida a mano, o sugerida (el
-  // último comentario asociado del otro lado sin responder), o general.
-  const [generalFor, setGeneralFor] = useState(null)
+  // ── A qué va el próximo mensaje ──────────────────────────
+  // choice: undefined = lo que se sugiera solo; null = General; nota = elegida.
+  // frozen: destino congelado mientras hay texto escrito.
   const privateMode = isCoach && filter === 'private'
-  const suggested = useMemo(
-    () => (privateMode ? null : suggestReplyTarget(notes, viewerRole)),
+  const [choice, setChoice] = useState(undefined)
+  const [frozen, setFrozen] = useState(undefined)
+  const [picking, setPicking] = useState(false)
+  const pendingAll = useMemo(
+    () => (privateMode ? [] : pendingFor(notes, viewerRole)),
     [notes, viewerRole, privateMode]
   )
-  const autoReply = !replyTo && suggested && generalFor !== suggested.id ? suggested : null
-  const effectiveReply = privateMode ? null : replyTo || autoReply
-  let replyMode = null
-  if (!privateMode && replyTo) replyMode = 'manual'
-  else if (autoReply) replyMode = 'auto'
-  else if (suggested) replyMode = 'general'
-  const replyTarget = replyTo || suggested
-  const replyLabel = replyTarget ? contextLabel(t, replyTarget, labels, fmt.shortDate) : null
+  const pendingIds = useMemo(() => new Set(pendingAll.map((n) => n.id)), [pendingAll])
+  const autoTarget = useMemo(
+    () => (privateMode ? null : preselectTarget(notes, viewerRole)),
+    [notes, viewerRole, privateMode]
+  )
+  const liveTarget = choice === undefined ? autoTarget : choice
+  const liveIsAuto = choice === undefined && Boolean(autoTarget)
+  const target = privateMode ? null : frozen !== undefined ? frozen.note : liveTarget
+  const targetIsAuto = frozen !== undefined ? frozen.auto : liveIsAuto
+  const suggestion = !isCoach && !target ? pendingAll[0] || null : null
+  const liveRef = useRef({ note: liveTarget, auto: liveIsAuto })
+  liveRef.current = { note: liveTarget, auto: liveIsAuto }
+
+  const onTypingChange = useCallback((has) => {
+    setFrozen((prev) => {
+      if (has) return prev !== undefined ? prev : { ...liveRef.current }
+      return undefined
+    })
+  }, [])
+
+  function chooseTarget(note) {
+    setChoice(note)
+    setPicking(false)
+    setFrozen((prev) => (prev !== undefined ? { note, auto: false } : prev))
+  }
+
+  const labelOf = useCallback(
+    (n) => contextLabel(t, n, labels, fmt.shortDate),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, labels]
+  )
 
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -143,8 +172,8 @@ export default function ChatConversation({
   async function handleSend(body, { alsoPlan, exercise }) {
     setActionError(null)
     stick.current = true
-    const res = effectiveReply
-      ? await replyNote(effectiveReply.id, { body, authorId, authorRole: viewerRole })
+    const res = target
+      ? await replyNote(target.id, { body, authorId, authorRole: viewerRole })
       : await createNote({
           threadId,
           body,
@@ -157,7 +186,8 @@ export default function ChatConversation({
       return false
     }
     applyNote(res.data)
-    setReplyTo(null)
+    setChoice(undefined)
+    setFrozen(undefined)
     if (alsoPlan && res.data) setSheet({ note: res.data, mode: 'plan', preset: exercise })
     return true
   }
@@ -165,7 +195,13 @@ export default function ChatConversation({
   async function handleAction(kind, note) {
     setActionError(null)
     if (kind === 'reply') {
-      setReplyTo(note)
+      chooseTarget(note)
+      return
+    }
+    if (kind === 'dismiss' || kind === 'undismiss') {
+      const { error: err } = await dismissReply(note.id, kind === 'dismiss')
+      if (err) setActionError(t('chat.sheet.saveError'))
+      reload()
       return
     }
     if (kind === 'private') {
@@ -215,6 +251,7 @@ export default function ChatConversation({
             {f === 'private' && <Lock size={11} aria-hidden="true" />}
             {t(!isCoach && f === 'plan' ? 'chat.filter.planYou' : `chat.filter.${f}`)}
             {f === 'private' && privateCount > 0 && ` · ${privateCount}`}
+            {f === 'pending' && pendingAll.length > 0 && ` · ${pendingAll.length}`}
           </button>
         ))}
       </div>
@@ -276,6 +313,9 @@ export default function ChatConversation({
                     onAction={handleAction}
                     onUnlink={handleUnlink}
                     onEdit={handleEdit}
+                    pending={isCoach && pendingIds.has(it.id)}
+                    picking={picking}
+                    onPick={chooseTarget}
                   />
                 )}
               </Fragment>
@@ -293,12 +333,16 @@ export default function ChatConversation({
         onSend={handleSend}
         catalog={isCoach ? catalog : null}
         privateMode={privateMode}
-        replyTo={replyTarget}
-        replyMode={replyMode}
-        replyLabel={replyLabel}
-        onChooseGeneral={() => suggested && setGeneralFor(suggested.id)}
-        onChooseReply={() => setGeneralFor(null)}
-        onCancelReply={() => setReplyTo(null)}
+        target={target}
+        targetIsAuto={targetIsAuto}
+        suggestion={suggestion}
+        pending={pendingAll.slice(0, 6)}
+        labelOf={labelOf}
+        onChooseTarget={chooseTarget}
+        onPickOther={() => setPicking(true)}
+        picking={picking}
+        onCancelPicking={() => setPicking(false)}
+        onTypingChange={onTypingChange}
         disabled={!threadId}
       />
 

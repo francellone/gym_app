@@ -1455,7 +1455,8 @@
       "events": "Events",
       "plan": "Saved to the plan",
       "private": "Private notes",
-      "planYou": "In your plan"
+      "planYou": "In your plan",
+      "pending": "Pending"
     },
     "menu": {
       "reply": "Reply",
@@ -1466,7 +1467,10 @@
       "day": "Add to the training day",
       "dayHint": "Shows at the top of the day, for all its exercises",
       "edit": "Edit message",
-      "copy": "Copy text"
+      "copy": "Copy text",
+      "dismiss": "Done, no reply needed",
+      "dismissHint": "Removes it from Pending",
+      "undismiss": "Back to Pending"
     },
     "context": {
       "exercise": "About {{exercise}}",
@@ -1557,8 +1561,18 @@
     "target": {
       "goesTo": "Goes to:",
       "replyTo": "Reply to {{what}}",
-      "lastComment": "their last comment",
-      "general": "General"
-    }
+      "general": "General",
+      "title": "Where does this message go?",
+      "generalHint": "Stays in the chat, not linked to an exercise or log",
+      "unanswered": "Unanswered",
+      "comment": "a comment",
+      "other": "Another message…",
+      "otherHint": "Tap any message in the chat",
+      "pickHint": "Tap the message you want to reply to",
+      "toGeneral": "Switch to General",
+      "suggest": "Reply to {{what}}?",
+      "autoNote": "Selected because it is the last thing they wrote:"
+    },
+    "pendingDot": "Unanswered"
   }
 }

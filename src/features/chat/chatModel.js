@@ -346,25 +346,83 @@ export function lastItemByThread({ notes = [], events = [] } = {}) {
   return map
 }
 
-// ── A qué va el próximo mensaje ──────────────────────────────
+// ── A qué va el próximo mensaje / pendientes ────────────────
 
-/**
- * Sugerencia de respuesta: el último mensaje del OTRO lado, si está asociado a
- * algo (ejercicio, registro, evaluación…) y nadie lo respondió todavía.
- * Así un mensaje escrito "en general" no queda suelto de su ejercicio.
- */
-export function suggestReplyTarget(notes = [], viewerRole) {
-  const live = notes
+export const PENDING_DAYS = 14
+export const PRESELECT_HOURS = 48
+const ASSOCIATED = new Set([
+  'workout_log',
+  'workout_block_log',
+  'exercise',
+  'plan_exercise',
+  'plan',
+  'evaluation_test',
+  'evaluation_result',
+])
+
+function liveConversation(notes) {
+  return notes
     .filter((n) => n && !n.deleted_at && !n.source_note_id && n.visibility !== 'coach_private')
     .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0))
-  let last = null
-  for (let i = live.length - 1; i >= 0; i--) {
-    if (live[i].author_role !== viewerRole) {
-      last = live[i]
-      break
-    }
-  }
-  if (!last || !last.context_type || last.context_type === 'free') return null
-  const answered = live.some((n) => n.parent_note_id === last.id)
-  return answered ? null : last
+}
+
+/**
+ * ¿Ya tuvo respuesta del otro lado? Cuenta como respondido si hay, después,
+ * una nota del otro lado que lo cita (parent_note_id) o que habla del mismo
+ * registro/ejercicio (mismo context_type + context_id): la coach muchas
+ * veces contesta desde Entrenar o desde la tabla de progreso, sin "Responder".
+ */
+export function isAnswered(note, notes) {
+  const t = Date.parse(note.created_at) || 0
+  return notes.some(
+    (n) =>
+      n &&
+      n.id !== note.id &&
+      !n.deleted_at &&
+      !n.source_note_id &&
+      n.author_role !== note.author_role &&
+      (Date.parse(n.created_at) || 0) > t &&
+      (n.parent_note_id === note.id ||
+        (note.context_type !== 'free' &&
+          n.context_type === note.context_type &&
+          n.context_id === note.context_id))
+  )
+}
+
+/**
+ * Comentarios asociados del OTRO lado, sin responder, de los últimos 14 días,
+ * más nuevos primero. Los marcados "Listo" (reply_dismissed_at) no cuentan.
+ */
+export function pendingFor(
+  notes = [],
+  viewerRole,
+  { now = Date.now(), days = PENDING_DAYS, limit } = {}
+) {
+  const live = liveConversation(notes)
+  const since = now - days * 86400000
+  const out = live
+    .filter(
+      (n) =>
+        n.author_role !== viewerRole &&
+        ASSOCIATED.has(n.context_type) &&
+        !n.reply_dismissed_at &&
+        (Date.parse(n.created_at) || 0) >= since &&
+        !isAnswered(n, live)
+    )
+    .reverse()
+  return limit ? out.slice(0, limit) : out
+}
+
+/**
+ * Respuesta que viene marcada sola (solo la coach): el comentario pendiente
+ * tiene que ser lo último que pasó en la conversación y tener menos de 48 h.
+ * Asociar al lugar equivocado es peor que dejarlo suelto.
+ */
+export function preselectTarget(notes = [], viewerRole, { now = Date.now() } = {}) {
+  if (viewerRole !== 'coach') return null
+  const live = liveConversation(notes)
+  const last = live[live.length - 1]
+  if (!last || last.author_role === viewerRole) return null
+  if (now - (Date.parse(last.created_at) || 0) > PRESELECT_HOURS * 3600000) return null
+  return pendingFor(live, viewerRole, { now }).some((p) => p.id === last.id) ? last : null
 }

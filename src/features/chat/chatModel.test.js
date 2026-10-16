@@ -15,7 +15,8 @@ import {
   sortThreads,
   lastItemByThread,
   countPrivate,
-  suggestReplyTarget,
+  pendingFor,
+  preselectTarget,
 } from './chatModel'
 
 const note = (id, at, extra = {}) => ({
@@ -184,7 +185,8 @@ describe('lista de conversaciones', () => {
   })
 })
 
-describe('suggestReplyTarget', () => {
+describe('pendientes y respuesta sugerida', () => {
+  const NOW = Date.parse('2026-10-16T12:00:00Z')
   const log = (id, at, extra = {}) =>
     note(id, at, {
       author_role: 'student',
@@ -192,46 +194,65 @@ describe('suggestReplyTarget', () => {
       context_id: 'wl',
       ...extra,
     })
-  it('sugiere el último comentario asociado del otro lado sin responder', () => {
+  it('pendiente: comentario asociado del otro lado sin respuesta, últimos 14 días', () => {
     const notes = [
-      log('s1', '2026-10-16T10:00:00Z'),
-      note('c1', '2026-10-16T10:05:00Z', { author_role: 'coach' }),
+      log('viejo', '2026-09-01T10:00:00Z', { context_id: 'w0' }),
+      log('s1', '2026-10-15T10:00:00Z', { context_id: 'w1' }),
+      note('libre', '2026-10-15T11:00:00Z', { author_role: 'student' }),
     ]
-    expect(suggestReplyTarget(notes, 'coach').id).toBe('s1')
+    expect(pendingFor(notes, 'coach', { now: NOW }).map((n) => n.id)).toEqual(['s1'])
   })
-  it('nada si ya tiene respuesta', () => {
+  it('cuenta como respondido si la coach comentó el mismo registro (sin Responder)', () => {
     const notes = [
-      log('s1', '2026-10-16T10:00:00Z'),
-      note('c1', '2026-10-16T10:05:00Z', { author_role: 'coach', parent_note_id: 's1' }),
+      log('s1', '2026-10-15T10:00:00Z'),
+      note('c1', '2026-10-15T11:00:00Z', {
+        author_role: 'coach',
+        context_type: 'workout_log',
+        context_id: 'wl',
+      }),
     ]
-    expect(suggestReplyTarget(notes, 'coach')).toBe(null)
+    expect(pendingFor(notes, 'coach', { now: NOW })).toEqual([])
   })
-  it('nada si el último del otro lado es general', () => {
-    const notes = [
-      log('s1', '2026-10-16T10:00:00Z'),
-      note('s2', '2026-10-16T10:01:00Z', { author_role: 'student' }),
+  it('respondido con Responder o marcado Listo no es pendiente', () => {
+    const a = [
+      log('s1', '2026-10-15T10:00:00Z'),
+      note('c1', '2026-10-15T11:00:00Z', { author_role: 'coach', parent_note_id: 's1' }),
     ]
-    expect(suggestReplyTarget(notes, 'coach')).toBe(null)
+    expect(pendingFor(a, 'coach', { now: NOW })).toEqual([])
+    const b = [log('s1', '2026-10-15T10:00:00Z', { reply_dismissed_at: '2026-10-15T12:00:00Z' })]
+    expect(pendingFor(b, 'coach', { now: NOW })).toEqual([])
   })
-  it('la persona: sugiere la nota de la coach sobre un ejercicio', () => {
+  it('preselección: solo si es lo último y tiene menos de 48 h', () => {
+    const reciente = [log('s1', '2026-10-16T09:00:00Z')]
+    expect(preselectTarget(reciente, 'coach', { now: NOW }).id).toBe('s1')
+    const viejo = [log('s1', '2026-10-13T09:00:00Z')]
+    expect(preselectTarget(viejo, 'coach', { now: NOW })).toBe(null)
+    const conAlgoDespues = [
+      log('s1', '2026-10-16T09:00:00Z'),
+      note('s2', '2026-10-16T09:05:00Z', { author_role: 'student' }),
+    ]
+    expect(preselectTarget(conAlgoDespues, 'coach', { now: NOW })).toBe(null)
+  })
+  it('la persona nunca tiene preselección, pero sí pendientes como sugerencia', () => {
     const notes = [
-      note('c1', '2026-10-16T10:00:00Z', {
+      note('c1', '2026-10-16T09:00:00Z', {
         author_role: 'coach',
         context_type: 'exercise',
         context_id: 'ex',
       }),
     ]
-    expect(suggestReplyTarget(notes, 'student').id).toBe('c1')
+    expect(preselectTarget(notes, 'student', { now: NOW })).toBe(null)
+    expect(pendingFor(notes, 'student', { now: NOW }).map((n) => n.id)).toEqual(['c1'])
   })
   it('ignora privadas y copias', () => {
     const notes = [
-      log('s1', '2026-10-16T10:00:00Z', { author_role: 'coach', visibility: 'coach_private' }),
-      note('cp', '2026-10-16T10:01:00Z', {
+      log('p', '2026-10-16T09:00:00Z', { visibility: 'coach_private', author_role: 'coach' }),
+      note('cp', '2026-10-16T09:01:00Z', {
         author_role: 'coach',
         context_type: 'exercise',
         source_note_id: 'x',
       }),
     ]
-    expect(suggestReplyTarget(notes, 'student')).toBe(null)
+    expect(pendingFor(notes, 'student', { now: NOW })).toEqual([])
   })
 })

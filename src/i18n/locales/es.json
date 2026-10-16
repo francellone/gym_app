@@ -1455,7 +1455,8 @@
       "events": "Eventos",
       "plan": "Guardado en el plan",
       "private": "Notas privadas",
-      "planYou": "En tu plan"
+      "planYou": "En tu plan",
+      "pending": "Pendientes"
     },
     "menu": {
       "reply": "Responder",
@@ -1466,7 +1467,10 @@
       "day": "Agregar al día de entrenamiento",
       "dayHint": "Se ve arriba del día, para todos sus ejercicios",
       "edit": "Editar mensaje",
-      "copy": "Copiar texto"
+      "copy": "Copiar texto",
+      "dismiss": "Listo, no hace falta responder",
+      "dismissHint": "Sale de Pendientes",
+      "undismiss": "Volver a Pendientes"
     },
     "context": {
       "exercise": "Sobre {{exercise}}",
@@ -1557,8 +1561,18 @@
     "target": {
       "goesTo": "Va a:",
       "replyTo": "Respuesta a {{what}}",
-      "lastComment": "su último comentario",
-      "general": "General"
-    }
+      "general": "General",
+      "title": "¿A qué va este mensaje?",
+      "generalHint": "Queda en el chat, sin asociarse a un ejercicio ni registro",
+      "unanswered": "Sin responder",
+      "comment": "un comentario",
+      "other": "Otro mensaje…",
+      "otherHint": "Tocá cualquier mensaje del chat",
+      "pickHint": "Tocá el mensaje al que querés responder",
+      "toGeneral": "Pasar a General",
+      "suggest": "¿Responder a {{what}}?",
+      "autoNote": "Marcado porque es lo último que te escribió:"
+    },
+    "pendingDot": "Sin responder"
   }
 }
