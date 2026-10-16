@@ -1470,7 +1470,8 @@
       "copy": "Copy text",
       "dismiss": "Done, no reply needed",
       "dismissHint": "Removes it from Pending",
-      "undismiss": "Back to Pending"
+      "undismiss": "Back to Pending",
+      "delete": "Delete message"
     },
     "context": {
       "exercise": "About {{exercise}}",
@@ -1548,7 +1549,9 @@
       "wellbeingCaption_one": "Average of {{count}} wellbeing entry, compared with the previous week",
       "wellbeingCaption_other": "Average of {{count}} wellbeing entries, compared with the previous week",
       "fromCoach": "Your coach",
-      "automatic": "Automatic message"
+      "automatic": "Automatic message",
+      "skipped": "{{name}} skipped {{item}} · {{reason}}",
+      "skippedYou": "You skipped {{item}} · {{reason}}"
     },
     "weekQuestion": {
       "v0": "Another week done! How did the loads and exercises feel?",
@@ -1571,8 +1574,23 @@
       "pickHint": "Tap the message you want to reply to",
       "toGeneral": "Switch to General",
       "suggest": "Reply to {{what}}?",
-      "autoNote": "Selected because it is the last thing they wrote:"
+      "autoNote": "Selected because it is the last thing they wrote:",
+      "pickFirst": "First tap the message you want to reply to, or cancel to send it as General."
     },
-    "pendingDot": "Unanswered"
+    "pendingDot": "Unanswered",
+    "delete": {
+      "question": "Delete this message?",
+      "onlyChat": "Only from the chat",
+      "alsoPlan": "Also from the plan",
+      "confirm": "Delete",
+      "error": "Couldn't delete it. Try again."
+    },
+    "skipReason": {
+      "time": "no time",
+      "choice": "by choice",
+      "discomfort": "discomfort",
+      "unclear": "wasn't sure how",
+      "other": "other reason"
+    }
   }
 }

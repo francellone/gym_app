@@ -4,7 +4,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, Lock, MessagesSquare } from 'lucide-react'
-import { createNote, replyNote, editNote } from '@/features/notes/api'
+import { createNote, replyNote, editNote, softDeleteNote } from '@/features/notes/api'
 import { useChatThread } from '../useChatThread'
 import {
   buildTimeline,
@@ -14,9 +14,19 @@ import {
   prepareCatalog,
   pendingFor,
   preselectTarget,
+  pendingEvents,
+  eventTarget,
+  SKIP_KINDS,
 } from '../chatModel'
-import { contextLabel } from '../chatText'
-import { fetchCatalog, fetchActivePlans, linkNote, unlinkNote, dismissReply } from '../chatApi'
+import { contextLabel, eventTitle } from '../chatText'
+import {
+  fetchCatalog,
+  fetchActivePlans,
+  linkNote,
+  unlinkNote,
+  dismissReply,
+  dismissEvent,
+} from '../chatApi'
 import ChatEventCard from './ChatEventCard'
 import ChatMessage from './ChatMessage'
 import ChatComposer from './ChatComposer'
@@ -61,7 +71,7 @@ export default function ChatConversation({
   authorId,
   header,
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isCoach = viewerRole === 'coach'
   const { notes, events, wellbeing, labels, loading, error, reload, applyNote } = useChatThread({
     threadId,
@@ -104,10 +114,13 @@ export default function ChatConversation({
   const visible = useMemo(() => {
     if (filter === 'pending') {
       const ids = new Set(pendingFor(notes, viewerRole).map((n) => n.id))
-      return timeline.filter((it) => it.type === 'note' && ids.has(it.id))
+      const evIds = new Set(isCoach ? pendingEvents(events, notes).map((e) => e.id) : [])
+      return timeline.filter(
+        (it) => (it.type === 'note' && ids.has(it.id)) || (it.type === 'event' && evIds.has(it.id))
+      )
     }
     return filterTimeline(timeline, filter, { notes })
-  }, [timeline, filter, notes, viewerRole])
+  }, [timeline, filter, notes, events, viewerRole, isCoach])
   const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
   const privateCount = useMemo(() => countPrivate(notes), [notes])
 
@@ -123,10 +136,36 @@ export default function ChatConversation({
     [notes, viewerRole, privateMode]
   )
   const pendingIds = useMemo(() => new Set(pendingAll.map((n) => n.id)), [pendingAll])
-  const autoTarget = useMemo(
-    () => (privateMode ? null : preselectTarget(notes, viewerRole)),
-    [notes, viewerRole, privateMode]
+  // Omisiones que piden respuesta (solo la coach las responde)
+  const pendingEv = useMemo(
+    () => (isCoach && !privateMode ? pendingEvents(events, notes) : []),
+    [isCoach, privateMode, events, notes]
   )
+  const pendingEvIds = useMemo(() => new Set(pendingEv.map((e) => e.id)), [pendingEv])
+  const pendingTargets = useMemo(() => {
+    const evTargets = pendingEv.map((e) => eventTarget(e, e.payload?.skip_note || ''))
+    return [...pendingAll, ...evTargets].sort(
+      (a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0)
+    )
+  }, [pendingAll, pendingEv])
+  const autoTarget = useMemo(() => {
+    if (privateMode) return null
+    // Si lo último que pasó es una omisión que pide respuesta (< 48 h), va esa.
+    const lastEv = events[events.length - 1]
+    const lastNote = [...notes]
+      .filter((n) => !n.deleted_at && !n.source_note_id && n.visibility !== 'coach_private')
+      .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0))
+      .pop()
+    const evAt = lastEv ? Date.parse(lastEv.occurred_at) || 0 : 0
+    const noteAt = lastNote ? Date.parse(lastNote.created_at) || 0 : 0
+    if (isCoach && lastEv && evAt > noteAt) {
+      const fresh = Date.now() - evAt < 48 * 3600000
+      return fresh && pendingEvIds.has(lastEv.id)
+        ? eventTarget(lastEv, lastEv.payload?.skip_note || '')
+        : null
+    }
+    return preselectTarget(notes, viewerRole)
+  }, [notes, events, viewerRole, privateMode, isCoach, pendingEvIds])
   const liveTarget = choice === undefined ? autoTarget : choice
   const liveIsAuto = choice === undefined && Boolean(autoTarget)
   const target = privateMode ? null : frozen !== undefined ? frozen.note : liveTarget
@@ -149,9 +188,12 @@ export default function ChatConversation({
   }
 
   const labelOf = useCallback(
-    (n) => contextLabel(t, n, labels, fmt.shortDate),
+    (n) =>
+      n?.isEvent
+        ? eventTitle(t, n.event, { viewerRole, name: studentName, lng: i18n.language })
+        : contextLabel(t, n, labels, fmt.shortDate),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, labels]
+    [t, labels, viewerRole, studentName]
   )
 
   useLayoutEffect(() => {
@@ -171,16 +213,30 @@ export default function ChatConversation({
 
   async function handleSend(body, { alsoPlan, exercise }) {
     setActionError(null)
+    // Eligió "Otro mensaje…" pero todavía no tocó ninguno: no mandar suelto.
+    if (picking) {
+      setActionError(t('chat.target.pickFirst'))
+      return false
+    }
     stick.current = true
-    const res = target
-      ? await replyNote(target.id, { body, authorId, authorRole: viewerRole })
-      : await createNote({
+    const res = target?.isEvent
+      ? await createNote({
           threadId,
           body,
           authorId,
           authorRole: viewerRole,
-          visibility: privateMode ? 'coach_private' : 'shared',
+          contextType: target.context_type,
+          contextId: target.context_id,
         })
+      : target
+        ? await replyNote(target.id, { body, authorId, authorRole: viewerRole })
+        : await createNote({
+            threadId,
+            body,
+            authorId,
+            authorRole: viewerRole,
+            visibility: privateMode ? 'coach_private' : 'shared',
+          })
     if (res.error) {
       setActionError(res.error.message || t('chat.sendError'))
       return false
@@ -192,8 +248,23 @@ export default function ChatConversation({
     return true
   }
 
-  async function handleAction(kind, note) {
+  async function handleAction(kind, note, extra = {}) {
     setActionError(null)
+    if (kind === 'delete') {
+      const { error: err } = await softDeleteNote(note.id)
+      if (err) {
+        setActionError(t('chat.delete.error'))
+        return
+      }
+      if (extra.withCopies && isCoach) {
+        const copies = notes.filter((n) => n.source_note_id === note.id && !n.deleted_at)
+        for (const c of copies) await unlinkNote(c.id)
+      }
+      if (target?.id === note.id) setChoice(undefined)
+      applyNote({ ...note, deleted_at: new Date().toISOString() })
+      reload()
+      return
+    }
     if (kind === 'reply') {
       chooseTarget(note)
       return
@@ -251,7 +322,7 @@ export default function ChatConversation({
             {f === 'private' && <Lock size={11} aria-hidden="true" />}
             {t(!isCoach && f === 'plan' ? 'chat.filter.planYou' : `chat.filter.${f}`)}
             {f === 'private' && privateCount > 0 && ` · ${privateCount}`}
-            {f === 'pending' && pendingAll.length > 0 && ` · ${pendingAll.length}`}
+            {f === 'pending' && pendingTargets.length > 0 && ` · ${pendingTargets.length}`}
           </button>
         ))}
       </div>
@@ -300,6 +371,20 @@ export default function ChatConversation({
                     }
                     wellbeingLogs={wellbeing}
                     timeLabel={fmt.time(it.at)}
+                    pending={pendingEvIds.has(it.event.id)}
+                    canAnswer={isCoach && SKIP_KINDS.has(it.event.kind)}
+                    onReply={(ev) => chooseTarget(eventTarget(ev, ev.payload?.skip_note || ''))}
+                    onDismiss={async (ev, dismiss) => {
+                      const { error: err } = await dismissEvent(ev.id, dismiss)
+                      if (err) setActionError(t('chat.sheet.saveError'))
+                      reload()
+                    }}
+                    picking={picking}
+                    onPick={
+                      SKIP_KINDS.has(it.event.kind) && isCoach
+                        ? (ev) => chooseTarget(eventTarget(ev, ev.payload?.skip_note || ''))
+                        : undefined
+                    }
                   />
                 ) : (
                   <ChatMessage
@@ -336,7 +421,7 @@ export default function ChatConversation({
         target={target}
         targetIsAuto={targetIsAuto}
         suggestion={suggestion}
-        pending={pendingAll.slice(0, 6)}
+        pending={pendingTargets.slice(0, 6)}
         labelOf={labelOf}
         onChooseTarget={chooseTarget}
         onPickOther={() => setPicking(true)}

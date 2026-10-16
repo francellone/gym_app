@@ -14,7 +14,7 @@ export const NOTE_FIELDS =
   'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section, workout_log_id, workout_block_log_id, reply_dismissed_at'
 
 export const EVENT_FIELDS =
-  'id, thread_id, student_id, kind, milestone_id, workout_log_id, workout_block_log_id, exercise_id, payload, occurred_at, created_at, read_at_coach, read_at_student'
+  'id, thread_id, student_id, kind, milestone_id, workout_log_id, workout_block_log_id, exercise_id, payload, occurred_at, created_at, read_at_coach, read_at_student, reply_dismissed_at'
 
 async function safe(fn) {
   try {
@@ -259,6 +259,14 @@ export async function linkNote({ sourceNoteId, target, refId = null, section = n
 export async function dismissReply(noteId, dismiss = true) {
   const { error } = await supabase.rpc('chat_dismiss_reply', {
     p_note_id: noteId,
+    p_dismiss: dismiss,
+  })
+  return { data: !error, error }
+}
+
+export async function dismissEvent(eventId, dismiss = true) {
+  const { error } = await supabase.rpc('chat_dismiss_event', {
+    p_event_id: eventId,
     p_dismiss: dismiss,
   })
   return { data: !error, error }

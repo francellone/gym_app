@@ -40,6 +40,14 @@ export function eventTitle(t, event, { viewerRole, name, exerciseName, lng }) {
         ...ctx,
         item: p.item_name || t('chat.event.anExercise'),
       })
+    case 'exercise_skipped':
+      return t(you ? 'chat.event.skippedYou' : 'chat.event.skipped', {
+        ...ctx,
+        item: p.item_name || t('chat.event.anExercise'),
+        reason: t(`chat.skipReason.${p.reason || 'other'}`, {
+          defaultValue: t('chat.skipReason.other'),
+        }),
+      })
     default:
       return ''
   }
@@ -60,6 +68,7 @@ export function eventDetail(t, event, lng) {
         ? t('chat.event.bestBefore', { value: bestValue(t, { ...p, value: p.previous_max }, lng) })
         : ''
     case 'exercise_unclear':
+    case 'exercise_skipped':
       return p.skip_note ? `“${p.skip_note}”` : ''
     default:
       return ''

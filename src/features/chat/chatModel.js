@@ -426,3 +426,64 @@ export function preselectTarget(notes = [], viewerRole, { now = Date.now() } = {
   if (now - (Date.parse(last.created_at) || 0) > PRESELECT_HOURS * 3600000) return null
   return pendingFor(live, viewerRole, { now }).some((p) => p.id === last.id) ? last : null
 }
+
+// ── Omisiones que piden respuesta (eventos) ─────────────────
+
+export const SKIP_KINDS = new Set(['exercise_unclear', 'exercise_skipped'])
+
+/** Pide respuesta: "no sabía", molestia o con nota escrita. */
+export function skipNeedsReply(event) {
+  if (!event || !SKIP_KINDS.has(event.kind)) return false
+  const p = event.payload || {}
+  const reason = p.reason || (event.kind === 'exercise_unclear' ? 'unclear' : '')
+  return (
+    reason === 'unclear' || reason === 'discomfort' || Boolean(String(p.skip_note || '').trim())
+  )
+}
+
+/** Contexto del registro omitido (para responder asociado a ese registro). */
+export function eventLogContext(event) {
+  if (event?.workout_log_id)
+    return { context_type: 'workout_log', context_id: event.workout_log_id }
+  if (event?.workout_block_log_id)
+    return { context_type: 'workout_block_log', context_id: event.workout_block_log_id }
+  return null
+}
+
+/**
+ * Omisiones pendientes para la coach: piden respuesta, últimos 14 días, sin
+ * "Listo" y sin una nota de la coach sobre ese registro posterior al evento.
+ */
+export function pendingEvents(
+  events = [],
+  notes = [],
+  { now = Date.now(), days = PENDING_DAYS } = {}
+) {
+  const since = now - days * 86400000
+  return events
+    .filter((e) => {
+      if (!skipNeedsReply(e) || e.reply_dismissed_at) return false
+      const at = Date.parse(e.occurred_at || e.created_at) || 0
+      if (at < since) return false
+      const ctx = eventLogContext(e)
+      if (!ctx) return false
+      return !notes.some(
+        (n) =>
+          n &&
+          !n.deleted_at &&
+          !n.source_note_id &&
+          n.author_role === 'coach' &&
+          n.context_type === ctx.context_type &&
+          n.context_id === ctx.context_id &&
+          (Date.parse(n.created_at) || 0) > at
+      )
+    })
+    .sort((a, b) => (Date.parse(b.occurred_at) || 0) - (Date.parse(a.occurred_at) || 0))
+}
+
+/** Destino "responder a este evento": nota sintética con el contexto del registro. */
+export function eventTarget(event, body = '') {
+  const ctx = eventLogContext(event)
+  if (!ctx) return null
+  return { id: `ev:${event.id}`, isEvent: true, event, body, created_at: event.occurred_at, ...ctx }
+}

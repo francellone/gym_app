@@ -17,6 +17,9 @@ import {
   countPrivate,
   pendingFor,
   preselectTarget,
+  skipNeedsReply,
+  pendingEvents,
+  eventTarget,
 } from './chatModel'
 
 const note = (id, at, extra = {}) => ({
@@ -254,5 +257,42 @@ describe('pendientes y respuesta sugerida', () => {
       }),
     ]
     expect(pendingFor(notes, 'student', { now: NOW })).toEqual([])
+  })
+})
+
+describe('omisiones que piden respuesta', () => {
+  const NOW = Date.parse('2026-10-16T12:00:00Z')
+  const ev = (id, extra = {}) => ({
+    id,
+    kind: 'exercise_skipped',
+    occurred_at: '2026-10-15T20:00:00Z',
+    workout_log_id: 'wl' + id,
+    payload: { reason: 'other', skip_note: 'Está ocupada la máquina' },
+    ...extra,
+  })
+  it('piden respuesta: con nota, molestia o no sabía; no las de tiempo sin nota', () => {
+    expect(skipNeedsReply(ev('a'))).toBe(true)
+    expect(skipNeedsReply(ev('b', { payload: { reason: 'time' } }))).toBe(false)
+    expect(skipNeedsReply(ev('c', { payload: { reason: 'discomfort' } }))).toBe(true)
+    expect(skipNeedsReply(ev('d', { kind: 'exercise_unclear', payload: {} }))).toBe(true)
+  })
+  it('pendiente hasta que la coach comenta ese registro o lo marca Listo', () => {
+    expect(pendingEvents([ev('a')], [], { now: NOW }).map((e) => e.id)).toEqual(['a'])
+    const resp = [
+      note('n', '2026-10-15T21:00:00Z', {
+        author_role: 'coach',
+        context_type: 'workout_log',
+        context_id: 'wla',
+      }),
+    ]
+    expect(pendingEvents([ev('a')], resp, { now: NOW })).toEqual([])
+    expect(pendingEvents([ev('a', { reply_dismissed_at: 'x' })], [], { now: NOW })).toEqual([])
+  })
+  it('destino para responder el evento lleva el registro', () => {
+    expect(eventTarget(ev('a'))).toMatchObject({
+      isEvent: true,
+      context_type: 'workout_log',
+      context_id: 'wla',
+    })
   })
 })

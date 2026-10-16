@@ -17,6 +17,7 @@ import {
   CornerUpLeft,
   CheckCheck,
   Undo2,
+  Trash2,
 } from 'lucide-react'
 import { linkKindOf } from '../chatModel'
 import { linkLabel, contextLabel } from '../chatText'
@@ -69,6 +70,9 @@ export default function ChatMessage({
   )
   const ownCoachMsg = canManage && mine && viewerRole === 'coach' && !item.fromCopy
   const canReply = !mine && !isPrivate && !item.fromCopy
+  const canDelete = mine && !item.fromCopy
+  const planLinks = item.links.filter((l) => linkKindOf(l) !== 'private')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const canDismiss =
     viewerRole === 'coach' &&
     !mine &&
@@ -135,6 +139,10 @@ export default function ChatMessage({
     if (kind === 'edit') {
       setDraft(note.body)
       setEditing(true)
+      return
+    }
+    if (kind === 'delete') {
+      setConfirmDelete(true)
       return
     }
     if (kind === 'copy') {
@@ -250,7 +258,7 @@ export default function ChatMessage({
             <CornerUpLeft size={15} />
           </button>
         )}
-        {(ownCoachMsg || canReply) && !editing && !picking && (
+        {(ownCoachMsg || canReply || canDelete) && !editing && !picking && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -298,11 +306,70 @@ export default function ChatMessage({
                   <MenuItem Icon={Pencil} title={t('chat.menu.edit')} onClick={() => act('edit')} />
                 )}
                 <MenuItem Icon={Copy} title={t('chat.menu.copy')} onClick={() => act('copy')} />
+                {canDelete && (
+                  <MenuItem
+                    Icon={Trash2}
+                    title={t('chat.menu.delete')}
+                    onClick={() => act('delete')}
+                  />
+                )}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {confirmDelete && (
+        <div
+          className={`flex flex-wrap items-center gap-1.5 text-xs max-w-[90%] ${mine ? 'justify-end' : ''}`}
+          role="alertdialog"
+          aria-label={t('chat.delete.question')}
+        >
+          <span className="text-tinta font-medium">{t('chat.delete.question')}</span>
+          <button
+            type="button"
+            className="btn-secondary text-xs px-2 py-1"
+            onClick={() => setConfirmDelete(false)}
+          >
+            {t('chat.cancel')}
+          </button>
+          {planLinks.length > 0 ? (
+            <>
+              <button
+                type="button"
+                className="btn-secondary text-xs px-2 py-1"
+                onClick={() => {
+                  setConfirmDelete(false)
+                  onAction?.('delete', note, { withCopies: false })
+                }}
+              >
+                {t('chat.delete.onlyChat')}
+              </button>
+              <button
+                type="button"
+                className="text-xs px-2 py-1 rounded-boton bg-red-700 text-white font-bold"
+                onClick={() => {
+                  setConfirmDelete(false)
+                  onAction?.('delete', note, { withCopies: true })
+                }}
+              >
+                {t('chat.delete.alsoPlan')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="text-xs px-2 py-1 rounded-boton bg-red-700 text-white font-bold"
+              onClick={() => {
+                setConfirmDelete(false)
+                onAction?.('delete', note, { withCopies: true })
+              }}
+            >
+              {t('chat.delete.confirm')}
+            </button>
+          )}
+        </div>
+      )}
 
       {visibleLinks.length > 0 && (
         <div

@@ -3,7 +3,18 @@
 // promedio de bienestar de esa semana. Texto por kind+payload (i18n).
 
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Trophy, Flag, HelpCircle, Leaf, CalendarCheck } from 'lucide-react'
+import {
+  CheckCircle2,
+  Trophy,
+  Flag,
+  HelpCircle,
+  Leaf,
+  CalendarCheck,
+  SkipForward,
+  CornerUpLeft,
+  CheckCheck,
+  Undo2,
+} from 'lucide-react'
 import { WELLBEING_METRICS } from '@/features/wellbeing/wellbeingMetrics'
 import { weeklyWellbeing, weekStartOfEvent, weekQuestionKey } from '../chatModel'
 import { eventTitle, eventDetail, fmtNumber } from '../chatText'
@@ -14,6 +25,7 @@ const TONE = {
   plan_complete: { Icon: Flag, cls: 'bg-green-100 text-green-700' },
   personal_best: { Icon: Trophy, cls: 'bg-durazno-100 text-primary-700' },
   exercise_unclear: { Icon: HelpCircle, cls: 'bg-amber-100 text-amber-700' },
+  exercise_skipped: { Icon: SkipForward, cls: 'bg-gray-100 text-gray-700' },
 }
 
 const METRIC_BY_KEY = Object.fromEntries(WELLBEING_METRICS.map((m) => [m.key, m]))
@@ -59,6 +71,12 @@ export default function ChatEventCard({
   exerciseName,
   wellbeingLogs,
   timeLabel,
+  pending = false,
+  canAnswer = false, // la coach puede responder / marcar Listo (omisiones)
+  onReply,
+  onDismiss,
+  picking = false,
+  onPick,
 }) {
   const { t, i18n } = useTranslation()
   const tone = TONE[event.kind] || TONE.day_complete
@@ -71,7 +89,20 @@ export default function ChatEventCard({
 
   return (
     <>
-      <div className="self-center w-full max-w-lg flex items-start gap-2.5 bg-white border border-linea rounded-2xl px-3 py-2.5">
+      <div
+        className={`relative self-center w-full max-w-lg flex items-start gap-2.5 bg-white border border-linea rounded-2xl px-3 py-2.5 ${
+          picking && onPick ? 'cursor-pointer ring-2 ring-primary-300 hover:ring-primary-600' : ''
+        }`}
+        onClick={picking && onPick ? () => onPick(event) : undefined}
+        role={picking && onPick ? 'button' : undefined}
+      >
+        {pending && (
+          <span
+            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary-600 ring-2 ring-white"
+            title={t('chat.pendingDot')}
+            aria-label={t('chat.pendingDot')}
+          />
+        )}
         <span
           className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone.cls}`}
         >
@@ -88,6 +119,28 @@ export default function ChatEventCard({
             {title}
           </p>
           {detail && <p className="text-xs text-texto2 break-words">{detail}</p>}
+          {canAnswer && !picking && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              <button
+                type="button"
+                onClick={() => onReply?.(event)}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 border border-primary-600 text-primary-700 bg-durazno-50 text-xs font-medium"
+              >
+                <CornerUpLeft size={12} aria-hidden="true" />
+                {t('chat.menu.reply')}
+              </button>
+              {(pending || event.reply_dismissed_at) && (
+                <button
+                  type="button"
+                  onClick={() => onDismiss?.(event, !event.reply_dismissed_at)}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 border border-gray-300 text-texto2 text-xs"
+                >
+                  {event.reply_dismissed_at ? <Undo2 size={12} /> : <CheckCheck size={12} />}
+                  {event.reply_dismissed_at ? t('chat.menu.undismiss') : t('chat.menu.dismiss')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {timeLabel && <span className="text-[11px] text-texto3 flex-shrink-0">{timeLabel}</span>}
       </div>

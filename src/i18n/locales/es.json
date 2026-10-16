@@ -1470,7 +1470,8 @@
       "copy": "Copiar texto",
       "dismiss": "Listo, no hace falta responder",
       "dismissHint": "Sale de Pendientes",
-      "undismiss": "Volver a Pendientes"
+      "undismiss": "Volver a Pendientes",
+      "delete": "Borrar mensaje"
     },
     "context": {
       "exercise": "Sobre {{exercise}}",
@@ -1548,7 +1549,9 @@
       "wellbeingCaption_one": "Promedio de {{count}} registro de bienestar, comparado con la semana anterior",
       "wellbeingCaption_other": "Promedio de {{count}} registros de bienestar, comparado con la semana anterior",
       "fromCoach": "Tu coach",
-      "automatic": "Mensaje automático"
+      "automatic": "Mensaje automático",
+      "skipped": "{{name}} omitió {{item}} · {{reason}}",
+      "skippedYou": "Omitiste {{item}} · {{reason}}"
     },
     "weekQuestion": {
       "v0": "¡Otra semana completa! ¿Cómo te sentiste con las cargas y los ejercicios?",
@@ -1571,8 +1574,23 @@
       "pickHint": "Tocá el mensaje al que querés responder",
       "toGeneral": "Pasar a General",
       "suggest": "¿Responder a {{what}}?",
-      "autoNote": "Marcado porque es lo último que te escribió:"
+      "autoNote": "Marcado porque es lo último que te escribió:",
+      "pickFirst": "Primero tocá el mensaje al que querés responder, o cancelá para mandarlo en General."
     },
-    "pendingDot": "Sin responder"
+    "pendingDot": "Sin responder",
+    "delete": {
+      "question": "¿Borrar este mensaje?",
+      "onlyChat": "Solo del chat",
+      "alsoPlan": "También del plan",
+      "confirm": "Borrar",
+      "error": "No se pudo borrar. Probá de nuevo."
+    },
+    "skipReason": {
+      "time": "por tiempo",
+      "choice": "por elección",
+      "discomfort": "por una molestia",
+      "unclear": "no sabía cómo",
+      "other": "otro motivo"
+    }
   }
 }
