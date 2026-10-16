@@ -22,10 +22,10 @@ workouts/
 
 ## Quién consume
 
-| Consumidor | Importa |
-|---|---|
-| `src/App.jsx` | `TodayWorkoutPage`, `HistoryPage` |
-| Internamente | `TodayWorkoutPage` usa `AerobicBlockRunCard`, `CircuitBlockRunCard` (que a su vez usan `RPEScale`) |
+| Consumidor    | Importa                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------- |
+| `src/App.jsx` | `TodayWorkoutPage`, `HistoryPage`                                                                  |
+| Internamente  | `TodayWorkoutPage` usa `AerobicBlockRunCard`, `CircuitBlockRunCard` (que a su vez usan `RPEScale`) |
 
 Importar con alias:
 
@@ -43,9 +43,11 @@ Tres tablas (RLS):
 - **`workout_block_logs`** (11 filas) — agregado por bloque para circuit/aerobic.
 
 Cron jobs relacionados:
+
 - `fn_cleanup_abandoned_sessions` — limpia sessions sin actividad después de N días.
 
 Triggers de back:
+
 - `sessions_finished_requires_started` — CHECK constraint.
 - Triggers que pueblan notas mirror al editar logs (sync con `notes`).
 
@@ -82,3 +84,7 @@ Lista paginada de sesiones por fecha, con logs expandibles y notas espejo merged
 
 - **`TodayWorkoutPage.jsx`: 2080 LOC.** Candidato a partir en sub-componentes + hook `useWorkoutSession`. Ver propuesta Tier 2.3.
 - **Duplicación con `EvalWorkoutPage`.** 70% del código se podría unificar.
+
+## Bloque guiado (2026-10-16)
+
+`guidedFlow.js`. Al resolver (hecho u omitido) un ejercicio que estaba pendiente, su tarjeta se pliega a una línea y se abre el siguiente pendiente **de abajo** (si abajo no queda nada, no se mueve). Bloque completo → se pliega y pide abrir el siguiente del día (`requestBlockOpen`, evento de ventana; el orden lo arma `TodayWorkoutPage` con activación + día activo y baja como `nextBlockId`). Abrir un bloque a mano abre su primer pendiente. Corregir algo ya resuelto no mueve la pantalla. Las 3 run cards lo implementan (paridad).

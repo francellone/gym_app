@@ -440,9 +440,11 @@ describe('v54: pintar primero, confirmar por detrás', () => {
     await expand(user)
     await user.click(screen.getByRole('button', { name: /lo hice tal cual/i }))
     await user.click(screen.getByRole('button', { name: /PSE 7/i }))
-    // Todavía no respondió el servidor y ya se ve completado.
+    // Todavía no respondió el servidor y ya se ve completado. Desde el bloque
+    // guiado (2026-10-16) la tarjeta además se pliega: queda el tilde verde.
     expect(onSaveLog).toHaveBeenCalledTimes(1)
-    expect(screen.getByText(/✓ completado/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /✓ completado/i })).toBeInTheDocument()
+    expect(screen.queryByText(/lo que te dejó tu coach/i)).not.toBeInTheDocument()
     resolveSave()
   })
 

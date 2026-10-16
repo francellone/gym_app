@@ -1407,5 +1407,24 @@
     "bestLegend": "Mejor serie ({{unit}})",
     "avgLegend": "Promedio por serie ({{unit}})",
     "kgLegend": "Kilos máx."
+  },
+  "exerciseImage": {
+    "label": "Imagen",
+    "add": "Agregar imagen",
+    "addTo": "Agregar imagen a {{name}}",
+    "replace": "Reemplazar",
+    "remove": "Quitar",
+    "willRemove": "La imagen se quita al guardar.",
+    "processing": "Preparando…",
+    "help": "Una imagen por ejercicio. Aparece en todos los planes que lo usan. Podés sacar una foto o elegirla de la galería; la app la achica sola.",
+    "previewAlt": "Imagen del ejercicio",
+    "errorRead": "No se pudo leer esa imagen. Probá con otra (JPG, PNG o WebP).",
+    "errorUpload": "El ejercicio se guardó, pero la imagen no se pudo subir. Probá de nuevo.",
+    "view": "Ver imagen de {{name}}",
+    "viewerTitle": "Imagen del ejercicio",
+    "close": "Cerrar imagen",
+    "tapToClose": "Tocá en cualquier lado para cerrar",
+    "filterNoImage": "Sin imagen",
+    "filterNoImageTitle": "Mostrar solo los ejercicios sin imagen"
   }
 }

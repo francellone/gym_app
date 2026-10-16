@@ -38,6 +38,8 @@ import { PSE_OPTIONS, pseColor } from '../helpers'
 import ValidationWarning from './ValidationWarning'
 import { outlierFromReference } from '@/features/milestones/milestoneRules'
 import { onLogEditRequest } from '@/features/milestones/editRequest'
+import ExerciseThumb from '@/features/exercises/images/ExerciseThumb'
+import { scrollIntoViewSoon } from '../guidedFlow'
 import { ExerciseHistoryHeaderLine, ExerciseHistoryBodyBlock } from './ExerciseHistoryPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
 import useLocalStorageDraft from '../hooks/useLocalStorageDraft'
@@ -124,6 +126,11 @@ export default function ExerciseCard({
   // ejercicio ({ weight: {count,max}, reps: {count,max} }) para avisar antes
   // de guardar un valor que se aleja más del 100% de su máximo.
   bestReference = null,
+  // Bloque guiado (2026-10-16): el bloque sube este número para pedirle a la
+  // tarjeta que se abra y se traiga a la vista; y se entera cuando la persona
+  // resuelve el ejercicio para abrir el siguiente.
+  openSignal = 0,
+  onResolved = null,
 }) {
   const { t, i18n } = useTranslation()
   const cardRef = useRef(null)
@@ -639,6 +646,17 @@ export default function ExerciseCard({
     [planEx.id]
   )
 
+  // Bloque guiado: el bloque pide abrir esta tarjeta (la siguiente pendiente).
+  // (Se abre al render, sin efecto; el efecto solo desplaza la pantalla.)
+  const [seenOpenSignal, setSeenOpenSignal] = useState(0)
+  if (openSignal !== seenOpenSignal) {
+    setSeenOpenSignal(openSignal)
+    if (openSignal) setExpanded(true)
+  }
+  useEffect(() => {
+    if (openSignal) scrollIntoViewSoon(() => cardRef.current)
+  }, [openSignal])
+
   // v54: la tarjeta pasa a "hecho" ANTES de que el servidor responda (el
   // padre también proyecta el registro en `logs`). Si el guardado falla,
   // vuelve al estado anterior; el padre ya mostró el aviso de error.
@@ -648,10 +666,14 @@ export default function ExerciseCard({
     const wasEditing = editing
     const prevAction = pendingAction
     const wasReopened = reopened
+    const wasResolved = isLogResolved(log)
     setLogData((p) => ({ ...p, completed: true }))
     setEditing(false)
     setPendingAction(null)
     setReopened(false)
+    // Bloque guiado: resuelto → se pliega y el bloque abre el siguiente.
+    setExpanded(false)
+    onResolved?.(planEx.id, { wasResolved })
     setSaving(true)
     try {
       await onSaveLog(planEx.id, data)
@@ -664,6 +686,7 @@ export default function ExerciseCard({
       setEditing(wasEditing)
       setPendingAction(prevAction)
       setReopened(wasReopened)
+      setExpanded(true)
     } finally {
       setSaving(false)
     }
@@ -688,12 +711,15 @@ export default function ExerciseCard({
     if (!SKIP_REASONS.includes(reason)) return
     const prevAction = pendingAction
     const wasReopened = reopened
+    const wasResolved = isLogResolved(log)
     // Optimista: el padre proyecta el log omitido en `logs` al instante y
     // la tarjeta lo lee de ahí (isSkipped). Acá solo cerramos los paneles.
     setLogData((p) => ({ ...p, completed: false, perceived_difficulty: null }))
     setEditing(false)
     setPendingAction(null)
     setReopened(false)
+    setExpanded(false)
+    onResolved?.(planEx.id, { wasResolved })
     setSaving(true)
     try {
       await onSaveLog(planEx.id, buildSkipData(reason, note))
@@ -703,6 +729,7 @@ export default function ExerciseCard({
       console.error(err)
       setPendingAction(prevAction)
       setReopened(wasReopened)
+      setExpanded(true)
     } finally {
       setSaving(false)
     }
@@ -754,6 +781,10 @@ export default function ExerciseCard({
     setLogData((p) => ({ ...p, ...buildPristineLogData(), completed: p.completed }))
     setEditing(false)
   }
+
+  // Plegada y resuelta → el header queda en una línea; abierta o pendiente,
+  // con todo el detalle de siempre.
+  const showHeaderDetails = expanded || !(completed || isSkipped)
 
   return (
     <>
@@ -812,7 +843,7 @@ export default function ExerciseCard({
 
       <div
         ref={cardRef}
-        className={`rounded-2xl border transition-all overflow-hidden ${
+        className={`scroll-mt-20 rounded-2xl border transition-all overflow-hidden ${
           completed
             ? 'border-green-200 bg-white'
             : isSkipped
@@ -857,6 +888,13 @@ export default function ExerciseCard({
             )}
           </button>
 
+          {/* v74: imagen del ejercicio (si no tiene, no ocupa lugar) */}
+          <ExerciseThumb
+            path={planEx.exercise?.image_path}
+            name={exText.name}
+            size={expanded ? 56 : 44}
+          />
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {planEx.block_label && (
@@ -876,76 +914,83 @@ export default function ExerciseCard({
                 </span>
               )}
             </div>
-            {/* Sugerido por el coach */}
-            <p className="text-xs text-gray-400 mt-0.5">
-              {t('workout.suggestedLabel')}{' '}
-              {[
-                planEx.suggested_sets &&
-                  t('workout.series', { count: Number(planEx.suggested_sets) }),
-                suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
-                prescribedPct1rm
-                  ? derivedKg != null
-                    ? `· ${derivedKg} kg (${prescribedPct1rm}% ${t('workout.ofYourMax')})`
-                    : `· ${prescribedPct1rm}% ${t('workout.ofYourMax')}`
-                  : planEx.suggested_weight &&
-                    planEx.suggested_weight !== 'None' &&
-                    `· ${planEx.suggested_weight}`,
-                restScope === 'set' &&
-                  planEx.rest_time &&
-                  planEx.rest_time !== 'None' &&
-                  `· ${t('workout.restBetweenSets', { time: planEx.rest_time })}`,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            </p>
-            {/* %RM: de dónde salieron los kilos (o por qué todavía no hay) */}
-            {pctPrescription.status === 'derived' && (
-              <p className="text-[11px] text-primary-600 mt-0.5">
-                {rmReferenceName
-                  ? t('workout.pct1rmFromReference', {
-                      pct: prescribedPct1rm,
-                      oneRm: pctPrescription.oneRm,
-                      exercise: rmReferenceName,
-                      date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
-                    })
-                  : t('workout.pct1rmFromOwnMax', {
-                      pct: prescribedPct1rm,
-                      oneRm: pctPrescription.oneRm,
-                      date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
-                    })}
-              </p>
-            )}
-            {pctPrescription.status === 'missing_1rm' && (
-              <p className="text-[11px] text-amber-600 mt-0.5">{t('workout.pct1rmNoEval')}</p>
-            )}
-
-            {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
-            {prescriptionChange?.changes && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
-                <span className="inline-flex items-center gap-1 font-medium">
-                  <TrendingUp size={11} />
-                  {t('workout.coachAdjusted')}
-                </span>
-                {PRESCRIPTION_FIELD_KEYS.filter((k) => prescriptionChange.changes[k]).map((k) => (
-                  <span key={k} className="text-emerald-600">
-                    {t(`workout.prescriptionField.${k}`)} {prescriptionChange.changes[k].old}
-                    {'→'}
-                    <strong>{prescriptionChange.changes[k].new}</strong>
-                  </span>
-                ))}
-                {prescriptionChange.note && (
-                  <span className="w-full text-emerald-600/80 italic">
-                    "{prescriptionChange.note}"
-                  </span>
+            {/* Bloque guiado: plegado y resuelto = una línea (nombre + resultado) */}
+            {showHeaderDetails && (
+              <>
+                {/* Sugerido por el coach */}
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {t('workout.suggestedLabel')}{' '}
+                  {[
+                    planEx.suggested_sets &&
+                      t('workout.series', { count: Number(planEx.suggested_sets) }),
+                    suggestedRepsRaw && `× ${displayReps(suggestedRepsRaw)}`,
+                    prescribedPct1rm
+                      ? derivedKg != null
+                        ? `· ${derivedKg} kg (${prescribedPct1rm}% ${t('workout.ofYourMax')})`
+                        : `· ${prescribedPct1rm}% ${t('workout.ofYourMax')}`
+                      : planEx.suggested_weight &&
+                        planEx.suggested_weight !== 'None' &&
+                        `· ${planEx.suggested_weight}`,
+                    restScope === 'set' &&
+                      planEx.rest_time &&
+                      planEx.rest_time !== 'None' &&
+                      `· ${t('workout.restBetweenSets', { time: planEx.rest_time })}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                </p>
+                {/* %RM: de dónde salieron los kilos (o por qué todavía no hay) */}
+                {pctPrescription.status === 'derived' && (
+                  <p className="text-[11px] text-primary-600 mt-0.5">
+                    {rmReferenceName
+                      ? t('workout.pct1rmFromReference', {
+                          pct: prescribedPct1rm,
+                          oneRm: pctPrescription.oneRm,
+                          exercise: rmReferenceName,
+                          date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
+                        })
+                      : t('workout.pct1rmFromOwnMax', {
+                          pct: prescribedPct1rm,
+                          oneRm: pctPrescription.oneRm,
+                          date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
+                        })}
+                  </p>
                 )}
-              </div>
+                {pctPrescription.status === 'missing_1rm' && (
+                  <p className="text-[11px] text-amber-600 mt-0.5">{t('workout.pct1rmNoEval')}</p>
+                )}
+
+                {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
+                {prescriptionChange?.changes && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
+                    <span className="inline-flex items-center gap-1 font-medium">
+                      <TrendingUp size={11} />
+                      {t('workout.coachAdjusted')}
+                    </span>
+                    {PRESCRIPTION_FIELD_KEYS.filter((k) => prescriptionChange.changes[k]).map(
+                      (k) => (
+                        <span key={k} className="text-emerald-600">
+                          {t(`workout.prescriptionField.${k}`)} {prescriptionChange.changes[k].old}
+                          {'→'}
+                          <strong>{prescriptionChange.changes[k].new}</strong>
+                        </span>
+                      )
+                    )}
+                    {prescriptionChange.note && (
+                      <span className="w-full text-emerald-600/80 italic">
+                        "{prescriptionChange.note}"
+                      </span>
+                    )}
+                  </div>
+                )}
+                {/* Q1 — "Última vez" + badge chat (siempre visible en el header) */}
+                <ExerciseHistoryHeaderLine
+                  lastLog={lastLog}
+                  noteCount={noteCount}
+                  onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
+                />
+              </>
             )}
-            {/* Q1 — "Última vez" + badge chat (siempre visible en el header) */}
-            <ExerciseHistoryHeaderLine
-              lastLog={lastLog}
-              noteCount={noteCount}
-              onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
-            />
             {isSkipped && !expanded && (
               <p className="text-xs text-amber-700 mt-0.5 font-medium">
                 {tv('workout.skippedCheck')}

@@ -15,6 +15,8 @@ import {
   GitMerge,
   Lock,
   Copy,
+  ImagePlus,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES } from '@/features/plans/helpers'
@@ -24,6 +26,7 @@ import { fetchUsage, isReferenced, usageSummary } from '../exerciseUsage'
 import { filledSummary } from '../mergeFill'
 import DuplicatesModal from '../components/DuplicatesModal'
 import CatalogAccessCard from '../components/CatalogAccessCard'
+import ExerciseThumb from '../images/ExerciseThumb'
 
 // Colores predefinidos para etiquetas
 const PRESET_COLORS = [
@@ -185,6 +188,7 @@ export default function ExercisesLibraryPage() {
   const [filterTag, setFilterTag] = useState('')
   const [filterMode, setFilterMode] = useState('') // '' | 'with_weight' | 'barbell_only' | 'bodyweight'
   const [filterIncomplete, setFilterIncomplete] = useState(false) // solo ejercicios sin video o sin nota
+  const [filterNoImage, setFilterNoImage] = useState(false) // v74: solo ejercicios sin imagen
   const [modalExercise, setModalExercise] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showTagManager, setShowTagManager] = useState(false)
@@ -338,7 +342,8 @@ export default function ExercisesLibraryPage() {
     // La descripción suma pero no descuenta (actualiza Decisión 17, doc 13).
     const isIncomplete = !e.video_url || !e.technique_notes
     const matchIncomplete = !filterIncomplete || isIncomplete
-    return matchSearch && matchTag && matchMode && matchIncomplete
+    const matchNoImage = !filterNoImage || !e.image_path
+    return matchSearch && matchTag && matchMode && matchIncomplete && matchNoImage
   })
 
   // Fusionar exige ser dueña de origen y destino (v62): solo los propios.
@@ -439,6 +444,20 @@ export default function ExercisesLibraryPage() {
         </button>
         <button
           type="button"
+          onClick={() => setFilterNoImage((v) => !v)}
+          aria-pressed={filterNoImage}
+          className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
+            filterNoImage
+              ? 'bg-durazno-50 border-durazno-200 text-primary-700'
+              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}
+          title={t('exerciseImage.filterNoImageTitle')}
+        >
+          <ImageIcon size={15} />
+          <span className="hidden sm:inline">{t('exerciseImage.filterNoImage')}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setShowArchived((v) => !v)}
           className={`flex items-center gap-1.5 px-3 rounded-xl text-sm font-medium border transition-colors ${
             showArchived
@@ -484,9 +503,28 @@ export default function ExercisesLibraryPage() {
             const exTags = exerciseTagMap[ex.id] || []
             return (
               <div key={ex.id} className="card flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Dumbbell size={18} className="text-gray-500" />
-                </div>
+                {/* v74: imagen del ejercicio. Sin imagen: la dueña ve un hueco
+                    punteado para agregarla; el resto, el ícono de siempre. */}
+                {ex.image_path ? (
+                  <ExerciseThumb path={ex.image_path} name={ex.name} size={44} />
+                ) : ex.created_by === profile?.id && !ex.archived_at ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalExercise(ex)
+                      setShowModal(true)
+                    }}
+                    aria-label={t('exerciseImage.addTo', { name: ex.name })}
+                    title={t('exerciseImage.add')}
+                    className="w-11 h-11 rounded-xl border-2 border-dashed border-gray-300 bg-white flex items-center justify-center flex-shrink-0 hover:bg-gray-50"
+                  >
+                    <ImagePlus size={18} className="text-gray-400" />
+                  </button>
+                ) : (
+                  <div className="w-11 h-11 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Dumbbell size={18} className="text-gray-500" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-semibold text-sm text-gray-900 break-words">{ex.name}</p>

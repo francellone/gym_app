@@ -1407,5 +1407,24 @@
     "bestLegend": "Best set ({{unit}})",
     "avgLegend": "Average per set ({{unit}})",
     "kgLegend": "Max kg"
+  },
+  "exerciseImage": {
+    "label": "Image",
+    "add": "Add image",
+    "addTo": "Add an image to {{name}}",
+    "replace": "Replace",
+    "remove": "Remove",
+    "willRemove": "The image will be removed when you save.",
+    "processing": "Preparing…",
+    "help": "One image per exercise. It shows up in every plan that uses it. Take a photo or pick one from your gallery; the app resizes it for you.",
+    "previewAlt": "Exercise image",
+    "errorRead": "That image couldn't be read. Try another one (JPG, PNG or WebP).",
+    "errorUpload": "The exercise was saved, but the image couldn't be uploaded. Try again.",
+    "view": "View image of {{name}}",
+    "viewerTitle": "Exercise image",
+    "close": "Close image",
+    "tapToClose": "Tap anywhere to close",
+    "filterNoImage": "No image",
+    "filterNoImageTitle": "Show only exercises without an image"
   }
 }

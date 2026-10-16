@@ -1284,6 +1284,17 @@ export default function TodayWorkoutPage() {
 
   const activationBlocks = blocksBySection.activation || []
 
+  // Bloque guiado: orden de los bloques que se ven hoy (activación + día
+  // activo). Al completar uno se abre el que sigue.
+  const nextBlockIdOf = (() => {
+    const ids = [...activationBlocks, ...(blocksBySection[activeDay] || [])].map((b) => b.id)
+    const map = {}
+    ids.forEach((id, i) => {
+      map[id] = ids[i + 1] || null
+    })
+    return map
+  })()
+
   // Mapa día → completado. 2026-08-27: la activación es requisito de TODOS
   // los días (antes solo del primero del plan). Ver computeDayDoneMap.
   const dayDoneMap = useMemo(
@@ -1780,6 +1791,7 @@ export default function TodayWorkoutPage() {
                     oneRmMap={oneRmMap}
                     coachMode={coachMode}
                     bestRefByExercise={bestRefByExercise}
+                    nextBlockId={nextBlockIdOf[block.id] || null}
                   />
                 ))}
               </div>
@@ -1813,6 +1825,7 @@ export default function TodayWorkoutPage() {
                     oneRmMap={oneRmMap}
                     coachMode={coachMode}
                     bestRefByExercise={bestRefByExercise}
+                    nextBlockId={nextBlockIdOf[block.id] || null}
                   />
                 ))}
               </div>

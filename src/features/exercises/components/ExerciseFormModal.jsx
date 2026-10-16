@@ -6,6 +6,12 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { WEIGHT_MODES_LOGGABLE } from '@/features/plans/helpers'
 import { useCoachFormLanguages } from '@/features/forms/hooks/useCoachFormLanguages'
 import { findDuplicateByName } from '../exercise-name'
+import ExerciseImageField from '../images/ExerciseImageField'
+import {
+  clearExerciseImage,
+  removeExerciseImageFile,
+  uploadExerciseImage,
+} from '../images/exerciseImageApi'
 
 // ============================================================
 // Modal para crear/editar un ejercicio del catálogo.
@@ -56,6 +62,8 @@ export default function ExerciseFormModal({
   // Duplicados: el nombre no tiene índice único en la base, así que avisamos
   // acá y pedimos una confirmación explícita antes de insertar.
   const [dupConfirmed, setDupConfirmed] = useState(false)
+  // v74: cambio de imagen pendiente (null | { blob } | 'remove'); se aplica al guardar.
+  const [imageChange, setImageChange] = useState(null)
 
   useEffect(() => {
     if (exercise?.id) {
@@ -134,7 +142,31 @@ export default function ExerciseFormModal({
         }
       }
 
-      onSave(result.data)
+      // v74: imagen. Va al final, con el id ya creado. Si falla, el ejercicio
+      // quedó guardado: el modal pasa a "editar" para que reintentar no
+      // duplique el ejercicio.
+      let saved = result.data
+      if (exerciseId && imageChange) {
+        const oldPath = form.image_path || null
+        try {
+          if (typeof imageChange === 'object' && imageChange.blob) {
+            const newPath = await uploadExerciseImage(exerciseId, imageChange.blob)
+            saved = { ...saved, image_path: newPath }
+            if (oldPath && oldPath !== newPath) removeExerciseImageFile(oldPath)
+          } else if (imageChange === 'remove' && oldPath) {
+            await clearExerciseImage(exerciseId)
+            saved = { ...saved, image_path: null }
+            removeExerciseImageFile(oldPath)
+          }
+        } catch (imgErr) {
+          console.error(imgErr)
+          setForm((p) => ({ ...p, ...result.data }))
+          setError(t('exerciseImage.errorUpload'))
+          return
+        }
+      }
+
+      onSave(saved)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -262,6 +294,13 @@ export default function ExerciseFormModal({
               </div>
             )}
           </div>
+
+          <ExerciseImageField
+            currentPath={form.image_path || null}
+            value={imageChange}
+            onChange={setImageChange}
+            disabled={loading}
+          />
 
           <div>
             <label className="label">{t('coach.exercises.form.videoUrl')}</label>

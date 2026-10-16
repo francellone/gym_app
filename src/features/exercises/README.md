@@ -35,3 +35,12 @@ Tres tablas (RLS):
 
 - **No borrar ejercicios con logs/plan_exercises asociados.** Hay FK con `RESTRICT`. La page propone soft-delete (`archived = true`) cuando hay datos dependientes.
 - **`default_weight_mode` y `default_unilateral`** se heredan en cascada: log → plan_exercise → exercise. Usar `getEffectiveWeightMode` / `getEffectiveUnilateral` de `@/features/plans/helpers` en lugar de leer el campo directo.
+
+## Imagen por ejercicio (v74, 2026-10-16)
+
+- `exercises.image_path` guarda la RUTA dentro del bucket privado `exercise-images` (`<exercise_id>/<ts>.webp`), nunca una URL (las firmadas vencen).
+- Lectura: la política del bucket consulta `exercises` con los permisos de quien pide → la imagen la ve exactamente quien ve el ejercicio. Escritura: solo la dueña del ejercicio.
+- `images/`: `exerciseImageUrls.js` (firma en lote + caché, mismo patrón que avatars), `useExerciseImageUrl` (null = sin imagen, undefined = firmando), `ExerciseThumb` (miniatura que se abre a pantalla completa; sin imagen no dibuja nada), `ExerciseImageViewer` (portal), `ExerciseImageField` (campo del formulario; el cambio se aplica al Guardar), `resizeImage.js` (lado mayor 800 px, webp con caída a jpeg), `exerciseImageApi.js`.
+- Dónde se ve: catálogo (con hueco punteado "agregar imagen" para la dueña y filtro "Sin imagen"), `ExercisePicker` (armador: fuerza, circuito, aeróbico, evaluaciones) y Entrenar (las 3 run cards).
+- Para sumar un lugar: el select tiene que traer `image_path` (los `exercises(*)` ya lo traen) y poner `<ExerciseThumb path={ex.image_path} name=… size=…/>`.
+- La fusión (`merge_exercises`) NO traspasa la imagen.

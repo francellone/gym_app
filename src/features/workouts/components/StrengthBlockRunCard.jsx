@@ -1,10 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
 import { onLogEditRequest, requestLogEdit } from '@/features/milestones/editRequest'
 import { groupStrengthExercises, blockResolution } from '../helpers'
+import { isLogResolved } from '../completionRules'
+import {
+  allResolved,
+  firstPending,
+  nextPendingAfter,
+  onBlockOpenRequest,
+  requestBlockOpen,
+  scrollIntoViewSoon,
+} from '../guidedFlow'
 
 // ============================================================
 // Bloque STRENGTH colapsable (wrapper con header rico)
@@ -34,9 +43,15 @@ export default function StrengthBlockRunCard({
   coachMode = false,
   // Etapa 4 celebraciones — máximo previo por exercise_id (aviso al cargar)
   bestRefByExercise = null,
+  // Bloque guiado: id del bloque que sigue en el día (null si es el último).
+  nextBlockId = null,
 }) {
   const { t } = useTranslation()
+  const rootRef = useRef(null)
   const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
+  // Bloque guiado: qué tarjeta abrir. `seq` sube en cada pedido para que la
+  // misma tarjeta pueda volver a abrirse.
+  const [openReq, setOpenReq] = useState({ id: null, seq: 0 })
   // Etapa 4: si piden corregir un ejercicio de este bloque y está cerrado,
   // se abre y se re-emite el pedido para que la tarjeta (recién montada) lo
   // tome. Si ya está abierto, la tarjeta lo atiende sola.
@@ -59,6 +74,49 @@ export default function StrengthBlockRunCard({
   const exercises = (block.plan_exercises || [])
     .slice()
     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+
+  const orderedIds = exercises.map((ex) => ex.id)
+  const resolvedIds = () => new Set(orderedIds.filter((id) => isLogResolved(logs?.[id])))
+
+  // Bloque guiado: la persona resolvió un ejercicio que estaba pendiente →
+  // se abre el siguiente de abajo; si el bloque quedó completo, se pliega y
+  // se abre el bloque que sigue.
+  function handleResolved(id, { wasResolved } = {}) {
+    if (wasResolved) return
+    const done = resolvedIds()
+    done.add(id)
+    const next = nextPendingAfter(orderedIds, done, id)
+    if (next) {
+      setOpenReq((r) => ({ id: next, seq: r.seq + 1 }))
+      return
+    }
+    if (allResolved(orderedIds, done)) {
+      setExpanded(false)
+      if (nextBlockId) setTimeout(() => requestBlockOpen(nextBlockId), 150)
+    }
+  }
+
+  // Otro bloque terminó y pide abrir este: se despliega con su primer
+  // pendiente abierto (la tarjeta se trae sola a la vista).
+  useEffect(
+    () =>
+      onBlockOpenRequest((id) => {
+        if (id !== block.id) return
+        setExpanded(true)
+        const first = firstPending(
+          (block.plan_exercises || [])
+            .slice()
+            .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+            .map((ex) => ex.id),
+          new Set(
+            (block.plan_exercises || []).map((ex) => ex.id).filter((x) => isLogResolved(logs?.[x]))
+          )
+        )
+        if (first) setOpenReq((r) => ({ id: first, seq: r.seq + 1 }))
+        else scrollIntoViewSoon(() => rootRef.current)
+      }),
+    [block.id, block.plan_exercises, logs]
+  )
 
   const total = exercises.length
   // v54: hechos / omitidos con la regla única (un omitido no es un hecho).
@@ -115,20 +173,31 @@ export default function StrengthBlockRunCard({
         oneRmMap={oneRmMap}
         coachMode={coachMode}
         bestReference={bestRefByExercise?.get?.(ex.exercise_id) ?? null}
+        openSignal={openReq.id === ex.id ? openReq.seq : 0}
+        onResolved={handleResolved}
       />
     )
   }
 
   return (
     <div
-      className={`rounded-2xl border transition-all overflow-hidden ${
+      ref={rootRef}
+      className={`scroll-mt-20 rounded-2xl border transition-all overflow-hidden ${
         completed ? 'border-green-200 bg-white' : 'border-linea bg-white'
       }`}
     >
       {/* Header colapsable */}
       <button
         type="button"
-        onClick={() => setExpanded((e) => !e)}
+        onClick={() => {
+          const opening = !expanded
+          setExpanded(opening)
+          // Bloque guiado: al abrirlo, el primer pendiente ya viene abierto.
+          if (opening) {
+            const first = firstPending(orderedIds, resolvedIds())
+            if (first) setOpenReq((r) => ({ id: first, seq: r.seq + 1 }))
+          }
+        }}
         className="w-full flex items-center gap-3 p-4 text-left"
       >
         <div className="flex-shrink-0">

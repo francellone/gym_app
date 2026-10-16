@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Tag } from 'lucide-react'
 import { useExerciseCatalog } from '../ExerciseCatalogContext'
 import ExerciseFormModal from './ExerciseFormModal'
+import ExerciseThumb from '../images/ExerciseThumb'
 
 // ============================================================
 // ExercisePicker — selector de ejercicio + "Nuevo" inline
@@ -113,7 +114,15 @@ export default function ExercisePicker({
             {labelText} {required && '*'}
           </label>
         ) : null}
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* v74: miniatura del elegido (no ocupa lugar si no tiene imagen) */}
+          {selected?.image_path && (
+            <ExerciseThumb
+              path={selected.image_path}
+              name={selected.name}
+              size={size === 'xs' ? 32 : 40}
+            />
+          )}
           <select
             className={`input flex-1 ${inputSize}`}
             value={value || ''}

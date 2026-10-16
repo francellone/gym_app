@@ -42,6 +42,8 @@ export default function BlockRenderer({
   coachMode = false,
   // Etapa 4 celebraciones — máximo previo por exercise_id (aviso al cargar)
   bestRefByExercise = null,
+  // Bloque guiado: el bloque que sigue en el día (lo abre al completar este)
+  nextBlockId = null,
 }) {
   if (block.block_type === 'aerobic') {
     return (
@@ -56,6 +58,7 @@ export default function BlockRenderer({
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
         coachMode={coachMode}
+        nextBlockId={nextBlockId}
       />
     )
   }
@@ -81,6 +84,7 @@ export default function BlockRenderer({
         onOpenChat={onOpenChat}
         loggedDate={loggedDate}
         coachMode={coachMode}
+        nextBlockId={nextBlockId}
         oneRmMap={oneRmMap}
         bestRefByExercise={bestRefByExercise}
       />
@@ -103,6 +107,7 @@ export default function BlockRenderer({
       studentId={studentId}
       loggedDate={loggedDate}
       coachMode={coachMode}
+      nextBlockId={nextBlockId}
       // doc 48 — cambios de objetivo del coach
       prescriptionByEx={prescriptionByEx}
       // %RM — kilos derivados del máximo de la persona

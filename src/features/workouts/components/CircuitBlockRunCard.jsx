@@ -15,7 +15,9 @@ import {
   History,
 } from 'lucide-react'
 import { expandPerSet } from '@/features/plans/prescriptionRead'
-import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
+import { isLogDone, isLogSkipped, isLogResolved, SKIP_REASONS } from '../completionRules'
+import ExerciseThumb from '@/features/exercises/images/ExerciseThumb'
+import { onBlockOpenRequest, requestBlockOpen, scrollIntoViewSoon } from '../guidedFlow'
 import BlockConfirmActions from './BlockConfirmActions'
 import { SkippedReasonLines } from './SkipReasonPicker'
 import {
@@ -78,10 +80,28 @@ export default function CircuitBlockRunCard({
   // Etapa 4 celebraciones — Map<exercise_id, {weight, reps}> con el máximo
   // previo de la persona, para avisar un valor que lo duplica.
   bestRefByExercise = null,
+  // Bloque guiado: id del bloque que sigue en el día (null si es el último).
+  nextBlockId = null,
 }) {
   const { t, i18n } = useTranslation()
   const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
   const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
+
+  // Bloque guiado: resuelto por primera vez → se pliega y abre el siguiente.
+  function advanceAfterResolve(wasResolved) {
+    if (wasResolved) return
+    setExpanded(false)
+    if (nextBlockId) setTimeout(() => requestBlockOpen(nextBlockId), 150)
+  }
+  useEffect(
+    () =>
+      onBlockOpenRequest((id) => {
+        if (id !== block.id) return
+        setExpanded(true)
+        scrollIntoViewSoon(() => cardRef.current)
+      }),
+    [block.id]
+  )
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -243,6 +263,7 @@ export default function CircuitBlockRunCard({
         return
       }
     }
+    const wasResolved = isLogResolved(blockLog)
     setSaving(true)
     try {
       await onSaveBlockLog({
@@ -315,6 +336,7 @@ export default function CircuitBlockRunCard({
       setEditing(false)
       setPendingAction(null)
       setReopened(false)
+      advanceAfterResolve(wasResolved)
     } catch (err) {
       console.error(err)
     } finally {
@@ -350,6 +372,7 @@ export default function CircuitBlockRunCard({
   // decisión Franco 2026-09-23). Datos en NULL, nunca en 0.
   async function skipWith(reason, note = null) {
     if (!SKIP_REASONS.includes(reason)) return
+    const wasResolved = isLogResolved(blockLog)
     setSaving(true)
     try {
       await onSaveBlockLog({
@@ -366,6 +389,7 @@ export default function CircuitBlockRunCard({
       setEditing(false)
       setPendingAction(null)
       setReopened(false)
+      advanceAfterResolve(wasResolved)
     } catch (err) {
       console.error(err)
     } finally {
@@ -439,7 +463,7 @@ export default function CircuitBlockRunCard({
 
       <div
         ref={cardRef}
-        className={`rounded-2xl border transition-all overflow-hidden ${
+        className={`scroll-mt-20 rounded-2xl border transition-all overflow-hidden ${
           completed
             ? 'border-green-200 bg-white'
             : isSkipped
@@ -614,7 +638,12 @@ export default function CircuitBlockRunCard({
                   const exNoteCount = noteCountByExercise?.get?.(ex.exercise_id) || 0
                   return (
                     <div key={ex.id} className="bg-white rounded-xl border border-gray-100 p-2.5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2.5">
+                        <ExerciseThumb
+                          path={ex.exercise?.image_path}
+                          name={exText.name}
+                          size={44}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 break-words">
                             {i + 1}. {exText.name || '—'}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
 import {
@@ -13,7 +13,9 @@ import {
   PlayCircle,
   MinusCircle,
 } from 'lucide-react'
-import { isLogDone, isLogSkipped, SKIP_REASONS } from '../completionRules'
+import { isLogDone, isLogSkipped, isLogResolved, SKIP_REASONS } from '../completionRules'
+import ExerciseThumb from '@/features/exercises/images/ExerciseThumb'
+import { onBlockOpenRequest, requestBlockOpen, scrollIntoViewSoon } from '../guidedFlow'
 import BlockConfirmActions from './BlockConfirmActions'
 import { SkippedReasonLines } from './SkipReasonPicker'
 import {
@@ -55,10 +57,29 @@ export default function AerobicBlockRunCard({
   loggedDate = null,
   // v54 — la coach registra por la persona: textos en tercera persona
   coachMode = false,
+  // Bloque guiado: id del bloque que sigue en el día (null si es el último).
+  nextBlockId = null,
 }) {
   const { t, i18n } = useTranslation()
   const tv = (key, opts) => t(coachMode ? `${key}Coach` : key, opts)
+  const rootRef = useRef(null)
   const [expanded, setExpanded] = useState(() => readExpanded({ blockId: block.id, loggedDate }))
+
+  // Bloque guiado: resuelto por primera vez → se pliega y abre el siguiente.
+  function advanceAfterResolve(wasResolved) {
+    if (wasResolved) return
+    setExpanded(false)
+    if (nextBlockId) setTimeout(() => requestBlockOpen(nextBlockId), 150)
+  }
+  useEffect(
+    () =>
+      onBlockOpenRequest((id) => {
+        if (id !== block.id) return
+        setExpanded(true)
+        scrollIntoViewSoon(() => rootRef.current)
+      }),
+    [block.id]
+  )
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
   // lugar tras la recarga en frío al reabrir la app (scope por bloque + día).
@@ -158,6 +179,7 @@ export default function AerobicBlockRunCard({
   // inline (setForm es asíncrono).
   async function save({ entryMode = 'edited', pseOverride } = {}) {
     const pse = pseOverride !== undefined ? pseOverride : form.perceived_difficulty
+    const wasResolved = isLogResolved(blockLog)
     setSaving(true)
     try {
       await onSaveLog({
@@ -175,6 +197,7 @@ export default function AerobicBlockRunCard({
       setEditing(false)
       setPendingAction(null)
       setReopened(false)
+      advanceAfterResolve(wasResolved)
     } catch (err) {
       console.error(err)
     } finally {
@@ -191,6 +214,7 @@ export default function AerobicBlockRunCard({
   // v54 — NO LO HICE: datos en NULL, nunca en 0.
   async function skipWith(reason, note = null) {
     if (!SKIP_REASONS.includes(reason)) return
+    const wasResolved = isLogResolved(blockLog)
     setSaving(true)
     try {
       await onSaveLog({
@@ -207,6 +231,7 @@ export default function AerobicBlockRunCard({
       setEditing(false)
       setPendingAction(null)
       setReopened(false)
+      advanceAfterResolve(wasResolved)
     } catch (err) {
       console.error(err)
     } finally {
@@ -255,7 +280,8 @@ export default function AerobicBlockRunCard({
       )}
 
       <div
-        className={`rounded-2xl border transition-all overflow-hidden ${
+        ref={rootRef}
+        className={`scroll-mt-20 rounded-2xl border transition-all overflow-hidden ${
           completed
             ? 'border-green-200 bg-white'
             : isSkipped
@@ -298,6 +324,9 @@ export default function AerobicBlockRunCard({
               <Circle size={24} className="text-gray-300" />
             )}
           </button>
+
+          {/* v74: imagen del ejercicio del aeróbico (si tiene) */}
+          <ExerciseThumb path={firstPlanEx?.exercise?.image_path} name={exText?.name} size={44} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
