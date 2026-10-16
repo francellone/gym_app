@@ -785,6 +785,41 @@ export default function ExerciseCard({
   // Plegada y resuelta → el header queda en una línea; abierta o pendiente,
   // con todo el detalle de siempre.
   const showHeaderDetails = expanded || !(completed || isSkipped)
+  const hasImage = !!planEx.exercise?.image_path
+  // Círculo de estado (atajo a la confirmación). Con imagen va encima de ella.
+  const statusButton = (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        if (completed) return
+        // v54: el círculo es el atajo a la vista de confirmación.
+        setExpanded(true)
+        setEditing(false)
+        if (isSkipped) {
+          setReopened(true)
+          setPendingAction(null)
+        } else {
+          setPendingAction(canConfirm ? 'confirm' : null)
+        }
+      }}
+      className="flex-shrink-0"
+      aria-label={
+        completed
+          ? t('workout.completedCheck')
+          : isSkipped
+            ? tv('workout.skippedCheck')
+            : t('workout.logWorkout')
+      }
+    >
+      {completed ? (
+        <CheckCircle2 size={24} className="text-green-500" />
+      ) : isSkipped ? (
+        <MinusCircle size={24} className="text-amber-500" />
+      ) : (
+        <Circle size={24} className="text-gray-300" />
+      )}
+    </button>
+  )
 
   return (
     <>
@@ -851,74 +886,47 @@ export default function ExerciseCard({
               : 'border-linea bg-white'
         }`}
       >
-        {/* Header */}
-        <div
-          className="flex items-center gap-3 p-4 cursor-pointer"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              if (completed) return
-              // v54: el círculo es el atajo a la vista de confirmación.
-              setExpanded(true)
-              setEditing(false)
-              if (isSkipped) {
-                setReopened(true)
-                setPendingAction(null)
-              } else {
-                setPendingAction(canConfirm ? 'confirm' : null)
-              }
-            }}
-            className="flex-shrink-0"
-            aria-label={
-              completed
-                ? t('workout.completedCheck')
-                : isSkipped
-                  ? tv('workout.skippedCheck')
-                  : t('workout.logWorkout')
-            }
-          >
-            {completed ? (
-              <CheckCircle2 size={24} className="text-green-500" />
-            ) : isSkipped ? (
-              <MinusCircle size={24} className="text-amber-500" />
-            ) : (
-              <Circle size={24} className="text-gray-300" />
-            )}
-          </button>
-
-          {/* v74: imagen del ejercicio (si no tiene, no ocupa lugar) */}
-          <ExerciseThumb
-            path={planEx.exercise?.image_path}
-            name={exText.name}
-            size={expanded ? 56 : 44}
-          />
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {planEx.block_label && (
-                <span className="badge bg-primary-100 text-primary-700 flex-shrink-0">
-                  {planEx.block_label}
+        {/* Header — 2026-10-16: imagen a la izquierda (con el círculo de estado
+            encima), nombre con todo el ancho; la línea de "última vez" y los
+            íconos van en una fila propia debajo, para que no se apriete todo. */}
+        <div className="p-4 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <div className="flex items-start gap-3">
+            {hasImage ? (
+              <div className="relative flex-shrink-0">
+                {/* v74: imagen del ejercicio */}
+                <ExerciseThumb
+                  path={planEx.exercise.image_path}
+                  name={exText.name}
+                  size={expanded ? 80 : 56}
+                />
+                <span className="absolute -top-2 -left-2 rounded-full bg-white shadow-sm leading-none">
+                  {statusButton}
                 </span>
-              )}
+              </div>
+            ) : (
+              statusButton
+            )}
+
+            <div className="flex-1 min-w-0">
               <p
-                className={`font-semibold text-sm break-words ${completed ? 'text-green-800' : 'text-gray-900'}`}
+                className={`font-semibold text-[15px] leading-snug break-words ${completed ? 'text-green-800' : 'text-gray-900'}`}
               >
+                {planEx.block_label && (
+                  <span className="badge bg-primary-100 text-primary-700 mr-1.5 align-[1px]">
+                    {planEx.block_label}
+                  </span>
+                )}
                 {exText.name}
               </p>
               {/* v33 — registro cargado por el coach (auditoría visible) */}
               {log?.source === 'coach' && (
-                <span className="badge bg-violet-100 text-violet-700 flex-shrink-0 text-[10px]">
+                <span className="badge bg-violet-100 text-violet-700 inline-block mt-0.5 text-[10px]">
                   {t('workout.loggedByCoach')}
                 </span>
               )}
-            </div>
-            {/* Bloque guiado: plegado y resuelto = una línea (nombre + resultado) */}
-            {showHeaderDetails && (
-              <>
-                {/* Sugerido por el coach */}
-                <p className="text-xs text-gray-400 mt-0.5">
+              {/* Sugerido por el coach */}
+              {showHeaderDetails && (
+                <p className="text-xs text-gray-500 mt-0.5">
                   {t('workout.suggestedLabel')}{' '}
                   {[
                     planEx.suggested_sets &&
@@ -939,125 +947,129 @@ export default function ExerciseCard({
                     .filter(Boolean)
                     .join(' ')}
                 </p>
-                {/* %RM: de dónde salieron los kilos (o por qué todavía no hay) */}
-                {pctPrescription.status === 'derived' && (
-                  <p className="text-[11px] text-primary-600 mt-0.5">
-                    {rmReferenceName
-                      ? t('workout.pct1rmFromReference', {
-                          pct: prescribedPct1rm,
-                          oneRm: pctPrescription.oneRm,
-                          exercise: rmReferenceName,
-                          date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
-                        })
-                      : t('workout.pct1rmFromOwnMax', {
-                          pct: prescribedPct1rm,
-                          oneRm: pctPrescription.oneRm,
-                          date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
-                        })}
-                  </p>
-                )}
-                {pctPrescription.status === 'missing_1rm' && (
-                  <p className="text-[11px] text-amber-600 mt-0.5">{t('workout.pct1rmNoEval')}</p>
-                )}
+              )}
+              {isSkipped && !expanded && (
+                <p className="text-xs text-amber-700 mt-0.5 font-medium">
+                  {tv('workout.skippedCheck')}
+                  {log?.skip_reason &&
+                    ` · ${t(coachMode ? `workout.skipReasonCoach.${log.skip_reason}` : `workout.skipReason.${log.skip_reason}`)}`}
+                </p>
+              )}
+              {isLogDone(log) &&
+                !expanded &&
+                (() => {
+                  const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
+                  const wDisplay =
+                    wArr.length > 0 ? t('workout.weightKg', { value: wArr.join(', ') }) : null
+                  return (
+                    <p className="text-xs text-green-600 mt-0.5 font-medium">
+                      ✓{' '}
+                      {[
+                        log.actual_sets && t('workout.setsShort', { value: log.actual_sets }),
+                        wDisplay,
+                        log.perceived_difficulty &&
+                          t('workout.pseValue', { value: log.perceived_difficulty }),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )
+                })()}
+            </div>
 
-                {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
-                {prescriptionChange?.changes && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
-                    <span className="inline-flex items-center gap-1 font-medium">
-                      <TrendingUp size={11} />
-                      {t('workout.coachAdjusted')}
-                    </span>
-                    {PRESCRIPTION_FIELD_KEYS.filter((k) => prescriptionChange.changes[k]).map(
-                      (k) => (
-                        <span key={k} className="text-emerald-600">
-                          {t(`workout.prescriptionField.${k}`)} {prescriptionChange.changes[k].old}
-                          {'→'}
-                          <strong>{prescriptionChange.changes[k].new}</strong>
-                        </span>
-                      )
-                    )}
-                    {prescriptionChange.note && (
-                      <span className="w-full text-emerald-600/80 italic">
-                        "{prescriptionChange.note}"
-                      </span>
-                    )}
-                  </div>
-                )}
-                {/* Q1 — "Última vez" + badge chat (siempre visible en el header) */}
-                <ExerciseHistoryHeaderLine
-                  lastLog={lastLog}
-                  noteCount={noteCount}
-                  onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
-                />
-              </>
-            )}
-            {isSkipped && !expanded && (
-              <p className="text-xs text-amber-700 mt-0.5 font-medium">
-                {tv('workout.skippedCheck')}
-                {log?.skip_reason &&
-                  ` · ${t(coachMode ? `workout.skipReasonCoach.${log.skip_reason}` : `workout.skipReason.${log.skip_reason}`)}`}
-              </p>
-            )}
-            {isLogDone(log) &&
-              !expanded &&
-              (() => {
-                const wArr = readLogWeights(log).filter((w) => w != null && w !== '')
-                const wDisplay =
-                  wArr.length > 0 ? t('workout.weightKg', { value: wArr.join(', ') }) : null
-                return (
-                  <p className="text-xs text-green-600 mt-0.5 font-medium">
-                    ✓{' '}
-                    {[
-                      log.actual_sets && t('workout.setsShort', { value: log.actual_sets }),
-                      wDisplay,
-                      log.perceived_difficulty &&
-                        t('workout.pseValue', { value: log.perceived_difficulty }),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                )
-              })()}
-          </div>
-
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {/* "i" de información: revela la descripción (QUÉ es) sin abrir el registro */}
-            {exText.description && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowDescription((v) => !v)
-                }}
-                title={t('workout.exerciseInfo')}
-                aria-label={t('workout.exerciseInfo')}
-                aria-expanded={showDescription}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  showDescription
-                    ? 'text-indigo-600 bg-indigo-50'
-                    : 'text-gray-400 hover:bg-gray-100'
-                }`}
-              >
-                <Info size={18} />
-              </button>
-            )}
-            {planEx.exercise?.video_url && planEx.exercise.video_url.startsWith('http') && (
-              <a
-                href={planEx.exercise.video_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 text-primary-600 hover:bg-durazno-50 rounded-lg"
-              >
-                <PlayCircle size={18} />
-              </a>
-            )}
             {expanded ? (
-              <ChevronDown size={18} className="text-gray-400 rotate-180" />
+              <ChevronDown size={18} className="text-gray-400 rotate-180 flex-shrink-0 mt-1" />
             ) : (
-              <ChevronDown size={18} className="text-gray-400" />
+              <ChevronDown size={18} className="text-gray-400 flex-shrink-0 mt-1" />
             )}
           </div>
+
+          {/* Fila de detalle a todo el ancho (se oculta plegado y resuelto) */}
+          {showHeaderDetails && (
+            <div className="mt-2 space-y-1">
+              {/* %RM: de dónde salieron los kilos (o por qué todavía no hay) */}
+              {pctPrescription.status === 'derived' && (
+                <p className="text-[11px] text-primary-600 mt-0.5">
+                  {rmReferenceName
+                    ? t('workout.pct1rmFromReference', {
+                        pct: prescribedPct1rm,
+                        oneRm: pctPrescription.oneRm,
+                        exercise: rmReferenceName,
+                        date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
+                      })
+                    : t('workout.pct1rmFromOwnMax', {
+                        pct: prescribedPct1rm,
+                        oneRm: pctPrescription.oneRm,
+                        date: formatShortDate(pctPrescription.oneRmDate, i18n.language),
+                      })}
+                </p>
+              )}
+              {pctPrescription.status === 'missing_1rm' && (
+                <p className="text-[11px] text-amber-600 mt-0.5">{t('workout.pct1rmNoEval')}</p>
+              )}
+              {/* doc 48 — el coach ajustó el objetivo de este ejercicio */}
+              {prescriptionChange?.changes && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-emerald-700">
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <TrendingUp size={11} />
+                    {t('workout.coachAdjusted')}
+                  </span>
+                  {PRESCRIPTION_FIELD_KEYS.filter((k) => prescriptionChange.changes[k]).map((k) => (
+                    <span key={k} className="text-emerald-600">
+                      {t(`workout.prescriptionField.${k}`)} {prescriptionChange.changes[k].old}
+                      {'→'}
+                      <strong>{prescriptionChange.changes[k].new}</strong>
+                    </span>
+                  ))}
+                  {prescriptionChange.note && (
+                    <span className="w-full text-emerald-600/80 italic">
+                      "{prescriptionChange.note}"
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <div className="flex-1 min-w-0">
+                  <ExerciseHistoryHeaderLine
+                    lastLog={lastLog}
+                    noteCount={noteCount}
+                    onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
+                  />
+                </div>
+                {/* "i" de información: revela la descripción (QUÉ es) sin abrir el registro */}
+                {exText.description && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowDescription((v) => !v)
+                    }}
+                    title={t('workout.exerciseInfo')}
+                    aria-label={t('workout.exerciseInfo')}
+                    aria-expanded={showDescription}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      showDescription
+                        ? 'text-indigo-600 bg-indigo-50'
+                        : 'text-gray-400 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Info size={18} />
+                  </button>
+                )}
+                {planEx.exercise?.video_url && planEx.exercise.video_url.startsWith('http') && (
+                  <a
+                    href={planEx.exercise.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 text-primary-600 hover:bg-durazno-50 rounded-lg"
+                  >
+                    <PlayCircle size={18} />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Descripción (QUÉ es): la revela la "i" del header, sin abrir el modo registro */}
