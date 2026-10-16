@@ -1454,7 +1454,8 @@
       "messages": "Mensajes",
       "events": "Eventos",
       "plan": "Guardado en el plan",
-      "private": "Notas privadas"
+      "private": "Notas privadas",
+      "planYou": "En tu plan"
     },
     "menu": {
       "reply": "Responder",
@@ -1468,12 +1469,12 @@
       "copy": "Copiar texto"
     },
     "context": {
-      "logOn": "{{exercise}} · registro del {{date}}",
       "exercise": "Sobre {{exercise}}",
       "log": "Sobre un registro",
-      "blockOn": "Bloque · registro del {{date}}",
-      "block": "Sobre un bloque",
-      "evaluation": "Sobre una evaluación"
+      "block": "Bloque",
+      "evaluation": "Sobre una evaluación",
+      "planDay": "{{plan}}, Día {{day}}",
+      "loggedOn": "registro del {{date}}"
     },
     "link": {
       "private": "Nota privada",
@@ -1552,6 +1553,12 @@
       "v3": "¡Semana completada! ¿Cómo estuvo tu semana de entrenamiento?",
       "v4": "¡Excelente, completaste la semana! ¿Te sentiste bien con los entrenamientos?",
       "v5": "¡Otra semana cumplida! Contame cómo llegaste: ¿energía, descanso, alguna molestia?"
+    },
+    "target": {
+      "goesTo": "Va a:",
+      "replyTo": "Respuesta a {{what}}",
+      "lastComment": "su último comentario",
+      "general": "General"
     }
   }
 }

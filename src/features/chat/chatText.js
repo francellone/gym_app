@@ -94,3 +94,46 @@ export function linkLabel(t, copy, labels, viewerRole) {
   }
   return ''
 }
+
+export function contextLabel(t, note, labels, fmtDate) {
+  const ex = note.exercise_id ? labels.exercises.get(note.exercise_id)?.name : null
+  const date = note.note_date ? fmtDate(note.note_date) : null
+  // "Plan 4 Ana, Día B" del registro comentado (si se pudo resolver)
+  const where = (planId, section) => {
+    const plan = planId ? labels.plans.get(planId) : null
+    const letter = dayLetter(section)
+    if (plan && letter) return t('chat.context.planDay', { plan, day: letter })
+    if (plan) return plan
+    if (letter) return t('chat.dayShort', { day: letter })
+    return null
+  }
+  const join = (...parts) => parts.filter(Boolean).join(' · ')
+  switch (note.context_type) {
+    case 'workout_log': {
+      const log = labels.logs?.get(note.context_id)
+      const pe = log?.plan_exercise_id ? labels.planExercises.get(log.plan_exercise_id) : null
+      return (
+        join(
+          ex || t('chat.context.log'),
+          where(log?.plan_id, pe?.section),
+          date && t('chat.context.loggedOn', { date })
+        ) || null
+      )
+    }
+    case 'workout_block_log': {
+      const bl = labels.blockLogs?.get(note.context_id)
+      return join(
+        bl?.block_title || t('chat.context.block'),
+        where(bl?.plan_id, bl?.section),
+        date && t('chat.context.loggedOn', { date })
+      )
+    }
+    case 'exercise':
+      return ex ? t('chat.context.exercise', { exercise: ex }) : null
+    case 'evaluation_test':
+    case 'evaluation_result':
+      return t('chat.context.evaluation')
+    default:
+      return null
+  }
+}

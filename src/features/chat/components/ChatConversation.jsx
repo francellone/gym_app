@@ -12,14 +12,18 @@ import {
   countPrivate,
   localDateKey,
   prepareCatalog,
+  suggestReplyTarget,
 } from '../chatModel'
+import { contextLabel } from '../chatText'
 import { fetchCatalog, fetchActivePlans, linkNote, unlinkNote } from '../chatApi'
 import ChatEventCard from './ChatEventCard'
 import ChatMessage from './ChatMessage'
 import ChatComposer from './ChatComposer'
 import LinkSheet from './LinkSheet'
 
-const FILTERS = ['all', 'messages', 'events', 'plan', 'private']
+const FILTERS_COACH = ['all', 'messages', 'events', 'plan', 'private']
+// La persona no tiene notas privadas en el chat
+const FILTERS_STUDENT = ['all', 'messages', 'events', 'plan']
 
 function useDateFormat() {
   const { t, i18n } = useTranslation()
@@ -98,11 +102,28 @@ export default function ChatConversation({
 
   const timeline = useMemo(() => buildTimeline({ notes, events }), [notes, events])
   const visible = useMemo(
-    () => (isCoach ? filterTimeline(timeline, filter, { notes }) : timeline),
+    () => filterTimeline(timeline, filter, { notes }),
     [timeline, filter, notes, isCoach]
   )
   const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
   const privateCount = useMemo(() => countPrivate(notes), [notes])
+
+  // A qué va el próximo mensaje: respuesta elegida a mano, o sugerida (el
+  // último comentario asociado del otro lado sin responder), o general.
+  const [generalFor, setGeneralFor] = useState(null)
+  const privateMode = isCoach && filter === 'private'
+  const suggested = useMemo(
+    () => (privateMode ? null : suggestReplyTarget(notes, viewerRole)),
+    [notes, viewerRole, privateMode]
+  )
+  const autoReply = !replyTo && suggested && generalFor !== suggested.id ? suggested : null
+  const effectiveReply = privateMode ? null : replyTo || autoReply
+  let replyMode = null
+  if (!privateMode && replyTo) replyMode = 'manual'
+  else if (autoReply) replyMode = 'auto'
+  else if (suggested) replyMode = 'general'
+  const replyTarget = replyTo || suggested
+  const replyLabel = replyTarget ? contextLabel(t, replyTarget, labels, fmt.shortDate) : null
 
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -122,9 +143,8 @@ export default function ChatConversation({
   async function handleSend(body, { alsoPlan, exercise }) {
     setActionError(null)
     stick.current = true
-    const privateMode = isCoach && filter === 'private'
-    const res = replyTo
-      ? await replyNote(replyTo.id, { body, authorId, authorRole: viewerRole })
+    const res = effectiveReply
+      ? await replyNote(effectiveReply.id, { body, authorId, authorRole: viewerRole })
       : await createNote({
           threadId,
           body,
@@ -179,27 +199,25 @@ export default function ChatConversation({
   return (
     <div className="flex flex-col h-full min-h-0 bg-fondo">
       {header}
-      {isCoach && (
-        <div className="flex gap-1.5 overflow-x-auto px-3 sm:px-4 py-2 bg-white border-b border-linea">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
-              className={`flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 border text-xs font-medium ${
-                filter === f
-                  ? 'bg-durazno-50 border-primary-600 text-primary-700'
-                  : 'bg-white border-gray-300 text-texto2'
-              }`}
-            >
-              {f === 'private' && <Lock size={11} aria-hidden="true" />}
-              {t(`chat.filter.${f}`)}
-              {f === 'private' && privateCount > 0 && ` · ${privateCount}`}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-1.5 overflow-x-auto px-3 sm:px-4 py-2 bg-white border-b border-linea">
+        {(isCoach ? FILTERS_COACH : FILTERS_STUDENT).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            aria-pressed={filter === f}
+            className={`flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 border text-xs font-medium ${
+              filter === f
+                ? 'bg-durazno-50 border-primary-600 text-primary-700'
+                : 'bg-white border-gray-300 text-texto2'
+            }`}
+          >
+            {f === 'private' && <Lock size={11} aria-hidden="true" />}
+            {t(!isCoach && f === 'plan' ? 'chat.filter.planYou' : `chat.filter.${f}`)}
+            {f === 'private' && privateCount > 0 && ` · ${privateCount}`}
+          </button>
+        ))}
+      </div>
 
       <div
         ref={scrollRef}
@@ -274,8 +292,12 @@ export default function ChatConversation({
       <ChatComposer
         onSend={handleSend}
         catalog={isCoach ? catalog : null}
-        privateMode={isCoach && filter === 'private'}
-        replyTo={replyTo}
+        privateMode={privateMode}
+        replyTo={replyTarget}
+        replyMode={replyMode}
+        replyLabel={replyLabel}
+        onChooseGeneral={() => suggested && setGeneralFor(suggested.id)}
+        onChooseReply={() => setGeneralFor(null)}
         onCancelReply={() => setReplyTo(null)}
         disabled={!threadId}
       />

@@ -11,6 +11,10 @@ export default function ChatComposer({
   catalog,
   privateMode = false,
   replyTo,
+  replyMode = null, // 'manual' | 'auto' | 'general' | null
+  replyLabel,
+  onChooseGeneral,
+  onChooseReply,
   onCancelReply,
   disabled = false,
 }) {
@@ -42,8 +46,8 @@ export default function ChatComposer({
   }, [text])
 
   useEffect(() => {
-    if (replyTo) ref.current?.focus()
-  }, [replyTo])
+    if (replyMode === 'manual') ref.current?.focus()
+  }, [replyMode, replyTo])
 
   async function send() {
     const body = text.trim()
@@ -68,15 +72,56 @@ export default function ChatComposer({
 
   return (
     <div className="border-t border-linea bg-white px-3 sm:px-4 pt-2 pb-3 flex flex-col gap-2">
-      {replyTo && (
+      {replyMode === 'manual' && replyTo && (
         <div className="flex items-start gap-2 text-xs text-texto2 bg-gray-50 rounded-lg px-2.5 py-1.5">
           <CornerDownRight size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
           <p className="flex-1 min-w-0 line-clamp-2 break-words">
-            <span className="font-medium text-tinta">{t('chat.replyingTo')}</span> {replyTo.body}
+            <span className="font-medium text-tinta">{t('chat.replyingTo')}</span>{' '}
+            {replyLabel ? `${replyLabel}: ` : ''}
+            {replyTo.body}
           </p>
           <button type="button" onClick={onCancelReply} aria-label={t('chat.cancel')}>
             <X size={14} />
           </button>
+        </div>
+      )}
+      {(replyMode === 'auto' || replyMode === 'general') && replyTo && (
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-texto2">
+            <span>{t('chat.target.goesTo')}</span>
+            <button
+              type="button"
+              onClick={onChooseReply}
+              aria-pressed={replyMode === 'auto'}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 border text-xs font-medium max-w-full ${
+                replyMode === 'auto'
+                  ? 'bg-durazno-50 border-primary-600 text-primary-700'
+                  : 'bg-white border-gray-300 text-texto2'
+              }`}
+            >
+              <CornerDownRight size={12} aria-hidden="true" />
+              <span className="truncate">
+                {t('chat.target.replyTo', { what: replyLabel || t('chat.target.lastComment') })}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={onChooseGeneral}
+              aria-pressed={replyMode === 'general'}
+              className={`rounded-full px-2.5 py-1 border text-xs font-medium ${
+                replyMode === 'general'
+                  ? 'bg-durazno-50 border-primary-600 text-primary-700'
+                  : 'bg-white border-gray-300 text-texto2'
+              }`}
+            >
+              {t('chat.target.general')}
+            </button>
+          </div>
+          {replyMode === 'auto' && (
+            <p className="text-[11px] text-texto3 line-clamp-1 break-words pl-1">
+              “{replyTo.body}”
+            </p>
+          )}
         </div>
       )}
       {match && (

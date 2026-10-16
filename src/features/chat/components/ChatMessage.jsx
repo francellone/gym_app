@@ -16,29 +16,7 @@ import {
   CornerDownRight,
 } from 'lucide-react'
 import { linkKindOf } from '../chatModel'
-import { linkLabel } from '../chatText'
-
-function contextLabel(t, note, labels, fmtDate) {
-  const ex = note.exercise_id ? labels.exercises.get(note.exercise_id)?.name : null
-  const date = note.note_date ? fmtDate(note.note_date) : null
-  switch (note.context_type) {
-    case 'workout_log':
-      return ex
-        ? date
-          ? t('chat.context.logOn', { exercise: ex, date })
-          : t('chat.context.exercise', { exercise: ex })
-        : t('chat.context.log')
-    case 'workout_block_log':
-      return date ? t('chat.context.blockOn', { date }) : t('chat.context.block')
-    case 'exercise':
-      return ex ? t('chat.context.exercise', { exercise: ex }) : null
-    case 'evaluation_test':
-    case 'evaluation_result':
-      return t('chat.context.evaluation')
-    default:
-      return null
-  }
-}
+import { linkLabel, contextLabel } from '../chatText'
 
 const LINK_ICON = { private: Lock, exercise: Dumbbell, plan_exercise: Pin, plan_day: CalendarDays }
 const LINK_CLS = {

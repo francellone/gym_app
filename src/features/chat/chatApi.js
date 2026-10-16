@@ -212,6 +212,40 @@ export async function fetchPlanExerciseSections(ids = []) {
   })
 }
 
+/**
+ * Plan y día de los registros comentados (para la etiqueta del mensaje).
+ * Devuelve { logs: Map(id → {plan_id, plan_exercise_id}), blockLogs: Map(id → {plan_id, section, block_title}) }
+ */
+export async function fetchLogContexts(notes = []) {
+  const logIds = [
+    ...new Set(notes.filter((n) => n.context_type === 'workout_log').map((n) => n.context_id)),
+  ]
+  const blockIds = [
+    ...new Set(
+      notes.filter((n) => n.context_type === 'workout_block_log').map((n) => n.context_id)
+    ),
+  ]
+  return safe(async () => {
+    const [l, b] = await Promise.all([
+      logIds.length
+        ? supabase.from('workout_logs').select('id, plan_id, plan_exercise_id').in('id', logIds)
+        : Promise.resolve({ data: [] }),
+      blockIds.length
+        ? supabase
+            .from('workout_block_logs')
+            .select('id, plan_id, section, block_title')
+            .in('id', blockIds)
+        : Promise.resolve({ data: [] }),
+    ])
+    if (l.error) throw l.error
+    if (b.error) throw b.error
+    return {
+      logs: new Map((l.data || []).map((r) => [r.id, r])),
+      blockLogs: new Map((b.data || []).map((r) => [r.id, r])),
+    }
+  })
+}
+
 export async function linkNote({ sourceNoteId, target, refId = null, section = null }) {
   const { data, error } = await supabase.rpc('chat_link_note', {
     p_source_note_id: sourceNoteId,

@@ -345,3 +345,26 @@ export function lastItemByThread({ notes = [], events = [] } = {}) {
   }
   return map
 }
+
+// ── A qué va el próximo mensaje ──────────────────────────────
+
+/**
+ * Sugerencia de respuesta: el último mensaje del OTRO lado, si está asociado a
+ * algo (ejercicio, registro, evaluación…) y nadie lo respondió todavía.
+ * Así un mensaje escrito "en general" no queda suelto de su ejercicio.
+ */
+export function suggestReplyTarget(notes = [], viewerRole) {
+  const live = notes
+    .filter((n) => n && !n.deleted_at && !n.source_note_id && n.visibility !== 'coach_private')
+    .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0))
+  let last = null
+  for (let i = live.length - 1; i >= 0; i--) {
+    if (live[i].author_role !== viewerRole) {
+      last = live[i]
+      break
+    }
+  }
+  if (!last || !last.context_type || last.context_type === 'free') return null
+  const answered = live.some((n) => n.parent_note_id === last.id)
+  return answered ? null : last
+}

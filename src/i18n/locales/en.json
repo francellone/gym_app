@@ -1454,7 +1454,8 @@
       "messages": "Messages",
       "events": "Events",
       "plan": "Saved to the plan",
-      "private": "Private notes"
+      "private": "Private notes",
+      "planYou": "In your plan"
     },
     "menu": {
       "reply": "Reply",
@@ -1468,12 +1469,12 @@
       "copy": "Copy text"
     },
     "context": {
-      "logOn": "{{exercise}} · logged on {{date}}",
       "exercise": "About {{exercise}}",
       "log": "About a log",
-      "blockOn": "Block · logged on {{date}}",
-      "block": "About a block",
-      "evaluation": "About an assessment"
+      "block": "Block",
+      "evaluation": "About an assessment",
+      "planDay": "{{plan}}, Day {{day}}",
+      "loggedOn": "logged on {{date}}"
     },
     "link": {
       "private": "Private note",
@@ -1552,6 +1553,12 @@
       "v3": "Week completed! How was your training week?",
       "v4": "Excellent, you completed the week! Did the workouts feel good?",
       "v5": "Another week in the books! How are you doing: energy, rest, any discomfort?"
+    },
+    "target": {
+      "goesTo": "Goes to:",
+      "replyTo": "Reply to {{what}}",
+      "lastComment": "their last comment",
+      "general": "General"
     }
   }
 }

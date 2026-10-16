@@ -15,11 +15,18 @@ import {
   fetchExerciseNames,
   fetchPlanTitles,
   fetchPlanExerciseSections,
+  fetchLogContexts,
   subscribeChat,
 } from './chatApi'
 import { wellbeingRangeFor } from './chatModel'
 
-const EMPTY_LABELS = { exercises: new Map(), plans: new Map(), planExercises: new Map() }
+const EMPTY_LABELS = {
+  exercises: new Map(),
+  plans: new Map(),
+  planExercises: new Map(),
+  logs: new Map(),
+  blockLogs: new Map(),
+}
 
 function upsert(list, row, sortKey) {
   const idx = list.findIndex((x) => x.id === row.id)
@@ -51,8 +58,19 @@ export function useChatThread({ threadId, studentId, viewerRole }) {
   const loadExtras = useCallback(
     async (ns, es) => {
       const exIds = [...ns.map((n) => n.exercise_id), ...es.map((e) => e.exercise_id)]
-      const planIds = ns.map((n) => n.plan_id)
-      const peIds = ns.map((n) => n.plan_exercise_id)
+      // Plan y día de los registros comentados (etiqueta "Ejercicio · Plan, Día B · registro del …")
+      const { data: ctx } = await fetchLogContexts(ns)
+      const logs = ctx?.logs || new Map()
+      const blockLogs = ctx?.blockLogs || new Map()
+      const planIds = [
+        ...ns.map((n) => n.plan_id),
+        ...[...logs.values()].map((l) => l.plan_id),
+        ...[...blockLogs.values()].map((l) => l.plan_id),
+      ]
+      const peIds = [
+        ...ns.map((n) => n.plan_exercise_id),
+        ...[...logs.values()].map((l) => l.plan_exercise_id),
+      ]
       const [ex, pl, pe] = await Promise.all([
         fetchExerciseNames(exIds),
         fetchPlanTitles(planIds),
@@ -62,6 +80,8 @@ export function useChatThread({ threadId, studentId, viewerRole }) {
         exercises: ex.data || new Map(),
         plans: pl.data || new Map(),
         planExercises: pe.data || new Map(),
+        logs,
+        blockLogs,
       })
       const range = wellbeingRangeFor(es)
       if (range && studentId) {

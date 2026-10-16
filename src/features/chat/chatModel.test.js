@@ -15,6 +15,7 @@ import {
   sortThreads,
   lastItemByThread,
   countPrivate,
+  suggestReplyTarget,
 } from './chatModel'
 
 const note = (id, at, extra = {}) => ({
@@ -180,5 +181,57 @@ describe('lista de conversaciones', () => {
       events: [{ id: 'e', thread_id: 't1', occurred_at: '2026-10-02T00:00:00Z' }],
     })
     expect(map.get('t1').type).toBe('event')
+  })
+})
+
+describe('suggestReplyTarget', () => {
+  const log = (id, at, extra = {}) =>
+    note(id, at, {
+      author_role: 'student',
+      context_type: 'workout_log',
+      context_id: 'wl',
+      ...extra,
+    })
+  it('sugiere el último comentario asociado del otro lado sin responder', () => {
+    const notes = [
+      log('s1', '2026-10-16T10:00:00Z'),
+      note('c1', '2026-10-16T10:05:00Z', { author_role: 'coach' }),
+    ]
+    expect(suggestReplyTarget(notes, 'coach').id).toBe('s1')
+  })
+  it('nada si ya tiene respuesta', () => {
+    const notes = [
+      log('s1', '2026-10-16T10:00:00Z'),
+      note('c1', '2026-10-16T10:05:00Z', { author_role: 'coach', parent_note_id: 's1' }),
+    ]
+    expect(suggestReplyTarget(notes, 'coach')).toBe(null)
+  })
+  it('nada si el último del otro lado es general', () => {
+    const notes = [
+      log('s1', '2026-10-16T10:00:00Z'),
+      note('s2', '2026-10-16T10:01:00Z', { author_role: 'student' }),
+    ]
+    expect(suggestReplyTarget(notes, 'coach')).toBe(null)
+  })
+  it('la persona: sugiere la nota de la coach sobre un ejercicio', () => {
+    const notes = [
+      note('c1', '2026-10-16T10:00:00Z', {
+        author_role: 'coach',
+        context_type: 'exercise',
+        context_id: 'ex',
+      }),
+    ]
+    expect(suggestReplyTarget(notes, 'student').id).toBe('c1')
+  })
+  it('ignora privadas y copias', () => {
+    const notes = [
+      log('s1', '2026-10-16T10:00:00Z', { author_role: 'coach', visibility: 'coach_private' }),
+      note('cp', '2026-10-16T10:01:00Z', {
+        author_role: 'coach',
+        context_type: 'exercise',
+        source_note_id: 'x',
+      }),
+    ]
+    expect(suggestReplyTarget(notes, 'student')).toBe(null)
   })
 })
