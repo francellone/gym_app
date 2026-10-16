@@ -15,6 +15,18 @@ import { resolveNotificationText } from '../utils/resolveNotificationText'
 
 const PAGE_SIZE = 30
 
+// v75 (opción B del Chat): lo que ya aparece como mensaje o evento en el chat
+// no se repite en la campana. Se siguen guardando (el dashboard los usa); solo
+// no se muestran ni cuentan acá.
+export const CHAT_NOTIFICATION_TYPES = [
+  'student_note',
+  'session_completed',
+  'week_completed',
+  'plan_completed',
+  'exercise_unclear',
+]
+const CHAT_TYPES = new Set(CHAT_NOTIFICATION_TYPES)
+
 // Tipos de notif que necesitan datos del plan que el trigger NO guarda en el
 // payload, así que los resolvemos client-side (cubre también las notifs
 // viejas, sin migración):
@@ -66,6 +78,7 @@ export function useNotifications(userId) {
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
+      .not('type', 'in', `(${CHAT_NOTIFICATION_TYPES.join(',')})`)
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE)
 
@@ -154,6 +167,7 @@ export function useNotifications(userId) {
         },
         (payload) => {
           const newNotif = payload.new
+          if (CHAT_TYPES.has(newNotif?.type)) return
           // Enriquecer con plan_type/plan_title (async) para que el deep-link
           // y el texto i18n sean correctos ni bien llega; mientras resuelve,
           // igual se muestra la notif.

@@ -88,6 +88,17 @@ Tipos de notificación nuevos (CHECK `notifications_type_check` ampliado): `week
 
 ---
 
+## Chat (v75, sobre el hilo de notas)
+
+| RPC                | Firma                                                                   | Returns | Security           | Rol esperado | Usado en                                  | Qué hace                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------- | ------- | ------------------ | ------------ | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat_link_note`   | `(p_source_note_id uuid, p_target text, p_ref_id uuid, p_section text)` | `uuid`  | definer · volatile | coach        | `features/chat/chatApi.js` (`linkNote`)   | Copia un mensaje PROPIO de la coach a: `private` (nota privada), `exercise` (p_ref_id = exercise_id, todos los planes), `plan_exercise` (p_ref_id = plan_exercise_id de un plan de esa persona) o `plan_day` (p_ref_id = plan_id + p_section). La copia lleva `source_note_id`, se inserta leída y no notifica. Idempotente por destino. |
+| `chat_unlink_note` | `(p_copy_id uuid)`                                                      | `void`  | definer · volatile | coach        | `features/chat/chatApi.js` (`unlinkNote`) | Borrado suave de una copia del chat.                                                                                                                                                                                                                                                                                                     |
+
+Tabla `chat_events` (solo lectura para el front; la escriben triggers): `day_complete`, `week_complete`, `plan_complete`, `personal_best` (desde `student_milestones`, con CASCADE) y `exercise_unclear` (desde `workout_logs`/`workout_block_logs` con omisión "no sabía cómo"). Suman a `note_threads.unread_for_*` y `notes_mark_thread_read` también los marca. `week_complete` lleva `payload.variant` (0-5) para el texto de la pregunta, que se resuelve en el front.
+
+---
+
 ## Intake forms
 
 | RPC                         | Firma                  | Returns | Security            | Rol esperado                    | Usado en                                                                                  | Qué hace                                                                                                                                                                                                           |

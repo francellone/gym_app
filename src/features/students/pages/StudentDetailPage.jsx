@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { savePreferredView } from '@/features/auth/viewMode'
 import { useAuth } from '@/features/auth/AuthContext'
-import { ArrowLeft, ClipboardEdit, FileBarChart, FileHeart } from 'lucide-react'
+import { ArrowLeft, ClipboardEdit, FileBarChart, FileHeart, MessagesSquare } from 'lucide-react'
 import { LEVEL_LABELS, MODALITY_LABELS } from '../helpers'
 import { getPaymentStatus, getPlanStatus, PAYMENT_STATUS, PLAN_STATUS } from '../status'
 
@@ -19,7 +19,6 @@ import StudentEvaluationsTab from '@/features/evaluations/pages/StudentEvaluatio
 import StudentWellbeingTab from '@/features/wellbeing/pages/StudentWellbeingTab'
 import StudentActivitiesTab from '@/features/activities/pages/StudentActivitiesTab'
 import StudentFormsTab from '../tabs/StudentFormsTab'
-import StudentNotesTab from '@/features/notes/pages/StudentNotesTab'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 import { fetchNoteThreads } from '@/features/notes/api'
 import { attachNoteThreads } from '@/features/notes/notePreview'
@@ -27,7 +26,6 @@ import AvatarImage from '@/features/avatars/AvatarImage'
 
 const TABS = [
   { id: 'info', labelKey: 'coach.students.detail.tabs.info' },
-  { id: 'notas', labelKey: 'coach.students.detail.tabs.notes' },
   { id: 'plans', labelKey: 'coach.students.detail.tabs.plans' },
   { id: 'evaluaciones', labelKey: 'coach.students.detail.tabs.evaluations' },
   { id: 'formularios', labelKey: 'coach.students.detail.tabs.forms' },
@@ -39,7 +37,8 @@ const TABS = [
 ]
 
 // v71: pestañas que no aplican a la ficha propia de la coach
-const SELF_HIDDEN_TABS = new Set(['info', 'notas', 'formularios'])
+// v75: la pestaña Notas pasó a la sección Chat (botón "Abrir chat" arriba).
+const SELF_HIDDEN_TABS = new Set(['info', 'formularios'])
 
 // ─────────────────────────────────────────────────────────────
 // StudentDetailPage — orquestador
@@ -79,8 +78,13 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState(initialTab)
 
-  // Badge de no-leídas para el tab "Notas" (coach side)
+  // Badge de no-leídas del botón "Abrir chat" (coach side)
   const { count: notesUnread } = useNoteThreadUnread(id, 'coach')
+
+  // v75: los enlaces viejos a ?tab=notas abren el chat de la persona
+  useEffect(() => {
+    if (searchParams.get('tab') === 'notas') navigate(`/coach/chat/${id}`, { replace: true })
+  }, [searchParams, id, navigate])
 
   useEffect(() => {
     fetchStudentData()
@@ -268,6 +272,23 @@ export default function StudentDetailPage() {
             {t('coach.students.detail.clientReport')}
           </button>
         )}
+        {!isSelf && (
+          <button
+            onClick={() => navigate(`/coach/chat/${id}`)}
+            className="btn-secondary relative flex items-center gap-1.5 text-sm px-3 py-2 flex-shrink-0"
+          >
+            <MessagesSquare size={16} />
+            {t('coach.chat.openChat')}
+            {notesUnread > 0 && (
+              <span
+                className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-primary-700 text-white text-[10px] font-bold rounded-full leading-none"
+                title={t('coach.students.detail.unread', { count: notesUnread })}
+              >
+                {notesUnread > 9 ? '9+' : notesUnread}
+              </span>
+            )}
+          </button>
+        )}
         <button
           onClick={() => {
             // "Yo": se entrena desde "Mi entrenamiento", no en modo coach
@@ -369,15 +390,6 @@ export default function StudentDetailPage() {
             {tab.id === 'history' && editHistory.length > 0 && (
               <span className="ml-1 text-xs text-gray-400">({editHistory.length})</span>
             )}
-            {tab.id === 'notas' && notesUnread > 0 && (
-              <span
-                className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1
-                           bg-orange-500 text-white text-[10px] font-bold rounded-full leading-none align-middle"
-                title={t('coach.students.detail.unread', { count: notesUnread })}
-              >
-                {notesUnread > 9 ? '9+' : notesUnread}
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -392,12 +404,10 @@ export default function StudentDetailPage() {
           formSubmission={formSubmission}
           assignments={assignments}
           onRefresh={fetchStudentData}
-          onOpenNotesTab={() => setActiveTab('notas')}
+          onOpenNotesTab={() => navigate(`/coach/chat/${id}`)}
           onOpenPlansTab={() => setActiveTab('plans')}
         />
       )}
-
-      {activeTab === 'notas' && <StudentNotesTab studentId={id} />}
 
       {activeTab === 'plans' && (
         <StudentPlansTab

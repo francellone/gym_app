@@ -10,6 +10,9 @@
  *     nota suelta según la pestaña en la que está.
  * Los hilos se resuelven con getStudentThread (RPC my_note_thread), que los
  * crea si faltan.
+ *
+ * v75: la pestaña "Con tu coach" es el Chat (mensajes + eventos + pregunta de
+ * la semana). "Privadas" sigue con el panel de notas de siempre.
  */
 
 import { useEffect, useState } from 'react'
@@ -18,6 +21,7 @@ import { AlertCircle, Loader2, Lock, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { getStudentThread } from '../api'
 import NotesPanel from '../components/NotesPanel'
+import ChatConversation from '@/features/chat/components/ChatConversation'
 
 export default function NotesPage() {
   const { t } = useTranslation()
@@ -59,22 +63,30 @@ export default function NotesPage() {
     }
   }, [profile?.id, isPrivate, t])
 
+  const chatMode = hasCoach && tab === 'coach'
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+    <div
+      className={`max-w-2xl mx-auto px-4 ${
+        chatMode ? 'pt-3 flex flex-col gap-2 h-[calc(100dvh-10.5rem)]' : 'py-4 space-y-3'
+      }`}
+    >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
-        <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center">
-          <MessageSquare size={18} className="text-primary-600" />
+      {!chatMode && (
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center">
+            <MessageSquare size={18} className="text-primary-600" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">
+              {hasCoach ? t('notes.pageTitle') : t('notes.pageTitlePersonal')}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {hasCoach ? t('notes.pageSubtitle') : t('notes.pageSubtitlePersonal')}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-lg font-bold text-gray-900 leading-tight">
-            {hasCoach ? t('notes.pageTitle') : t('notes.pageTitlePersonal')}
-          </h1>
-          <p className="text-xs text-gray-500">
-            {hasCoach ? t('notes.pageSubtitle') : t('notes.pageSubtitlePersonal')}
-          </p>
-        </div>
-      </div>
+      )}
 
       {hasCoach && (
         <div role="tablist" className="flex gap-1 p-1 rounded-xl bg-gray-100">
@@ -121,7 +133,19 @@ export default function NotesPage() {
         </div>
       )}
 
-      {!loading && !error && thread && (
+      {!loading && !error && thread && chatMode && (
+        <div className="flex-1 min-h-0 rounded-2xl border border-linea overflow-hidden bg-white">
+          <ChatConversation
+            key={thread.id}
+            threadId={thread.id}
+            studentId={profile?.id}
+            viewerRole="student"
+            authorId={profile?.id}
+          />
+        </div>
+      )}
+
+      {!loading && !error && thread && !chatMode && (
         <NotesPanel
           key={thread.id}
           threadId={thread.id}

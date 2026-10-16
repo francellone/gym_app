@@ -14,7 +14,7 @@ import { CelebrationProvider } from '@/features/milestones/CelebrationContext'
 const navItems = [
   { to: '/student', label: 'nav.home', icon: Home, end: true },
   { to: '/student/workout', label: 'nav.today', icon: Dumbbell },
-  { to: '/student/notes', label: 'nav.notes', icon: MessageSquare, key: 'notes' },
+  { to: '/student/chat', label: 'nav.notes', icon: MessageSquare, key: 'notes' },
   { to: '/student/progress', label: 'nav.progress', icon: BarChart2 },
   { to: '/student/history', label: 'nav.history', icon: Clock },
   { to: '/student/profile', label: 'nav.profile', icon: User },

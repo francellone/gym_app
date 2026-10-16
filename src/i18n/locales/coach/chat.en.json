@@ -1,0 +1,15 @@
+{
+  "title": "Chat",
+  "search": "Search person…",
+  "all": "All",
+  "unread": "Unread",
+  "noPeople": "No people to show.",
+  "noMessages": "No messages yet",
+  "you": "You",
+  "back": "Back to the list",
+  "viewProfile": "View profile",
+  "viewPlan": "View plan",
+  "pickSomeone": "Pick someone to see the conversation.",
+  "openError": "Couldn't open the conversation.",
+  "openChat": "Open chat"
+}

@@ -186,7 +186,7 @@ const TYPE_CONFIG = {
  *     - plan_assigned/updated    → workout de hoy (training) o la eval (B2)
  *     - weekly_summary           → progreso
  *   COACH:
- *     - student_note             → perfil del alumno, tab Notas (Q3)
+ *     - student_note             → chat de la persona (v75; ya no se muestra en la campana)
  *     - profile_change           → perfil del alumno, tab Historial (Q6)
  *     - activity_update/session_completed/week_completed/plan_completed → perfil del alumno
  *     - personal_best_voided     → perfil del alumno, tab Progreso (v55)
@@ -200,7 +200,7 @@ export function getNotificationTargetUrl(notification) {
   switch (notification.type) {
     // ── Notificaciones al ALUMNO ──────────────────────────────
     case 'coach_comment':
-      return '/student/notes'
+      return '/student/chat'
     case 'plan_assigned':
     case 'plan_updated':
       // Evaluación → abre esa evaluación; entrenamiento → workout de hoy.
@@ -226,7 +226,7 @@ export function getNotificationTargetUrl(notification) {
     case 'catalog_access_denied':
       return '/coach/exercises'
     case 'student_note':
-      return data.student_id ? `/coach/students/${data.student_id}?tab=notas` : null
+      return data.student_id ? `/coach/chat/${data.student_id}` : null
     case 'profile_change':
       // tab info = estado actual; history = el diff (audit log).
       return data.student_id ? `/coach/students/${data.student_id}?tab=history` : null

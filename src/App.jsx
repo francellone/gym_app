@@ -51,6 +51,7 @@ import IntakeFormPage from '@/features/forms/pages/IntakeFormPage'
 import FormsListPage from '@/features/forms/pages/FormsListPage'
 import FollowUpFormPage from '@/features/forms/pages/FollowUpFormPage'
 import NotesPage from '@/features/notes/pages/StudentNotesPage'
+import CoachChatPage from '@/features/chat/pages/CoachChatPage'
 
 function FullScreenSpinner({ label }) {
   return (
@@ -206,6 +207,8 @@ function AppRoutes() {
             </div>
           }
         />
+        <Route path="chat" element={<CoachChatPage />} />
+        <Route path="chat/:studentId" element={<CoachChatPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="plans/new" element={<CreatePlanPage />} />
         <Route path="plans/:id" element={<PlanDetailPage />} />
@@ -234,7 +237,8 @@ function AppRoutes() {
         <Route path="history" element={<HistoryPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="forms" element={<FormsListPage />} />
-        <Route path="notes" element={<NotesPage />} />
+        <Route path="chat" element={<NotesPage />} />
+        <Route path="notes" element={<Navigate to="/student/chat" replace />} />
         {/* v68: persona sin coach — registro libre y plan propio */}
         <Route
           path="libre"

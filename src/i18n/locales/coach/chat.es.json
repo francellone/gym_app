@@ -1,0 +1,15 @@
+{
+  "title": "Chat",
+  "search": "Buscar persona…",
+  "all": "Todas",
+  "unread": "Sin leer",
+  "noPeople": "No hay personas para mostrar.",
+  "noMessages": "Sin mensajes todavía",
+  "you": "Vos",
+  "back": "Volver a la lista",
+  "viewProfile": "Ver ficha",
+  "viewPlan": "Ver plan",
+  "pickSomeone": "Elegí una persona para ver la conversación.",
+  "openError": "No se pudo abrir la conversación.",
+  "openChat": "Abrir chat"
+}

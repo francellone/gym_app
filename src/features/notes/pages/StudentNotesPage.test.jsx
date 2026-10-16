@@ -12,9 +12,13 @@ vi.mock('../components/NotesPanel', () => ({
   ),
 }))
 
+vi.mock('@/features/chat/components/ChatConversation', () => ({
+  default: ({ threadId }) => <div data-testid="chat">{`${threadId}:chat`}</div>,
+}))
+
 const { default: NotesPage } = await import('./StudentNotesPage')
 
-describe('StudentNotesPage (v67)', () => {
+describe('StudentNotesPage (v67 + chat v75)', () => {
   beforeEach(() => {
     getStudentThread.mockReset()
     getStudentThread.mockImplementation((_id, opts) =>
@@ -30,10 +34,10 @@ describe('StudentNotesPage (v67)', () => {
     expect(getStudentThread).toHaveBeenCalledWith('p1', { private: true })
   })
 
-  it('con coach: arranca en el hilo de la coach y cambia a privadas', async () => {
+  it('con coach: arranca en el chat con la coach y cambia a privadas', async () => {
     mockProfile = { id: 'p1', coach_id: 'c1' }
     render(<NotesPage />)
-    expect(await screen.findByTestId('panel')).toHaveTextContent('coach-thread:coach')
+    expect(await screen.findByTestId('chat')).toHaveTextContent('coach-thread:chat')
     fireEvent.click(screen.getAllByRole('tab')[1])
     await waitFor(() => expect(screen.getByTestId('panel')).toHaveTextContent('personal:personal'))
     expect(getStudentThread).toHaveBeenLastCalledWith('p1', { private: true })

@@ -7,8 +7,8 @@ describe('getNotificationTargetUrl', () => {
   const STUDENT = 'stu-123'
   const PLAN = 'plan-456'
 
-  it('coach_comment → panel de notas del alumno', () => {
-    expect(getNotificationTargetUrl({ type: 'coach_comment', data: {} })).toBe('/student/notes')
+  it('coach_comment → chat de la persona', () => {
+    expect(getNotificationTargetUrl({ type: 'coach_comment', data: {} })).toBe('/student/chat')
   })
 
   it('plan_assigned de entrenamiento → workout de hoy', () => {
@@ -48,9 +48,9 @@ describe('getNotificationTargetUrl', () => {
     expect(getNotificationTargetUrl({ type: 'weekly_summary', data: {} })).toBe('/student/progress')
   })
 
-  it('student_note → perfil del alumno tab notas (coach)', () => {
+  it('student_note → chat de esa persona (coach)', () => {
     expect(getNotificationTargetUrl({ type: 'student_note', data: { student_id: STUDENT } })).toBe(
-      `/coach/students/${STUDENT}?tab=notas`
+      `/coach/chat/${STUDENT}`
     )
   })
 

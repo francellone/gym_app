@@ -37,6 +37,7 @@ import {
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
+import { notesForPlan, dayNotesFor } from '../planNotes'
 import { readScroll, writeScroll } from '../workoutViewState'
 import { computeWeekAdherence } from '@/features/plans/assignmentHelpers'
 import {
@@ -571,13 +572,14 @@ export default function TodayWorkoutPage() {
         const { data: notesData } = await supabase
           .from('notes')
           .select(
-            'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
+            'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section'
           )
           .eq('thread_id', resolvedThreadId)
           // doc 52: criterio = tener exercise_id (no context_type). Las notas
           // cargadas entrenando son context_type='workout_log' con exercise_id;
           // antes quedaban afuera del preview/badge/chat del ejercicio.
-          .not('exercise_id', 'is', null)
+          // v75: también las notas de día guardadas desde el Chat.
+          .or('exercise_id.not.is.null,context_type.eq.plan')
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(500)
@@ -751,10 +753,10 @@ export default function TodayWorkoutPage() {
     const { data: notesData, error } = await supabase
       .from('notes')
       .select(
-        'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at'
+        'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section'
       )
       .eq('thread_id', threadId)
-      .not('exercise_id', 'is', null)
+      .or('exercise_id.not.is.null,context_type.eq.plan')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -1138,17 +1140,26 @@ export default function TodayWorkoutPage() {
       }),
     [recentBlockLogs, selectedDate]
   )
+  // v75: notas del plan que se entrena (sin las de otros planes ni copias
+  // repetidas de un mismo mensaje del chat) y notas de día aparte.
+  const planNotes = useMemo(
+    () => notesForPlan(exerciseNotes, { planId: assignment?.plan_id }),
+    [exerciseNotes, assignment?.plan_id]
+  )
+  const dayNotes = useMemo(
+    () => dayNotesFor(exerciseNotes, { planId: assignment?.plan_id, section: activeDay }),
+    [exerciseNotes, assignment?.plan_id, activeDay]
+  )
   const previewNoteByExercise = useMemo(
     // En modo coach invertimos la prioridad del preview: la coach ya sabe lo
     // que escribió ella, lo que necesita ver es el comentario de la alumna.
-    () =>
-      pickLastPreviewNotePerExercise(exerciseNotes, { prefer: coachMode ? 'student' : 'coach' }),
-    [exerciseNotes, coachMode]
+    () => pickLastPreviewNotePerExercise(planNotes, { prefer: coachMode ? 'student' : 'coach' }),
+    [planNotes, coachMode]
   )
-  const noteCountByExercise = useMemo(() => countNotesByExercise(exerciseNotes), [exerciseNotes])
+  const noteCountByExercise = useMemo(() => countNotesByExercise(planNotes), [planNotes])
   // Cache de notas agrupadas por ejercicio: lo pasamos al drawer para
   // evitar fetch extra (las notas ya vinieron en fetchWorkout).
-  const notesByExercise = useMemo(() => groupNotesByExercise(exerciseNotes), [exerciseNotes])
+  const notesByExercise = useMemo(() => groupNotesByExercise(planNotes), [planNotes])
 
   // Q1 — handler para abrir el drawer desde cualquier card.
   // Lo memoizamos para no recrear el callback en cada render.
@@ -1802,6 +1813,21 @@ export default function TodayWorkoutPage() {
           {(blocksBySection[activeDay] || []).length > 0 && (
             <div>
               <h2 className="eyebrow mb-2 px-1">{sectionLabel(activeDay) || t('workout.day')}</h2>
+              {dayNotes.length > 0 && (
+                <div className="mb-2 rounded-recuadro bg-durazno-50 border border-durazno-200 px-3 py-2.5">
+                  <p className="text-[11px] font-bold text-primary-700 mb-0.5">
+                    {coachMode ? t('workout.dayNoteCoachMode') : t('workout.dayNote')}
+                  </p>
+                  <p className="text-sm text-tinta whitespace-pre-wrap break-words">
+                    {dayNotes[0].body}
+                  </p>
+                  {dayNotes.length > 1 && (
+                    <p className="text-[11px] text-texto2 mt-1">
+                      {t('workout.dayNoteMore', { count: dayNotes.length - 1 })}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 {(blocksBySection[activeDay] || []).map((block) => (
                   <BlockRenderer

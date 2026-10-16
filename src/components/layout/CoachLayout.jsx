@@ -12,6 +12,7 @@ import {
   BarChart2,
   FileText,
   MessageSquare,
+  MessagesSquare,
 } from 'lucide-react'
 import { useState } from 'react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
@@ -20,10 +21,12 @@ import ViewSwitchButton from '@/features/auth/components/ViewSwitchButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
 import { useTranslation } from 'react-i18next'
 import AvatarImage from '@/features/avatars/AvatarImage'
+import { useCoachChatUnread } from '@/features/chat/useCoachChatUnread'
 
 const navItems = [
   { to: '/coach', labelKey: 'coach.layout.nav.dashboard', icon: LayoutDashboard, end: true },
   { to: '/coach/students', labelKey: 'coach.layout.nav.students', icon: Users },
+  { to: '/coach/chat', labelKey: 'coach.layout.nav.chat', icon: MessagesSquare, key: 'chat' },
   { to: '/coach/plans', labelKey: 'coach.layout.nav.plans', icon: ClipboardList },
   { to: '/coach/exercises', labelKey: 'coach.layout.nav.exercises', icon: Dumbbell },
   { to: '/coach/evaluations', labelKey: 'coach.layout.nav.evaluations', icon: BarChart2 },
@@ -36,6 +39,7 @@ export default function CoachLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const chatUnread = useCoachChatUnread(profile?.id)
 
   async function handleSignOut() {
     await signOut()
@@ -75,6 +79,11 @@ export default function CoachLayout() {
             >
               <item.icon size={15} strokeWidth={1.8} />
               {t(item.labelKey)}
+              {item.key === 'chat' && chatUnread > 0 && (
+                <span className="ml-auto min-w-[19px] h-[19px] px-1.5 rounded-full bg-primary-700 text-white text-[11px] font-bold flex items-center justify-center tabular-nums">
+                  {chatUnread > 99 ? '99+' : chatUnread}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -187,7 +196,15 @@ export default function CoachLayout() {
                   >
                     <item.icon size={16} strokeWidth={1.8} />
                     {t(item.labelKey)}
-                    <ChevronRight size={14} className="ml-auto text-texto3" />
+                    {item.key === 'chat' && chatUnread > 0 && (
+                      <span className="ml-auto min-w-[19px] h-[19px] px-1.5 rounded-full bg-primary-700 text-white text-[11px] font-bold flex items-center justify-center tabular-nums">
+                        {chatUnread > 99 ? '99+' : chatUnread}
+                      </span>
+                    )}
+                    <ChevronRight
+                      size={14}
+                      className={`${item.key === 'chat' && chatUnread > 0 ? '' : 'ml-auto'} text-texto3`}
+                    />
                   </NavLink>
                 ))}
               </nav>
