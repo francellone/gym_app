@@ -11,6 +11,7 @@
       "student_void": "voided by the student",
       "corrected": "the log was corrected",
       "coach_void": "voided by you"
-    }
+    },
+    "withWeight": "with {{weight}} kg"
   }
 }

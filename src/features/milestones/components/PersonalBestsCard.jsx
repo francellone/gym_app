@@ -15,7 +15,13 @@ import { Medal } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fetchPersonalBests, voidPersonalBest } from '../api'
 
-const UNIT = { weight: 'kg', reps: 'reps', seconds: 's' }
+const UNIT = {
+  weight: 'kg',
+  reps: 'reps',
+  seconds: 's',
+  reps_at_weight: 'reps',
+  seconds_at_weight: 's',
+}
 // Motivos de anulación (valor canónico en la base) → coach.milestones.bests.reason.*
 const REASONS = new Set(['student_void', 'corrected', 'coach_void'])
 
@@ -95,8 +101,10 @@ export default function PersonalBestsCard({ studentId }) {
                     {r.exercise?.name || p.exercise_name || t('coach.students.logs.exercise')}
                   </p>
                   <p className="text-xs text-gray-500 tabular-nums">
-                    {fmt(p.value, lng)} {unit} · {t('coach.milestones.bests.before')}{' '}
-                    {fmt(p.previous_max, lng)} {unit} ·{' '}
+                    {fmt(p.value, lng)} {unit}
+                    {p.weight != null &&
+                      ` ${t('coach.milestones.bests.withWeight', { weight: fmt(p.weight, lng) })}`}{' '}
+                    · {t('coach.milestones.bests.before')} {fmt(p.previous_max, lng)} {unit} ·{' '}
                     {format(parseISO(r.created_at), t('dates.dayMonthShort'), {
                       locale: dateLocale(),
                     })}

@@ -119,7 +119,7 @@ describe('CelebrationOverlay', () => {
     const onDismiss = vi.fn()
     renderItem(best, onDismiss)
     expect(screen.getByText('Mejor marca en Sentadilla')).toBeInTheDocument()
-    expect(screen.getByText('42,5 kg. Tu máximo anterior era 40 kg.')).toBeInTheDocument()
+    expect(screen.getByText('Nuevo peso máximo: 42,5 kg. Antes era 40 kg.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '¿Es un error?' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     const heard = vi.fn()
@@ -129,6 +129,18 @@ describe('CelebrationOverlay', () => {
     expect(onDismiss).toHaveBeenCalled()
     expect(heard.mock.calls[0][0].detail).toEqual({ planExerciseId: 'pe1' })
     expect(api.voidPersonalBest).not.toHaveBeenCalled()
+  })
+
+  it('marca de reps con un peso: el cartel dice cuál fue', () => {
+    const best = toCelebration({
+      id: 'b2',
+      kind: 'personal_best',
+      payload: { metric: 'reps_at_weight', value: 10, previous_max: 8, weight: 22.5 },
+    })
+    renderItem(best, vi.fn())
+    expect(
+      screen.getByText('Más repeticiones con 22,5 kg: 10. Antes hacías 8.')
+    ).toBeInTheDocument()
   })
 
   it('marca: anular sin cambiar el registro llama a la RPC', async () => {

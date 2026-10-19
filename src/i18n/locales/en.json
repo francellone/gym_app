@@ -1253,9 +1253,11 @@
       "title": "Personal best in {{exercise}}",
       "titleNoName": "Personal best!",
       "body": {
-        "kg": "{{value}} kg. Your previous best was {{previous}} kg.",
-        "reps": "{{value}} reps. Your previous best was {{previous}}.",
-        "seconds": "{{value}} s. Your previous best was {{previous}} s."
+        "kg": "New max weight: {{value}} kg. Your previous best was {{previous}} kg.",
+        "reps": "More reps: {{value}}. Your previous best was {{previous}}.",
+        "seconds": "{{value}} s. Your previous best was {{previous}} s.",
+        "repsAtWeight": "More reps with {{weight}} kg: {{value}}. You used to do {{previous}}.",
+        "secondsAtWeight": "Longer with {{weight}} kg: {{value}} s. It used to be {{previous}} s."
       },
       "ok": "Got it",
       "isError": "Was it a mistake?",
@@ -1554,7 +1556,9 @@
       "fromCoach": "Your coach",
       "automatic": "Automatic message",
       "skipped": "{{name}} skipped {{item}} · {{reason}}",
-      "skippedYou": "You skipped {{item}} · {{reason}}"
+      "skippedYou": "You skipped {{item}} · {{reason}}",
+      "valueRepsAtWeight": "{{value}} reps with {{weight}} kg",
+      "valueSecondsAtWeight": "{{value}} s with {{weight}} kg"
     },
     "weekQuestion": {
       "v0": "Another week done! How did the loads and exercises feel?",

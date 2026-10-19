@@ -11,6 +11,7 @@
       "student_void": "la anuló la persona",
       "corrected": "se corrigió el registro",
       "coach_void": "la anulaste vos"
-    }
+    },
+    "withWeight": "con {{weight}} kg"
   }
 }

@@ -1253,9 +1253,11 @@
       "title": "Mejor marca en {{exercise}}",
       "titleNoName": "¡Mejor marca!",
       "body": {
-        "kg": "{{value}} kg. Tu máximo anterior era {{previous}} kg.",
-        "reps": "{{value}} reps. Tu máximo anterior era {{previous}}.",
-        "seconds": "{{value}} s. Tu máximo anterior era {{previous}} s."
+        "kg": "Nuevo peso máximo: {{value}} kg. Antes era {{previous}} kg.",
+        "reps": "Más repeticiones: {{value}}. Tu máximo anterior era {{previous}}.",
+        "seconds": "{{value}} s. Tu máximo anterior era {{previous}} s.",
+        "repsAtWeight": "Más repeticiones con {{weight}} kg: {{value}}. Antes hacías {{previous}}.",
+        "secondsAtWeight": "Más tiempo con {{weight}} kg: {{value}} s. Antes eran {{previous}} s."
       },
       "ok": "Listo",
       "isError": "¿Es un error?",
@@ -1554,7 +1556,9 @@
       "fromCoach": "Tu coach",
       "automatic": "Mensaje automático",
       "skipped": "{{name}} omitió {{item}} · {{reason}}",
-      "skippedYou": "Omitiste {{item}} · {{reason}}"
+      "skippedYou": "Omitiste {{item}} · {{reason}}",
+      "valueRepsAtWeight": "{{value}} repeticiones con {{weight}} kg",
+      "valueSecondsAtWeight": "{{value}} s con {{weight}} kg"
     },
     "weekQuestion": {
       "v0": "¡Otra semana completa! ¿Cómo te sentiste con las cargas y los ejercicios?",

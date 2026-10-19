@@ -21,6 +21,7 @@ import {
   toAwardArgs,
   buildBestReferences,
   outlierFromReference,
+  weightedSetsOf,
 } from './milestoneRules'
 
 // ── fixtures ────────────────────────────────────────────────
@@ -590,5 +591,105 @@ describe('buildBestReferences + outlierFromReference', () => {
     expect(outlierFromReference({ value: 24, reference: { count: 3, max: 12 } }).warn).toBe(false)
     expect(outlierFromReference({ value: 50, reference: { count: 2, max: 12 } }).warn).toBe(false)
     expect(outlierFromReference({ value: 50, reference: null }).warn).toBe(false)
+  })
+})
+
+// Regla A (2026-10-19): más reps con un peso igual o mayor también es marca.
+describe('mejores marcas — reps con el mismo peso (regla A)', () => {
+  const sets = (id, pairs, extra = {}) => ({
+    id,
+    logged_date: '2026-09-01',
+    completed: true,
+    status: 'done',
+    actual_weights_jsonb: pairs.map((p) => p[0]),
+    actual_reps_jsonb: pairs.map((p) => p[1]),
+    ...extra,
+  })
+  const history = [
+    sets('h1', [
+      [20, 8],
+      [20, 8],
+    ]),
+    sets('h2', [
+      [20, 8],
+      [20, 7],
+    ]),
+    sets('h3', [
+      [22.5, 5],
+      [20, 8],
+    ]),
+  ]
+
+  it('mismo peso, más reps → marca de reps con ese peso', () => {
+    const m = detectPersonalBest({
+      log: sets('new', [
+        [20, 10],
+        [20, 9],
+      ]),
+      history,
+    })
+    expect(m?.payload).toEqual({
+      metric: 'reps_at_weight',
+      value: 10,
+      previous_max: 8,
+      weight: 20,
+      previous_count: 3,
+    })
+  })
+
+  it('subir el peso sigue siendo marca de peso aunque bajen las reps', () => {
+    const m = detectPersonalBest({ log: sets('new', [[25, 4]]), history })
+    expect(m?.payload).toMatchObject({ metric: 'weight', value: 25, previous_max: 22.5 })
+  })
+
+  it('más reps con MENOS peso que una serie anterior más pesada no cuenta si esa serie ya tenía más reps', () => {
+    // 17,5 × 9: con 17,5 kg o más, lo mejor fue 8 reps → sí es marca.
+    expect(detectPersonalBest({ log: sets('new', [[17.5, 9]]), history })?.payload.metric).toBe(
+      'reps_at_weight'
+    )
+    // 17,5 × 8: no supera las 8 reps hechas con 20 kg.
+    expect(detectPersonalBest({ log: sets('new', [[17.5, 8]]), history })).toBeNull()
+  })
+
+  it('elige la serie más pesada que superó', () => {
+    const m = detectPersonalBest({
+      log: sets('new', [
+        [20, 9],
+        [22.5, 6],
+      ]),
+      history,
+    })
+    expect(m?.payload).toMatchObject({ weight: 22.5, value: 6, previous_max: 5 })
+  })
+
+  it('igualar reps no es marca; con menos de 3 previos tampoco', () => {
+    expect(detectPersonalBest({ log: sets('new', [[20, 8]]), history })).toBeNull()
+    expect(
+      detectPersonalBest({ log: sets('new', [[20, 12]]), history: history.slice(0, 2) })
+    ).toBeNull()
+  })
+
+  it('segundos con peso se comparan solo contra segundos', () => {
+    const sec = (id, pairs) => sets(id, pairs, { reps_unit: 'segundos' })
+    const h = [sec('s1', [[10, 30]]), sec('s2', [[10, 35]]), sec('s3', [[10, 30]])]
+    expect(detectPersonalBest({ log: sec('new', [[10, 40]]), history: h })?.payload).toMatchObject({
+      metric: 'seconds_at_weight',
+      value: 40,
+      previous_max: 35,
+    })
+    // Reps contra una historia en segundos: no comparable.
+    expect(detectPersonalBest({ log: sets('new', [[10, 40]]), history: h })).toBeNull()
+  })
+
+  it('peso único (legacy) vale para todas las series', () => {
+    const legacy = {
+      ...sets('new', [[0, 0]]),
+      actual_weights_jsonb: [20],
+      actual_reps_jsonb: [10, 10],
+    }
+    expect(weightedSetsOf(legacy)).toEqual([
+      { weight: 20, reps: 10 },
+      { weight: 20, reps: 10 },
+    ])
   })
 })

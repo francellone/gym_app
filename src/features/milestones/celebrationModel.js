@@ -336,7 +336,13 @@ export function toCelebration(milestone, { studentId } = {}) {
   }
 
   if (milestone.kind === 'personal_best') {
-    const unit = p.metric === 'reps' ? 'reps' : p.metric === 'seconds' ? 'seconds' : 'kg'
+    const unit =
+      {
+        reps: 'reps',
+        seconds: 'seconds',
+        reps_at_weight: 'repsAtWeight',
+        seconds_at_weight: 'secondsAtWeight',
+      }[p.metric] || 'kg'
     return {
       ...base,
       level: 'toast',
@@ -345,7 +351,7 @@ export function toCelebration(milestone, { studentId } = {}) {
       titleKey: p.exercise_name ? 'celebrations.best.title' : 'celebrations.best.titleNoName',
       titleVars: { exercise: p.exercise_name ?? '' },
       bodyKey: `celebrations.best.body.${unit}`,
-      bodyVars: { value: p.value, previous: p.previous_max },
+      bodyVars: { value: p.value, previous: p.previous_max, weight: p.weight ?? null },
       planExerciseId: p.plan_exercise_id ?? null,
       fromCoach,
     }

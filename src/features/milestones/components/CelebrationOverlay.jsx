@@ -107,7 +107,11 @@ function BestToast({ item, onDismiss }) {
   useEscape(onDismiss, fixing)
   const fmt = (n) =>
     Number.isFinite(Number(n)) ? Number(n).toLocaleString(i18n.language) : String(n ?? '')
-  const bodyVars = { value: fmt(item.bodyVars?.value), previous: fmt(item.bodyVars?.previous) }
+  const bodyVars = {
+    value: fmt(item.bodyVars?.value),
+    previous: fmt(item.bodyVars?.previous),
+    weight: fmt(item.bodyVars?.weight),
+  }
 
   async function voidBest(reason) {
     if (!item.id) return

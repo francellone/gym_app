@@ -19,7 +19,9 @@
 //     contiene expected_end_date, o al abrir la app después de esa fecha,
 //     con un tono según la adherencia del plan.
 //   - Marca: supera estrictamente el máximo previo, con mínimo 3 registros
-//     previos. Peso si el registro lleva peso; si no, reps. Los logs de
+//     previos. Peso si el registro lleva peso; si no, reps. Con peso, también
+//     es marca hacer más reps (o segundos) con un peso igual o mayor que en
+//     cualquier serie anterior (regla A, Franco 2026-10-19). Los logs de
 //     marcas anuladas no cuentan como referencia.
 //   - Aviso al cargar: el valor supera en más del 100% al máximo previo
 //     (también con mínimo 3 previos). Avisa, nunca bloquea.
@@ -30,7 +32,7 @@
 import { computeWeekAdherence, startOfWeekMonday } from '@/features/plans/assignmentHelpers'
 import { isWeekComplete, computeDayStateMap } from '@/features/workouts/sessionProgress'
 import { isDayStateClosed, isLogDone } from '@/features/workouts/completionRules'
-import { maxWeightOfLog } from '@/features/plans/helpers'
+import { maxWeightOfLog, readLogReps, readLogWeights } from '@/features/plans/helpers'
 import { repsMaxOfLog } from '@/features/progress/progression'
 
 // ── Constantes de producto (ajustables sin tocar la lógica) ────
@@ -273,6 +275,52 @@ export function previousBestReference({ log, history, voidedLogIds, metric } = {
   }
 }
 
+// Unidad de las reps de un registro: 'reps', 'seconds' o null (pasos,
+// respiraciones: no compiten).
+function repsCategoryOf(log) {
+  const unit = log?.reps_unit || 'reps'
+  return unit === 'segundos' ? 'seconds' : unit === 'reps' ? 'reps' : null
+}
+
+// Series (peso, reps) de un registro, alineadas por índice. Solo las que
+// tienen peso y reps > 0. Un único peso (legacy) vale para todas las series.
+export function weightedSetsOf(log) {
+  const reps = readLogReps(log).map((r) => parseFloat(r))
+  const weights = readLogWeights(log).map((w) => parseFloat(w))
+  const sets = []
+  reps.forEach((r, i) => {
+    const w = weights.length === 1 ? weights[0] : weights[i]
+    if (r > 0 && w > 0) sets.push({ weight: w, reps: r })
+  })
+  return sets
+}
+
+// Regla A: ¿alguna serie de hoy hizo más reps que la mejor serie anterior
+// con ese peso o más? Devuelve la serie más pesada que lo logró (y entre
+// iguales, la de más reps) con las reps previas a superar, o null.
+export function detectRepsAtWeight({ log, history, voidedLogIds } = {}) {
+  const cat = repsCategoryOf(log)
+  if (!cat) return null
+  const voided = new Set(voidedLogIds || [])
+  const prevSets = []
+  for (const h of history || []) {
+    if (!h || h.id === log?.id || voided.has(h.id) || !isLogDone(h)) continue
+    if (repsCategoryOf(h) !== cat) continue
+    prevSets.push(...weightedSetsOf(h))
+  }
+  let best = null
+  for (const s of weightedSetsOf(log)) {
+    const heavier = prevSets.filter((p) => p.weight >= s.weight)
+    if (heavier.length === 0) continue
+    const previous = Math.max(...heavier.map((p) => p.reps))
+    if (!(s.reps > previous)) continue
+    if (!best || s.weight > best.weight || (s.weight === best.weight && s.reps > best.reps)) {
+      best = { weight: s.weight, reps: s.reps, previous, metric: `${cat}_at_weight` }
+    }
+  }
+  return best
+}
+
 // ¿Este registro es mejor marca? Devuelve el candidato o null.
 export function detectPersonalBest({
   log,
@@ -286,7 +334,25 @@ export function detectPersonalBest({
   const ref = previousBestReference({ log, history, voidedLogIds, metric: current.metric })
   // Sin peso contra una historia con peso (u otra unidad): no comparable.
   if (current.metric !== 'weight' && ref.sawOtherMetric) return null
-  if (ref.count < minPrevious || ref.max == null || !(current.value > ref.max)) return null
+  if (ref.count < minPrevious || ref.max == null) return null
+  if (!(current.value > ref.max)) {
+    // Regla A: sin récord de peso, ¿más reps con igual o más peso?
+    if (current.metric !== 'weight') return null
+    const rep = detectRepsAtWeight({ log, history, voidedLogIds })
+    if (!rep) return null
+    return {
+      kind: 'personal_best',
+      periodKey: String(log.id),
+      workoutLogId: log.id,
+      payload: {
+        metric: rep.metric,
+        value: rep.reps,
+        previous_max: rep.previous,
+        weight: rep.weight,
+        previous_count: ref.count,
+      },
+    }
+  }
   return {
     kind: 'personal_best',
     periodKey: String(log.id),

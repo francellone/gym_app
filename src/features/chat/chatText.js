@@ -12,6 +12,14 @@ function bestValue(t, p, lng) {
   const v = fmtNumber(p.value, lng)
   if (p.metric === 'weight') return t('chat.event.valueKg', { value: v })
   if (p.metric === 'seconds') return t('chat.event.valueSeconds', { value: v })
+  if (p.metric === 'reps_at_weight' || p.metric === 'seconds_at_weight') {
+    return t(
+      p.metric === 'reps_at_weight'
+        ? 'chat.event.valueRepsAtWeight'
+        : 'chat.event.valueSecondsAtWeight',
+      { value: v, weight: fmtNumber(p.weight, lng) }
+    )
+  }
   return t('chat.event.valueReps', { value: v })
 }
 
