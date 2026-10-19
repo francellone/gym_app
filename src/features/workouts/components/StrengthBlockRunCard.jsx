@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { readExpanded, writeExpanded } from '../workoutViewState'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, ChevronUp, ChevronDown, Link2, Timer } from 'lucide-react'
+import {
+  CheckCircle2,
+  Circle,
+  ChevronUp,
+  ChevronDown,
+  Link2,
+  MinusCircle,
+  Timer,
+} from 'lucide-react'
 import ExerciseCard from './ExerciseCard'
 import { onLogEditRequest, requestLogEdit } from '@/features/milestones/editRequest'
 import { groupStrengthExercises, blockResolution } from '../helpers'
-import { isLogResolved } from '../completionRules'
+import { isLogDone, isLogResolved, isLogSkipped } from '../completionRules'
 import {
   allResolved,
   firstPending,
@@ -52,17 +60,56 @@ export default function StrengthBlockRunCard({
   // Bloque guiado: qué tarjeta abrir. `seq` sube en cada pedido para que la
   // misma tarjeta pueda volver a abrirse.
   const [openReq, setOpenReq] = useState({ id: null, seq: 0 })
+  // Solución 1 (2026-10-19): un grupo (A1/A2/…) con todo resuelto se muestra
+  // como una fila de resumen. Acá van los grupos resueltos que la persona
+  // abrió a mano para ver o corregir. No se persiste: al corregir un dato el
+  // grupo se vuelve a cerrar, y al reabrir la app arranca cerrado (decisión
+  // de Franco).
+  const [openGroups, setOpenGroups] = useState(() => new Set())
+
+  const exercises = (block.plan_exercises || [])
+    .slice()
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+  // Agrupar supersets (A1/A2/…) para mostrar la pausa a nivel grupo.
+  const items = groupStrengthExercises(exercises)
+  const groupKeyOf = (id) => {
+    for (const [idx, item] of items.entries()) {
+      if (item.type === 'group' && item.exercises.some((ex) => ex.id === id)) {
+        return `${item.letter}-${idx}`
+      }
+    }
+    return null
+  }
+  const groupIsResolved = (item) => item.exercises.every((ex) => isLogResolved(logs?.[ex.id]))
+  const closeGroup = (key) =>
+    setOpenGroups((prev) => {
+      if (!key || !prev.has(key)) return prev
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+  const openGroup = (key) =>
+    setOpenGroups((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+
   // Etapa 4: si piden corregir un ejercicio de este bloque y está cerrado,
   // se abre y se re-emite el pedido para que la tarjeta (recién montada) lo
   // tome. Si ya está abierto, la tarjeta lo atiende sola.
   useEffect(
     () =>
       onLogEditRequest((id) => {
-        if (expanded || !(block.plan_exercises || []).some((ex) => ex.id === id)) return
+        if (!(block.plan_exercises || []).some((ex) => ex.id === id)) return
+        // Si el ejercicio está dentro de un grupo resumido, también se abre
+        // el grupo (si no, la tarjeta no está montada para atender el pedido).
+        const key = groupKeyOf(id)
+        const idx = key ? Number(key.split('-').pop()) : -1
+        const hiddenInGroup = key && !openGroups.has(key) && groupIsResolved(items[idx])
+        if (expanded && !hiddenInGroup) return
         setExpanded(true)
+        if (hiddenInGroup) openGroup(key)
         setTimeout(() => requestLogEdit(id), 60)
       }),
-    [expanded, block.plan_exercises]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [expanded, block.plan_exercises, openGroups, logs]
   )
 
   // Persistir/restaurar si el bloque quedó desplegado, para volver al mismo
@@ -71,10 +118,6 @@ export default function StrengthBlockRunCard({
     writeExpanded({ blockId: block.id, loggedDate, expanded })
   }, [block.id, loggedDate, expanded])
 
-  const exercises = (block.plan_exercises || [])
-    .slice()
-    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-
   const orderedIds = exercises.map((ex) => ex.id)
   const resolvedIds = () => new Set(orderedIds.filter((id) => isLogResolved(logs?.[id])))
 
@@ -82,6 +125,9 @@ export default function StrengthBlockRunCard({
   // se abre el siguiente de abajo; si el bloque quedó completo, se pliega y
   // se abre el bloque que sigue.
   function handleResolved(id, { wasResolved } = {}) {
+    // Corregir (o resolver) un ejercicio de un grupo abierto a mano lo vuelve
+    // a cerrar en su fila de resumen.
+    closeGroup(groupKeyOf(id))
     if (wasResolved) return
     const done = resolvedIds()
     done.add(id)
@@ -143,9 +189,6 @@ export default function StrengthBlockRunCard({
 
   const title = titleFor()
 
-  // Agrupar supersets (A1/A2/…) para mostrar la pausa a nivel grupo.
-  const items = groupStrengthExercises(exercises)
-
   // Render de un ExerciseCard. `restScope`:
   //   'group' → no muestra la pausa por ejercicio (la muestra el pie del grupo)
   //   'set'   → muestra la pausa como "entre series" (ejercicio suelto)
@@ -175,6 +218,7 @@ export default function StrengthBlockRunCard({
         bestReference={bestRefByExercise?.get?.(ex.exercise_id) ?? null}
         openSignal={openReq.id === ex.id ? openReq.seq : 0}
         onResolved={handleResolved}
+        dense
       />
     )
   }
@@ -254,28 +298,51 @@ export default function StrengthBlockRunCard({
           )}
           {items.map((item, idx) =>
             item.type === 'group' ? (
-              <div
-                key={`grp-${item.letter}-${idx}`}
-                className="rounded-2xl border border-primary-100 bg-primary-50/40 p-2 space-y-2"
-              >
-                <div className="flex items-center gap-1.5 px-1 pt-0.5">
-                  <Link2 size={14} className="text-primary-600 flex-shrink-0" />
-                  <span className="text-xs font-medium text-primary-700">
-                    {t('workout.supersetHeader', { letter: item.letter })}
-                  </span>
+              groupIsResolved(item) && !openGroups.has(`${item.letter}-${idx}`) ? (
+                <GroupSummaryRow
+                  key={`grp-${item.letter}-${idx}`}
+                  item={item}
+                  logs={logs}
+                  onOpen={() => openGroup(`${item.letter}-${idx}`)}
+                />
+              ) : (
+                <div
+                  key={`grp-${item.letter}-${idx}`}
+                  className="rounded-2xl border border-primary-100 bg-primary-50/40 p-2 space-y-2"
+                >
+                  {groupIsResolved(item) ? (
+                    <button
+                      type="button"
+                      onClick={() => closeGroup(`${item.letter}-${idx}`)}
+                      className="w-full flex items-center gap-1.5 px-1 pt-0.5 min-h-8 text-left"
+                    >
+                      <Link2 size={14} className="text-primary-600 flex-shrink-0" />
+                      <span className="flex-1 text-xs font-medium text-primary-700">
+                        {t('workout.supersetHeader', { letter: item.letter })}
+                      </span>
+                      <ChevronUp size={16} className="text-gray-400 flex-shrink-0" />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-1 pt-0.5">
+                      <Link2 size={14} className="text-primary-600 flex-shrink-0" />
+                      <span className="text-xs font-medium text-primary-700">
+                        {t('workout.supersetHeader', { letter: item.letter })}
+                      </span>
+                    </div>
+                  )}
+                  {item.exercises.map((ex) => renderCard(ex, 'group'))}
+                  {item.restTime && (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-dashed border-primary-200 bg-white">
+                      <Timer size={14} className="text-primary-600 flex-shrink-0" />
+                      <span className="text-xs text-gray-700">
+                        {t('workout.groupRestPrefix')}{' '}
+                        <strong className="font-medium">{item.restTime}</strong>{' '}
+                        {t('workout.groupRestSuffix')}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {item.exercises.map((ex) => renderCard(ex, 'group'))}
-                {item.restTime && (
-                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl border border-dashed border-primary-200 bg-white">
-                    <Timer size={14} className="text-primary-600 flex-shrink-0" />
-                    <span className="text-xs text-gray-700">
-                      {t('workout.groupRestPrefix')}{' '}
-                      <strong className="font-medium">{item.restTime}</strong>{' '}
-                      {t('workout.groupRestSuffix')}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )
             ) : (
               renderCard(item.exercise, 'set')
             )
@@ -283,5 +350,68 @@ export default function StrengthBlockRunCard({
         </div>
       )}
     </div>
+  )
+}
+
+// ============================================================
+// Fila de resumen de un grupo resuelto (Solución 1, 2026-10-19)
+// ------------------------------------------------------------
+// "✓ Bloque A · 4/4 hechos · PSE 8–9". En ámbar si hubo algo sin hacer.
+// Tocarla abre el grupo con sus filas densas para ver o corregir.
+// ============================================================
+function GroupSummaryRow({ item, logs, onOpen }) {
+  const { t } = useTranslation()
+  const total = item.exercises.length
+  const done = item.exercises.filter((ex) => isLogDone(logs?.[ex.id])).length
+  const skipped = item.exercises.filter(
+    (ex) => isLogSkipped(logs?.[ex.id]) && !isLogDone(logs?.[ex.id])
+  ).length
+  const pses = item.exercises
+    .map((ex) => Number(logs?.[ex.id]?.perceived_difficulty))
+    .filter((n) => Number.isFinite(n) && n > 0)
+  const pseText =
+    pses.length === 0
+      ? null
+      : Math.min(...pses) === Math.max(...pses)
+        ? t('workout.pseValue', { value: pses[0] })
+        : t('workout.pseValue', { value: `${Math.min(...pses)}–${Math.max(...pses)}` })
+  const partial = skipped > 0
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`scroll-mt-20 w-full flex items-center gap-3 min-h-[52px] px-3 py-2 rounded-2xl border text-left ${
+        partial ? 'border-amber-200 bg-amber-50/60' : 'border-green-200 bg-green-50/60'
+      }`}
+    >
+      {partial ? (
+        <MinusCircle size={22} className="text-amber-500 flex-shrink-0" />
+      ) : (
+        <CheckCircle2 size={22} className="text-green-500 flex-shrink-0" />
+      )}
+      <span className="flex-1 min-w-0">
+        <span
+          className={`block text-sm font-semibold break-words ${partial ? 'text-amber-800' : 'text-green-800'}`}
+        >
+          {t('workout.groupSummary', { letter: item.letter, done, total })}
+          {partial && ` · ${t('workout.skippedCount', { count: skipped })}`}
+        </span>
+        <span className="block text-xs text-gray-500 mt-0.5">
+          {pseText && `${pseText} · `}
+          {t('workout.groupTapToReview')}
+        </span>
+      </span>
+      <span className="flex gap-1 flex-shrink-0" aria-hidden="true">
+        {item.exercises.map((ex) => (
+          <i
+            key={ex.id}
+            className={`block w-2 h-2 rounded-full ${
+              isLogDone(logs?.[ex.id]) ? 'bg-green-500' : 'bg-amber-400'
+            }`}
+          />
+        ))}
+      </span>
+      <ChevronDown size={18} className="text-gray-400 flex-shrink-0" />
+    </button>
   )
 }
