@@ -262,6 +262,8 @@ describe('NO LO HICE: el motivo guarda un omitido sin datos de ejecución', () =
       p_skip_reason: 'time',
       p_entry_mode: null,
     })
+    // 2026-10-22: sin _noteBody → omitir no borra el comentario del registro.
+    expect(data).not.toHaveProperty('_noteBody')
   })
 
   it('ofrece cuatro motivos: tiempo, molestia, no sabía cómo y otro', async () => {

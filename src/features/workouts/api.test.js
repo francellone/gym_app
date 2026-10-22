@@ -169,10 +169,13 @@ describe('extractNoteBody', () => {
     expect(extractNoteBody({ _noteBody: 'observación' })).toBe('observación')
   })
 
-  it('devuelve "" si no hay _noteBody', () => {
-    expect(extractNoteBody({})).toBe('')
-    expect(extractNoteBody(null)).toBe('')
-    expect(extractNoteBody(undefined)).toBe('')
+  // 2026-10-22: sin la key = null ("no tocar el comentario"). Antes daba ''
+  // y saveLog borraba el comentario al marcar "no lo hice".
+  it('devuelve null si no hay _noteBody (no tocar el comentario)', () => {
+    expect(extractNoteBody({})).toBeNull()
+    expect(extractNoteBody({ p_status: 'skipped' })).toBeNull()
+    expect(extractNoteBody(null)).toBeNull()
+    expect(extractNoteBody(undefined)).toBeNull()
   })
 
   it('devuelve "" si _noteBody es falsy', () => {

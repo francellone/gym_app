@@ -328,7 +328,8 @@ export default function CircuitBlockRunCard({
             p_status: 'done',
             p_skip_reason: null,
             p_entry_mode: entryMode,
-            _noteBody: data.actual_time ? `Tiempo: ${data.actual_time}s` : '',
+            // Sin tiempo no se manda _noteBody: no borra un comentario existente.
+            ...(data.actual_time ? { _noteBody: `Tiempo: ${data.actual_time}s` } : {}),
           })
         )
       }
@@ -379,7 +380,7 @@ export default function CircuitBlockRunCard({
         actual_minutes: null,
         actual_rounds: null,
         perceived_difficulty: null,
-        notes: null,
+        // Sin `notes`: omitir no borra el comentario del bloque.
         completed: false,
         status: 'skipped',
         skip_reason: reason,

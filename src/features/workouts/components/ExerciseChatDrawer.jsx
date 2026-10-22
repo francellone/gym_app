@@ -49,9 +49,11 @@ export default function ExerciseChatDrawer({
   useEffect(() => {
     if (!open || !threadId || !exerciseId) return
 
-    // Si el cache trae las notas para este ejercicio, usarlas
-    if (notesCache && notesCache.has(exerciseId)) {
-      setNotes(notesCache.get(exerciseId))
+    // Si el padre pasó el cache, es la fuente: ya viene filtrado al plan que
+    // se entrena (sin copias repetidas ni notas de otros planes). Un ejercicio
+    // ausente = sin notas; antes caía a un fetch sin ese filtro.
+    if (notesCache) {
+      setNotes(notesCache.get(exerciseId) || [])
       setLoading(false)
       setError(null)
       return

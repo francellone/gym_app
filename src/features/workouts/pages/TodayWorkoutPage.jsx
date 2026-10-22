@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import { fetchOneRmMap } from '@/features/evaluations/oneRm'
 import { format, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
@@ -107,6 +108,24 @@ const DAY_SHORT_LABELS = {
 // ============================================================
 // Página principal
 // ============================================================
+// Notas del hilo que se ven en Entrenar (con ejercicio, o de día del plan).
+// Todas, paginadas: un hilo largo pasaba el viejo .limit(500).
+function fetchExerciseNotes(threadId) {
+  return fetchAllRows((from, to) =>
+    supabase
+      .from('notes')
+      .select(
+        'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section'
+      )
+      .eq('thread_id', threadId)
+      .or('exercise_id.not.is.null,context_type.eq.plan')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to)
+  )
+}
+
 // ============================================================
 // projectWorkoutLog — la fila de workout_logs que la RPC va a producir
 // ------------------------------------------------------------
@@ -149,7 +168,8 @@ function projectWorkoutLog({ existingLog, rpcArgs, noteBody, source, loggedBy })
     entry_mode: rpcArgs.p_entry_mode ?? null,
     source,
     logged_by: loggedBy ?? existingLog?.logged_by ?? null,
-    notes: noteBody || '',
+    // noteBody null = no se tocó el comentario: queda el que ya tenía.
+    notes: noteBody == null ? (existingLog?.notes ?? '') : noteBody,
     updated_at: new Date().toISOString(),
   }
 }
@@ -569,21 +589,16 @@ export default function TodayWorkoutPage() {
       const resolvedThreadId = threadRes?.data?.id || null
       setThreadId(resolvedThreadId)
       if (resolvedThreadId) {
-        const { data: notesData } = await supabase
-          .from('notes')
-          .select(
-            'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section'
-          )
-          .eq('thread_id', resolvedThreadId)
-          // doc 52: criterio = tener exercise_id (no context_type). Las notas
-          // cargadas entrenando son context_type='workout_log' con exercise_id;
-          // antes quedaban afuera del preview/badge/chat del ejercicio.
-          // v75: también las notas de día guardadas desde el Chat.
-          .or('exercise_id.not.is.null,context_type.eq.plan')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-          .limit(500)
-        setExerciseNotes(notesData || [])
+        // doc 52: criterio = tener exercise_id (no context_type). Las notas
+        // cargadas entrenando son context_type='workout_log' con exercise_id;
+        // antes quedaban afuera del preview/badge/chat del ejercicio.
+        // v75: también las notas de día guardadas desde el Chat.
+        // 2026-10-22: paginado (antes .limit(500) cortaba en silencio).
+        const notesData = await fetchExerciseNotes(resolvedThreadId).catch((err) => {
+          console.warn('[fetchWorkout] notas del ejercicio:', err)
+          return []
+        })
+        setExerciseNotes(notesData)
       } else {
         setExerciseNotes([])
       }
@@ -750,17 +765,11 @@ export default function TodayWorkoutPage() {
   // desactualizados hasta un reload (reportado por Franco 2026-07-24).
   const refetchExerciseNotes = useCallback(async () => {
     if (!threadId) return
-    const { data: notesData, error } = await supabase
-      .from('notes')
-      .select(
-        'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, tags, note_date, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section'
-      )
-      .eq('thread_id', threadId)
-      .or('exercise_id.not.is.null,context_type.eq.plan')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(500)
-    if (!error) setExerciseNotes(notesData || [])
+    try {
+      setExerciseNotes(await fetchExerciseNotes(threadId))
+    } catch (err) {
+      console.warn('[refetchExerciseNotes]', err)
+    }
   }, [threadId])
 
   async function saveLog(planExerciseId, data) {
@@ -866,6 +875,9 @@ export default function TodayWorkoutPage() {
     // Lo que sigue no cambia lo que la persona ve en la tarjeta: corre
     // después de responder y no bloquea. Errores → aviso, sin deshacer.
     ;(async () => {
+      // Sin _noteBody en el payload (omitir, circuito sin tiempo) el
+      // comentario no se toca.
+      if (_noteBody === null) return
       // Round 2b (handoff m26→m27): la columna workout_logs.notes se dropeó.
       // Persistimos el body del alumno como mirror en public.notes via
       // postWorkoutLogNote. Si _noteBody viene vacío y existía mirror,
@@ -948,6 +960,9 @@ export default function TodayWorkoutPage() {
     // Extraemos `notes` del data y la persistimos como mirror en el panel
     // después del save exitoso, igual que hace saveLog para workout_logs.
     const { notes: bodyForPanel, ...dataForDb } = data || {}
+    // 2026-10-22: sin la key `notes` (omitir el bloque) el comentario no se
+    // toca; antes "no lo hice" lo borraba.
+    const keepNote = !Object.prototype.hasOwnProperty.call(data || {}, 'notes')
 
     const existing = blockLogs[planBlockId]
 
@@ -965,7 +980,7 @@ export default function TodayWorkoutPage() {
       logged_late: existing?.logged_late ?? !isToday,
       logged_by: existing?.logged_by ?? profile?.id ?? null,
       source: existing?.source ?? (coachMode ? 'coach' : 'student'),
-      notes: bodyForPanel || '',
+      notes: keepNote ? (existing?.notes ?? '') : bodyForPanel || '',
       updated_at: new Date().toISOString(),
     }
     setBlockLogs((prev) => ({ ...prev, [planBlockId]: projected }))
@@ -1010,7 +1025,10 @@ export default function TodayWorkoutPage() {
     }
 
     // Fila real del servidor (con id) + el body, sin esperar a las notas.
-    const enrichedBlockLog = { ...result.data, notes: bodyForPanel || '' }
+    const enrichedBlockLog = {
+      ...result.data,
+      notes: keepNote ? (existing?.notes ?? '') : bodyForPanel || '',
+    }
     setBlockLogs((prev) => ({ ...prev, [planBlockId]: enrichedBlockLog }))
 
     // Persistir la nota del bloque al panel (round 2b: fuente única tras
@@ -1018,6 +1036,7 @@ export default function TodayWorkoutPage() {
     // existía mirror, la función hace soft-delete. Corre por detrás.
     const blockLogId = result.data?.id
     ;(async () => {
+      if (keepNote) return
       if (blockLogId) {
         const { error: noteErr } = await postWorkoutBlockLogNote({
           studentId,

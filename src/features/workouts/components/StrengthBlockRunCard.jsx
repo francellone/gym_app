@@ -6,6 +6,7 @@ import {
   Circle,
   ChevronUp,
   ChevronDown,
+  Info,
   Link2,
   MinusCircle,
   Timer,
@@ -291,6 +292,16 @@ export default function StrengthBlockRunCard({
       {/* Body: lista de ejercicios (agrupando supersets A1/A2/…) */}
       {expanded && (
         <div className="border-t border-gray-100 p-3 space-y-2 bg-gray-50/50">
+          {/* 2026-10-22: la nota del bloque se escribía en el armador pero en
+              fuerza no se mostraba (aeróbico y circuito sí). */}
+          {block.notes && (
+            <div className="bg-durazno-50 rounded-xl p-3 flex gap-2">
+              <Info size={15} className="text-primary-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-tinta leading-relaxed whitespace-pre-wrap break-words">
+                {block.notes}
+              </p>
+            </div>
+          )}
           {exercises.length === 0 && (
             <p className="text-xs text-gray-400 italic text-center py-3">
               {t('workout.blockNoExercises')}

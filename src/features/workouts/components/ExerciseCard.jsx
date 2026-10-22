@@ -562,7 +562,7 @@ export default function ExerciseCard({
       p_skip_reason: reason,
       p_skip_note: note || null,
       p_entry_mode: null,
-      _noteBody: '',
+      // Sin _noteBody: omitir no toca el comentario que ya tenía el registro.
     }
   }
 

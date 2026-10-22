@@ -164,13 +164,14 @@ describe('NO LO HICE', () => {
       actual_minutes: null,
       actual_rounds: null,
       perceived_difficulty: null,
-      notes: null,
       completed: false,
       status: 'skipped',
       skip_reason: 'discomfort',
       skip_note: null,
       entry_mode: null,
     })
+    // 2026-10-22: sin `notes` → omitir no borra el comentario del bloque.
+    expect(onSaveLog.mock.calls[0][0]).not.toHaveProperty('notes')
   })
 
   it('un omitido se muestra con el motivo y en modo coach en tercera persona', async () => {

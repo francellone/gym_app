@@ -1167,6 +1167,12 @@ export async function postEvalCommentNote({
     .eq('author_role', role)
     .eq('visibility', effectiveVisibility)
     .is('deleted_at', null)
+    // 2026-10-22: sin estos filtros una respuesta del chat (mismo context_id)
+    // daba "varias filas", se tomaba como "ninguna" y se insertaba otra.
+    .is('parent_note_id', null)
+    .is('source_note_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (findErr && !isNoRowsError(findErr)) {
@@ -1258,10 +1264,13 @@ export async function fetchMirrorNotes({ contextType, contextIds }) {
   }
   const { data, error } = await supabase
     .from('notes')
-    .select('id, context_id, author_role, visibility, body, created_at, updated_at')
+    .select(
+      'id, context_id, author_role, visibility, body, created_at, updated_at, parent_note_id, source_note_id'
+    )
     .eq('context_type', contextType)
     .in('context_id', contextIds)
     .is('deleted_at', null)
+    .order('created_at', { ascending: true })
   if (error) {
     return { data: [], error: normalizeError(error, 'No se pudieron cargar las notas.') }
   }
@@ -1279,6 +1288,11 @@ export async function fetchSingleMirrorBodies({ contextType, contextIds, authorR
     // puede tener DOS mirrors vivos (el de la alumna y el de la coach); sin
     // filtro gana el último que llega y el resultado es no determinístico.
     if (authorRole && n.author_role !== authorRole) continue
+    // 2026-10-22: el comentario del registro es el original. Las respuestas
+    // del chat heredan el mismo context_id y antes podían ganar (la caja
+    // mostraba la respuesta en vez del comentario). Orden ascendente: gana
+    // el más reciente, igual que el writer (postWorkoutLogNote).
+    if (n.parent_note_id || n.source_note_id) continue
     map.set(n.context_id, n.body)
   }
   return map
@@ -1316,6 +1330,7 @@ export async function fetchEvalMirrorBodies(responseIds) {
   })
   const map = new Map()
   for (const n of data) {
+    if (n.parent_note_id || n.source_note_id) continue // respuestas y copias no son el comentario
     if (!map.has(n.context_id)) {
       map.set(n.context_id, { studentComment: null, coachPublic: null, coachPrivate: null })
     }

@@ -221,7 +221,7 @@ export default function AerobicBlockRunCard({
         actual_minutes: null,
         actual_rounds: null,
         perceived_difficulty: null,
-        notes: null,
+        // Sin `notes`: omitir no borra el comentario del bloque.
         completed: false,
         status: 'skipped',
         skip_reason: reason,

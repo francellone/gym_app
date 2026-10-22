@@ -258,7 +258,7 @@ export default function ChatMessage({
             <CornerUpLeft size={15} />
           </button>
         )}
-        {(ownCoachMsg || canReply || canDelete) && !editing && !picking && (
+        {(ownCoachMsg || canReply || canDelete || canDismiss) && !editing && !picking && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -280,6 +280,21 @@ export default function ChatMessage({
                     onClick={() => act('reply')}
                   />
                 )}
+                {canDismiss &&
+                  (note.reply_dismissed_at ? (
+                    <MenuItem
+                      Icon={Undo2}
+                      title={t('chat.menu.undismiss')}
+                      onClick={() => act('undismiss')}
+                    />
+                  ) : (
+                    <MenuItem
+                      Icon={CheckCheck}
+                      title={t('chat.menu.dismiss')}
+                      hint={t('chat.menu.dismissHint')}
+                      onClick={() => act('dismiss')}
+                    />
+                  ))}
                 {ownCoachMsg && !isPrivate && (
                   <>
                     <MenuItem

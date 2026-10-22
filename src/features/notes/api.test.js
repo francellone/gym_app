@@ -177,8 +177,13 @@ describe('createNote — validaciones cliente', () => {
 // rechazara el INSERT (comentario perdido en silencio) y que el
 // lookup encontrara la nota de la ALUMNA y le pisara el texto.
 // ============================================================
-const { postWorkoutLogNote, postWorkoutBlockLogNote, fetchSingleMirrorBodies } =
-  await import('./api')
+const {
+  postWorkoutLogNote,
+  postWorkoutBlockLogNote,
+  fetchSingleMirrorBodies,
+  fetchEvalMirrorBodies,
+  postEvalCommentNote,
+} = await import('./api')
 
 const STUDENT = 'student-uuid'
 const COACH = 'coach-uuid'
@@ -296,5 +301,71 @@ describe('fetchSingleMirrorBodies — filtro por autor (v35)', () => {
       authorRole: 'coach',
     })
     expect(asCoach.get('log-1')).toBe('lo de la coach')
+  })
+})
+
+// ============================================================
+// 2026-10-22 — las respuestas del chat heredan el context_id del registro.
+// La caja del comentario tiene que mostrar el ORIGINAL, no una respuesta,
+// y el writer de evaluación no puede duplicar por encontrar "varias filas".
+// ============================================================
+describe('mirrors — respuestas y copias no son el comentario', () => {
+  beforeEach(() => {
+    resetSupabaseMock(supabaseMock)
+    supabaseMock._chain.then.mockImplementation((resolve) =>
+      resolve({
+        data: [
+          { context_id: 'log-1', author_role: 'coach', body: 'mi anotación', parent_note_id: null },
+          { context_id: 'log-1', author_role: 'coach', body: 'respuesta', parent_note_id: 'n-0' },
+          { context_id: 'log-1', author_role: 'coach', body: 'copia', source_note_id: 'n-9' },
+        ],
+        error: null,
+      })
+    )
+  })
+
+  it('fetchSingleMirrorBodies ignora respuestas y copias', async () => {
+    const map = await fetchSingleMirrorBodies({
+      contextType: 'workout_log',
+      contextIds: ['log-1'],
+      authorRole: 'coach',
+    })
+    expect(map.get('log-1')).toBe('mi anotación')
+  })
+
+  it('fetchEvalMirrorBodies ignora respuestas y copias', async () => {
+    supabaseMock._chain.then.mockImplementation((resolve) =>
+      resolve({
+        data: [
+          { context_id: 'r-1', author_role: 'coach', visibility: 'shared', body: 'pública' },
+          {
+            context_id: 'r-1',
+            author_role: 'coach',
+            visibility: 'shared',
+            body: 'respuesta',
+            parent_note_id: 'n-1',
+          },
+        ],
+        error: null,
+      })
+    )
+    const map = await fetchEvalMirrorBodies(['r-1'])
+    expect(map.get('r-1').coachPublic).toBe('pública')
+  })
+
+  it('postEvalCommentNote busca solo el original (sin respuestas ni copias)', async () => {
+    supabaseMock._chain.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'n-1', body: 'igual' },
+      error: null,
+    })
+    await postEvalCommentNote({
+      studentId: STUDENT,
+      responseId: 'r-1',
+      body: 'igual',
+      role: 'student',
+    })
+    const isCalls = supabaseMock._chain.is.mock.calls.map((c) => c[0])
+    expect(isCalls).toEqual(expect.arrayContaining(['parent_note_id', 'source_note_id']))
+    expect(supabaseMock._chain.limit).toHaveBeenCalledWith(1)
   })
 })

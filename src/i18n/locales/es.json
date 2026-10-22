@@ -406,7 +406,7 @@
     "exerciseChat": "Chat del ejercicio",
     "withCoach": "Con {{name}}",
     "noMessagesYet": "Todavía no hay mensajes sobre este ejercicio.",
-    "replyHint": "Para responder, abrí el panel de Notas desde el menú.",
+    "replyHint": "Para responder, entrá al Chat desde el menú.",
     "lastTimeTitle": "Última vez {{date}}",
     "seeExerciseChatAria_one": "Ver chat del ejercicio ({{count}} mensaje)",
     "seeExerciseChatAria_other": "Ver chat del ejercicio ({{count}} mensajes)",

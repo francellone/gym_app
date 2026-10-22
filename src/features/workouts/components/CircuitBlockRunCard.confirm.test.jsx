@@ -203,13 +203,14 @@ describe('NO LO HICE: solo el registro del bloque, ninguno por ejercicio', () =>
       actual_minutes: null,
       actual_rounds: null,
       perceived_difficulty: null,
-      notes: null,
       completed: false,
       status: 'skipped',
       skip_reason: 'time',
       skip_note: null,
       entry_mode: null,
     })
+    // 2026-10-22: sin `notes` → omitir no borra el comentario del bloque.
+    expect(onSaveBlockLog.mock.calls[0][0]).not.toHaveProperty('notes')
     expect(onSaveExerciseLog).not.toHaveBeenCalled()
   })
 

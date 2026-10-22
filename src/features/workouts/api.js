@@ -75,6 +75,10 @@ export function buildSaveWorkoutLogArgs({
 
 // Extrae el body de la nota desde el payload "ancho" que pasan los componentes.
 // Mantiene un solo punto de definición para el contrato (_noteBody).
+// 2026-10-22: sin la key `_noteBody` → null = "no tocar el comentario".
+// Antes devolvía '' y saveLog hacía soft-delete: marcar "no lo hice" o
+// guardar un circuito sin tiempo borraba lo que la persona había escrito.
 export function extractNoteBody(data) {
-  return data?._noteBody || ''
+  if (!data || !Object.prototype.hasOwnProperty.call(data, '_noteBody')) return null
+  return data._noteBody || ''
 }
