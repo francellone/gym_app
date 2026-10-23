@@ -20,6 +20,12 @@ import {
   skipNeedsReply,
   pendingEvents,
   eventTarget,
+  asksForReply,
+  itemMatchesExercise,
+  itemMatchesText,
+  exercisesInTimeline,
+  planExerciseGroups,
+  firstPlanExerciseFor,
 } from './chatModel'
 
 const note = (id, at, extra = {}) => ({
@@ -195,6 +201,7 @@ describe('pendientes y respuesta sugerida', () => {
       author_role: 'student',
       context_type: 'workout_log',
       context_id: 'wl',
+      body: 'me duele un poco la rodilla',
       ...extra,
     })
   it('pendiente: comentario asociado del otro lado sin respuesta, últimos 14 días', () => {
@@ -242,6 +249,7 @@ describe('pendientes y respuesta sugerida', () => {
         author_role: 'coach',
         context_type: 'exercise',
         context_id: 'ex',
+        body: '¿Cómo te fue con la sentadilla?',
       }),
     ]
     expect(preselectTarget(notes, 'student', { now: NOW })).toBe(null)
@@ -294,5 +302,129 @@ describe('omisiones que piden respuesta', () => {
       context_type: 'workout_log',
       context_id: 'wla',
     })
+  })
+})
+
+// 2026-10-22 — Pendientes solo cuenta lo que pide respuesta.
+describe('asksForReply', () => {
+  it('pregunta o dolor/molestia piden respuesta', () => {
+    expect(asksForReply({ body: '¿Lo hago con barra?' })).toBe(true)
+    expect(asksForReply({ body: 'me dolió la espalda' })).toBe(true)
+    expect(asksForReply({ body: 'Molestia en el hombro' })).toBe(true)
+    expect(asksForReply({ body: 'sore knee today' })).toBe(true)
+  })
+  it('lo informativo no', () => {
+    expect(asksForReply({ body: 'cómodo' })).toBe(false)
+    expect(asksForReply({ body: 'banco 3, 8 kg' })).toBe(false)
+    expect(asksForReply({ body: '' })).toBe(false)
+  })
+  it('un comentario informativo no queda en Pendientes', () => {
+    const notes = [
+      {
+        id: 'i1',
+        created_at: '2026-10-15T10:00:00Z',
+        author_role: 'student',
+        visibility: 'shared',
+        context_type: 'workout_log',
+        context_id: 'w1',
+        body: 'cómodo',
+      },
+    ]
+    expect(pendingFor(notes, 'coach', { now: Date.parse('2026-10-16T12:00:00Z') })).toEqual([])
+  })
+})
+
+describe('filtro por ejercicio y texto', () => {
+  const items = [
+    { type: 'note', id: 'a', note: { exercise_id: 'sq', body: 'Bajá lento' }, links: [] },
+    {
+      type: 'note',
+      id: 'b',
+      note: { exercise_id: null, body: 'Hola' },
+      links: [{ exercise_id: 'sq' }],
+    },
+    { type: 'note', id: 'c', note: { exercise_id: 'pb', body: 'Subimos 2,5' }, links: [] },
+    {
+      type: 'event',
+      id: 'e',
+      event: { exercise_id: 'sq', payload: { skip_note: 'máquina ocupada' } },
+    },
+  ]
+  it('por ejercicio: el mensaje, sus copias y los eventos', () => {
+    expect(items.filter((it) => itemMatchesExercise(it, 'sq')).map((it) => it.id)).toEqual([
+      'a',
+      'b',
+      'e',
+    ])
+  })
+  it('por texto, sin acentos ni mayúsculas', () => {
+    expect(items.filter((it) => itemMatchesText(it, 'bajá')).map((it) => it.id)).toEqual(['a'])
+    expect(items.filter((it) => itemMatchesText(it, 'MAQUINA')).map((it) => it.id)).toEqual(['e'])
+  })
+  it('cuenta cuántos elementos tiene cada ejercicio', () => {
+    const c = exercisesInTimeline(items)
+    expect(c.get('sq')).toBe(3)
+    expect(c.get('pb')).toBe(1)
+  })
+})
+
+describe('ejercicios del plan activo para escribir sobre uno', () => {
+  const plans = [
+    {
+      id: 'p1',
+      title: 'Fuerza 2',
+      sections: ['day_a', 'day_b'],
+      exercises: [
+        { id: 'pe1', section: 'day_a', exercise_id: 'sq' },
+        { id: 'pe2', section: 'day_b', exercise_id: 'sq' },
+        { id: 'pe3', section: 'day_b', exercise_id: 'dl' },
+        { id: 'pe0', section: 'activation', exercise_id: 'mob' },
+      ],
+    },
+  ]
+  it('agrupa por día (sin activación)', () => {
+    const g = planExerciseGroups(plans)
+    expect(g.map((x) => [x.section, x.items.map((pe) => pe.id)])).toEqual([
+      ['day_a', ['pe1']],
+      ['day_b', ['pe2', 'pe3']],
+    ])
+  })
+  it('la primera aparición del ejercicio en un día', () => {
+    expect(firstPlanExerciseFor(plans, 'sq').pe.id).toBe('pe1')
+    expect(firstPlanExerciseFor(plans, 'dl').section).toBe('day_b')
+    expect(firstPlanExerciseFor(plans, 'nada')).toBe(null)
+  })
+})
+
+describe('respondido sobre el mismo ejercicio', () => {
+  it('una nota posterior del otro lado sobre el mismo ejercicio lo responde', () => {
+    const base = {
+      visibility: 'shared',
+      deleted_at: null,
+      source_note_id: null,
+    }
+    const notes = [
+      {
+        ...base,
+        id: 's1',
+        created_at: '2026-10-15T10:00:00Z',
+        author_role: 'student',
+        context_type: 'workout_log',
+        context_id: 'w1',
+        exercise_id: 'sq',
+        body: 'me duele',
+      },
+      {
+        ...base,
+        id: 'c1',
+        created_at: '2026-10-15T11:00:00Z',
+        author_role: 'coach',
+        context_type: 'plan_exercise',
+        context_id: 'pe1',
+        exercise_id: 'sq',
+        body: 'bajá peso',
+      },
+    ]
+    expect(pendingFor(notes, 'coach', { now: Date.parse('2026-10-16T12:00:00Z') })).toEqual([])
   })
 })

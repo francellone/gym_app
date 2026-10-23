@@ -1,40 +1,35 @@
 // Conversación coach↔persona: mensajes, eventos y caja para escribir.
 // La usan la sección Chat de la coach y el Chat de la persona.
+// Simplificada 2026-10-22 (pedido de Franco): la coach tiene "Todo" y
+// "Pendientes", la lupa y el filtro por ejercicio (tocando la etiqueta de un
+// mensaje); la persona solo la conversación. Sin "Va a:": se responde con
+// "Responder" y la coach escribe sobre un ejercicio con la pesa.
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, AlertCircle, Lock, MessagesSquare } from 'lucide-react'
+import { Loader2, AlertCircle, MessagesSquare, Search, X, Dumbbell } from 'lucide-react'
 import { createNote, replyNote, editNote, softDeleteNote } from '@/features/notes/api'
 import { useChatThread } from '../useChatThread'
 import {
   buildTimeline,
-  filterTimeline,
-  countPrivate,
   localDateKey,
-  prepareCatalog,
   pendingFor,
-  preselectTarget,
   pendingEvents,
   eventTarget,
   SKIP_KINDS,
+  dayLetter,
+  itemMatchesExercise,
+  itemMatchesText,
+  exercisesInTimeline,
+  planExerciseGroups,
+  firstPlanExerciseFor,
 } from '../chatModel'
 import { contextLabel, eventTitle } from '../chatText'
-import {
-  fetchCatalog,
-  fetchActivePlans,
-  linkNote,
-  unlinkNote,
-  dismissReply,
-  dismissEvent,
-} from '../chatApi'
+import { fetchCatalog, fetchActivePlans, unlinkNote, dismissReply, dismissEvent } from '../chatApi'
 import ChatEventCard from './ChatEventCard'
 import ChatMessage from './ChatMessage'
 import ChatComposer from './ChatComposer'
-import LinkSheet from './LinkSheet'
-
-const FILTERS_COACH = ['all', 'pending', 'messages', 'events', 'plan', 'private']
-// La persona no tiene notas privadas en el chat
-const FILTERS_STUDENT = ['all', 'messages', 'events', 'plan']
+import { ExercisePickerSheet, ChatSearchSheet } from './ChatSheets'
 
 function useDateFormat() {
   const { t, i18n } = useTranslation()
@@ -78,12 +73,16 @@ export default function ChatConversation({
     studentId,
     viewerRole,
   })
-  const [filter, setFilter] = useState('all')
-  const [sheet, setSheet] = useState(null) // { note, mode, preset }
-  const [catalog, setCatalog] = useState(null)
+  const [filter, setFilter] = useState('all') // 'all' | 'pending' (coach)
+  const [exerciseFilter, setExerciseFilter] = useState(null) // exercise_id
+  const [textFilter, setTextFilter] = useState('')
+  const [sheet, setSheet] = useState(null) // 'picker' | 'search'
   const [catalogNames, setCatalogNames] = useState(null)
   const [activePlans, setActivePlans] = useState([])
   const [actionError, setActionError] = useState(null)
+  const [replyTo, setReplyTo] = useState(null) // nota o eventTarget
+  // undefined = el que sugiere el filtro; null = sin ejercicio; objeto = elegido
+  const [exChoice, setExChoice] = useState(undefined)
   const scrollRef = useRef(null)
   const stick = useRef(true)
   const fmt = useDateFormat()
@@ -93,7 +92,6 @@ export default function ChatConversation({
     let alive = true
     fetchCatalog().then(({ data }) => {
       if (!alive || !data) return
-      setCatalog(prepareCatalog(data))
       setCatalogNames(new Map(data.map((e) => [e.id, e.name])))
     })
     return () => {
@@ -110,81 +108,71 @@ export default function ChatConversation({
     }
   }, [isCoach, studentId])
 
-  const timeline = useMemo(() => buildTimeline({ notes, events }), [notes, events])
-  const visible = useMemo(() => {
-    if (filter === 'pending') {
-      const ids = new Set(pendingFor(notes, viewerRole).map((n) => n.id))
-      const evIds = new Set(isCoach ? pendingEvents(events, notes).map((e) => e.id) : [])
-      return timeline.filter(
-        (it) => (it.type === 'note' && ids.has(it.id)) || (it.type === 'event' && evIds.has(it.id))
-      )
-    }
-    return filterTimeline(timeline, filter, { notes })
-  }, [timeline, filter, notes, events, viewerRole, isCoach])
-  const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
-  const privateCount = useMemo(() => countPrivate(notes), [notes])
+  // Cambiar de persona limpia filtros y destinos.
+  useEffect(() => {
+    setFilter('all')
+    setExerciseFilter(null)
+    setTextFilter('')
+    setReplyTo(null)
+    setExChoice(undefined)
+  }, [threadId])
 
-  // ── A qué va el próximo mensaje ──────────────────────────
-  // choice: undefined = lo que se sugiera solo; null = General; nota = elegida.
-  // frozen: destino congelado mientras hay texto escrito.
-  const privateMode = isCoach && filter === 'private'
-  const [choice, setChoice] = useState(undefined)
-  const [frozen, setFrozen] = useState(undefined)
-  const [picking, setPicking] = useState(false)
-  const pendingAll = useMemo(
-    () => (privateMode ? [] : pendingFor(notes, viewerRole)),
-    [notes, viewerRole, privateMode]
+  const nameOf = useCallback(
+    (id) => labels.exercises.get(id)?.name || catalogNames?.get(id) || '',
+    [labels, catalogNames]
   )
+
+  const timeline = useMemo(() => buildTimeline({ notes, events }), [notes, events])
+  const pendingAll = useMemo(() => pendingFor(notes, viewerRole), [notes, viewerRole])
   const pendingIds = useMemo(() => new Set(pendingAll.map((n) => n.id)), [pendingAll])
   // Omisiones que piden respuesta (solo la coach las responde)
   const pendingEv = useMemo(
-    () => (isCoach && !privateMode ? pendingEvents(events, notes) : []),
-    [isCoach, privateMode, events, notes]
+    () => (isCoach ? pendingEvents(events, notes) : []),
+    [isCoach, events, notes]
   )
   const pendingEvIds = useMemo(() => new Set(pendingEv.map((e) => e.id)), [pendingEv])
-  const pendingTargets = useMemo(() => {
-    const evTargets = pendingEv.map((e) => eventTarget(e, e.payload?.skip_note || ''))
-    return [...pendingAll, ...evTargets].sort(
-      (a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0)
-    )
-  }, [pendingAll, pendingEv])
-  const autoTarget = useMemo(() => {
-    if (privateMode) return null
-    // Si lo último que pasó es una omisión que pide respuesta (< 48 h), va esa.
-    const lastEv = events[events.length - 1]
-    const lastNote = [...notes]
-      .filter((n) => !n.deleted_at && !n.source_note_id && n.visibility !== 'coach_private')
-      .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0))
-      .pop()
-    const evAt = lastEv ? Date.parse(lastEv.occurred_at) || 0 : 0
-    const noteAt = lastNote ? Date.parse(lastNote.created_at) || 0 : 0
-    if (isCoach && lastEv && evAt > noteAt) {
-      const fresh = Date.now() - evAt < 48 * 3600000
-      return fresh && pendingEvIds.has(lastEv.id)
-        ? eventTarget(lastEv, lastEv.payload?.skip_note || '')
-        : null
+  const pendingCount = pendingAll.length + pendingEv.length
+
+  const visible = useMemo(() => {
+    let items = timeline
+    if (filter === 'pending') {
+      items = items.filter(
+        (it) =>
+          (it.type === 'note' && pendingIds.has(it.id)) ||
+          (it.type === 'event' && pendingEvIds.has(it.id))
+      )
     }
-    return preselectTarget(notes, viewerRole)
-  }, [notes, events, viewerRole, privateMode, isCoach, pendingEvIds])
-  const liveTarget = choice === undefined ? autoTarget : choice
-  const liveIsAuto = choice === undefined && Boolean(autoTarget)
-  const target = privateMode ? null : frozen !== undefined ? frozen.note : liveTarget
-  const targetIsAuto = frozen !== undefined ? frozen.auto : liveIsAuto
-  const suggestion = !isCoach && !target ? pendingAll[0] || null : null
-  const liveRef = useRef({ note: liveTarget, auto: liveIsAuto })
-  liveRef.current = { note: liveTarget, auto: liveIsAuto }
+    if (exerciseFilter) items = items.filter((it) => itemMatchesExercise(it, exerciseFilter))
+    if (textFilter) items = items.filter((it) => itemMatchesText(it, textFilter))
+    return items
+  }, [timeline, filter, pendingIds, pendingEvIds, exerciseFilter, textFilter])
+  const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
+  const threadExercises = useMemo(() => exercisesInTimeline(timeline), [timeline])
+  const groups = useMemo(() => planExerciseGroups(activePlans), [activePlans])
 
-  const onTypingChange = useCallback((has) => {
-    setFrozen((prev) => {
-      if (has) return prev !== undefined ? prev : { ...liveRef.current }
-      return undefined
-    })
-  }, [])
+  // ── Sobre qué ejercicio va el próximo mensaje (solo coach) ──
+  const suggestedEx = useMemo(
+    () => (isCoach && exerciseFilter ? firstPlanExerciseFor(activePlans, exerciseFilter) : null),
+    [isCoach, exerciseFilter, activePlans]
+  )
+  const exerciseTarget = replyTo ? null : exChoice === undefined ? suggestedEx : exChoice
+  const exerciseTargetView = exerciseTarget
+    ? {
+        name: nameOf(exerciseTarget.pe.exercise_id),
+        dayLabel: dayLetter(exerciseTarget.section)
+          ? t('chat.dayShort', { day: dayLetter(exerciseTarget.section) })
+          : '',
+      }
+    : null
 
-  function chooseTarget(note) {
-    setChoice(note)
-    setPicking(false)
-    setFrozen((prev) => (prev !== undefined ? { note, auto: false } : prev))
+  function chooseReply(target) {
+    setReplyTo(target)
+  }
+
+  function filterByExercise(id) {
+    setExerciseFilter(id)
+    setFilter('all')
+    setExChoice(undefined)
   }
 
   const labelOf = useCallback(
@@ -203,7 +191,7 @@ export default function ChatConversation({
 
   useEffect(() => {
     stick.current = true
-  }, [threadId, filter])
+  }, [threadId, filter, exerciseFilter, textFilter])
 
   function onScroll() {
     const el = scrollRef.current
@@ -211,40 +199,39 @@ export default function ChatConversation({
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
-  async function handleSend(body, { alsoPlan, exercise }) {
+  async function handleSend(body) {
     setActionError(null)
-    // Eligió "Otro mensaje…" pero todavía no tocó ninguno: no mandar suelto.
-    if (picking) {
-      setActionError(t('chat.target.pickFirst'))
-      return false
-    }
     stick.current = true
-    const res = target?.isEvent
+    const res = replyTo?.isEvent
       ? await createNote({
           threadId,
           body,
           authorId,
           authorRole: viewerRole,
-          contextType: target.context_type,
-          contextId: target.context_id,
+          contextType: replyTo.context_type,
+          contextId: replyTo.context_id,
         })
-      : target
-        ? await replyNote(target.id, { body, authorId, authorRole: viewerRole })
-        : await createNote({
-            threadId,
-            body,
-            authorId,
-            authorRole: viewerRole,
-            visibility: privateMode ? 'coach_private' : 'shared',
-          })
+      : replyTo
+        ? await replyNote(replyTo.id, { body, authorId, authorRole: viewerRole })
+        : exerciseTarget
+          ? await createNote({
+              threadId,
+              body,
+              authorId,
+              authorRole: viewerRole,
+              contextType: 'plan_exercise',
+              contextId: exerciseTarget.pe.id,
+            })
+          : await createNote({ threadId, body, authorId, authorRole: viewerRole })
     if (res.error) {
       setActionError(res.error.message || t('chat.sendError'))
       return false
     }
     applyNote(res.data)
-    setChoice(undefined)
-    setFrozen(undefined)
-    if (alsoPlan && res.data) setSheet({ note: res.data, mode: 'plan', preset: exercise })
+    setReplyTo(null)
+    // El ejercicio elegido a mano queda puesto para el próximo mensaje solo si
+    // se está filtrando por él; si no, vuelve a suelto.
+    if (!exerciseFilter) setExChoice(undefined)
     return true
   }
 
@@ -260,28 +247,20 @@ export default function ChatConversation({
         const copies = notes.filter((n) => n.source_note_id === note.id && !n.deleted_at)
         for (const c of copies) await unlinkNote(c.id)
       }
-      if (target?.id === note.id) setChoice(undefined)
+      if (replyTo?.id === note.id) setReplyTo(null)
       applyNote({ ...note, deleted_at: new Date().toISOString() })
       reload()
       return
     }
     if (kind === 'reply') {
-      chooseTarget(note)
+      chooseReply(note)
       return
     }
     if (kind === 'dismiss' || kind === 'undismiss') {
       const { error: err } = await dismissReply(note.id, kind === 'dismiss')
       if (err) setActionError(t('chat.sheet.saveError'))
       reload()
-      return
     }
-    if (kind === 'private') {
-      const { error: err } = await linkNote({ sourceNoteId: note.id, target: 'private' })
-      if (err) setActionError(t('chat.sheet.saveError'))
-      reload()
-      return
-    }
-    if (kind === 'plan' || kind === 'day') setSheet({ note, mode: kind, preset: null })
   }
 
   async function handleUnlink(copy) {
@@ -301,31 +280,78 @@ export default function ChatConversation({
     return true
   }
 
+  const filtering = Boolean(exerciseFilter || textFilter)
   let lastDay = null
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-fondo">
       {header}
-      <div className="flex gap-1.5 overflow-x-auto px-3 sm:px-4 py-2 bg-white border-b border-linea">
-        {(isCoach ? FILTERS_COACH : FILTERS_STUDENT).map((f) => (
+      {isCoach && (
+        <div className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white border-b border-linea min-w-0">
+          {exerciseFilter || textFilter ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setExerciseFilter(null)
+                  setTextFilter('')
+                  setExChoice(undefined)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full pl-3 pr-1.5 py-1 border border-primary-700 bg-primary-700 text-white text-xs font-medium min-w-0 max-w-full"
+                aria-label={t('chat.filter.clear')}
+              >
+                {exerciseFilter ? (
+                  <Dumbbell size={12} aria-hidden="true" className="flex-shrink-0" />
+                ) : (
+                  <Search size={12} aria-hidden="true" className="flex-shrink-0" />
+                )}
+                <span className="truncate">
+                  {exerciseFilter
+                    ? nameOf(exerciseFilter) || t('chat.filter.exercise')
+                    : `“${textFilter}”`}
+                </span>
+                <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0">
+                  <X size={11} aria-hidden="true" />
+                </span>
+              </button>
+              <span className="text-xs text-texto2 flex-shrink-0">
+                {t('chat.filter.count', { count: visible.length })}
+              </span>
+            </>
+          ) : (
+            ['all', 'pending'].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                aria-pressed={filter === f}
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1 border text-xs font-medium ${
+                  filter === f
+                    ? 'bg-durazno-50 border-primary-600 text-primary-700'
+                    : 'bg-white border-gray-300 text-texto2'
+                }`}
+              >
+                {t(`chat.filter.${f}`)}
+                {f === 'pending' && pendingCount > 0 && (
+                  <span className="rounded-full bg-primary-600 text-white text-[10.5px] px-1.5 leading-4">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+          <span className="flex-1" />
           <button
-            key={f}
             type="button"
-            onClick={() => setFilter(f)}
-            aria-pressed={filter === f}
-            className={`flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 border text-xs font-medium ${
-              filter === f
-                ? 'bg-durazno-50 border-primary-600 text-primary-700'
-                : 'bg-white border-gray-300 text-texto2'
-            }`}
+            onClick={() => setSheet('search')}
+            className="w-9 h-9 rounded-full border border-gray-300 bg-white text-texto2 flex items-center justify-center flex-shrink-0"
+            aria-label={t('chat.search.open')}
+            title={t('chat.search.open')}
           >
-            {f === 'private' && <Lock size={11} aria-hidden="true" />}
-            {t(!isCoach && f === 'plan' ? 'chat.filter.planYou' : `chat.filter.${f}`)}
-            {f === 'private' && privateCount > 0 && ` · ${privateCount}`}
-            {f === 'pending' && pendingTargets.length > 0 && ` · ${pendingTargets.length}`}
+            <Search size={16} />
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -346,7 +372,9 @@ export default function ChatConversation({
         {!loading && !error && visible.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 text-texto2 px-6">
             <MessagesSquare size={28} className="text-texto3" />
-            <p className="text-sm">{filter === 'all' ? t('chat.empty') : t('chat.emptyFilter')}</p>
+            <p className="text-sm">
+              {filter === 'all' && !filtering ? t('chat.empty') : t('chat.emptyFilter')}
+            </p>
           </div>
         )}
         {!loading &&
@@ -373,18 +401,12 @@ export default function ChatConversation({
                     timeLabel={fmt.time(it.at)}
                     pending={pendingEvIds.has(it.event.id)}
                     canAnswer={isCoach && SKIP_KINDS.has(it.event.kind)}
-                    onReply={(ev) => chooseTarget(eventTarget(ev, ev.payload?.skip_note || ''))}
+                    onReply={(ev) => chooseReply(eventTarget(ev, ev.payload?.skip_note || ''))}
                     onDismiss={async (ev, dismiss) => {
                       const { error: err } = await dismissEvent(ev.id, dismiss)
                       if (err) setActionError(t('chat.sheet.saveError'))
                       reload()
                     }}
-                    picking={picking}
-                    onPick={
-                      SKIP_KINDS.has(it.event.kind) && isCoach
-                        ? (ev) => chooseTarget(eventTarget(ev, ev.payload?.skip_note || ''))
-                        : undefined
-                    }
                   />
                 ) : (
                   <ChatMessage
@@ -399,8 +421,7 @@ export default function ChatConversation({
                     onUnlink={handleUnlink}
                     onEdit={handleEdit}
                     pending={isCoach && pendingIds.has(it.id)}
-                    picking={picking}
-                    onPick={chooseTarget}
+                    onFilterExercise={isCoach && !exerciseFilter ? filterByExercise : undefined}
                   />
                 )}
               </Fragment>
@@ -416,34 +437,52 @@ export default function ChatConversation({
 
       <ChatComposer
         onSend={handleSend}
-        catalog={isCoach ? catalog : null}
-        privateMode={privateMode}
-        target={target}
-        targetIsAuto={targetIsAuto}
-        suggestion={suggestion}
-        pending={pendingTargets.slice(0, 6)}
-        labelOf={labelOf}
-        onChooseTarget={chooseTarget}
-        onPickOther={() => setPicking(true)}
-        picking={picking}
-        onCancelPicking={() => setPicking(false)}
-        onTypingChange={onTypingChange}
+        replyTo={replyTo}
+        replyLabel={replyTo ? labelOf(replyTo) : ''}
+        onClearReply={() => setReplyTo(null)}
+        exerciseTarget={exerciseTargetView}
+        onClearExercise={() => setExChoice(null)}
+        onPickExercise={
+          isCoach
+            ? () => {
+                setReplyTo(null)
+                setSheet('picker')
+              }
+            : undefined
+        }
+        personName={isCoach ? (studentName || '').split(' ')[0] : ''}
         disabled={!threadId}
       />
 
-      {sheet && (
-        <LinkSheet
-          note={sheet.note}
-          mode={sheet.mode}
-          presetExercise={sheet.preset}
-          catalog={catalog}
-          catalogNames={catalogNames}
-          activePlans={activePlans}
-          onClose={() => setSheet(null)}
-          onSaved={() => {
+      {sheet === 'picker' && (
+        <ExercisePickerSheet
+          groups={groups}
+          nameOf={nameOf}
+          counts={threadExercises}
+          personName={(studentName || '').split(' ')[0]}
+          onPick={(choice) => {
+            setExChoice(choice)
             setSheet(null)
-            reload()
           }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === 'search' && (
+        <ChatSearchSheet
+          exercises={threadExercises}
+          nameOf={nameOf}
+          onPickExercise={(id) => {
+            setTextFilter('')
+            filterByExercise(id)
+            setSheet(null)
+          }}
+          onSearchText={(q) => {
+            setExerciseFilter(null)
+            setTextFilter(q)
+            setFilter('all')
+            setSheet(null)
+          }}
+          onClose={() => setSheet(null)}
         />
       )}
     </div>

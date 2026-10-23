@@ -19,8 +19,10 @@
 //   - Drawer = read-only V1.
 // ============================================================
 
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History, MessageCircle, ChevronRight, User } from 'lucide-react'
+import { History, MessageCircle, ChevronRight, User, Send, Loader2 } from 'lucide-react'
+import { useExerciseChat, lastConversation } from '../exerciseChatContext'
 import {
   formatLastLogSummary,
   formatLastBlockLogSummary,
@@ -109,7 +111,136 @@ export function ExerciseHistoryHeaderLine({
 //   noteCount      number — para mostrar el contador
 //   onOpenChat     () => void — abre el drawer
 // ============================================================
-export function ExerciseHistoryBodyBlock({ previewNote = null, noteCount = 0, onOpenChat }) {
+export function ExerciseHistoryBodyBlock({
+  previewNote = null,
+  noteCount = 0,
+  onOpenChat,
+  exerciseId = null,
+}) {
+  const chat = useExerciseChat()
+  if (chat && exerciseId) {
+    return <ExerciseConversationBox exerciseId={exerciseId} chat={chat} onOpenChat={onOpenChat} />
+  }
+  return <LegacyBodyBlock previewNote={previewNote} noteCount={noteCount} onOpenChat={onOpenChat} />
+}
+
+// ============================================================
+// ExerciseConversationBox — "Con tu coach" (2026-10-22)
+// ------------------------------------------------------------
+// Los últimos mensajes sobre el ejercicio y un campo para contestar ahí
+// mismo, sin tener que registrar antes ni ir al Chat. Lo mismo en modo
+// coach (escribe ella, con su nombre). Sin mensajes no se muestra: el
+// globito 💬 del encabezado abre el panel para empezar.
+// ============================================================
+function ExerciseConversationBox({ exerciseId, chat, onOpenChat }) {
+  const { t } = useTranslation()
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState(false)
+  const all = chat.notesByExercise?.get(exerciseId) || []
+  const viewer = chat.viewerRole
+  const shown = lastConversation(all, 2, viewer)
+  if (!shown.length) return null
+  const hasOther = all.some((n) => n.author_role !== viewer && !n.source_note_id)
+
+  async function send() {
+    const body = text.trim()
+    if (!body || sending) return
+    setSending(true)
+    setError(false)
+    const ok = await chat.send(exerciseId, body)
+    setSending(false)
+    if (ok) setText('')
+    else setError(true)
+  }
+
+  const who = (n) =>
+    n.author_role === viewer
+      ? t('notes.preview.you')
+      : n.author_role === 'coach'
+        ? t('workout.exChat.yourCoach')
+        : t('notes.preview.person')
+  const inputId = `exchat-${exerciseId}`
+
+  return (
+    <div className="bg-durazno-50 border border-durazno-200 rounded-xl p-3 flex flex-col gap-2">
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-primary-800 flex items-center gap-1.5">
+        <MessageCircle size={13} aria-hidden="true" />
+        {viewer === 'coach' ? t('workout.exChat.titleCoach') : t('workout.exChat.title')}
+      </p>
+      {shown.map((n) => {
+        const mine = n.author_role === viewer
+        return (
+          <div
+            key={n.id}
+            className={`max-w-[88%] rounded-2xl px-3 py-1.5 text-sm leading-snug border ${
+              mine
+                ? 'self-end bg-white border-linea text-texto2 rounded-tr-md'
+                : 'self-start bg-white border-primary-200 text-tinta rounded-tl-md'
+            }`}
+          >
+            <p className="whitespace-pre-wrap break-words">{n.body}</p>
+            <p className="text-[10.5px] text-texto3 text-right mt-0.5">
+              {who(n)}
+              {n.created_at
+                ? ` · ${formatRelativeDate(n.created_at.slice(0, 10), undefined, t)}`
+                : ''}
+            </p>
+          </div>
+        )
+      })}
+      <div className="flex items-center gap-2">
+        <label htmlFor={inputId} className="sr-only">
+          {t('workout.exChat.replyLabel')}
+        </label>
+        <input
+          id={inputId}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              send()
+            }
+          }}
+          placeholder={
+            viewer === 'coach'
+              ? t('workout.exChat.placeholderCoach')
+              : hasOther
+                ? t('workout.exChat.placeholderReply')
+                : t('workout.exChat.placeholderWrite')
+          }
+          className="input flex-1 min-w-0 text-sm h-10 py-0 rounded-full bg-white"
+        />
+        <button
+          type="button"
+          onClick={send}
+          disabled={!text.trim() || sending}
+          className="w-10 h-10 rounded-full bg-primary-700 text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40"
+          aria-label={t('chat.send')}
+        >
+          {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-700">{t('chat.sendError')}</p>}
+      {all.length > shown.length && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenChat?.()
+          }}
+          className="self-start text-xs font-semibold text-primary-700 flex items-center gap-1 py-1"
+        >
+          {t('workout.exChat.seeAll', { count: all.length })}
+          <ChevronRight size={13} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function LegacyBodyBlock({ previewNote = null, noteCount = 0, onOpenChat }) {
   const { t } = useTranslation()
   const hasNote = !!previewNote
   const hasChat = noteCount > 0

@@ -145,6 +145,14 @@ export function contextLabel(t, note, labels, fmtDate) {
         date && t('chat.context.loggedOn', { date })
       )
     }
+    case 'plan_exercise': {
+      // Comentario que inició alguien sobre un ejercicio del plan (2026-10-22)
+      const pe = note.plan_exercise_id ? labels.planExercises.get(note.plan_exercise_id) : null
+      return join(
+        ex || t('chat.context.exerciseOnly'),
+        where(note.plan_id || pe?.plan_id, pe?.section)
+      )
+    }
     case 'exercise':
       return ex ? t('chat.context.exercise', { exercise: ex }) : null
     case 'evaluation_test':

@@ -597,7 +597,18 @@
     "dayNote": "Your coach's note for this day",
     "dayNoteCoachMode": "Note for this day",
     "dayNoteMore_one": "And {{count}} more note in the chat",
-    "dayNoteMore_other": "And {{count}} more notes in the chat"
+    "dayNoteMore_other": "And {{count}} more notes in the chat",
+    "exChat": {
+      "title": "With your coach",
+      "titleCoach": "Messages on this exercise",
+      "yourCoach": "Your coach",
+      "replyLabel": "Message about this exercise",
+      "placeholderReply": "Reply to your coach…",
+      "placeholderWrite": "Write to your coach…",
+      "placeholderCoach": "Write about this exercise…",
+      "seeAll_one": "See {{count}} message",
+      "seeAll_other": "See all {{count}} messages"
+    }
   },
   "progress": {
     "title": "My progress",
@@ -1461,7 +1472,12 @@
       "plan": "Saved to the plan",
       "private": "Private notes",
       "planYou": "In your plan",
-      "pending": "Pending"
+      "pending": "Pending",
+      "byExerciseHint": "Show only this exercise",
+      "clear": "Clear filter",
+      "exercise": "Exercise",
+      "count_one": "{{count}} item",
+      "count_other": "{{count}} items"
     },
     "menu": {
       "reply": "Reply",
@@ -1484,7 +1500,8 @@
       "block": "Block",
       "evaluation": "About an assessment",
       "planDay": "{{plan}}, Day {{day}}",
-      "loggedOn": "logged on {{date}}"
+      "loggedOn": "logged on {{date}}",
+      "exerciseOnly": "Exercise"
     },
     "link": {
       "private": "Private note",
@@ -1598,6 +1615,35 @@
       "discomfort": "discomfort",
       "unclear": "wasn't sure how",
       "other": "other reason"
+    },
+    "listo": "Done",
+    "composer": {
+      "placeholderTo": "Write to {{name}}…",
+      "aboutPlaceholder": "Write about this exercise…",
+      "replyingTo": "Replying to {{what}}",
+      "cancelReply": "Don’t reply",
+      "about": "About: {{what}}",
+      "aboutHint": "They see it in Train, on that exercise, and can reply there",
+      "withoutExercise": "Send without exercise",
+      "aboutExercise": "Write about an exercise"
+    },
+    "picker": {
+      "title": "Which exercise?",
+      "hint": "What you write shows up for {{name}} in Train, on that exercise, and they can reply there.",
+      "thePerson": "them",
+      "search": "Search exercise",
+      "noPlan": "No active plan with exercises.",
+      "noMatch": "No exercise with that name.",
+      "messages_one": "{{count}} message",
+      "messages_other": "{{count}} messages"
+    },
+    "search": {
+      "open": "Search exercise or word",
+      "title": "Search the conversation",
+      "placeholder": "Exercise or word",
+      "inMessages": "Search “{{q}}” in messages",
+      "exercises": "Exercises in this conversation",
+      "noExercises": "No exercise with that name."
     }
   }
 }

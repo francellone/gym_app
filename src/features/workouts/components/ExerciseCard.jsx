@@ -1142,6 +1142,7 @@ export default function ExerciseCard({
             <ExerciseHistoryBodyBlock
               previewNote={previewNote}
               noteCount={noteCount}
+              exerciseId={planEx.exercise_id}
               onOpenChat={() => onOpenChat?.(planEx.exercise_id, exText.name)}
             />
 

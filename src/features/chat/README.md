@@ -14,19 +14,18 @@ Sección **Chat** de la coach (barra lateral, `/coach/chat/:studentId`) y **Chat
     Las copias se insertan leídas y no notifican; editar el original las actualiza (`notes_sync_copies_body`).
 - **Detección de ejercicio** al escribir (`detectExercise`): nombre completo del catálogo (también el inglés), sin acentos, palabras enteras; gana el más largo.
 
-## A qué va cada mensaje ("Va a:")
+## Chat simple (2026-10-22, pedido de Franco)
 
-- Botón que abre una lista: **General**, **Sin responder** (hasta 6, últimos 14 días) y **Otro mensaje…** (se toca la burbuja o el evento). Si se elige "Otro mensaje" y se manda sin tocar nada, no se envía y avisa.
-- Responder hereda el contexto del mensaje (`replyNote`): una respuesta a un comentario de registro aparece también en Entrenar y en la tabla de progreso. Responder una omisión crea una nota con el contexto de ese registro.
-- **Preselección** (solo la coach): el comentario o la omisión que pide respuesta, si es lo último de la conversación y tiene menos de 48 h. Si no, General. La persona arranca siempre en General, con una sugerencia que puede tocar.
-- El destino se **congela** apenas hay texto escrito.
-- Celular: deslizar a la derecha responde (no desde el borde, por el gesto de volver de Android); mantener apretado abre el menú. Computadora: flecha al pasar el mouse.
-- Respuestas a un solo nivel (front + trigger `notes_flatten_parent`).
+- **Coach**: arriba solo "Todo" y "Pendientes" + lupa (`ChatSearchSheet`: ejercicios de la conversación o una palabra). Tocar la etiqueta de un mensaje filtra por ese ejercicio ("Sentadilla ✕"). La persona no tiene filtros.
+- **Sin "Va a:"**. Se responde con "Responder" (menú, deslizar, o los botones a la vista en lo pendiente) → "Respondiendo a … ✕".
+- **Pesa** (solo coach): elige un ejercicio del plan activo por día (`ExercisePickerSheet`) → "Sobre: Ejercicio · Día A ✕". El mensaje es una nota `context_type='plan_exercise'` (no una copia): la persona lo ve en Entrenar, en ese ejercicio, y lo contesta ahí. Con un filtro de ejercicio activo, la pesa viene puesta sola.
+- **Menú corto**: Responder, Listo, Editar, Copiar, Borrar. "Guardar como privada / en el plan / en el día" se sacaron (0 usos); las copias que ya existían se siguen viendo como etiquetas.
+- **Entrenar** (`workouts/exerciseChatContext.js`): recuadro "Con tu coach" en la tarjeta (últimos 2 mensajes, siempre uno del otro lado si existe) y caja en el panel del ejercicio. Si el otro lado escribió, es respuesta a su último mensaje; si no, nota nueva `plan_exercise` del día que se ve. No hace falta registrar.
 
 ## Pendientes (coach)
 
 - **Respondido** = hay una respuesta, o una nota posterior del otro lado sobre el mismo registro (la coach muchas veces contesta desde Entrenar o la tabla de progreso).
-- Cuentan los comentarios asociados del otro lado y las omisiones que piden respuesta (nota escrita, molestia o "no sabía"), de los últimos 14 días. Con toda la historia eran 335, casi todos informativos.
+- Cuentan solo los comentarios asociados del otro lado que **piden respuesta** (`asksForReply`: una pregunta, o dolor/molestia) y las omisiones que piden respuesta (nota escrita, molestia o "no sabía"), de los últimos 14 días. También cuenta como respondido escribir después sobre el mismo ejercicio.
 - Punto naranja, filtro "Pendientes" y "Listo, no hace falta responder" (`notes.reply_dismissed_at` / `chat_events.reply_dismissed_at`, RPCs `chat_dismiss_reply` y `chat_dismiss_event`).
 
 ## No leídos
@@ -47,6 +46,6 @@ Sección **Chat** de la coach (barra lateral, `/coach/chat/:studentId`) y **Chat
 - `chatModel.js` (puro, con tests): línea de tiempo, filtros, semanas ISO, bienestar, detección, pendientes, preselección, omisiones.
 - `chatText.js`: textos de eventos, etiquetas de contexto y de copias.
 - `chatApi.js`: consultas, RPCs y realtime. `useChatThread.js`, `useCoachChatUnread.js`.
-- `components/`: `ChatConversation`, `ChatMessage`, `ChatEventCard`, `ChatComposer` (con el selector "Va a"), `LinkSheet`.
+- `components/`: `ChatConversation`, `ChatMessage`, `ChatEventCard`, `ChatComposer`, `ChatSheets` (pesa y lupa).
 - `pages/CoachChatPage.jsx`.
 - Migraciones: v75 (`20261016230000`), v76 (`20261016240000`), v77 (`20261016250000`).

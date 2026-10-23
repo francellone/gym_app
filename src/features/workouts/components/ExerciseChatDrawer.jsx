@@ -4,8 +4,8 @@
 // Modal lateral / bottom-sheet que renderiza el thread completo
 // del ejercicio (notas coach + alumno) en el flow workout.
 //
-// Read-only V1 (decisión Franco 23/05 late night). Si Anto pide
-// composer, se agrega en V2 reusando `<NoteComposer />`.
+// 2026-10-22: con caja para escribir (`onSend`): la persona contesta (o
+// empieza) desde el ejercicio, sin registrar antes ni ir al Chat.
 //
 // Reusa `<NoteCard />` del feature de notes para mantener el
 // estilo del chat consistente con el panel global.
@@ -24,7 +24,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, MessageCircle, Loader2 } from 'lucide-react'
+import { X, MessageCircle, Loader2, Send } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import NoteCard from '@/features/notes/components/NoteCard'
 
@@ -37,11 +37,27 @@ export default function ExerciseChatDrawer({
   currentUserId,
   coachName,
   notesCache = null,
+  onSend, // async (body) => boolean
+  placeholder,
 }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [notes, setNotes] = useState([])
   const [error, setError] = useState(null)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(false)
+
+  async function send() {
+    const body = text.trim()
+    if (!body || sending || !onSend) return
+    setSending(true)
+    setSendError(false)
+    const ok = await onSend(body)
+    setSending(false)
+    if (ok) setText('')
+    else setSendError(true)
+  }
 
   // ── Fetch / cache ──
   // Si el padre ya pasó `notesCache`, usamos las notas pre-cargadas.
@@ -176,10 +192,37 @@ export default function ExerciseChatDrawer({
           )}
         </div>
 
-        {/* Footer placeholder — V2 podría sumar composer */}
-        <div className="px-4 py-2.5 border-t border-gray-100 bg-white text-[11px] text-gray-400 text-center flex-shrink-0">
-          {t('workout.replyHint')}
-        </div>
+        {onSend ? (
+          <div className="px-3 py-2.5 border-t border-gray-100 bg-white flex-shrink-0 flex flex-col gap-1">
+            <div className="flex items-end gap-2">
+              <label htmlFor="exchat-drawer-input" className="sr-only">
+                {t('workout.exChat.replyLabel')}
+              </label>
+              <textarea
+                id="exchat-drawer-input"
+                rows={1}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={placeholder}
+                className="input flex-1 min-w-0 resize-none min-h-[42px] text-sm"
+              />
+              <button
+                type="button"
+                onClick={send}
+                disabled={!text.trim() || sending}
+                className="w-10 h-10 rounded-full bg-primary-700 text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40"
+                aria-label={t('chat.send')}
+              >
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
+            </div>
+            {sendError && <p className="text-xs text-red-700">{t('chat.sendError')}</p>}
+          </div>
+        ) : (
+          <div className="px-4 py-2.5 border-t border-gray-100 bg-white text-[11px] text-gray-400 text-center flex-shrink-0">
+            {t('workout.replyHint')}
+          </div>
+        )}
       </div>
     </div>
   )

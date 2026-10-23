@@ -385,13 +385,30 @@ export function isAnswered(note, notes) {
       (n.parent_note_id === note.id ||
         (note.context_type !== 'free' &&
           n.context_type === note.context_type &&
-          n.context_id === note.context_id))
+          n.context_id === note.context_id) ||
+        // 2026-10-22: o escribió después sobre el mismo ejercicio (desde el
+        // chat con la pesa, o desde Entrenar).
+        (note.exercise_id && n.exercise_id === note.exercise_id))
   )
 }
 
+// Decisión Franco 2026-10-22: Pendientes cuenta solo lo que pide respuesta.
+// Con todos los comentarios asociados el número no bajaba nunca (la mayoría
+// son informativos: "cómodo", "8 kg", "banco 3").
+const PAIN_RE =
+  /(duel[eo]|dolor|doli[oó]|molest|lesi[oó]n|pinch|tir[oó]n|contractur|ardor|calambre|hurt|pain|sore|injur|ache)/
+
+/** ¿El texto pide respuesta? Una pregunta, o habla de dolor o molestia. */
+export function asksForReply(note) {
+  const body = String(note?.body || '')
+  if (body.includes('?')) return true
+  return PAIN_RE.test(normalizeText(body))
+}
+
 /**
- * Comentarios asociados del OTRO lado, sin responder, de los últimos 14 días,
- * más nuevos primero. Los marcados "Listo" (reply_dismissed_at) no cuentan.
+ * Comentarios asociados del OTRO lado que piden respuesta (pregunta, dolor o
+ * molestia), sin responder, de los últimos 14 días, más nuevos primero. Los
+ * marcados "Listo" (reply_dismissed_at) no cuentan.
  */
 export function pendingFor(
   notes = [],
@@ -405,6 +422,7 @@ export function pendingFor(
       (n) =>
         n.author_role !== viewerRole &&
         ASSOCIATED.has(n.context_type) &&
+        asksForReply(n) &&
         !n.reply_dismissed_at &&
         (Date.parse(n.created_at) || 0) >= since &&
         !isAnswered(n, live)
@@ -486,4 +504,63 @@ export function eventTarget(event, body = '') {
   const ctx = eventLogContext(event)
   if (!ctx) return null
   return { id: `ev:${event.id}`, isEvent: true, event, body, created_at: event.occurred_at, ...ctx }
+}
+
+// ── Filtro por ejercicio o texto (2026-10-22) ───────────────
+
+/** ¿El elemento de la línea de tiempo habla de ese ejercicio? */
+export function itemMatchesExercise(item, exerciseId) {
+  if (!item || !exerciseId) return false
+  if (item.type === 'event') return item.event?.exercise_id === exerciseId
+  if (item.note?.exercise_id === exerciseId) return true
+  return (item.links || []).some((l) => l.exercise_id === exerciseId)
+}
+
+/** ¿El texto del mensaje (o del motivo de la omisión) contiene la búsqueda? */
+export function itemMatchesText(item, query) {
+  const q = normalizeText(query).trim()
+  if (!q) return true
+  const text =
+    item?.type === 'event' ? item.event?.payload?.skip_note || '' : item?.note?.body || ''
+  return normalizeText(text).includes(` ${q}`) || normalizeText(text).includes(q)
+}
+
+/** Ejercicios que aparecen en la conversación, con cuántos elementos tiene cada uno. */
+export function exercisesInTimeline(items = []) {
+  const counts = new Map()
+  for (const it of items) {
+    const ids = new Set()
+    if (it.type === 'event' && it.event?.exercise_id) ids.add(it.event.exercise_id)
+    if (it.type === 'note') {
+      if (it.note?.exercise_id) ids.add(it.note.exercise_id)
+      for (const l of it.links || []) if (l.exercise_id) ids.add(l.exercise_id)
+    }
+    for (const id of ids) counts.set(id, (counts.get(id) || 0) + 1)
+  }
+  return counts
+}
+
+/**
+ * Ejercicios del plan activo agrupados por día, para "Sobre un ejercicio".
+ * @returns {Array<{plan, section, items: Array<plan_exercise>}>}
+ */
+export function planExerciseGroups(activePlans = []) {
+  const out = []
+  for (const plan of activePlans) {
+    for (const section of plan.sections || []) {
+      const items = (plan.exercises || []).filter((pe) => pe.section === section)
+      if (items.length) out.push({ plan, section, items })
+    }
+  }
+  return out
+}
+
+/** Primera aparición del ejercicio en un día del plan activo (o null). */
+export function firstPlanExerciseFor(activePlans = [], exerciseId) {
+  if (!exerciseId) return null
+  for (const g of planExerciseGroups(activePlans)) {
+    const pe = g.items.find((x) => x.exercise_id === exerciseId)
+    if (pe) return { pe, plan: g.plan, section: g.section }
+  }
+  return null
 }

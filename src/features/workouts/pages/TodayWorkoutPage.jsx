@@ -34,7 +34,14 @@ import {
   postWorkoutLogNote,
   postWorkoutBlockLogNote,
   getStudentThread,
+  createNote,
+  replyNote,
 } from '@/features/notes/api'
+import {
+  ExerciseChatContext,
+  exerciseMessageTarget,
+  pickPlanExercise,
+} from '../exerciseChatContext'
 import { buildSaveWorkoutLogArgs, extractNoteBody } from '../api'
 import { cleanupStaleDrafts } from '../draftStorage'
 import { saveActiveDay, resolveActiveDay } from '../activeDayStorage'
@@ -1189,6 +1196,55 @@ export default function TodayWorkoutPage() {
     }
   }, [])
 
+  // 2026-10-22 — escribir sobre un ejercicio desde Entrenar (recuadro "Con tu
+  // coach" y panel del ejercicio). Si el otro lado ya escribió, es respuesta
+  // a su último mensaje; si no, un comentario nuevo sobre el ejercicio del
+  // plan. No hace falta haber registrado.
+  const sendExerciseMessage = useCallback(
+    async (exerciseId, body) => {
+      if (!threadId || !exerciseId || !body?.trim()) return false
+      const target = exerciseMessageTarget(notesByExercise.get(exerciseId) || [], noteAuthorRole)
+      let res
+      if (target.kind === 'reply') {
+        res = await replyNote(target.parentId, {
+          body,
+          authorId: noteAuthorId,
+          authorRole: noteAuthorRole,
+        })
+      } else {
+        const pe = pickPlanExercise(planExercises, exerciseId, activeDay)
+        if (!pe) return false
+        res = await createNote({
+          threadId,
+          body,
+          authorId: noteAuthorId,
+          authorRole: noteAuthorRole,
+          contextType: 'plan_exercise',
+          contextId: pe.id,
+        })
+      }
+      if (res?.error) {
+        console.warn('[sendExerciseMessage]', res.error)
+        return false
+      }
+      await refetchExerciseNotes()
+      return true
+    },
+    [
+      threadId,
+      notesByExercise,
+      noteAuthorId,
+      noteAuthorRole,
+      planExercises,
+      activeDay,
+      refetchExerciseNotes,
+    ]
+  )
+  const exerciseChat = useMemo(
+    () => ({ notesByExercise, viewerRole: noteAuthorRole, send: sendExerciseMessage }),
+    [notesByExercise, noteAuthorRole, sendExerciseMessage]
+  )
+
   // Si el día activo ya no existe (cambió el plan), ir al primero disponible.
   // Importante: si activeDay todavía es null, NO setearlo acá — lo hace fetchWorkout con suggestNextDay.
   useEffect(() => {
@@ -1452,7 +1508,7 @@ export default function TodayWorkoutPage() {
   const activeDayStrengthMap = strengthIndexMap(activeDay)
 
   return (
-    <>
+    <ExerciseChatContext.Provider value={exerciseChat}>
       {/* Modal Wellbeing — se abre al tocar la WellbeingCard. v34: también en
           modo coach, con userId={studentId} (dueño del dato). La autoría real
           y la regla "el coach no pisa el wellbeing del alumno" las garantiza
@@ -1496,6 +1552,10 @@ export default function TodayWorkoutPage() {
           threadId={threadId}
           currentUserId={profile?.id}
           notesCache={notesByExercise}
+          onSend={(body) => sendExerciseMessage(chatDrawer.exerciseId, body)}
+          placeholder={
+            coachMode ? t('workout.exChat.placeholderCoach') : t('workout.exChat.placeholderWrite')
+          }
         />
       )}
 
@@ -1952,6 +2012,6 @@ export default function TodayWorkoutPage() {
           })}
         </div>
       </div>
-    </>
+    </ExerciseChatContext.Provider>
   )
 }

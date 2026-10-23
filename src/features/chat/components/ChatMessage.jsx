@@ -1,5 +1,6 @@
-// Un mensaje del chat. Si es de la coach y lo mira la coach, tiene el menú
-// para guardarlo (nota privada, plan, día) y las etiquetas de lo guardado.
+// Un mensaje del chat. Menú corto (2026-10-22): responder, listo, editar,
+// copiar y borrar. La etiqueta del ejercicio filtra la conversación por él.
+// Las copias guardadas antes en el plan se siguen viendo como etiquetas.
 
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -44,6 +45,7 @@ export default function ChatMessage({
   pending = false,
   picking = false,
   onPick,
+  onFilterExercise,
 }) {
   const { t } = useTranslation()
   const note = item.note
@@ -197,12 +199,23 @@ export default function ChatMessage({
               {item.fromCopy ? t('chat.privateFromMessage') : t('chat.privateNote')}
             </p>
           )}
-          {ctx && (
-            <p className="text-[11px] font-medium text-primary-700 flex items-center gap-1 mb-0.5 break-words">
-              <Dumbbell size={11} aria-hidden="true" />
-              {ctx}
-            </p>
-          )}
+          {ctx &&
+            (note.exercise_id && onFilterExercise && !picking ? (
+              <button
+                type="button"
+                onClick={() => onFilterExercise(note.exercise_id)}
+                className="text-[11px] font-medium text-primary-700 flex items-center gap-1 mb-0.5 break-words text-left hover:underline"
+                title={t('chat.filter.byExerciseHint')}
+              >
+                <Dumbbell size={11} aria-hidden="true" />
+                {ctx}
+              </button>
+            ) : (
+              <p className="text-[11px] font-medium text-primary-700 flex items-center gap-1 mb-0.5 break-words">
+                <Dumbbell size={11} aria-hidden="true" />
+                {ctx}
+              </p>
+            ))}
           {parent && (
             <p className="text-xs text-texto2 border-l-2 border-gray-300 pl-2 mb-1 line-clamp-2 break-words">
               <CornerDownRight size={11} className="inline mr-1" aria-hidden="true" />
@@ -295,28 +308,6 @@ export default function ChatMessage({
                       onClick={() => act('dismiss')}
                     />
                   ))}
-                {ownCoachMsg && !isPrivate && (
-                  <>
-                    <MenuItem
-                      Icon={Lock}
-                      title={t('chat.menu.private')}
-                      hint={t('chat.menu.privateHint')}
-                      onClick={() => act('private')}
-                    />
-                    <MenuItem
-                      Icon={Pin}
-                      title={t('chat.menu.plan')}
-                      hint={t('chat.menu.planHint')}
-                      onClick={() => act('plan')}
-                    />
-                    <MenuItem
-                      Icon={CalendarDays}
-                      title={t('chat.menu.day')}
-                      hint={t('chat.menu.dayHint')}
-                      onClick={() => act('day')}
-                    />
-                  </>
-                )}
                 {ownCoachMsg && (
                   <MenuItem Icon={Pencil} title={t('chat.menu.edit')} onClick={() => act('edit')} />
                 )}
@@ -333,6 +324,29 @@ export default function ChatMessage({
           </div>
         )}
       </div>
+
+      {/* Pendiente: las dos acciones a la vista, sin abrir el menú (celular). */}
+      {pending && canDismiss && !note.reply_dismissed_at && !editing && !picking && (
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => onAction?.('reply', note)}
+            className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-texto2 min-h-[32px]"
+          >
+            <CornerUpLeft size={13} aria-hidden="true" />
+            {t('chat.menu.reply')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onAction?.('dismiss', note)}
+            className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-texto2 min-h-[32px]"
+            title={t('chat.menu.dismiss')}
+          >
+            <CheckCheck size={13} aria-hidden="true" />
+            {t('chat.listo')}
+          </button>
+        </div>
+      )}
 
       {confirmDelete && (
         <div

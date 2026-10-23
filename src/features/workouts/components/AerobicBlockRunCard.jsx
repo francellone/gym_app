@@ -433,6 +433,7 @@ export default function AerobicBlockRunCard({
               <ExerciseHistoryBodyBlock
                 previewNote={previewNote}
                 noteCount={noteCount}
+                exerciseId={exerciseId}
                 onOpenChat={handleOpenChat}
               />
             )}

@@ -597,7 +597,18 @@
     "dayNote": "Nota de tu coach para este día",
     "dayNoteCoachMode": "Nota para este día",
     "dayNoteMore_one": "Y {{count}} nota más en el chat",
-    "dayNoteMore_other": "Y {{count}} notas más en el chat"
+    "dayNoteMore_other": "Y {{count}} notas más en el chat",
+    "exChat": {
+      "title": "Con tu coach",
+      "titleCoach": "Mensajes de este ejercicio",
+      "yourCoach": "Tu coach",
+      "replyLabel": "Mensaje sobre este ejercicio",
+      "placeholderReply": "Responderle a tu coach…",
+      "placeholderWrite": "Escribirle a tu coach…",
+      "placeholderCoach": "Escribir sobre este ejercicio…",
+      "seeAll_one": "Ver {{count}} mensaje",
+      "seeAll_other": "Ver los {{count}} mensajes"
+    }
   },
   "progress": {
     "title": "Mi progreso",
@@ -1461,7 +1472,12 @@
       "plan": "Guardado en el plan",
       "private": "Notas privadas",
       "planYou": "En tu plan",
-      "pending": "Pendientes"
+      "pending": "Pendientes",
+      "byExerciseHint": "Ver solo lo de este ejercicio",
+      "clear": "Quitar filtro",
+      "exercise": "Ejercicio",
+      "count_one": "{{count}} elemento",
+      "count_other": "{{count}} elementos"
     },
     "menu": {
       "reply": "Responder",
@@ -1484,7 +1500,8 @@
       "block": "Bloque",
       "evaluation": "Sobre una evaluación",
       "planDay": "{{plan}}, Día {{day}}",
-      "loggedOn": "registro del {{date}}"
+      "loggedOn": "registro del {{date}}",
+      "exerciseOnly": "Ejercicio"
     },
     "link": {
       "private": "Nota privada",
@@ -1598,6 +1615,35 @@
       "discomfort": "por una molestia",
       "unclear": "no sabía cómo",
       "other": "otro motivo"
+    },
+    "listo": "Listo",
+    "composer": {
+      "placeholderTo": "Escribile a {{name}}…",
+      "aboutPlaceholder": "Escribí sobre este ejercicio…",
+      "replyingTo": "Respondiendo a {{what}}",
+      "cancelReply": "No responder",
+      "about": "Sobre: {{what}}",
+      "aboutHint": "Lo ve en Entrenar, en ese ejercicio, y lo puede contestar ahí",
+      "withoutExercise": "Mandar sin ejercicio",
+      "aboutExercise": "Escribir sobre un ejercicio"
+    },
+    "picker": {
+      "title": "¿Sobre qué ejercicio?",
+      "hint": "Lo que escribas le aparece a {{name}} en Entrenar, en ese ejercicio, y lo puede contestar ahí.",
+      "thePerson": "la persona",
+      "search": "Buscar ejercicio",
+      "noPlan": "No tiene un plan activo con ejercicios.",
+      "noMatch": "Ningún ejercicio con ese nombre.",
+      "messages_one": "{{count}} mensaje",
+      "messages_other": "{{count}} mensajes"
+    },
+    "search": {
+      "open": "Buscar ejercicio o palabra",
+      "title": "Buscar en la conversación",
+      "placeholder": "Ejercicio o palabra",
+      "inMessages": "Buscar “{{q}}” en los mensajes",
+      "exercises": "Ejercicios de esta conversación",
+      "noExercises": "Ningún ejercicio con ese nombre."
     }
   }
 }
