@@ -1501,7 +1501,10 @@
       "evaluation": "About an assessment",
       "planDay": "{{plan}}, Day {{day}}",
       "loggedOn": "logged on {{date}}",
-      "exerciseOnly": "Exercise"
+      "exerciseOnly": "Exercise",
+      "trainingDay": "Training day",
+      "trainedOn": "trained on {{date}}",
+      "event": "About an event"
     },
     "link": {
       "private": "Private note",
@@ -1575,7 +1578,8 @@
       "skipped": "{{name}} skipped {{item}} · {{reason}}",
       "skippedYou": "You skipped {{item}} · {{reason}}",
       "valueRepsAtWeight": "{{value}} reps with {{weight}} kg",
-      "valueSecondsAtWeight": "{{value}} s with {{weight}} kg"
+      "valueSecondsAtWeight": "{{value}} s with {{weight}} kg",
+      "answer": "Answer"
     },
     "weekQuestion": {
       "v0": "Another week done! How did the loads and exercises feel?",

@@ -18,6 +18,7 @@ import {
   CornerUpLeft,
   CheckCheck,
   Undo2,
+  PartyPopper,
   Trash2,
 } from 'lucide-react'
 import { linkKindOf } from '../chatModel'
@@ -67,6 +68,13 @@ export default function ChatMessage({
   }, [menu])
 
   const ctx = contextLabel(t, note, labels, fmtDate)
+  // v78: el ícono de la etiqueta dice sobre qué es (día, evento o ejercicio)
+  const CtxIcon =
+    note.context_type === 'session_day'
+      ? CalendarDays
+      : note.context_type === 'chat_event'
+        ? PartyPopper
+        : Dumbbell
   const visibleLinks = item.links.filter(
     (l) => viewerRole === 'coach' || linkKindOf(l) !== 'private'
   )
@@ -212,7 +220,7 @@ export default function ChatMessage({
               </button>
             ) : (
               <p className="text-[11px] font-medium text-primary-700 flex items-center gap-1 mb-0.5 break-words">
-                <Dumbbell size={11} aria-hidden="true" />
+                <CtxIcon size={11} aria-hidden="true" />
                 {ctx}
               </p>
             ))}
@@ -250,7 +258,13 @@ export default function ChatMessage({
               </div>
             </div>
           ) : (
-            <p className="whitespace-pre-wrap break-words">{note.body}</p>
+            <p className="whitespace-pre-wrap break-words">
+              {/* v78: las observaciones del día viejas traen "[Día A] " adelante;
+                  ahora el día va en la etiqueta. */}
+              {note.context_type === 'session_day'
+                ? note.body.replace(/^\[[^\]]+\]\s*/, '')
+                : note.body}
+            </p>
           )}
           {timeLabel && (
             <p className="text-[10.5px] text-texto3 mt-0.5 text-right">

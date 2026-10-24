@@ -72,8 +72,9 @@ export default function ChatEventCard({
   wellbeingLogs,
   timeLabel,
   pending = false,
-  canAnswer = false, // la coach puede responder / marcar Listo (omisiones)
+  canAnswer = false, // la coach puede responder (cualquier evento) / marcar Listo (omisiones)
   onReply,
+  onAnswerQuestion, // v78: la persona contesta la pregunta de la semana
   onDismiss,
   picking = false,
   onPick,
@@ -153,6 +154,16 @@ export default function ChatEventCard({
           </p>
           <p className="break-words">{t(weekQuestionKey(event))}</p>
           <WellbeingGrid summary={summary} />
+          {onAnswerQuestion && (
+            <button
+              type="button"
+              onClick={() => onAnswerQuestion(event)}
+              className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1.5 border border-salvia-600 text-salvia-800 bg-white text-xs font-medium min-h-[32px]"
+            >
+              <CornerUpLeft size={12} aria-hidden="true" />
+              {t('chat.event.answer')}
+            </button>
+          )}
         </div>
       )}
     </>

@@ -153,6 +153,17 @@ export function contextLabel(t, note, labels, fmtDate) {
         where(note.plan_id || pe?.plan_id, pe?.section)
       )
     }
+    case 'session_day': {
+      // v78: observación del día entrenado
+      const letter = dayLetter(note.plan_section)
+      return join(
+        letter ? t('chat.dayShort', { day: letter }) : t('chat.context.trainingDay'),
+        date && t('chat.context.trainedOn', { date })
+      )
+    }
+    case 'chat_event':
+      // v78: respuesta a un evento (semana, día, marca, plan)
+      return labels.eventLabel?.(note.chat_event_id || note.context_id) || t('chat.context.event')
     case 'exercise':
       return ex ? t('chat.context.exercise', { exercise: ex }) : null
     case 'evaluation_test':

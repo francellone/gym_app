@@ -499,9 +499,16 @@ export function pendingEvents(
     .sort((a, b) => (Date.parse(b.occurred_at) || 0) - (Date.parse(a.occurred_at) || 0))
 }
 
-/** Destino "responder a este evento": nota sintética con el contexto del registro. */
+/**
+ * Destino "responder a este evento": nota sintética con su contexto. Las
+ * omisiones se responden sobre el registro omitido; el resto de los eventos
+ * (semana, día, marca, plan) quedan atados al evento (v78, chat_event).
+ */
 export function eventTarget(event, body = '') {
-  const ctx = eventLogContext(event)
+  if (!event) return null
+  const ctx = SKIP_KINDS.has(event.kind)
+    ? eventLogContext(event)
+    : { context_type: 'chat_event', context_id: event.id }
   if (!ctx) return null
   return { id: `ev:${event.id}`, isEvent: true, event, body, created_at: event.occurred_at, ...ctx }
 }

@@ -1352,6 +1352,8 @@ export default function TodayWorkoutPage() {
           body: effortNotes,
           authorId: noteAuthorId,
           authorRole: noteAuthorRole,
+          sessionId: session?.id || null,
+          section: day,
         })
         if (noteErr) {
           console.warn('[saveDayPSE] no se pudo publicar la nota en el panel:', noteErr)

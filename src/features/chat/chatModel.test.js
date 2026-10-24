@@ -428,3 +428,18 @@ describe('respondido sobre el mismo ejercicio', () => {
     expect(pendingFor(notes, 'coach', { now: Date.parse('2026-10-16T12:00:00Z') })).toEqual([])
   })
 })
+
+// v78 — responder a cualquier evento queda atado al evento.
+describe('eventTarget para eventos que no son omisiones', () => {
+  it('semana completa / marca → chat_event con el id del evento', () => {
+    expect(eventTarget({ id: 'w1', kind: 'week_complete', occurred_at: 'x' })).toMatchObject({
+      isEvent: true,
+      context_type: 'chat_event',
+      context_id: 'w1',
+    })
+    expect(eventTarget({ id: 'b1', kind: 'personal_best' }).context_type).toBe('chat_event')
+  })
+  it('sin evento → null', () => {
+    expect(eventTarget(null)).toBe(null)
+  })
+})

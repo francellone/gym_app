@@ -297,6 +297,7 @@ export async function createNote(payload) {
     authorRole,
     muscleGroup, // Fase B++: solo aplica cuando contextType='free'
     noteDate, // Fase D step 2 (v26b): fecha sobre la que habla la nota
+    planSection, // v78: día del plan (session_day / plan)
   } = payload || {}
 
   // ── Validaciones ────────────────────────────────────────
@@ -367,6 +368,11 @@ export async function createNote(payload) {
   // context_type el trigger lo deriva del log/source.
   if (ctxType === 'free' && noteDate) {
     insertRow.note_date = noteDate
+  }
+
+  // v78: el día del plan lo manda el cliente (el resolvedor lo respeta).
+  if (planSection && (ctxType === 'session_day' || ctxType === 'plan')) {
+    insertRow.plan_section = planSection
   }
 
   const { data, error } = await supabase.from('notes').insert(insertRow).select().single()
@@ -811,6 +817,8 @@ export async function postPSEDayNote({
   body,
   authorId,
   authorRole,
+  sessionId, // v78: con la sesión, la observación queda atada al día entrenado
+  section,
 }) {
   if (!studentId) {
     return {
@@ -842,6 +850,21 @@ export async function postPSEDayNote({
         raw: null,
       },
     }
+  }
+
+  // v78 (2026-10-23): atada a la sesión y al día (context_type='session_day').
+  // Sin sesión (no debería pasar) queda como antes: mensaje suelto con prefijo.
+  if (sessionId) {
+    return createNote({
+      threadId: thread.id,
+      body: clean,
+      visibility: 'shared',
+      contextType: 'session_day',
+      contextId: sessionId,
+      planSection: section || null,
+      authorId: author.id,
+      authorRole: author.role,
+    })
   }
 
   const prefixedBody = dayLabel ? `[${dayLabel}] ${clean}` : clean

@@ -183,6 +183,7 @@ const {
   fetchSingleMirrorBodies,
   fetchEvalMirrorBodies,
   postEvalCommentNote,
+  postPSEDayNote,
 } = await import('./api')
 
 const STUDENT = 'student-uuid'
@@ -367,5 +368,36 @@ describe('mirrors — respuestas y copias no son el comentario', () => {
     const isCalls = supabaseMock._chain.is.mock.calls.map((c) => c[0])
     expect(isCalls).toEqual(expect.arrayContaining(['parent_note_id', 'source_note_id']))
     expect(supabaseMock._chain.limit).toHaveBeenCalledWith(1)
+  })
+})
+
+// v78 — la observación del día queda atada a la sesión y al día.
+describe('postPSEDayNote (v78)', () => {
+  beforeEach(() => {
+    resetSupabaseMock(supabaseMock)
+    supabaseMock.rpc.mockResolvedValue({ data: { id: 'thread-1' }, error: null })
+    supabaseMock._chain.single.mockResolvedValue({ data: { id: 'note-new' }, error: null })
+  })
+
+  it('con sesión: session_day, sin prefijo, con el día', async () => {
+    await postPSEDayNote({
+      studentId: STUDENT,
+      sessionLoggedDate: '2026-10-20',
+      dayLabel: 'Día A',
+      body: 'me sentí bien',
+      sessionId: 'ses-1',
+      section: 'day_a',
+    })
+    expect(insertedRow()).toMatchObject({
+      context_type: 'session_day',
+      context_id: 'ses-1',
+      plan_section: 'day_a',
+      body: 'me sentí bien',
+    })
+  })
+
+  it('sin sesión: como antes (mensaje suelto con prefijo)', async () => {
+    await postPSEDayNote({ studentId: STUDENT, dayLabel: 'Día A', body: 'ok' })
+    expect(insertedRow()).toMatchObject({ context_type: 'free', body: '[Día A] ok' })
   })
 })

@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 
 export const NOTE_FIELDS =
-  'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section, workout_log_id, workout_block_log_id, reply_dismissed_at'
+  'id, thread_id, author_id, author_role, body, visibility, context_type, context_id, exercise_id, parent_note_id, note_date, read_at_coach, read_at_student, created_at, updated_at, deleted_at, source_note_id, plan_id, plan_exercise_id, plan_section, workout_log_id, workout_block_log_id, reply_dismissed_at, workout_session_id, chat_event_id'
 
 export const EVENT_FIELDS =
   'id, thread_id, student_id, kind, milestone_id, workout_log_id, workout_block_log_id, exercise_id, payload, occurred_at, created_at, read_at_coach, read_at_student, reply_dismissed_at'

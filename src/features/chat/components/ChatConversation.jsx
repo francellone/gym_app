@@ -16,7 +16,6 @@ import {
   pendingFor,
   pendingEvents,
   eventTarget,
-  SKIP_KINDS,
   dayLetter,
   itemMatchesExercise,
   itemMatchesText,
@@ -147,6 +146,24 @@ export default function ChatConversation({
     return items
   }, [timeline, filter, pendingIds, pendingEvIds, exerciseFilter, textFilter])
   const notesById = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
+  // v78: etiqueta de las respuestas a un evento ("Semana completa", "Mejor marca…")
+  const labelsX = useMemo(() => {
+    const byId = new Map(events.map((e) => [e.id, e]))
+    return {
+      ...labels,
+      eventLabel: (id) => {
+        const ev = byId.get(id)
+        if (!ev) return null
+        return eventTitle(t, ev, {
+          viewerRole,
+          name: studentName,
+          exerciseName: ev.exercise_id ? labels.exercises.get(ev.exercise_id)?.name : null,
+          lng: i18n.language,
+        })
+      },
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labels, events, viewerRole, studentName, t])
   const threadExercises = useMemo(() => exercisesInTimeline(timeline), [timeline])
   const groups = useMemo(() => planExerciseGroups(activePlans), [activePlans])
 
@@ -179,9 +196,9 @@ export default function ChatConversation({
     (n) =>
       n?.isEvent
         ? eventTitle(t, n.event, { viewerRole, name: studentName, lng: i18n.language })
-        : contextLabel(t, n, labels, fmt.shortDate),
+        : contextLabel(t, n, labelsX, fmt.shortDate),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, labels, viewerRole, studentName]
+    [t, labelsX, viewerRole, studentName]
   )
 
   useLayoutEffect(() => {
@@ -400,8 +417,13 @@ export default function ChatConversation({
                     wellbeingLogs={wellbeing}
                     timeLabel={fmt.time(it.at)}
                     pending={pendingEvIds.has(it.event.id)}
-                    canAnswer={isCoach && SKIP_KINDS.has(it.event.kind)}
+                    canAnswer={isCoach}
                     onReply={(ev) => chooseReply(eventTarget(ev, ev.payload?.skip_note || ''))}
+                    onAnswerQuestion={
+                      !isCoach && it.event.kind === 'week_complete'
+                        ? (ev) => chooseReply(eventTarget(ev))
+                        : undefined
+                    }
                     onDismiss={async (ev, dismiss) => {
                       const { error: err } = await dismissEvent(ev.id, dismiss)
                       if (err) setActionError(t('chat.sheet.saveError'))
@@ -412,7 +434,7 @@ export default function ChatConversation({
                   <ChatMessage
                     item={it}
                     viewerRole={viewerRole}
-                    labels={labels}
+                    labels={labelsX}
                     parent={it.note.parent_note_id ? notesById.get(it.note.parent_note_id) : null}
                     timeLabel={fmt.time(it.at)}
                     fmtDate={fmt.shortDate}
