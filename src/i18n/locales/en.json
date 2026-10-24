@@ -1579,7 +1579,9 @@
       "skippedYou": "You skipped {{item}} · {{reason}}",
       "valueRepsAtWeight": "{{value}} reps with {{weight}} kg",
       "valueSecondsAtWeight": "{{value}} s with {{weight}} kg",
-      "answer": "Answer"
+      "answer": "Answer",
+      "wellbeingYou": "You shared how you feel",
+      "wellbeing": "{{name}} shared how they feel"
     },
     "weekQuestion": {
       "v0": "Another week done! How did the loads and exercises feel?",

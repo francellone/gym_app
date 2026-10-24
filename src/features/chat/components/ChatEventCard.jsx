@@ -26,6 +26,7 @@ const TONE = {
   personal_best: { Icon: Trophy, cls: 'bg-durazno-100 text-primary-700' },
   exercise_unclear: { Icon: HelpCircle, cls: 'bg-amber-100 text-amber-700' },
   exercise_skipped: { Icon: SkipForward, cls: 'bg-gray-100 text-gray-700' },
+  wellbeing_note: { Icon: Leaf, cls: 'bg-salvia-100 text-salvia-700' },
 }
 
 const METRIC_BY_KEY = Object.fromEntries(WELLBEING_METRICS.map((m) => [m.key, m]))

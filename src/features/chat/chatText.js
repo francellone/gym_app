@@ -56,6 +56,9 @@ export function eventTitle(t, event, { viewerRole, name, exerciseName, lng }) {
           defaultValue: t('chat.skipReason.other'),
         }),
       })
+    case 'wellbeing_note':
+      // v79: la nota del bienestar diario
+      return t(you ? 'chat.event.wellbeingYou' : 'chat.event.wellbeing', ctx)
     default:
       return ''
   }
@@ -78,6 +81,8 @@ export function eventDetail(t, event, lng) {
     case 'exercise_unclear':
     case 'exercise_skipped':
       return p.skip_note ? `“${p.skip_note}”` : ''
+    case 'wellbeing_note':
+      return p.note ? `“${p.note}”` : ''
     default:
       return ''
   }

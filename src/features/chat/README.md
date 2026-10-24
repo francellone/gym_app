@@ -27,6 +27,11 @@ Sección **Chat** de la coach (barra lateral, `/coach/chat/:studentId`) y **Chat
 - **Día entrenado**: la observación que se escribe al cerrar el día (con el esfuerzo) es una nota `context_type='session_day'` (`context_id` = `workout_sessions.id`, `plan_section` = el día). Clave propia `notes.workout_session_id`. Etiqueta "Día A · entrenado el 20/10". Las viejas "[Día A] …" se ataron a su sesión en la migración (si había una sola ese día; constancia en `backup_v78_dia`); el front no muestra el prefijo.
 - **Eventos**: responder a cualquier evento (semana, día, marca, plan) crea una nota `context_type='chat_event'` (clave `notes.chat_event_id`; hereda fecha, ejercicio y registro del evento). La coach tiene "Responder" en todos los eventos; la persona "Contestar" en la pregunta de la semana. Las omisiones siguen respondiéndose sobre el registro omitido.
 
+## Nota del bienestar (v79, 2026-10-24)
+
+- La nota que la persona escribe en el bienestar diario llega al chat como evento `wellbeing_note` (`chat_events.wellbeing_log_id`, trigger `trg_chat_event_wellbeing`). Entra no leída para la coach; si la persona la cambia, vuelve a no leída; si la borra, se va. La que carga la coach no genera evento. Las notas viejas se cargaron como leídas.
+- Pide respuesta (Pendientes) si pregunta o habla de dolor/molestia; la coach la responde como cualquier evento.
+
 ## Pendientes (coach)
 
 - **Respondido** = hay una respuesta, o una nota posterior del otro lado sobre el mismo registro (la coach muchas veces contesta desde Entrenar o la tabla de progreso).
@@ -53,4 +58,4 @@ Sección **Chat** de la coach (barra lateral, `/coach/chat/:studentId`) y **Chat
 - `chatApi.js`: consultas, RPCs y realtime. `useChatThread.js`, `useCoachChatUnread.js`.
 - `components/`: `ChatConversation`, `ChatMessage`, `ChatEventCard`, `ChatComposer`, `ChatSheets` (pesa y lupa).
 - `pages/CoachChatPage.jsx`.
-- Migraciones: v75 (`20261016230000`), v76 (`20261016240000`), v77 (`20261016250000`), v78 (`20261023160000`).
+- Migraciones: v75 (`20261016230000`), v76 (`20261016240000`), v77 (`20261016250000`), v78 (`20261023160000`), v79 (`20261024190000`).

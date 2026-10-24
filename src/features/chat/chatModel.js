@@ -472,6 +472,12 @@ export function eventLogContext(event) {
  * Omisiones pendientes para la coach: piden respuesta, últimos 14 días, sin
  * "Listo" y sin una nota de la coach sobre ese registro posterior al evento.
  */
+export function eventNeedsReply(event) {
+  if (skipNeedsReply(event)) return true
+  // v79: la nota del bienestar pide respuesta si pregunta o habla de dolor/molestia
+  return event?.kind === 'wellbeing_note' && asksForReply({ body: event.payload?.note })
+}
+
 export function pendingEvents(
   events = [],
   notes = [],
@@ -480,10 +486,12 @@ export function pendingEvents(
   const since = now - days * 86400000
   return events
     .filter((e) => {
-      if (!skipNeedsReply(e) || e.reply_dismissed_at) return false
+      if (!eventNeedsReply(e) || e.reply_dismissed_at) return false
       const at = Date.parse(e.occurred_at || e.created_at) || 0
       if (at < since) return false
-      const ctx = eventLogContext(e)
+      const ctx = SKIP_KINDS.has(e.kind)
+        ? eventLogContext(e)
+        : { context_type: 'chat_event', context_id: e.id }
       if (!ctx) return false
       return !notes.some(
         (n) =>

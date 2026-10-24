@@ -443,3 +443,33 @@ describe('eventTarget para eventos que no son omisiones', () => {
     expect(eventTarget(null)).toBe(null)
   })
 })
+
+// v79 — la nota del bienestar en el chat
+describe('nota del bienestar', () => {
+  const NOW = Date.parse('2026-10-24T12:00:00Z')
+  const ev = (note, extra = {}) => ({
+    id: 'wb1',
+    kind: 'wellbeing_note',
+    occurred_at: '2026-10-24T09:00:00Z',
+    payload: { note },
+    ...extra,
+  })
+  it('pide respuesta si pregunta o habla de dolor', () => {
+    expect(pendingEvents([ev('me duele la espalda')], [], { now: NOW }).map((e) => e.id)).toEqual([
+      'wb1',
+    ])
+    expect(pendingEvents([ev('dormí bien')], [], { now: NOW })).toEqual([])
+  })
+  it('respondida por la coach (nota sobre el evento) sale de Pendientes', () => {
+    const notes = [
+      {
+        id: 'c1',
+        author_role: 'coach',
+        context_type: 'chat_event',
+        context_id: 'wb1',
+        created_at: '2026-10-24T10:00:00Z',
+      },
+    ]
+    expect(pendingEvents([ev('me duele')], notes, { now: NOW })).toEqual([])
+  })
+})
