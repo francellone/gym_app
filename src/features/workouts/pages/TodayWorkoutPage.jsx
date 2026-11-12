@@ -58,7 +58,11 @@ import {
   daysPendingPSE,
   isWeekComplete,
 } from '../sessionProgress'
-import { readWorkoutSnapshot, writeWorkoutSnapshot } from '../workoutSnapshot'
+import {
+  readWorkoutSnapshot,
+  readStalePlanSnapshot,
+  writeWorkoutSnapshot,
+} from '../workoutSnapshot'
 import BlockRenderer from '../components/BlockRenderer'
 import {
   fetchPrescriptionHistory,
@@ -111,6 +115,23 @@ const DAY_SHORT_LABELS = {
 
 // BlockRenderer, isBlockCompleted y isSectionCompleted viven en
 // `../components/BlockRenderer` y `../helpers` desde el 21/05.
+
+// Día a mostrar mientras se confirma el plan (primer arranque del día): la
+// misma regla de siempre (suggestNextDay) sobre lo que quedó guardado. Es
+// provisorio: fetchWorkout lo vuelve a resolver con los datos reales.
+function provisionalDayFromSeed(seed, todayStr) {
+  if (!seed) return null
+  try {
+    const blocks = groupExercisesIntoBlocks(seed.planExercises, seed.planBlocks)
+    const withContent = new Set(blocks.map((b) => b.section).filter(Boolean))
+    const days = DAY_SECTION_IDS.filter((id) => withContent.has(id))
+    const exSection = {}
+    for (const ex of seed.planExercises) exSection[ex.id] = ex.section
+    return suggestNextDay(days, seed.dayHints, exSection, todayStr)
+  } catch {
+    return null
+  }
+}
 
 // ============================================================
 // Página principal
@@ -217,7 +238,27 @@ export default function TodayWorkoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
-  const [studentName, setStudentName] = useState(initialSnapshot?.studentName ?? '')
+  // Primer arranque del día (no hay snapshot de hoy): pintamos la ESTRUCTURA
+  // del plan del último snapshot en SOLO LECTURA mientras fetchWorkout trae
+  // el plan vigente. `planStale` bloquea la carga y la escritura del snapshot
+  // hasta que la red confirma; si el plan cambió, se reemplaza entero.
+  const staleSeed = useMemo(
+    () => (initialSnapshot ? null : readStalePlanSnapshot({ studentId })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+  const [planStale, setPlanStale] = useState(Boolean(staleSeed))
+  const planStaleRef = useRef(Boolean(staleSeed))
+  // La actualización falló: el aviso pasa a ofrecer "Reintentar".
+  const [staleError, setStaleError] = useState(false)
+  const markPlanFresh = () => {
+    planStaleRef.current = false
+    setPlanStale(false)
+    setStaleError(false)
+  }
+  const [studentName, setStudentName] = useState(
+    initialSnapshot?.studentName ?? staleSeed?.studentName ?? ''
+  )
   // Label de día traducida para display (la constante DAY_SHORT_LABELS se
   // mantiene para los textos que van a la DB, ej. prefijo de notas PSE).
   const dayShortLabel = (id) =>
@@ -226,16 +267,22 @@ export default function TodayWorkoutPage() {
   // mantiene para textos canónicos que van a la DB, ej. prefijo de notas PSE).
   const sectionLabel = (id) =>
     t(`workout.sections.${id}`, { defaultValue: SECTION_LABELS[id] || '' })
-  const [loading, setLoading] = useState(!initialSnapshot)
-  const [assignment, setAssignment] = useState(initialSnapshot?.assignment ?? null)
+  const [loading, setLoading] = useState(!initialSnapshot && !staleSeed)
+  const [assignment, setAssignment] = useState(
+    initialSnapshot?.assignment ?? staleSeed?.assignment ?? null
+  )
   // Descripción del plan (texto libre que carga el coach) — colapsable en el
   // header. Arranca cerrada para no empujar los ejercicios cada día.
   const [showPlanDesc, setShowPlanDesc] = useState(false)
-  const [planExercises, setPlanExercises] = useState(initialSnapshot?.planExercises ?? [])
+  const [planExercises, setPlanExercises] = useState(
+    initialSnapshot?.planExercises ?? staleSeed?.planExercises ?? []
+  )
   // %RM (v39) — Map<exercise_id, {oneRm, date}> de esta persona. Los kilos de
   // un ejercicio prescripto por % se derivan de acá (nunca vienen en el plan).
   const [oneRmMap, setOneRmMap] = useState(null)
-  const [planBlocks, setPlanBlocks] = useState(initialSnapshot?.planBlocks ?? [])
+  const [planBlocks, setPlanBlocks] = useState(
+    initialSnapshot?.planBlocks ?? staleSeed?.planBlocks ?? []
+  )
   const [logs, setLogs] = useState(initialSnapshot?.logs ?? {})
   const [blockLogs, setBlockLogs] = useState(initialSnapshot?.blockLogs ?? {})
   const [session, setSession] = useState(initialSnapshot?.session ?? null)
@@ -263,7 +310,7 @@ export default function TodayWorkoutPage() {
   // Q1 — id del thread del alumno (1:1 con su coach). Se resuelve una sola
   // vez en fetchWorkout. Necesario para que el drawer pueda hacer fetch
   // si no hay cache.
-  const [threadId, setThreadId] = useState(initialSnapshot?.threadId ?? null)
+  const [threadId, setThreadId] = useState(initialSnapshot?.threadId ?? staleSeed?.threadId ?? null)
   // Q1 — drawer del chat del ejercicio: null cerrado, sino { exerciseId,
   // exerciseName }.
   const [chatDrawer, setChatDrawer] = useState(null)
@@ -294,7 +341,13 @@ export default function TodayWorkoutPage() {
     }
   }, [coachMode, studentId])
   // activeDay arranca null: se setea automáticamente al "siguiente día lógico" en la primera carga.
-  const [activeDay, setActiveDay] = useState(initialSnapshot?.activeDay ?? null)
+  // Con staleSeed el día es provisorio (dayInitializedRef queda en false para
+  // que fetchWorkout lo resuelva de verdad).
+  const [activeDay, setActiveDay] = useState(
+    () =>
+      initialSnapshot?.activeDay ??
+      provisionalDayFromSeed(staleSeed, format(new Date(), 'yyyy-MM-dd'))
+  )
   // PSE modal por día: null | 'day_a' | 'day_b' | ...
   const [showPSEForDay, setShowPSEForDay] = useState(null)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -346,7 +399,9 @@ export default function TodayWorkoutPage() {
   // en frío se pinte al instante sin spinner. Debounce 600ms para no serializar
   // en cada micro-cambio. Ver [[restore-last-route-pwa]] (parte E).
   useEffect(() => {
-    if (loading || !assignment || !studentId) return
+    // planStale: lo que hay en pantalla es de otro día y sin confirmar; no se
+    // guarda como snapshot de hoy (si no, mañana pasaría por datos buenos).
+    if (loading || planStale || !assignment || !studentId) return
     if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
     snapshotTimerRef.current = setTimeout(() => {
       writeWorkoutSnapshot({
@@ -376,6 +431,7 @@ export default function TodayWorkoutPage() {
     }
   }, [
     loading,
+    planStale,
     assignment,
     planExercises,
     planBlocks,
@@ -421,9 +477,11 @@ export default function TodayWorkoutPage() {
     // revalidamos SIN spinner (los datos ya están en pantalla). Sólo mostramos
     // spinner cuando no hay nada cacheado que mostrar. Robusto ante re-disparos
     // del efecto (p.ej. AuthContext revalida y produce un objeto profile nuevo).
-    if (!readWorkoutSnapshot({ studentId, selectedDate })) {
+    // Tampoco con el plan de otro día pintado en solo lectura (planStale).
+    if (!planStaleRef.current && !readWorkoutSnapshot({ studentId, selectedDate })) {
       setLoading(true)
     }
+    setStaleError(false)
     try {
       // Modo coach: resolver el nombre del alumno para el banner del header.
       if (coachMode && !studentName) {
@@ -435,12 +493,15 @@ export default function TodayWorkoutPage() {
         setStudentName(studentProfile?.name || '')
       }
 
-      const { data: allActiveAssignments } = await supabase
+      const { data: allActiveAssignments, error: assignErr } = await supabase
         .from('plan_assignments')
         .select('*, plan:plans!plan_id(*)')
         .eq('student_id', studentId)
         .eq('active', true)
         .order('created_at', { ascending: false })
+      // Sin esto, un error de red se leía como "no tiene plan" y borraba el
+      // plan pintado. Con error, se conserva lo que hay (en solo lectura).
+      if (assignErr) throw assignErr
 
       // Solo tomar planes de entrenamiento, ignorar evaluaciones
       const assignData = (allActiveAssignments || []).find(
@@ -448,6 +509,11 @@ export default function TodayWorkoutPage() {
       )
 
       if (!assignData) {
+        // Ya no hay plan activo: limpiar lo que se hubiera pintado de caché.
+        setAssignment(null)
+        setPlanExercises([])
+        setPlanBlocks([])
+        markPlanFresh()
         setLoading(false)
         return
       }
@@ -550,6 +616,10 @@ export default function TodayWorkoutPage() {
         // filtrar `notes` y para pasarle el threadId al drawer.
         getStudentThread(studentId),
       ])
+      // La estructura del plan no puede quedar a medias: si falló, se conserva
+      // lo pintado (solo lectura) en vez de mostrar un plan vacío.
+      if (exercisesRes.error) throw exercisesRes.error
+      if (blocksRes.error) throw blocksRes.error
 
       setPlanExercises(exercisesRes.data || [])
       setPlanBlocks(blocksRes.data || [])
@@ -677,8 +747,11 @@ export default function TodayWorkoutPage() {
       // la WellbeingCard. Los avisos pasivos al primer save y al terminar
       // el entrenamiento se encargan de recordárselo.
       setWellbeing(wellbeingRes.data || null)
+      // Plan y registros de hoy confirmados: se habilita la carga.
+      markPlanFresh()
     } catch (err) {
       console.error(err)
+      if (planStaleRef.current) setStaleError(true)
     } finally {
       setLoading(false)
     }
@@ -780,6 +853,8 @@ export default function TodayWorkoutPage() {
   }, [threadId])
 
   async function saveLog(planExerciseId, data) {
+    // Plan sin confirmar (solo lectura): no se registra nada.
+    if (planStaleRef.current) return
     markUserAction()
     const existingLog = logs[planExerciseId]
     // v54: declarar "no lo hice" NO es entrenar. No abre workout_session
@@ -908,6 +983,7 @@ export default function TodayWorkoutPage() {
   }
 
   async function deleteLog(planExerciseId) {
+    if (planStaleRef.current) return
     // v55d: desmarcar también es una acción: puede deshacer hitos.
     markUserAction()
     const existingLog = logs[planExerciseId]
@@ -936,6 +1012,7 @@ export default function TodayWorkoutPage() {
   }
 
   async function saveBlockLog(planBlockId, data) {
+    if (planStaleRef.current) return
     markUserAction()
     // Bloques virtuales (legacy sin block_id en DB) no se persisten
     if (typeof planBlockId === 'string' && planBlockId.startsWith('virtual-')) {
@@ -1063,6 +1140,7 @@ export default function TodayWorkoutPage() {
   }
 
   async function deleteBlockLog(planBlockId) {
+    if (planStaleRef.current) return
     // v55d: desmarcar también es una acción: puede deshacer hitos.
     markUserAction()
     const existing = blockLogs[planBlockId]
@@ -1310,6 +1388,7 @@ export default function TodayWorkoutPage() {
   // (Fase D step 2, v26b) — antes se guardaba como key `${day}_notes`
   // dentro del mismo jsonb y quedaba enterrada sin que nadie la leyera.
   async function saveDayPSE(day, effortScale, effortNotes) {
+    if (planStaleRef.current) return
     const currentPerDay = session?.borg_per_day || {}
     const newPerDay = {
       ...currentPerDay,
@@ -1689,6 +1768,31 @@ export default function TodayWorkoutPage() {
         </div>
 
         <div className="px-4 py-4 space-y-4">
+          {/* Plan pintado desde el último snapshot, sin confirmar todavía. */}
+          {planStale && (
+            <div
+              role="status"
+              className="rounded-2xl border border-durazno-200 bg-durazno-50 px-3 py-2.5 flex items-center gap-2"
+            >
+              {staleError ? (
+                <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
+              ) : (
+                <span className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              )}
+              <p className="text-xs text-tinta flex-1 leading-relaxed">
+                {staleError ? t('workout.stalePlan.error') : t('workout.stalePlan.updating')}
+              </p>
+              {staleError && (
+                <button
+                  type="button"
+                  onClick={() => fetchWorkout()}
+                  className="text-xs font-semibold text-primary-700 underline flex-shrink-0"
+                >
+                  {t('workout.stalePlan.retry')}
+                </button>
+              )}
+            </div>
+          )}
           {/* v44 — evaluación pendiente: aviso con acción. */}
           {coachMode && pendingEvals.length > 0 && (
             <div className="rounded-2xl border border-purple-200 bg-purple-50 px-3 py-2.5 space-y-2">
@@ -1796,222 +1900,232 @@ export default function TodayWorkoutPage() {
             </div>
           )}
 
-          {/* Día completo sin PSE cargado — segunda puerta al modal.
+          {/* Solo lectura mientras el plan no está confirmado: `inert` saca
+              del foco y de los toques todo lo que registra (los guards de
+              saveLog & cía. son el respaldo). Los tabs de día quedan afuera
+              para poder leer los otros días. */}
+          <div
+            className={`space-y-4 ${planStale ? 'opacity-70 pointer-events-none select-none' : ''}`}
+            aria-busy={planStale || undefined}
+            {...(planStale ? { inert: '' } : {})}
+          >
+            {/* Día completo sin PSE cargado — segunda puerta al modal.
               El automático se dispara UNA sola vez por día (pseTriggeredRef):
               si el alumno lo cierra sin querer, este chip es la vuelta.
               Deliberadamente informativo, no una alerta: el día ya está
               verde, esto es un dato que falta, no un entrenamiento incompleto. */}
-          {pendingPSEDays.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {pendingPSEDays.map((id) => (
-                <button
-                  key={id}
-                  onClick={() => setShowPSEForDay(id)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition"
-                >
-                  <Activity size={12} className="flex-shrink-0" />
-                  {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
-                </button>
-              ))}
-            </div>
-          )}
+            {pendingPSEDays.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {pendingPSEDays.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => setShowPSEForDay(id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition"
+                  >
+                    <Activity size={12} className="flex-shrink-0" />
+                    {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {/* Wellbeing diario — siempre visible como módulo. v34: también en
+            {/* Wellbeing diario — siempre visible como módulo. v34: también en
               modo coach. La card es de solo lectura si el registro lo cargó el
               alumno (dato subjetivo); editable si no existe o lo cargó el coach.
               La RPC save_wellbeing_log es el backstop real de esa regla. */}
-          <WellbeingCard
-            wellbeing={wellbeing}
-            isToday={isToday}
-            coachMode={coachMode}
-            onOpen={() => setShowWellbeing(true)}
-          />
+            <WellbeingCard
+              wellbeing={wellbeing}
+              isToday={isToday}
+              coachMode={coachMode}
+              onOpen={() => setShowWellbeing(true)}
+            />
 
-          {/* Actividades extra del día (fútbol, yoga, etc.) — visible
+            {/* Actividades extra del día (fútbol, yoga, etc.) — visible
               también en días de descanso, no depende de la sesión.
               En modo coach carga con source='coach' (patrón existente). */}
-          <DayActivitiesCard
-            studentId={studentId}
-            userId={profile.id}
-            date={selectedDate}
-            source={coachMode ? 'coach' : 'student'}
-            canEdit={true}
-          />
+            <DayActivitiesCard
+              studentId={studentId}
+              userId={profile.id}
+              date={selectedDate}
+              source={coachMode ? 'coach' : 'student'}
+              canEdit={true}
+            />
 
-          {/* Aviso pasivo: aparece la primera vez que el alumno guarda datos
+            {/* Aviso pasivo: aparece la primera vez que el alumno guarda datos
               sin haber cargado el wellbeing. Se auto-cierra a los ~6s y
               nunca bloquea la pantalla. */}
-          {showWellbeingStartAviso && !wellbeing && (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 flex items-start gap-2">
-              <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 flex-1 leading-relaxed">
-                <strong>{t('workout.wellbeingReminderTitle')}</strong>{' '}
-                {t('workout.wellbeingReminderBody')}
-              </p>
-            </div>
-          )}
+            {showWellbeingStartAviso && !wellbeing && (
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 flex items-start gap-2">
+                <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 flex-1 leading-relaxed">
+                  <strong>{t('workout.wellbeingReminderTitle')}</strong>{' '}
+                  {t('workout.wellbeingReminderBody')}
+                </p>
+              </div>
+            )}
 
-          {/* Aviso de error al guardar — UI extraída a SaveErrorBanner (21/05).
+            {/* Aviso de error al guardar — UI extraída a SaveErrorBanner (21/05).
               Diferencia entre errores recuperables (auto-close 6s) y persistentes
               (requieren "Entendido") manejada por el hook + componente. */}
-          <SaveErrorBanner banner={saveErrorAviso} onDismiss={dismissSaveError} />
+            <SaveErrorBanner banner={saveErrorAviso} onDismiss={dismissSaveError} />
 
-          {/* Activación */}
-          {activationBlocks.length > 0 && (
-            <div>
-              <h2 className="eyebrow mb-2 px-1">{sectionLabel('activation')}</h2>
-              <div className="space-y-2">
-                {activationBlocks.map((block) => (
-                  <BlockRenderer
-                    key={block.id}
-                    block={block}
-                    strengthIndexInSection={activationStrengthMap[block.id] ?? 0}
-                    logs={logs}
-                    blockLog={blockLogs[block.id]}
-                    saveLog={saveLog}
-                    deleteLog={deleteLog}
-                    saveBlockLog={saveBlockLog}
-                    deleteBlockLog={deleteBlockLog}
-                    lastLogByExercise={lastLogByExercise}
-                    lastBlockLogByBlock={lastBlockLogByBlock}
-                    previewNoteByExercise={previewNoteByExercise}
-                    noteCountByExercise={noteCountByExercise}
-                    onOpenChat={openChatDrawer}
-                    studentId={studentId || null}
-                    loggedDate={selectedDate}
-                    prescriptionByEx={prescriptionByEx}
-                    oneRmMap={oneRmMap}
-                    coachMode={coachMode}
-                    bestRefByExercise={bestRefByExercise}
-                    nextBlockId={nextBlockIdOf[block.id] || null}
-                  />
-                ))}
+            {/* Activación */}
+            {activationBlocks.length > 0 && (
+              <div>
+                <h2 className="eyebrow mb-2 px-1">{sectionLabel('activation')}</h2>
+                <div className="space-y-2">
+                  {activationBlocks.map((block) => (
+                    <BlockRenderer
+                      key={block.id}
+                      block={block}
+                      strengthIndexInSection={activationStrengthMap[block.id] ?? 0}
+                      logs={logs}
+                      blockLog={blockLogs[block.id]}
+                      saveLog={saveLog}
+                      deleteLog={deleteLog}
+                      saveBlockLog={saveBlockLog}
+                      deleteBlockLog={deleteBlockLog}
+                      lastLogByExercise={lastLogByExercise}
+                      lastBlockLogByBlock={lastBlockLogByBlock}
+                      previewNoteByExercise={previewNoteByExercise}
+                      noteCountByExercise={noteCountByExercise}
+                      onOpenChat={openChatDrawer}
+                      studentId={studentId || null}
+                      loggedDate={selectedDate}
+                      prescriptionByEx={prescriptionByEx}
+                      oneRmMap={oneRmMap}
+                      coachMode={coachMode}
+                      bestRefByExercise={bestRefByExercise}
+                      nextBlockId={nextBlockIdOf[block.id] || null}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Día activo */}
-          {(blocksBySection[activeDay] || []).length > 0 && (
-            <div>
-              <h2 className="eyebrow mb-2 px-1">{sectionLabel(activeDay) || t('workout.day')}</h2>
-              {dayNotes.length > 0 && (
-                <div className="mb-2 rounded-recuadro bg-durazno-50 border border-durazno-200 px-3 py-2.5">
-                  <p className="text-[11px] font-bold text-primary-700 mb-0.5">
-                    {coachMode ? t('workout.dayNoteCoachMode') : t('workout.dayNote')}
+            {/* Día activo */}
+            {(blocksBySection[activeDay] || []).length > 0 && (
+              <div>
+                <h2 className="eyebrow mb-2 px-1">{sectionLabel(activeDay) || t('workout.day')}</h2>
+                {dayNotes.length > 0 && (
+                  <div className="mb-2 rounded-recuadro bg-durazno-50 border border-durazno-200 px-3 py-2.5">
+                    <p className="text-[11px] font-bold text-primary-700 mb-0.5">
+                      {coachMode ? t('workout.dayNoteCoachMode') : t('workout.dayNote')}
+                    </p>
+                    <p className="text-sm text-tinta whitespace-pre-wrap break-words">
+                      {dayNotes[0].body}
+                    </p>
+                    {dayNotes.length > 1 && (
+                      <p className="text-[11px] text-texto2 mt-1">
+                        {t('workout.dayNoteMore', { count: dayNotes.length - 1 })}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {(blocksBySection[activeDay] || []).map((block) => (
+                    <BlockRenderer
+                      key={block.id}
+                      block={block}
+                      strengthIndexInSection={activeDayStrengthMap[block.id] ?? 0}
+                      logs={logs}
+                      blockLog={blockLogs[block.id]}
+                      saveLog={saveLog}
+                      deleteLog={deleteLog}
+                      saveBlockLog={saveBlockLog}
+                      deleteBlockLog={deleteBlockLog}
+                      lastLogByExercise={lastLogByExercise}
+                      lastBlockLogByBlock={lastBlockLogByBlock}
+                      previewNoteByExercise={previewNoteByExercise}
+                      noteCountByExercise={noteCountByExercise}
+                      onOpenChat={openChatDrawer}
+                      studentId={studentId || null}
+                      loggedDate={selectedDate}
+                      prescriptionByEx={prescriptionByEx}
+                      oneRmMap={oneRmMap}
+                      coachMode={coachMode}
+                      bestRefByExercise={bestRefByExercise}
+                      nextBlockId={nextBlockIdOf[block.id] || null}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Banner de completado por día (dinámico) */}
+            {activeDays.map((id) => {
+              if (!dayDoneMap[id]) return null
+              // 2026-08-27: verde = terminaste el día que estabas entrenando.
+              // Antes exigía TODOS los días del plan completos en la misma
+              // fecha (showAll), así que en un plan de 2+ días nunca salía.
+              const isFinalBanner = isSessionBanner(id, activeDay)
+              // v54: cerrado con una omisión → banner ámbar con el conteo.
+              const isPartialDay = dayStateMap[id] === 'partial'
+              // El conteo es del día del banner, que puede no ser el activo.
+              const dayProgress = isPartialDay
+                ? computeSessionProgress({ blocksBySection, activeDay: id, logs, blockLogs })
+                : null
+              return (
+                <div
+                  key={id}
+                  className={`card text-center py-4 ${
+                    isPartialDay
+                      ? 'bg-amber-100 border-amber-200'
+                      : isFinalBanner
+                        ? 'bg-green-100 border-green-200'
+                        : 'bg-durazno-50 border-durazno-200'
+                  }`}
+                >
+                  <p className="text-tinta font-bold inline-flex items-center justify-center gap-2">
+                    <CircleIcon
+                      icon={isPartialDay ? CircleDashed : CalendarCheck}
+                      segment={isPartialDay ? 'warn' : 'ok'}
+                      size="sm"
+                    />
+                    {isPartialDay
+                      ? t('workout.dayPartialBanner', {
+                          day: dayShortLabel(id),
+                          done: dayProgress.completedCount,
+                          total: dayProgress.totalCount,
+                        })
+                      : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
                   </p>
-                  <p className="text-sm text-tinta whitespace-pre-wrap break-words">
-                    {dayNotes[0].body}
-                  </p>
-                  {dayNotes.length > 1 && (
-                    <p className="text-[11px] text-texto2 mt-1">
-                      {t('workout.dayNoteMore', { count: dayNotes.length - 1 })}
+                  {isFinalBanner && weekComplete && (
+                    <p className="text-tinta font-bold text-sm mt-1">{t('workout.weekComplete')}</p>
+                  )}
+                  {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
+                  {isFinalBanner && isToday && !wellbeing && (
+                    <p className="text-texto2 text-xs mt-1.5 inline-flex items-center justify-center gap-1.5">
+                      <CircleIcon icon={Smile} segment="wellbeing" size="xs" />
+                      {t('workout.wellbeingNotLoggedToday')}
                     </p>
                   )}
-                </div>
-              )}
-              <div className="space-y-2">
-                {(blocksBySection[activeDay] || []).map((block) => (
-                  <BlockRenderer
-                    key={block.id}
-                    block={block}
-                    strengthIndexInSection={activeDayStrengthMap[block.id] ?? 0}
-                    logs={logs}
-                    blockLog={blockLogs[block.id]}
-                    saveLog={saveLog}
-                    deleteLog={deleteLog}
-                    saveBlockLog={saveBlockLog}
-                    deleteBlockLog={deleteBlockLog}
-                    lastLogByExercise={lastLogByExercise}
-                    lastBlockLogByBlock={lastBlockLogByBlock}
-                    previewNoteByExercise={previewNoteByExercise}
-                    noteCountByExercise={noteCountByExercise}
-                    onOpenChat={openChatDrawer}
-                    studentId={studentId || null}
-                    loggedDate={selectedDate}
-                    prescriptionByEx={prescriptionByEx}
-                    oneRmMap={oneRmMap}
-                    coachMode={coachMode}
-                    bestRefByExercise={bestRefByExercise}
-                    nextBlockId={nextBlockIdOf[block.id] || null}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Banner de completado por día (dinámico) */}
-          {activeDays.map((id) => {
-            if (!dayDoneMap[id]) return null
-            // 2026-08-27: verde = terminaste el día que estabas entrenando.
-            // Antes exigía TODOS los días del plan completos en la misma
-            // fecha (showAll), así que en un plan de 2+ días nunca salía.
-            const isFinalBanner = isSessionBanner(id, activeDay)
-            // v54: cerrado con una omisión → banner ámbar con el conteo.
-            const isPartialDay = dayStateMap[id] === 'partial'
-            // El conteo es del día del banner, que puede no ser el activo.
-            const dayProgress = isPartialDay
-              ? computeSessionProgress({ blocksBySection, activeDay: id, logs, blockLogs })
-              : null
-            return (
-              <div
-                key={id}
-                className={`card text-center py-4 ${
-                  isPartialDay
-                    ? 'bg-amber-100 border-amber-200'
-                    : isFinalBanner
-                      ? 'bg-green-100 border-green-200'
-                      : 'bg-durazno-50 border-durazno-200'
-                }`}
-              >
-                <p className="text-tinta font-bold inline-flex items-center justify-center gap-2">
-                  <CircleIcon
-                    icon={isPartialDay ? CircleDashed : CalendarCheck}
-                    segment={isPartialDay ? 'warn' : 'ok'}
-                    size="sm"
-                  />
-                  {isPartialDay
-                    ? t('workout.dayPartialBanner', {
-                        day: dayShortLabel(id),
-                        done: dayProgress.completedCount,
-                        total: dayProgress.totalCount,
-                      })
-                    : t('workout.dayCompletedBanner', { day: dayShortLabel(id) })}
-                </p>
-                {isFinalBanner && weekComplete && (
-                  <p className="text-tinta font-bold text-sm mt-1">{t('workout.weekComplete')}</p>
-                )}
-                {/* Aviso pasivo de wellbeing al cerrar el día (sin botón) */}
-                {isFinalBanner && isToday && !wellbeing && (
-                  <p className="text-texto2 text-xs mt-1.5 inline-flex items-center justify-center gap-1.5">
-                    <CircleIcon icon={Smile} segment="wellbeing" size="xs" />
-                    {t('workout.wellbeingNotLoggedToday')}
-                  </p>
-                )}
-                {borgPerDay[id] !== undefined ? (
-                  <div className="flex items-center justify-center gap-2 mt-1">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}
-                    >
-                      {t('workout.pseValue', { value: borgPerDay[id] })}
-                    </span>
+                  {borgPerDay[id] !== undefined ? (
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-bold ${pseColor(borgPerDay[id])}`}
+                      >
+                        {t('workout.pseValue', { value: borgPerDay[id] })}
+                      </span>
+                      <button
+                        onClick={() => setShowPSEForDay(id)}
+                        className="text-primary-700 text-xs underline"
+                      >
+                        {t('workout.edit')}
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       onClick={() => setShowPSEForDay(id)}
-                      className="text-primary-700 text-xs underline"
+                      className="mt-2 bg-white border border-linea hover:bg-durazno-50 text-tinta text-sm font-medium px-4 py-1.5 rounded-xl transition"
                     >
-                      {t('workout.edit')}
+                      {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowPSEForDay(id)}
-                    className="mt-2 bg-white border border-linea hover:bg-durazno-50 text-tinta text-sm font-medium px-4 py-1.5 rounded-xl transition"
-                  >
-                    {t('workout.logEffortForDay', { day: dayShortLabel(id) })}
-                  </button>
-                )}
-              </div>
-            )
-          })}
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </ExerciseChatContext.Provider>

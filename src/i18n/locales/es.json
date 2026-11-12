@@ -204,6 +204,11 @@
     "edit": "Editar",
     "unitsProgress": "{{completed}} / {{total}} unidades",
     "editingPast": "Editando pasado",
+    "stalePlan": {
+      "updating": "Actualizando el plan. En unos segundos se habilita el registro.",
+      "error": "No se pudo actualizar el plan. Lo que se ve puede no estar al día.",
+      "retry": "Reintentar"
+    },
     "planDescriptionToggle": "Descripción del plan",
     "coachModeBanner": "Registrando por {{name}} — los datos quedan en su cuenta, marcados como cargados por vos",
     "coachModeLangLabel": "Idioma de esta pantalla",

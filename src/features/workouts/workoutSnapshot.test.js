@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   snapshotKey,
   readWorkoutSnapshot,
+  readStalePlanSnapshot,
   writeWorkoutSnapshot,
   clearWorkoutSnapshots,
 } from './workoutSnapshot'
@@ -136,5 +137,75 @@ describe('guards defensivos', () => {
   it('read tolera JSON corrupto', () => {
     window.localStorage.setItem(`gym_app:workout_snapshot:v1:${S}:${D}`, '{no json')
     expect(readWorkoutSnapshot({ studentId: S, selectedDate: D })).toBeNull()
+  })
+})
+
+// Primer arranque del día: se reutiliza SOLO la estructura del plan.
+describe('readStalePlanSnapshot', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const T0 = 1_800_000_000_000
+
+  it('devuelve la estructura del snapshot de otro día, sin registros ni sesión ni bienestar', () => {
+    writeWorkoutSnapshot({
+      studentId: S,
+      selectedDate: D,
+      now: T0,
+      data: sampleData({
+        session: { id: 's1', started_at: 'x' },
+        wellbeing: { id: 'w1' },
+        logs: { e1: { id: 'l1', completed: true, logged_date: D, plan_exercise_id: 'e1' } },
+        recentLogs: [{ logged_date: '2026-07-22', plan_exercise_id: 'e2', completed: true }],
+        exerciseNotes: [{ id: 'n1' }],
+      }),
+    })
+    const seed = readStalePlanSnapshot({ studentId: S, now: T0 + DAY })
+    expect(seed.assignment).toEqual({ plan_id: 'p1' })
+    expect(seed.planExercises).toEqual([{ id: 'e1' }])
+    expect(seed.threadId).toBe('t1')
+    expect(seed.fromDate).toBe(D)
+    // Nada que pueda verse como hecho hoy.
+    expect(seed).not.toHaveProperty('logs')
+    expect(seed).not.toHaveProperty('blockLogs')
+    expect(seed).not.toHaveProperty('session')
+    expect(seed).not.toHaveProperty('wellbeing')
+    expect(seed).not.toHaveProperty('recentExerciseLogs')
+    expect(seed).not.toHaveProperty('exerciseNotes')
+    expect(seed).not.toHaveProperty('activeDay')
+    // Las pistas de día solo llevan fecha + ejercicio.
+    expect(seed.dayHints).toEqual([
+      { logged_date: '2026-07-22', plan_exercise_id: 'e2' },
+      { logged_date: D, plan_exercise_id: 'e1' },
+    ])
+  })
+
+  it('no devuelve nada pasados 7 días', () => {
+    writeWorkoutSnapshot({ studentId: S, selectedDate: D, now: T0, data: sampleData() })
+    expect(readStalePlanSnapshot({ studentId: S, now: T0 + 7 * DAY - 1 })).not.toBeNull()
+    expect(readStalePlanSnapshot({ studentId: S, now: T0 + 7 * DAY + 1 })).toBeNull()
+  })
+
+  it('no cruza personas', () => {
+    writeWorkoutSnapshot({ studentId: S, selectedDate: D, now: T0, data: sampleData() })
+    expect(readStalePlanSnapshot({ studentId: 'otra-persona', now: T0 })).toBeNull()
+    expect(readStalePlanSnapshot({ now: T0 })).toBeNull()
+  })
+
+  it('ignora snapshots sin plan, sin ejercicios o corruptos', () => {
+    writeWorkoutSnapshot({
+      studentId: S,
+      selectedDate: D,
+      now: T0,
+      data: sampleData({ assignment: null }),
+    })
+    expect(readStalePlanSnapshot({ studentId: S, now: T0 })).toBeNull()
+    writeWorkoutSnapshot({
+      studentId: S,
+      selectedDate: D,
+      now: T0,
+      data: sampleData({ planExercises: [] }),
+    })
+    expect(readStalePlanSnapshot({ studentId: S, now: T0 })).toBeNull()
+    window.localStorage.setItem(snapshotKey({ studentId: S, selectedDate: D }), '{roto')
+    expect(readStalePlanSnapshot({ studentId: S, now: T0 })).toBeNull()
   })
 })

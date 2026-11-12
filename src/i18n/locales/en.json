@@ -204,6 +204,11 @@
     "edit": "Edit",
     "unitsProgress": "{{completed}} / {{total}} units",
     "editingPast": "Editing past date",
+    "stalePlan": {
+      "updating": "Updating the plan. Logging will be enabled in a few seconds.",
+      "error": "The plan could not be updated. What you see may be out of date.",
+      "retry": "Retry"
+    },
     "planDescriptionToggle": "Plan description",
     "coachModeBanner": "Logging for {{name}} — data is saved to their account, marked as entered by you",
     "coachModeLangLabel": "Screen language",

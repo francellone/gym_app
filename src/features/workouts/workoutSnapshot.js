@@ -64,6 +64,64 @@ export function readWorkoutSnapshot({ studentId, selectedDate, now = Date.now() 
   }
 }
 
+// ------------------------------------------------------------
+// Primer arranque del día: la ESTRUCTURA del plan del último snapshot
+// ------------------------------------------------------------
+// El snapshot es por fecha, así que la primera apertura de cada día no tiene
+// nada que pintar y espera la red (que tras un rato sin uso puede tardar
+// decenas de segundos: ver memoria [[lentitud-dashboard-calendario-infra]]).
+// Esta lectura devuelve, del snapshot más reciente de ESTA persona (cualquier
+// fecha, hasta 7 días), solo lo que no depende del día: plan, ejercicios y
+// bloques. NUNCA registros, sesión ni bienestar: nada de otro día puede
+// aparecer como hecho hoy. La página lo pinta en solo lectura hasta que
+// fetchWorkout confirma el plan vigente.
+//
+// `dayHints` son pares {logged_date, plan_exercise_id} del snapshot: sirven
+// solo para adivinar qué día toca mostrar mientras tanto; no se muestran.
+const STALE_PLAN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 días
+
+export function readStalePlanSnapshot({ studentId, now = Date.now() } = {}) {
+  const ls = safeLocalStorage()
+  if (!ls || !studentId) return null
+  const prefix = `${KEY_PREFIX}${studentId}:`
+  let best = null
+  try {
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i)
+      if (!k || !k.startsWith(prefix)) continue
+      let env = null
+      try {
+        env = JSON.parse(ls.getItem(k))
+      } catch {
+        continue
+      }
+      if (!env || env.studentId !== studentId || typeof env.savedAt !== 'number') continue
+      if (now - env.savedAt > STALE_PLAN_MAX_AGE_MS) continue
+      const d = env.data
+      if (!d?.assignment?.plan_id || !Array.isArray(d.planExercises)) continue
+      if (d.planExercises.length === 0) continue
+      if (!best || env.savedAt > best.savedAt) best = env
+    }
+  } catch {
+    return null
+  }
+  if (!best) return null
+  const d = best.data
+  const dayHints = [...(d.recentLogs || []), ...Object.values(d.logs || {})]
+    .filter((l) => l && l.logged_date && l.plan_exercise_id)
+    .map((l) => ({ logged_date: l.logged_date, plan_exercise_id: l.plan_exercise_id }))
+  return {
+    fromDate: best.selectedDate,
+    savedAt: best.savedAt,
+    studentName: d.studentName ?? '',
+    assignment: d.assignment,
+    planExercises: d.planExercises,
+    planBlocks: Array.isArray(d.planBlocks) ? d.planBlocks : [],
+    threadId: d.threadId ?? null,
+    dayHints,
+  }
+}
+
 // Recorta arrays secundarios cuando el snapshot excede MAX_BYTES.
 function trimForQuota(data) {
   try {
