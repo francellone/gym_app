@@ -382,12 +382,32 @@ describe('ejercicios del plan activo para escribir sobre uno', () => {
       ],
     },
   ]
-  it('agrupa por día (sin activación)', () => {
+  it('agrupa por las secciones que trae el plan', () => {
     const g = planExerciseGroups(plans)
     expect(g.map((x) => [x.section, x.items.map((pe) => pe.id)])).toEqual([
       ['day_a', ['pe1']],
       ['day_b', ['pe2', 'pe3']],
     ])
+  })
+  // Pedido de la coach (2026-11-12): escribir sobre ejercicios de activación.
+  const withActivation = [
+    {
+      ...plans[0],
+      sections: ['activation', 'day_a', 'day_b'],
+      exercises: [...plans[0].exercises, { id: 'pe9', section: 'activation', exercise_id: 'sq' }],
+    },
+  ]
+  it('con activación en las secciones, sus ejercicios se pueden elegir y van primero', () => {
+    const g = planExerciseGroups(withActivation)
+    expect(g.map((x) => [x.section, x.items.map((pe) => pe.id)])).toEqual([
+      ['activation', ['pe0', 'pe9']],
+      ['day_a', ['pe1']],
+      ['day_b', ['pe2', 'pe3']],
+    ])
+  })
+  it('la sugerencia prefiere el día; activación solo si el ejercicio no está en ningún día', () => {
+    expect(firstPlanExerciseFor(withActivation, 'sq').pe.id).toBe('pe1')
+    expect(firstPlanExerciseFor(withActivation, 'mob').section).toBe('activation')
   })
   it('la primera aparición del ejercicio en un día', () => {
     expect(firstPlanExerciseFor(plans, 'sq').pe.id).toBe('pe1')

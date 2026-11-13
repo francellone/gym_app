@@ -178,7 +178,7 @@ export default function ChatConversation({
         name: nameOf(exerciseTarget.pe.exercise_id),
         dayLabel: dayLetter(exerciseTarget.section)
           ? t('chat.dayShort', { day: dayLetter(exerciseTarget.section) })
-          : '',
+          : t(`workout.sections.${exerciseTarget.section}`, { defaultValue: '' }),
       }
     : null
 

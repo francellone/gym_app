@@ -103,7 +103,9 @@ export function ExercisePickerSheet({ groups, nameOf, counts, personName, onPick
             <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-primary-800 pt-3 pb-1">
               {[
                 g.plan.title,
-                dayLetter(g.section) && t('chat.dayShort', { day: dayLetter(g.section) }),
+                dayLetter(g.section)
+                  ? t('chat.dayShort', { day: dayLetter(g.section) })
+                  : t(`workout.sections.${g.section}`, { defaultValue: '' }),
               ]
                 .filter(Boolean)
                 .join(' · ')}

@@ -156,7 +156,8 @@ export async function fetchExerciseNames(ids = []) {
 }
 
 /**
- * Plan de entrenamiento activo de la persona: id, título, días y ejercicios.
+ * Plan de entrenamiento activo de la persona: id, título, secciones (activación
+ * y días) y ejercicios.
  * Si hay más de uno activo, todos (raro, pero posible con planes vinculados).
  */
 export async function fetchActivePlans(studentId) {
@@ -180,9 +181,14 @@ export async function fetchActivePlans(studentId) {
     if (e2) throw e2
     return plans.map((p) => {
       const exercises = (pes || []).filter((pe) => pe.plan_id === p.id)
-      const sections = [...new Set(exercises.map((pe) => pe.section))]
-        .filter((s) => /^day_/.test(s))
-        .sort()
+      // Activación primero (como en Entrenar) y después los días. Antes solo
+      // entraban los días y la coach no podía escribir sobre un ejercicio de
+      // activación desde el chat.
+      const present = new Set(exercises.map((pe) => pe.section))
+      const sections = [
+        ...(present.has('activation') ? ['activation'] : []),
+        ...[...present].filter((s) => /^day_/.test(s)).sort(),
+      ]
       return { ...p, exercises, sections }
     })
   })

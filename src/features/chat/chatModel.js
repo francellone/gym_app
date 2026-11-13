@@ -556,7 +556,8 @@ export function exercisesInTimeline(items = []) {
 }
 
 /**
- * Ejercicios del plan activo agrupados por día, para "Sobre un ejercicio".
+ * Ejercicios del plan activo agrupados por sección (activación y días), para
+ * "Sobre un ejercicio".
  * @returns {Array<{plan, section, items: Array<plan_exercise>}>}
  */
 export function planExerciseGroups(activePlans = []) {
@@ -573,7 +574,14 @@ export function planExerciseGroups(activePlans = []) {
 /** Primera aparición del ejercicio en un día del plan activo (o null). */
 export function firstPlanExerciseFor(activePlans = [], exerciseId) {
   if (!exerciseId) return null
-  for (const g of planExerciseGroups(activePlans)) {
+  // Primero los días: si el ejercicio está en un día y también en activación,
+  // la sugerencia sigue siendo la del día (como antes de sumar activación).
+  const groups = planExerciseGroups(activePlans)
+  const ordered = [
+    ...groups.filter((g) => dayLetter(g.section)),
+    ...groups.filter((g) => !dayLetter(g.section)),
+  ]
+  for (const g of ordered) {
     const pe = g.items.find((x) => x.exercise_id === exerciseId)
     if (pe) return { pe, plan: g.plan, section: g.section }
   }
