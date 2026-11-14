@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeToggleButton from '@/components/ThemeToggleButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
+import PushPromptBanner from '@/features/notifications/components/PushPromptBanner'
 import PendingFormsBanner from '@/features/forms/components/PendingFormsBanner'
 import { useNoteThreadUnread } from '@/features/notes/hooks/useNoteThreadUnread'
 import ViewSwitchButton from '@/features/auth/components/ViewSwitchButton'
@@ -59,6 +60,9 @@ export default function StudentLayout() {
 
         {/* Aviso de instalación en iOS (arriba de la bottom nav) */}
         <IosInstallBanner offsetClass="bottom-24" />
+
+        {/* v82 — ofrecer una vez los avisos en este dispositivo */}
+        <PushPromptBanner userId={profile?.id} offsetClass="bottom-24" />
 
         {/* Bottom nav (mobile-first) */}
         <nav

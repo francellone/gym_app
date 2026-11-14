@@ -19,9 +19,10 @@
  * trigger: lo inyecta `useNotifications` client-side (mismo patrón que
  * `plan_type`).
  *
- * NOTA (v81): el aviso al celular lo arma la edge function `send-push` con el
- * title/body de la tabla, o sea en español. Para el coach alcanza; antes de
- * encender el push de quien entrena hay que replicar esta resolución ahí.
+ * NOTA (v82): el aviso al celular lo arma la edge function `send-push`. Para
+ * los tipos que le suenan a quien entrena (coach_comment, plan_assigned) usa
+ * una copia de estos textos (supabase/functions/send-push/push-texts.json);
+ * pushTexts.parity.test.js falla si esa copia se desalinea de los locales.
  */
 
 import { format, parseISO } from 'date-fns'

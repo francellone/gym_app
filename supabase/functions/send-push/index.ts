@@ -22,6 +22,11 @@
  *
  * Qué avisos suenan lo decide la base (public.fn_push_policy), no esta función.
  *
+ * Idioma (v82): los avisos a quien entrena salen en el idioma de su perfil.
+ * Los textos viven en ./push-texts.json y son copia de `notifications.types.*`
+ * de los locales del front; un test del repo (pushTexts.parity.test.js) falla
+ * si se desalinean. El resto de los tipos sale con el texto de la tabla.
+ *
  * Secrets necesarios (Dashboard → Edge Functions → Secrets):
  *   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...)
  */
@@ -30,6 +35,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 import { createECDH } from 'node:crypto'
 import { Buffer } from 'node:buffer'
+import pushTexts from './push-texts.json' with { type: 'json' }
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -123,18 +129,38 @@ async function sendTo(sub: Sub, payload: Record<string, unknown>): Promise<boole
   }
 }
 
-function payloadFor(n: Notif) {
+type Lang = 'es' | 'en'
+type TypeTexts = { title: string; body?: string; bodyNoTitle?: string }
+const TEXTS = pushTexts as Record<Lang, Record<string, TypeTexts>>
+
+/** Título y cuerpo en el idioma de quien lo recibe (misma regla que la campana). */
+function textFor(n: Notif, lang: Lang, planTitle: string | null) {
+  const t = TEXTS[lang]?.[n.type]
+  if (!t) return { title: n.title, body: n.body ?? '' }
+  // coach_comment: el cuerpo es lo que escribió la coach; no se traduce.
+  if (n.type === 'coach_comment') return { title: t.title, body: n.body ?? '' }
+  if (n.type === 'plan_assigned') {
+    return {
+      title: t.title,
+      body: planTitle ? t.body!.replace('{{planTitle}}', planTitle) : t.bodyNoTitle!,
+    }
+  }
+  return { title: t.title, body: n.body ?? '' }
+}
+
+function payloadFor(n: Notif, lang: Lang, planTitle: string | null) {
   const data = n.data ?? {}
-  const body = (n.body ?? '').trim()
+  const text = textFor(n, lang, planTitle)
+  const body = text.body.trim()
   return {
     id: n.id,
     type: n.type,
-    title: n.title,
+    title: text.title,
     body: body.length > BODY_MAX ? body.slice(0, BODY_MAX - 1) + '…' : body,
     // La app resuelve el destino real con la misma lógica que la campana.
     url: `/n/${n.id}`,
     // Mismo tipo + misma persona = un solo aviso que se actualiza.
-    tag: `${n.type}:${data.student_id ?? n.id}`,
+    tag: `${n.type}:${data.student_id ?? data.thread_id ?? n.id}`,
   }
 }
 
@@ -162,6 +188,24 @@ async function dispatch() {
     .in('user_id', userIds)
   const subs = (subsData ?? []) as Sub[]
 
+  // Idioma de cada persona y título de los planes mencionados (el trigger de
+  // plan_assigned no guarda el título en el payload).
+  const planIds = [
+    ...new Set(
+      notifs
+        .filter((n) => n.type === 'plan_assigned' && n.data?.plan_id && !n.data?.plan_title)
+        .map((n) => String(n.data!.plan_id))
+    ),
+  ]
+  const [{ data: profiles }, { data: plans }] = await Promise.all([
+    admin.from('profiles').select('id, language').in('id', userIds),
+    planIds.length
+      ? admin.from('plans').select('id, title').in('id', planIds)
+      : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+  ])
+  const langOf = new Map((profiles ?? []).map((p) => [p.id, p.language === 'en' ? 'en' : 'es']))
+  const titleOf = new Map((plans ?? []).map((p) => [p.id, p.title]))
+
   const noDevices: string[] = []
   const failed: string[] = []
   let delivered = 0
@@ -172,7 +216,11 @@ async function dispatch() {
       noDevices.push(n.id)
       continue
     }
-    const results = await Promise.all(mine.map((s) => sendTo(s, payloadFor(n))))
+    const lang = (langOf.get(n.user_id) ?? 'es') as Lang
+    const planTitle =
+      (n.data?.plan_title as string | undefined) ?? titleOf.get(String(n.data?.plan_id)) ?? null
+    const payload = payloadFor(n, lang, planTitle)
+    const results = await Promise.all(mine.map((s) => sendTo(s, payload)))
     if (results.some(Boolean)) delivered++
     else failed.push(n.id)
   }

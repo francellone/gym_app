@@ -40,7 +40,11 @@ evento → trigger fn_notify_* → fila en notifications
             sw.js muestra el aviso → toque → /n/<id> → destino real
 ```
 
-- **Qué suena** lo decide `public.fn_push_policy(tipo, rol)` en la base. Es la única fuente. Hoy: para el coach `student_note`, `form_submitted`, `evaluation_completed`, `coach_link_request`, `exercise_unclear`. Todo lo demás, solo campana. Para quien entrena, nada todavía.
+- **Qué suena** lo decide `public.fn_push_policy(tipo, rol)` en la base. Es la única fuente. Hoy:
+  - al coach: `student_note`, `form_submitted`, `evaluation_completed`, `coach_link_request`, `exercise_unclear`;
+  - a quien entrena (v82): `coach_comment`, `plan_assigned`;
+  - todo lo demás, solo campana.
+- **Idioma (v82):** los avisos a quien entrena salen en el idioma de su perfil. `send-push` usa `supabase/functions/send-push/push-texts.json`, copia de `notifications.types.*` de los locales; `pushTexts.parity.test.js` falla si se desalinean. Los avisos al coach salen con el texto de la tabla (español).
 - **Demora:** hasta un minuto (lo que tarda el cron). Se eligió cron + extensión `http` en vez de un trigger con `pg_net` porque la instancia no tiene memoria para un proceso más (ver v80).
 - **Sin duplicados:** la función reclama las filas de forma atómica antes de enviar.
 - **Auditoría:** `notifications.push_status` (`pending`, `sent`, `no_devices`, `failed`, `expired`) y `push_sent_at`.
@@ -61,27 +65,21 @@ evento → trigger fn_notify_* → fila en notifications
 
 - Tarjeta → "Enviar aviso de prueba": recorre el camino real (edge function → servicio de push → dispositivo) y no escribe nada en la base.
 - Salud de las claves: `GET https://<proyecto>.supabase.co/functions/v1/send-push` devuelve `keys_match`.
-- Etapa coach: a quien entrena la tarjeta no se le muestra. Para probarla desde una cuenta de persona, abrir una vez `/student/profile?avisos=1` en ese dispositivo.
 
 ## Agregar un tipo de aviso
 
 1. Ampliar el CHECK `notifications_type_check` y crear el trigger `fn_notify_*`.
 2. `TYPE_CONFIG` y `getNotificationTargetUrl` en `NotificationBell.jsx` (+ test).
 3. Si va a quien entrena: claves en `notifications.types.*` de `es/en.json` y case en `resolveNotificationText`.
-4. Si tiene que sonar en el celular: sumarlo en `fn_push_policy` (migración nueva).
-
-## Pendiente para la etapa de quien entrena
-
-- `send-push` manda el `title`/`body` de la tabla, que está en español: hay que resolver el texto por idioma ahí (hoy lo hace solo el front, en `resolveNotificationText`).
-- Sumar los tipos en `fn_push_policy` y mostrar la tarjeta y el cartel en la vista de quien entrena (quitar `pushPreviewEnabled`).
+4. Si tiene que sonar en el celular: sumarlo en `fn_push_policy` (migración nueva). Si va a quien entrena, sumar también sus textos en `push-texts.json` y el caso en `textFor` de `send-push`, y volver a desplegar la función.
 
 ## Quién consume
 
 | Consumidor                                     | Importa                                    |
 | ---------------------------------------------- | ------------------------------------------ |
 | `src/components/layout/CoachLayout.jsx`        | `NotificationBell`, `PushPromptBanner`     |
-| `src/components/layout/StudentLayout.jsx`      | `NotificationBell`                         |
+| `src/components/layout/StudentLayout.jsx`      | `NotificationBell`, `PushPromptBanner`     |
 | `src/features/auth/AuthContext.jsx`            | `syncPush`, `unregisterPush`               |
 | `src/features/auth/pages/CoachProfilePage.jsx` | `PushSettingsCard`                         |
-| `src/features/auth/pages/ProfilePage.jsx`      | `PushSettingsCard` (solo en modo prueba)   |
+| `src/features/auth/pages/ProfilePage.jsx`      | `PushSettingsCard`                         |
 | `src/App.jsx`                                  | `NotificationRedirectPage` (ruta `/n/:id`) |

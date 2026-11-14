@@ -26,24 +26,6 @@ const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || DEFAULT_VAPID_
 
 const SW_TIMEOUT_MS = 4000
 const OPT_OUT_KEY = 'gymcoach-push-off'
-const PREVIEW_KEY = 'gymcoach-push-preview'
-
-/**
- * Etapa coach (v81): la tarjeta de avisos todavía no se le muestra a quien
- * entrena. Para probarla desde una cuenta de persona, abrir una vez
- * /student/profile?avisos=1 en ese dispositivo (queda recordado).
- * Se borra esta función cuando se encienda la etapa del alumno.
- */
-export function pushPreviewEnabled() {
-  try {
-    if (new URLSearchParams(window.location.search).get('avisos') === '1') {
-      localStorage.setItem(PREVIEW_KEY, '1')
-    }
-    return localStorage.getItem(PREVIEW_KEY) === '1'
-  } catch {
-    return false
-  }
-}
 
 // Convierte la clave VAPID de base64url a Uint8Array
 export function urlBase64ToUint8Array(base64String) {

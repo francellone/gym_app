@@ -1,0 +1,18 @@
+{
+  "es": {
+    "coach_comment": { "title": "Tu coach te dejó una nota" },
+    "plan_assigned": {
+      "title": "¡Nuevo plan asignado!",
+      "body": "Tu coach te asignó el plan \"{{planTitle}}\".",
+      "bodyNoTitle": "Tu coach te asignó un plan nuevo."
+    }
+  },
+  "en": {
+    "coach_comment": { "title": "Your coach left you a note" },
+    "plan_assigned": {
+      "title": "New plan assigned!",
+      "body": "Your coach assigned you the plan \"{{planTitle}}\".",
+      "bodyNoTitle": "Your coach assigned you a new plan."
+    }
+  }
+}
