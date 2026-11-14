@@ -19,8 +19,9 @@
  * trigger: lo inyecta `useNotifications` client-side (mismo patrón que
  * `plan_type`).
  *
- * NOTA: si se activa Web Push (`notify-cron` manda title/body de la tabla),
- * esa vía sigue en español — replicar esta resolución en el edge function.
+ * NOTA (v81): el aviso al celular lo arma la edge function `send-push` con el
+ * title/body de la tabla, o sea en español. Para el coach alcanza; antes de
+ * encender el push de quien entrena hay que replicar esta resolución ahí.
  */
 
 import { format, parseISO } from 'date-fns'

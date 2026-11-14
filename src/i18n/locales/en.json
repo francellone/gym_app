@@ -1025,6 +1025,24 @@
         "title": "{{owner}} declined your catalog request",
         "body": "You can keep building your own catalog."
       }
+    },
+    "push": {
+      "title": "Notifications on this device",
+      "intro": "Get the important notifications on this device even when the app is closed. Each phone or computer is turned on separately.",
+      "enable": "Turn on notifications",
+      "enabling": "Turning on…",
+      "onText": "Notifications are on for this device.",
+      "test": "Send a test notification",
+      "testSent": "Done. It should arrive in a few seconds.",
+      "testFailed": "The test notification could not be sent. Turn notifications off and on again.",
+      "disable": "Turn off",
+      "blocked": "Notifications are blocked for this app. Allow them in your browser or phone settings and come back to this screen.",
+      "needsInstall": "On iPhone, notifications work with the app installed. Tap Share, choose “Add to Home Screen”, open the app from that icon and come back to this screen.",
+      "unsupported": "This browser does not support notifications.",
+      "error": "Notifications could not be turned on. Try again.",
+      "bannerTitle": "Turn on notifications on this device?",
+      "bannerBody": "You will know when someone writes to you, even with the app closed.",
+      "bannerDismiss": "Not now"
     }
   },
   "activities": {

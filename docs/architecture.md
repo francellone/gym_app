@@ -27,7 +27,7 @@ App mobile-first donde un **coach** gestiona planes de entrenamiento y plantilla
 | Auth               | Supabase Auth (email + magic link)                        | —                              |
 | Realtime           | Supabase Realtime (postgres_changes)                      | —                              |
 | Push               | Web Push API + service worker                             | —                              |
-| Cron               | pg_cron + Edge Function `notify-cron`                     | —                              |
+| Cron               | pg_cron (+ Edge Function `send-push` para el celular)     | —                              |
 | Edge functions     | Deno (Supabase Functions)                                 | —                              |
 | Hosting frontend   | Vercel                                                    | auto-deploy on push a `main`   |
 
@@ -74,7 +74,7 @@ gym_app/
 │   ├── migrations/               YYYYMMDDHHMMSS_descripcion.sql (CLI default)
 │   ├── functions/
 │   │   ├── create-student/       signup aislado (no rompe sesión coach)
-│   │   └── notify-cron/          cron dispatcher → llama RPCs fn_notify_*
+│   │   └── send-push/            avisos al celular (v81) ← fn_dispatch_push()
 │   ├── tests/rls_smoke_tests.sql 6 smoke tests RLS
 │   └── legacy/                   schema.sql + seed.sql + 44 migration_v* viejas
 ├── docs/                         documentación viva (este archivo + 3 hermanos)
@@ -135,7 +135,7 @@ Aislamiento: garantizado por RLS en las 24 tablas de `public`. Smoke tests en `s
 
 ## Cron y mantenimiento
 
-`pg_cron` corre 4 jobs disparados por la Edge Function `notify-cron`:
+`pg_cron` corre estos jobs directamente en la base (la Edge Function `notify-cron` nunca llegó a usarse y se quitó en v81):
 
 | Cuándo  | RPC                                                                     |
 | ------- | ----------------------------------------------------------------------- |
@@ -154,7 +154,7 @@ Además: `release_due_forms()` es llamada desde el dashboard del student y del c
 - **Frontend**: push a `main` en GitHub → Vercel detecta y deploya automático a `gym-appv2.vercel.app`. Sin staging.
 - **Backend (Supabase)**: 2 caminos.
   1. **Migración SQL**: archivo en `supabase/migrations/YYYYMMDDHHMMSS_*.sql` + `supabase db push` (CLI) o `apply_migration` vía MCP.
-  2. **Edge function**: `supabase functions deploy <name>` (CLI). Hoy hay 2: `create-student` y `notify-cron`.
+  2. **Edge function**: `supabase functions deploy <name>` (CLI). Hoy hay 2: `create-student` y `send-push`.
 - **Pre-commit local** (husky + lint-staged): corre `eslint --fix` + `prettier --write` sobre los archivos staged. Sin esto algunos commits van con código broken — el caso `SCORES not defined` del 21/05 lo cazó.
 - **CI**: no hay GitHub Actions todavía (Tier 4 pendiente). El "CI" real es: el pre-commit local + el smoke manual en producción después de cada push.
 

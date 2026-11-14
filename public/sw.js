@@ -104,6 +104,10 @@ self.addEventListener('fetch', (event) => {
 })
 
 // ── Recibir push del servidor ─────────────────────────────────
+// El payload lo arma la edge function `send-push`:
+//   { title, body, url, tag, type, id }
+// `url` es /n/<id del aviso>: la app resuelve el destino real con la misma
+// lógica que la campana, así acá no hay un mapeo de tipos que mantener.
 self.addEventListener('push', (event) => {
   let payload = {}
 
@@ -113,68 +117,45 @@ self.addEventListener('push', (event) => {
     payload = { title: 'GymCoach', body: event.data?.text() ?? '' }
   }
 
-  const {
-    title = 'GymCoach',
-    body  = '',
-    icon  = '/favicon.svg',
-    badge = '/favicon.svg',
-    data  = {},
-  } = payload
+  const { title = 'GymCoach', body = '', url = '/', tag, type, id } = payload
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon,
-      badge,
-      data,
-      vibrate:   [100, 50, 100],
-      timestamp: Date.now(),
-    })
-  )
+  const options = {
+    body,
+    icon: '/icon-192.png',
+    data: { url, type, id },
+    vibrate: [100, 50, 100],
+    timestamp: Date.now(),
+  }
+  // Mismo tag = el aviso nuevo reemplaza al anterior (varias notas seguidas
+  // de la misma persona no apilan avisos), pero vuelve a sonar.
+  if (tag) {
+    options.tag = tag
+    options.renotify = true
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
 })
 
 // ── Click en la notificación → abrir la app ───────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const notifData = event.notification.data ?? {}
-
-  // Construir la URL de destino según el tipo de notificación
-  let targetUrl = '/'
-  const type = notifData.type
-
-  if (type === 'plan_assigned' || type === 'plan_expiring') {
-    targetUrl = notifData.plan_id
-      ? `/student/workout`
-      : '/student'
-  } else if (type === 'activity_update' || type === 'session_completed') {
-    targetUrl = notifData.student_id
-      ? `/coach/students/${notifData.student_id}`
-      : '/coach'
-  } else if (type === 'stagnation_alert') {
-    targetUrl = notifData.student_id
-      ? `/coach/students/${notifData.student_id}`
-      : '/coach/students'
-  } else if (type === 'weekly_summary') {
-    targetUrl = notifData.student_id ? '/coach' : '/student/progress'
-  }
+  const targetUrl = event.notification.data?.url || '/'
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then(clients => {
-        // Si ya hay una ventana abierta, enfocarla y navegar
-        for (const client of clients) {
-          if ('focus' in client) {
-            client.focus()
-            client.postMessage({ type: 'NAVIGATE', url: targetUrl })
-            return
-          }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Si ya hay una ventana abierta, enfocarla y navegar (main.jsx escucha
+      // el mensaje NAVIGATE).
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'NAVIGATE', url: targetUrl })
+          return client.focus()
         }
-        // Si no hay ventana, abrir una nueva
-        if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl)
-        }
-      })
+      }
+      // Si no hay ventana, abrir una nueva
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl)
+      }
+    })
   )
 })

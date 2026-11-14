@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 const nunca = () => new Promise(() => {})
 
 vi.mock('@/features/notifications/services/pushService', () => ({
-  registerPush: vi.fn(),
+  syncPush: vi.fn(() => Promise.resolve(false)),
   unregisterPush: vi.fn(nunca), // el caso real: se queda colgado para siempre
 }))
 

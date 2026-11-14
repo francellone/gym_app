@@ -16,29 +16,32 @@ wellbeing/
 
 ## Las 6 métricas
 
-| Key | Label | Tipo | "10 es…" |
-|---|---|---|---|
-| `sleep_quality` | Calidad de sueño | positive | excelente |
-| `nutrition_quality` | Calidad de nutrición | positive | excelente |
-| `hydration_quality` | Hidratación | positive | excelente |
-| `energy_level` | Energía | positive | alta |
-| `stress_level` | Estrés | negative | máximo (crítico) |
-| `muscle_fatigue` | Fatiga muscular | negative | máximo (crítico) |
+| Key                 | Label                | Tipo     | "10 es…"         |
+| ------------------- | -------------------- | -------- | ---------------- |
+| `sleep_quality`     | Calidad de sueño     | positive | excelente        |
+| `nutrition_quality` | Calidad de nutrición | positive | excelente        |
+| `hydration_quality` | Hidratación          | positive | excelente        |
+| `energy_level`      | Energía              | positive | alta             |
+| `stress_level`      | Estrés               | negative | máximo (crítico) |
+| `muscle_fatigue`    | Fatiga muscular      | negative | máximo (crítico) |
 
 `positive: true` significa que valores altos son buenos. `positive: false` (estrés, fatiga) significa que valores altos son problema. La función `wellbeingColor(value, positive)` traduce esto a un código de color para chips/badges.
 
 ## Quién consume estos módulos
 
-| Consumidor | Importa |
-|---|---|
+| Consumidor                               | Importa                                                                                                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/pages/student/TodayWorkoutPage.jsx` | `WellbeingModal` (default) + `WELLBEING_METRICS` + `wellbeingColor` — muestra la tarjeta "Wellbeing de hoy", dispara el modal, persiste en `public.wellbeing_logs`. |
-| `src/pages/student/ProgressPage.jsx` | `WELLBEING_METRICS` + `wellbeingColor` — para renderizar la métrica en los gráficos de progreso del alumno. |
-| `src/pages/coach/StudentDetailPage.jsx` | `StudentWellbeingTab` (default) — monta el tab Wellbeing dentro del detalle del alumno. |
+| `src/pages/student/ProgressPage.jsx`     | `WELLBEING_METRICS` + `wellbeingColor` — para renderizar la métrica en los gráficos de progreso del alumno.                                                         |
+| `src/pages/coach/StudentDetailPage.jsx`  | `StudentWellbeingTab` (default) — monta el tab Wellbeing dentro del detalle del alumno.                                                                             |
 
 Siempre importar con alias absoluto:
 
 ```js
-import WellbeingModal, { WELLBEING_METRICS, wellbeingColor } from '@/features/wellbeing/components/WellbeingModal'
+import WellbeingModal, {
+  WELLBEING_METRICS,
+  wellbeingColor,
+} from '@/features/wellbeing/components/WellbeingModal'
 import StudentWellbeingTab from '@/features/wellbeing/pages/StudentWellbeingTab'
 ```
 
@@ -67,4 +70,4 @@ El coach lo ve en `/coach/students/:id` → tab Wellbeing como serie temporal y 
 ## Lo que NO meter acá
 
 - Lógica de entrenamiento. Wellbeing es independiente — vive en su propia tabla y no afecta los planes ni los logs.
-- Notificaciones push al coach. Si hace falta alertar por wellbeing bajo, eso va a `notifications` / edge function `notify-cron`, no acá.
+- Notificaciones push al coach. Si hace falta alertar por wellbeing bajo, eso va a `notifications` (y, si tiene que sonar en el celular, a `fn_push_policy`), no acá.

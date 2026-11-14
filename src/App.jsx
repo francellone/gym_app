@@ -52,6 +52,7 @@ import FormsListPage from '@/features/forms/pages/FormsListPage'
 import FollowUpFormPage from '@/features/forms/pages/FollowUpFormPage'
 import NotesPage from '@/features/notes/pages/StudentNotesPage'
 import CoachChatPage from '@/features/chat/pages/CoachChatPage'
+import NotificationRedirectPage from '@/features/notifications/pages/NotificationRedirectPage'
 
 function FullScreenSpinner({ label }) {
   return (
@@ -292,6 +293,12 @@ function AppRoutes() {
             <FollowUpFormPage />
           </PrivateRoute>
         }
+      />
+
+      {/* v81 — destino de los avisos al celular: resuelve a dónde ir */}
+      <Route
+        path="/n/:id"
+        element={user ? <NotificationRedirectPage /> : <Navigate to="/login" replace />}
       />
 
       {/* Default redirect */}

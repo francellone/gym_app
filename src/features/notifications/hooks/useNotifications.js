@@ -10,8 +10,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import i18n from '@/i18n'
-import { resolveNotificationText } from '../utils/resolveNotificationText'
 
 const PAGE_SIZE = 30
 
@@ -40,7 +38,7 @@ function needsPlanEnrichment(n) {
   )
 }
 
-async function enrichWithPlanType(notifs) {
+export async function enrichWithPlanType(notifs) {
   const planIds = [...new Set(notifs.filter(needsPlanEnrichment).map((n) => n.data.plan_id))]
   if (planIds.length === 0) return notifs
 
@@ -174,20 +172,10 @@ export function useNotifications(userId) {
           enrichWithPlanType([newNotif]).then(([enriched]) => {
             setNotifications((prev) => [enriched, ...prev].slice(0, PAGE_SIZE))
 
-            // Mostrar notificación nativa del browser si la pestaña no está
-            // activa — con el texto resuelto en el idioma del viewer.
-            if (
-              document.visibilityState !== 'visible' &&
-              'Notification' in window &&
-              Notification.permission === 'granted'
-            ) {
-              const { title, body } = resolveNotificationText(enriched, i18n.t)
-              new Notification(title, {
-                body: body || '',
-                icon: '/favicon.svg',
-                badge: '/favicon.svg',
-              })
-            }
+            // v81: acá ya no se dispara un aviso nativo del navegador. Lo que
+            // suena fuera de la app lo decide la base (fn_push_policy) y sale
+            // por Web Push; hacerlo también acá duplicaba el aviso y hacía
+            // sonar tipos que son solo de campana.
           })
           setUnreadCount((prev) => prev + 1)
         }
@@ -203,7 +191,12 @@ export function useNotifications(userId) {
         (payload) => {
           const updated = payload.new
           setNotifications((prev) => {
-            const next = prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n))
+            // v81: la fila también cambia cuando sale el push (push_status).
+            // Acá solo importa si cambió "leída"; el resto se ignora para no
+            // pisar los datos enriquecidos ni recontar de más.
+            const current = prev.find((n) => n.id === updated.id)
+            if (!current || current.read === updated.read) return prev
+            const next = prev.map((n) => (n.id === updated.id ? { ...n, read: updated.read } : n))
             // Recontar unread desde el state nuevo (más robusto que ±1)
             setUnreadCount(next.filter((n) => !n.read).length)
             return next

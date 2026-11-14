@@ -1025,6 +1025,24 @@
         "title": "{{owner}} no aprobó tu pedido de catálogo",
         "body": "Podés seguir armando tu propio catálogo."
       }
+    },
+    "push": {
+      "title": "Avisos en este dispositivo",
+      "intro": "Recibí los avisos importantes en este dispositivo aunque tengas la app cerrada. Cada celular o computadora se activa por separado.",
+      "enable": "Activar avisos",
+      "enabling": "Activando…",
+      "onText": "Los avisos están activados en este dispositivo.",
+      "test": "Enviar aviso de prueba",
+      "testSent": "Listo. Debería llegarte en unos segundos.",
+      "testFailed": "No se pudo enviar el aviso de prueba. Desactivá los avisos y volvé a activarlos.",
+      "disable": "Desactivar",
+      "blocked": "Los avisos están bloqueados para esta app. Habilitalos desde los ajustes del navegador o del teléfono y volvé a esta pantalla.",
+      "needsInstall": "En iPhone los avisos funcionan con la app instalada. Tocá Compartir, elegí «Agregar a pantalla de inicio», abrí la app desde ese ícono y volvé a esta pantalla.",
+      "unsupported": "Este navegador no admite avisos.",
+      "error": "No se pudieron activar los avisos. Probá de nuevo.",
+      "bannerTitle": "¿Activamos los avisos en este dispositivo?",
+      "bannerBody": "Así te enterás cuando alguien te escribe, aunque tengas la app cerrada.",
+      "bannerDismiss": "Ahora no"
     }
   },
   "activities": {

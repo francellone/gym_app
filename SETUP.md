@@ -22,7 +22,7 @@ Hoy en producción: **5 alumnos activos, 25 planes, ~460 logs**. Deploy en `http
 | Routing / estado | `react-router-dom` 6 + Context API (`AuthContext`)                            | Sin Redux/Zustand.                                        |
 | Iconos / charts  | `lucide-react`, `recharts`, `date-fns`                                        |                                                           |
 | Backend          | Supabase Postgres 17.6 + Auth + Storage + Realtime + Edge Functions + pg_cron | Proyecto `bvexjanqmfypmtgoapbt`, región `sa-east-1`.      |
-| Edge Functions   | `create-student`, `notify-cron`                                               | Código en `supabase/functions/`. Versionadas en Supabase. |
+| Edge Functions   | `create-student`, `send-push`                                                 | Código en `supabase/functions/`. Versionadas en Supabase. |
 | PWA / push       | Service Worker propio (`public/sw.js`) + Web Push API                         | Registro en `src/main.jsx`.                               |
 | Hosting          | Vercel                                                                        | `vercel.json` con rewrite SPA.                            |
 | Repo             | GitHub `francellone/gym_app`                                                  | Ramas: `main` (default) y `v2`.                           |
@@ -55,7 +55,7 @@ gym_app/
 │   ├── migrations/          ← convención nueva: YYYYMMDDHHMMSS_NN_descripcion.sql
 │   └── functions/
 │       ├── create-student/  edge function (sign-up + perfil)
-│       └── notify-cron/     edge function (notificaciones programadas)
+│       └── send-push/       edge function (avisos al celular, v81)
 ├── src/features/forms/intake/  ← intake + follow-up forms (movido desde intake-form/ el 21/05)
 ├── scripts/                 verify_calendar_fix.mjs, verify_student_dashboard_fix.mjs
 ├── diagnostico_arquitec/    auditorías, changelog del refactor de BD, handoffs back↔front
@@ -152,7 +152,7 @@ Dos funciones activas:
 | Slug             | Verifica JWT                                | Para qué sirve                                                                      | Código                                       |
 | ---------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------- |
 | `create-student` | No (público, usa service role internamente) | Sign-up + creación de `profiles` para alumnos nuevos sin tocar la sesión del coach. | `supabase/functions/create-student/index.ts` |
-| `notify-cron`    | Sí                                          | Trigger de notificaciones programadas (vencimientos de planes, estancamientos).     | `supabase/functions/notify-cron/index.ts`    |
+| `send-push`      | No (se protege sola, ver el encabezado)     | Envía al celular los avisos que la base marcó como pendientes (v81).                | `supabase/functions/send-push/index.ts`      |
 
 Para deploy: `supabase functions deploy <slug>` con el CLI configurado.
 
@@ -208,11 +208,11 @@ Cada push a `main` en GitHub dispara un deploy automático. URL pública: `https
 
 ### 6.2 Edge functions
 
-`supabase functions deploy create-student` y `supabase functions deploy notify-cron` cuando cambien.
+`supabase functions deploy create-student` y `supabase functions deploy send-push --no-verify-jwt` cuando cambien.
 
 ### 6.3 Service Worker / push notifications
 
-El `public/sw.js` se sirve directo desde el bundle. Para suscribir un alumno, se llama a `pushService.js` (en `src/services/`) que registra la suscripción en la tabla `public.push_subscriptions`. Hoy esa tabla tiene 0 filas — la feature está en standby hasta decidir si se mantiene.
+El `public/sw.js` se sirve directo desde el bundle. Desde v81 los avisos al celular están activos para el coach: el circuito completo está explicado en `src/features/notifications/README.md`.
 
 ---
 

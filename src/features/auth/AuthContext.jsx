@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { registerPush, unregisterPush } from '@/features/notifications/services/pushService'
+import { syncPush, unregisterPush } from '@/features/notifications/services/pushService'
 import i18n, { preLoginLanguage } from '@/i18n'
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from './authSnapshot'
 import { clearWorkoutSnapshots } from '@/features/workouts/workoutSnapshot'
@@ -71,11 +71,11 @@ export function AuthProvider({ children }) {
       userRef.current = sessionUser
       if (sessionUser) {
         fetchProfile(sessionUser)
-        // Registrar push al iniciar sesión o al recuperar sesión existente
+        // v81: si este dispositivo ya tenía los avisos activados, queda
+        // registrado a nombre de quien entra. NO pide permiso: eso solo pasa
+        // desde el botón de "Activar avisos" (PushSettingsCard).
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          registerPush(sessionUser.id).catch((err) =>
-            console.warn('Push registration failed:', err)
-          )
+          syncPush(sessionUser.id).catch((err) => console.warn('Push sync failed:', err))
         }
       } else {
         setProfile(null)

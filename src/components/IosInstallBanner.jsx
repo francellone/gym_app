@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Share, X } from 'lucide-react'
+import { isIos, isInstalled } from '@/lib/pwa'
 
 // Aviso de instalación para iOS (doc: iphone-pwa-support).
 // Safari no sugiere instalar la PWA (a diferencia de Chrome/Android),
@@ -11,18 +12,6 @@ import { Share, X } from 'lucide-react'
 //   - el usuario no lo descartó antes (persistido en localStorage).
 
 const DISMISS_KEY = 'gymcoach-ios-install-dismissed'
-
-function isIos() {
-  const ua = window.navigator.userAgent
-  const isIpadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
-  return /iPhone|iPad|iPod/.test(ua) || isIpadOs
-}
-
-function isInstalled() {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true // legacy Safari
-  )
-}
 
 export default function IosInstallBanner({ offsetClass = 'bottom-4' }) {
   const { t } = useTranslation()

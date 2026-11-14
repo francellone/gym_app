@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PushSettingsCard from '@/features/notifications/components/PushSettingsCard'
+import { pushPreviewEnabled } from '@/features/notifications/services/pushService'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import {
@@ -779,6 +781,9 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+
+        {/* Avisos en este dispositivo (v81) — por ahora solo en modo prueba */}
+        {pushPreviewEnabled() && <PushSettingsCard userId={profile?.id} />}
 
         {/* Idioma de la app (doc 46) */}
         <div className="card">

@@ -12,7 +12,7 @@ supabase/
 │   └── legacy/              SQL viejos preservados (ej. migration_intake_form.sql).
 ├── functions/
 │   ├── create-student/      Edge Function: signup + perfil del alumno (no reemplaza sesión del coach).
-│   └── notify-cron/         Edge Function: notificaciones programadas (vencimientos, estancamiento).
+│   └── send-push/           Edge Function: avisos al celular (v81). La llama pg_cron vía fn_dispatch_push().
 ├── tests/
 │   └── rls_smoke_tests.sql  6 smoke tests para RLS. Crecer 1 test por policy que se toque.
 ├── legacy/                  Snapshots históricos NO APLICABLES (schema.sql, seed.sql, migration_v*.sql).

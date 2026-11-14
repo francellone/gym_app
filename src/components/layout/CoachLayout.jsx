@@ -19,6 +19,7 @@ import NotificationBell from '@/features/notifications/components/NotificationBe
 import ThemeToggleButton from '@/components/ThemeToggleButton'
 import ViewSwitchButton from '@/features/auth/components/ViewSwitchButton'
 import IosInstallBanner from '@/components/IosInstallBanner'
+import PushPromptBanner from '@/features/notifications/components/PushPromptBanner'
 import { useTranslation } from 'react-i18next'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import { useCoachChatUnread } from '@/features/chat/useCoachChatUnread'
@@ -223,6 +224,9 @@ export default function CoachLayout() {
 
       {/* Aviso de instalación en iOS */}
       <IosInstallBanner />
+
+      {/* v81 — ofrecer una vez los avisos en este dispositivo */}
+      <PushPromptBanner userId={profile?.id} />
 
       {/* ── Main content ──────────────────────────────────── */}
       <main className="flex-1 lg:ml-56 pt-16 lg:pt-0 min-h-screen">

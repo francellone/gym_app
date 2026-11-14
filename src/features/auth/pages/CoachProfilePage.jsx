@@ -18,6 +18,7 @@ import { savePreferredView } from '../viewMode'
 import AvatarImage from '@/features/avatars/AvatarImage'
 import AvatarEditor from '@/features/avatars/AvatarEditor'
 import ThemeSelector from '@/components/ThemeSelector'
+import PushSettingsCard from '@/features/notifications/components/PushSettingsCard'
 import { initialsOf } from '@/features/avatars/avatarUrls'
 import {
   BIO_MAX,
@@ -464,6 +465,9 @@ export default function CoachProfilePage() {
           {listed ? t('coach.profile.directory.leave') : t('coach.profile.directory.join')}
         </button>
       </div>
+
+      {/* Avisos en este dispositivo (v81) */}
+      <PushSettingsCard userId={profile?.id} />
 
       {/* Idioma de la app */}
       <div className="card">
