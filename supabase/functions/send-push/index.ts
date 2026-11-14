@@ -227,7 +227,15 @@ async function testPush(req: Request) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method === 'OPTIONS') {
+    // El cliente de Supabase agrega cabeceras propias que cambian entre
+    // versiones; una lista fija termina bloqueando el POST en el navegador.
+    // Se autoriza exactamente lo que el navegador dice que va a mandar.
+    const asked = req.headers.get('Access-Control-Request-Headers')
+    return new Response('ok', {
+      headers: { ...cors, ...(asked ? { 'Access-Control-Allow-Headers': asked } : {}) },
+    })
+  }
 
   try {
     if (req.method === 'GET') {
