@@ -148,6 +148,18 @@ function textFor(n: Notif, lang: Lang, planTitle: string | null) {
   return { title: t.title, body: n.body ?? '' }
 }
 
+// Texto del aviso cuando reemplaza a otro del mismo tag que sigue en pantalla.
+// La cuenta la lleva el dispositivo (sw.js): es el único que sabe cuántos
+// quedaron sin abrir.
+const MESSAGE_TYPES = new Set(['student_note', 'coach_comment'])
+const COUNT_TEXT: Record<Lang, { messages: string; other: string }> = {
+  es: { messages: '{{count}} mensajes nuevos', other: '{{count}} avisos nuevos' },
+  en: { messages: '{{count}} new messages', other: '{{count}} new notifications' },
+}
+function countBodyFor(type: string, lang: Lang) {
+  return COUNT_TEXT[lang][MESSAGE_TYPES.has(type) ? 'messages' : 'other']
+}
+
 function payloadFor(n: Notif, lang: Lang, planTitle: string | null) {
   const data = n.data ?? {}
   const text = textFor(n, lang, planTitle)
@@ -161,6 +173,7 @@ function payloadFor(n: Notif, lang: Lang, planTitle: string | null) {
     url: `/n/${n.id}`,
     // Mismo tipo + misma persona = un solo aviso que se actualiza.
     tag: `${n.type}:${data.student_id ?? data.thread_id ?? n.id}`,
+    countBody: countBodyFor(n.type, lang),
   }
 }
 
@@ -247,12 +260,28 @@ async function dispatch() {
   })
 }
 
-const TEST_TEXT: Record<string, { title: string; body: string }> = {
-  es: { title: 'GymCoach', body: 'Los avisos funcionan en este dispositivo.' },
-  en: { title: 'GymCoach', body: 'Notifications are working on this device.' },
+const TEST_TEXT: Record<string, { title: string; body: string; burst: string }> = {
+  es: {
+    title: 'GymCoach',
+    body: 'Los avisos funcionan en este dispositivo.',
+    burst: 'Aviso de prueba {{n}}',
+  },
+  en: {
+    title: 'GymCoach',
+    body: 'Notifications are working on this device.',
+    burst: 'Test notification {{n}}',
+  },
 }
 
-async function testPush(req: Request) {
+const BURST_MAX = 5
+const BURST_GAP_MS = 1500
+
+/**
+ * Aviso de prueba a los dispositivos de quien llama. No escribe en la base.
+ * Con `burst` > 1 manda varios seguidos con el mismo tag, para ver cómo se
+ * muestran cuando se juntan (el último reemplaza al anterior y dice cuántos).
+ */
+async function testPush(req: Request, burst: number) {
   if (!ensureVapid()) return json({ ok: false, error: 'vapid_not_configured' }, 500)
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
@@ -267,11 +296,33 @@ async function testPush(req: Request) {
   const subs = (subsData ?? []) as Sub[]
   if (subs.length === 0) return json({ ok: true, devices: 0, delivered: 0 })
 
-  const text = TEST_TEXT[profile?.language === 'en' ? 'en' : 'es']
-  const results = await Promise.all(
-    subs.map((s) => sendTo(s, { ...text, type: 'push_test', url: '/', tag: 'push_test' }))
-  )
-  return json({ ok: true, devices: subs.length, delivered: results.filter(Boolean).length })
+  const lang: Lang = profile?.language === 'en' ? 'en' : 'es'
+  const text = TEST_TEXT[lang]
+
+  if (burst <= 1) {
+    const results = await Promise.all(
+      subs.map((s) =>
+        sendTo(s, { title: text.title, body: text.body, type: 'push_test', url: '/', tag: 'push_test' })
+      )
+    )
+    return json({ ok: true, devices: subs.length, delivered: results.filter(Boolean).length })
+  }
+
+  const reached = new Set<string>()
+  for (let i = 1; i <= burst; i++) {
+    if (i > 1) await new Promise((r) => setTimeout(r, BURST_GAP_MS))
+    const payload = {
+      title: text.title,
+      body: text.burst.replace('{{n}}', String(i)),
+      type: 'push_test',
+      url: '/',
+      tag: 'push_test_burst',
+      countBody: countBodyFor('push_test', lang),
+    }
+    const results = await Promise.all(subs.map((s) => sendTo(s, payload)))
+    results.forEach((ok, idx) => ok && reached.add(subs[idx].endpoint))
+  }
+  return json({ ok: true, devices: subs.length, delivered: reached.size, burst })
 }
 
 Deno.serve(async (req) => {
@@ -298,7 +349,11 @@ Deno.serve(async (req) => {
     if (req.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405)
 
     const body = await req.json().catch(() => ({}))
-    return body?.test === true ? await testPush(req) : await dispatch()
+    if (body?.test === true) {
+      const burst = Math.min(Math.max(Math.trunc(Number(body?.burst) || 1), 1), BURST_MAX)
+      return await testPush(req, burst)
+    }
+    return await dispatch()
   } catch (err) {
     console.error('send-push error', err)
     return json({ ok: false, error: String(err) }, 500)

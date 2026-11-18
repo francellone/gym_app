@@ -1035,6 +1035,8 @@
       "test": "Enviar aviso de prueba",
       "testSent": "Listo. Debería llegarte en unos segundos.",
       "testFailed": "No se pudo enviar el aviso de prueba. Desactivá los avisos y volvé a activarlos.",
+      "testBurst": "Probar varios avisos seguidos",
+      "testBurstSent": "Listo. Van a llegar 3 avisos seguidos: el último tiene que decir cuántos son.",
       "disable": "Desactivar",
       "blocked": "Los avisos están bloqueados para esta app. Habilitalos desde los ajustes del navegador o del teléfono y volvé a esta pantalla.",
       "needsInstall": "En iPhone los avisos funcionan con la app instalada. Tocá Compartir, elegí «Agregar a pantalla de inicio», abrí la app desde ese ícono y volvé a esta pantalla.",

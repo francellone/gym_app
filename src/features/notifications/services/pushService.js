@@ -190,11 +190,13 @@ export async function unregisterPush(userId) {
 
 /**
  * Pide al servidor un aviso de prueba para los dispositivos de quien llama.
- * Recorre el camino real (edge function → servicio de push → dispositivo).
- * Devuelve { devices, delivered }.
+ * Recorre el camino real (edge function → servicio de push → dispositivo) y
+ * no escribe en la base. Con `burst` > 1 llegan varios seguidos, para ver
+ * cómo se muestran cuando se juntan. Devuelve { devices, delivered }.
  */
-export async function sendTestPush() {
-  const { data, error } = await supabase.functions.invoke('send-push', { body: { test: true } })
+export async function sendTestPush({ burst = 1 } = {}) {
+  const body = burst > 1 ? { test: true, burst } : { test: true }
+  const { data, error } = await supabase.functions.invoke('send-push', { body })
   if (error) throw error
   return data
 }

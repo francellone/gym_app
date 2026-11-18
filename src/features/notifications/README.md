@@ -44,6 +44,7 @@ evento → trigger fn_notify_* → fila en notifications
   - al coach: `student_note`, `form_submitted`, `evaluation_completed`, `coach_link_request`, `exercise_unclear`;
   - a quien entrena (v82): `coach_comment`, `plan_assigned`;
   - todo lo demás, solo campana.
+- **Cuando son varios:** los avisos del mismo tipo y la misma persona comparten `tag`, así que el nuevo reemplaza al anterior. Si el anterior seguía en pantalla, `sw.js` muestra la cantidad ("3 mensajes nuevos") con el texto `countBody` que manda `send-push` en el idioma de quien lo recibe. La cuenta la lleva el dispositivo y vuelve a empezar cuando la persona abre o descarta el aviso. Guardia: `utils/swPush.test.js`. Para verlo: "Probar varios avisos seguidos" en la tarjeta de avisos (no escribe en la base).
 - **Idioma (v82):** los avisos a quien entrena salen en el idioma de su perfil. `send-push` usa `supabase/functions/send-push/push-texts.json`, copia de `notifications.types.*` de los locales; `pushTexts.parity.test.js` falla si se desalinean. Los avisos al coach salen con el texto de la tabla (español).
 - **Demora:** hasta un minuto (lo que tarda el cron). Se eligió cron + extensión `http` en vez de un trigger con `pg_net` porque la instancia no tiene memoria para un proceso más (ver v80).
 - **Sin duplicados:** la función reclama las filas de forma atómica antes de enviar.

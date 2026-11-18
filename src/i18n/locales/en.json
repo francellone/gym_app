@@ -1035,6 +1035,8 @@
       "test": "Send a test notification",
       "testSent": "Done. It should arrive in a few seconds.",
       "testFailed": "The test notification could not be sent. Turn notifications off and on again.",
+      "testBurst": "Try several notifications in a row",
+      "testBurstSent": "Done. 3 notifications will arrive in a row: the last one should say how many there are.",
       "disable": "Turn off",
       "blocked": "Notifications are blocked for this app. Allow them in your browser or phone settings and come back to this screen.",
       "needsInstall": "On iPhone, notifications work with the app installed. Tap Share, choose “Add to Home Screen”, open the app from that icon and come back to this screen.",

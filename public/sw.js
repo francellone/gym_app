@@ -105,9 +105,50 @@ self.addEventListener('fetch', (event) => {
 
 // ── Recibir push del servidor ─────────────────────────────────
 // El payload lo arma la edge function `send-push`:
-//   { title, body, url, tag, type, id }
+//   { title, body, url, tag, type, id, countBody }
+// `countBody` es el texto a usar cuando hay más de un aviso del mismo tag
+// ("{{count}} mensajes nuevos"), ya en el idioma de quien lo recibe.
 // `url` es /n/<id del aviso>: la app resuelve el destino real con la misma
 // lógica que la campana, así acá no hay un mapeo de tipos que mantener.
+// Los avisos se muestran de a uno: si llegan varios juntos (el servidor
+// despacha en tanda), cada uno tiene que ver al anterior ya en pantalla para
+// poder contarlo.
+let pushQueue = Promise.resolve()
+
+async function showPush(payload) {
+  const { title = 'GymCoach', body = '', url = '/', tag, type, id, countBody } = payload
+
+  const options = {
+    body,
+    icon: '/icon-192.png',
+    data: { url, type, id, count: 1 },
+    vibrate: [100, 50, 100],
+    timestamp: Date.now(),
+  }
+  // Mismo tag = el aviso nuevo reemplaza al anterior (varias notas seguidas
+  // de la misma persona no apilan avisos), pero vuelve a sonar.
+  if (tag) {
+    options.tag = tag
+    options.renotify = true
+    // Si el anterior sigue en pantalla, este dice cuántos son en vez de
+    // mostrar solo el último texto. La cuenta vuelve a 1 cuando la persona
+    // abre o descarta el aviso.
+    try {
+      const shown = await self.registration.getNotifications({ tag })
+      if (shown.length > 0) {
+        options.data.count = Math.max(...shown.map((n) => n.data?.count ?? 1)) + 1
+      }
+    } catch {
+      /* sin getNotifications: se muestra el último, como antes */
+    }
+    if (options.data.count > 1 && countBody) {
+      options.body = countBody.replace('{{count}}', String(options.data.count))
+    }
+  }
+
+  await self.registration.showNotification(title, options)
+}
+
 self.addEventListener('push', (event) => {
   let payload = {}
 
@@ -117,23 +158,8 @@ self.addEventListener('push', (event) => {
     payload = { title: 'GymCoach', body: event.data?.text() ?? '' }
   }
 
-  const { title = 'GymCoach', body = '', url = '/', tag, type, id } = payload
-
-  const options = {
-    body,
-    icon: '/icon-192.png',
-    data: { url, type, id },
-    vibrate: [100, 50, 100],
-    timestamp: Date.now(),
-  }
-  // Mismo tag = el aviso nuevo reemplaza al anterior (varias notas seguidas
-  // de la misma persona no apilan avisos), pero vuelve a sonar.
-  if (tag) {
-    options.tag = tag
-    options.renotify = true
-  }
-
-  event.waitUntil(self.registration.showNotification(title, options))
+  pushQueue = pushQueue.catch(() => {}).then(() => showPush(payload))
+  event.waitUntil(pushQueue)
 })
 
 // ── Click en la notificación → abrir la app ───────────────────

@@ -50,13 +50,18 @@ export default function PushSettingsCard({ userId }) {
       setStatus(await getPushStatus())
     })
 
-  const handleTest = () =>
+  const handleTest = (burst = 1) =>
     run(async () => {
       try {
-        const res = await sendTestPush()
+        const res = await sendTestPush({ burst })
         setMsg(
           res?.delivered > 0
-            ? { kind: 'ok', text: t('notifications.push.testSent') }
+            ? {
+                kind: 'ok',
+                text: t(
+                  burst > 1 ? 'notifications.push.testBurstSent' : 'notifications.push.testSent'
+                ),
+              }
             : { kind: 'error', text: t('notifications.push.testFailed') }
         )
       } catch {
@@ -96,17 +101,27 @@ export default function PushSettingsCard({ userId }) {
       )}
 
       {status === 'on' && (
-        <div className="flex gap-2">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-secondary flex-1"
+              onClick={() => handleTest()}
+              disabled={busy}
+            >
+              {t('notifications.push.test')}
+            </button>
+            <button type="button" className="btn-ghost" onClick={handleDisable} disabled={busy}>
+              {t('notifications.push.disable')}
+            </button>
+          </div>
           <button
             type="button"
-            className="btn-secondary flex-1"
-            onClick={handleTest}
+            className="btn-ghost w-full text-xs"
+            onClick={() => handleTest(3)}
             disabled={busy}
           >
-            {t('notifications.push.test')}
-          </button>
-          <button type="button" className="btn-ghost" onClick={handleDisable} disabled={busy}>
-            {t('notifications.push.disable')}
+            {t('notifications.push.testBurst')}
           </button>
         </div>
       )}
