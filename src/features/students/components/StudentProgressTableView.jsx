@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import {
@@ -51,6 +51,12 @@ import {
   ROW_TYPE_FILTERS,
 } from '../blockRowsLogic'
 import { blockTypeLabel, blockTypeIcon } from '@/features/plans/helpers'
+import {
+  alignSlots,
+  groupSessionDates,
+  rowSessionDates,
+  slotLabel,
+} from '@/features/students/sessionSlotsLogic'
 
 // ─────────────────────────────────────────────────────────────
 // Helpers locales: ahora delegan a planHelpers (que prioriza jsonb)
@@ -191,6 +197,31 @@ const SESSION_FIELDS = [
 
 const defaultSessionFields = () => new Set(['date', 'weight', 'pse'])
 
+// 2026-11-25 — cómo dejó la tabla la coach (columnas, sesiones, filtros) se
+// recuerda en el dispositivo. Antes volvía a los valores por defecto en
+// cada visita. Es una comodidad: si el storage falla, la tabla arranca igual.
+const PREFS_KEY = 'gym_app:progress_table:v1'
+function readPrefs() {
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY)
+    const p = raw ? JSON.parse(raw) : null
+    return p && typeof p === 'object' ? p : {}
+  } catch {
+    return {}
+  }
+}
+function writePrefs(p) {
+  try {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify(p))
+  } catch {
+    /* sin storage: no se recuerda, nada más */
+  }
+}
+const knownColIds = new Set(COLUMN_DEFS.map((c) => c.id))
+const knownFieldIds = new Set(SESSION_FIELDS.map((f) => f.id))
+const setFromPref = (arr, known, fallback) =>
+  Array.isArray(arr) ? new Set(arr.filter((id) => known.has(id))) : fallback()
+
 // ─────────────────────────────────────────────────────────────
 // Componente principal
 // Props: studentId, logs (ya filtrados por período en el padre)
@@ -219,25 +250,71 @@ export default function StudentProgressTableView({
   // Cómo se arma cada fila:
   //   'plan'     → un ejercicio de cada plan que se solape con el período
   //   'exercise' → un ejercicio del catálogo con todo su historial, cruzando planes
-  const [rowMode, setRowMode] = useState('plan')
+  const [prefs] = useState(readPrefs)
+  const [rowMode, setRowMode] = useState(() => (prefs.rowMode === 'exercise' ? 'exercise' : 'plan'))
 
   // Visualización / filtros
-  const [visibleCols, setVisibleCols] = useState(defaultVisibleCols())
+  const [visibleCols, setVisibleCols] = useState(() =>
+    setFromPref(prefs.visibleCols, knownColIds, defaultVisibleCols)
+  )
   const [showColumnPicker, setShowColumnPicker] = useState(false)
-  const [showOnlyWithLogs, setShowOnlyWithLogs] = useState(false)
-  const [groupBySection, setGroupBySection] = useState(true)
+  const [showOnlyWithLogs, setShowOnlyWithLogs] = useState(prefs.showOnlyWithLogs === true)
+  const [groupBySection, setGroupBySection] = useState(prefs.groupBySection !== false)
   const [collapsedSections, setCollapsedSections] = useState(new Set())
   // v53 — Todos / Fuerza / Aeróbico / Circuito
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(() =>
+    ROW_TYPE_FILTERS.some((f) => f.id === prefs.typeFilter) ? prefs.typeFilter : 'all'
+  )
 
   // Ejercicios + bloques juntos, para todo lo que es "por fecha" (columnas de
   // sesión, ventanas de plan): un día de solo aeróbico también es una sesión.
   const allLogs = useMemo(() => [...logs, ...blockLogs], [logs, blockLogs])
 
   // Sesiones dinámicas
-  const [sessionsCount, setSessionsCount] = useState(3)
-  const [sessionsCountTouched, setSessionsCountTouched] = useState(false)
-  const [sessionFields, setSessionFields] = useState(defaultSessionFields())
+  const [sessionsCount, setSessionsCount] = useState(() =>
+    SESSIONS_COUNT_OPTIONS.some((o) => o.value === prefs.sessionsCount) ? prefs.sessionsCount : 3
+  )
+  const [sessionsCountTouched, setSessionsCountTouched] = useState(
+    () => prefs.sessionsCount != null
+  )
+  const [sessionFields, setSessionFields] = useState(() =>
+    setFromPref(prefs.sessionFields, knownFieldIds, defaultSessionFields)
+  )
+
+  useEffect(() => {
+    writePrefs({
+      rowMode,
+      visibleCols: [...visibleCols],
+      showOnlyWithLogs,
+      groupBySection,
+      typeFilter,
+      sessionsCount: sessionsCountTouched ? sessionsCount : null,
+      sessionFields: [...sessionFields],
+    })
+  }, [
+    rowMode,
+    visibleCols,
+    showOnlyWithLogs,
+    groupBySection,
+    typeFilter,
+    sessionsCount,
+    sessionsCountTouched,
+    sessionFields,
+  ])
+
+  // Scroll propio de la tabla: el encabezado y la fila del día quedan fijos.
+  const [theadHeight, setTheadHeight] = useState(0)
+  const theadObserver = useRef(null)
+  const theadRef = useCallback((node) => {
+    theadObserver.current?.disconnect()
+    theadObserver.current = null
+    if (!node) return
+    setTheadHeight(node.offsetHeight)
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setTheadHeight(node.offsetHeight))
+    ro.observe(node)
+    theadObserver.current = ro
+  }, [])
   const [showFieldsPicker, setShowFieldsPicker] = useState(false)
 
   // Modal de notas
@@ -881,6 +958,30 @@ export default function StudentProgressTableView({
     return groups
   }, [filteredRows, orderedPlans, windowByPlan, groupBySection, effectiveRowMode, t])
 
+  // 2026-11-25 — agrupada por día, cada grupo usa las fechas de ESE día
+  // (ver sessionSlotsLogic). Sin agrupar, o por ejercicio, siguen las
+  // fechas globales de la persona.
+  const slotInfo = useMemo(() => {
+    if (!groupedRows) return null
+    const count = !sessionsCountTouched && multiPlan ? 'all' : sessionsCount
+    const skippedDatesOf = (r) => {
+      const m =
+        r.kind === 'block' ? skippedIndex.byBlock.get(r.blockId) : skippedIndex.byPex.get(r.id)
+      return m ? [...m.keys()] : []
+    }
+    const dates = groupedRows.map((g) =>
+      groupSessionDates(
+        g.rows.map((r) => rowSessionDates(r, skippedDatesOf(r))),
+        count
+      )
+    )
+    const { slotCount, padded } = alignSlots(dates)
+    const byGroup = new Map(groupedRows.map((g, i) => [g.key, padded[i]]))
+    return { slotCount, byGroup, allDates: new Set(dates.flat()) }
+  }, [groupedRows, sessionsCount, sessionsCountTouched, multiPlan, skippedIndex])
+
+  const sessionColCount = slotInfo ? slotInfo.slotCount : allSessionDates.length
+
   const toggleCol = (colId) =>
     setVisibleCols((prev) => {
       const next = new Set(prev)
@@ -915,7 +1016,11 @@ export default function StudentProgressTableView({
 
   // Un plan que arrancó antes de la primera columna visible no tiene marca: si
   // el recorte de sesiones se comió alguna, hay que avisarlo.
-  const marksHidden = useMemo(() => startMarks.length - markCols.size, [startMarks, markCols])
+  // Por día no hay marcas de cambio de plan: cada grupo ya es de un solo plan.
+  const marksHidden = useMemo(
+    () => (slotInfo ? 0 : startMarks.length - markCols.size),
+    [slotInfo, startMarks, markCols]
+  )
 
   const isCol = (id) => visibleCols.has(id)
   const isField = (id) => sessionFields.has(id)
@@ -960,9 +1065,9 @@ export default function StudentProgressTableView({
 
   // ¿Hay algún omitido en las columnas visibles? (para la leyenda)
   const hasVisibleSkipped = useMemo(() => {
-    const dates = new Set(allSessionDates)
+    const dates = slotInfo ? slotInfo.allDates : new Set(allSessionDates)
     return skippedLogs.some((l) => dates.has(l.logged_date))
-  }, [skippedLogs, allSessionDates])
+  }, [skippedLogs, allSessionDates, slotInfo])
 
   // Abrir/cerrar modal de nota
   // 2026-10-04: se abre la conversación completa del registro.
@@ -1008,12 +1113,12 @@ export default function StudentProgressTableView({
     (effectiveRowMode === 'exercise' ? 1 /* planes */ : 0) +
     COLUMN_DEFS.filter((c) => isCol(c.id) && !(effectiveRowMode === 'exercise' && c.id === 'block'))
       .length +
-    allSessionDates.length
+    sessionColCount
 
   // ── Header de la tabla ─────────────────────────────────────
   const renderHeader = () => (
     <tr className="text-[11px] uppercase tracking-wider text-gray-500 bg-gray-50">
-      <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[140px]">
+      <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)]">
         {t('coach.students.logs.exercise')}
       </th>
       {effectiveRowMode === 'exercise' && (
@@ -1077,43 +1182,62 @@ export default function StudentProgressTableView({
         </th>
       )}
 
+      {/* Por día: columnas por posición (la fecha va en cada celda) */}
+      {slotInfo &&
+        Array.from({ length: slotInfo.slotCount }, (_, i) => {
+          const isLatest = i === slotInfo.slotCount - 1
+          const lbl = slotLabel(i, slotInfo.slotCount)
+          return (
+            <th
+              key={`slot-${i}`}
+              className={`text-center font-semibold px-2 py-2 min-w-[82px] border-l border-gray-100 ${
+                isLatest ? 'bg-primary-50 text-primary-700' : 'bg-gray-50'
+              }`}
+              title={t('coach.students.table.slots.title')}
+            >
+              {t(`coach.students.table.slots.${lbl.key}`, { n: lbl.n })}
+            </th>
+          )
+        })}
+
       {/* Columnas dinámicas: una por fecha real de sesión */}
-      {allSessionDates.map((date, i) => {
-        const blockLabel = sessionDateInfo.get(date) || ''
-        const isLatest = i === allSessionDates.length - 1
-        return (
-          <th
-            key={`sh-${date}`}
-            className={`text-center font-semibold px-2 py-2 min-w-[82px] border-l border-gray-100 ${
-              isLatest ? 'bg-primary-50 text-primary-700' : ''
-            } ${cutClass(i)}`}
-            title={
-              markCols.has(i)
-                ? t('coach.students.table.planStartsHere', {
-                    plan:
-                      planTitleById.get(markCols.get(i)) || t('coach.students.table.anotherPlan'),
-                  })
-                : undefined
-            }
-          >
-            <div className="flex flex-col items-center leading-none gap-[3px]">
-              {markCols.has(i) && (
-                <span className="text-[8px] font-bold text-amber-600 tracking-wide">
-                  ▸ {shortPlanTitle(planTitleById.get(markCols.get(i)))}
-                </span>
-              )}
-              <span>{format(parseISO(date), 'dd/MM')}</span>
-              {blockLabel && (
-                <span
-                  className={`text-[9px] font-normal tracking-wide ${isLatest ? 'text-primary-400' : 'text-gray-400'}`}
-                >
-                  {blockLabel}
-                </span>
-              )}
-            </div>
-          </th>
-        )
-      })}
+      {!slotInfo &&
+        allSessionDates.map((date, i) => {
+          const blockLabel = sessionDateInfo.get(date) || ''
+          const isLatest = i === allSessionDates.length - 1
+          return (
+            <th
+              key={`sh-${date}`}
+              className={`text-center font-semibold px-2 py-2 min-w-[82px] border-l border-gray-100 ${
+                isLatest ? 'bg-primary-50 text-primary-700' : ''
+              } ${cutClass(i)}`}
+              title={
+                markCols.has(i)
+                  ? t('coach.students.table.planStartsHere', {
+                      plan:
+                        planTitleById.get(markCols.get(i)) || t('coach.students.table.anotherPlan'),
+                    })
+                  : undefined
+              }
+            >
+              <div className="flex flex-col items-center leading-none gap-[3px]">
+                {markCols.has(i) && (
+                  <span className="text-[8px] font-bold text-amber-600 tracking-wide">
+                    ▸ {shortPlanTitle(planTitleById.get(markCols.get(i)))}
+                  </span>
+                )}
+                <span>{format(parseISO(date), 'dd/MM')}</span>
+                {blockLabel && (
+                  <span
+                    className={`text-[9px] font-normal tracking-wide ${isLatest ? 'text-primary-400' : 'text-gray-400'}`}
+                  >
+                    {blockLabel}
+                  </span>
+                )}
+              </div>
+            </th>
+          )
+        })}
 
       {isCol('max_weight') && (
         <th className="text-right font-semibold px-2 py-2">
@@ -1286,7 +1410,11 @@ export default function StudentProgressTableView({
     )
   }
 
-  const renderRow = (r) => {
+  const renderRow = (r, slotDates = null) => {
+    // slotDates: fechas del día de la fila (con null de relleno) o, sin
+    // agrupar, las fechas globales de la persona.
+    const dates = slotDates || allSessionDates
+    const cut = (i) => (slotDates ? '' : cutClass(i))
     const trendColor =
       r.trend === '↑'
         ? 'text-green-600'
@@ -1308,7 +1436,7 @@ export default function StudentProgressTableView({
       >
         {/* Ejercicio (sticky) */}
         <td
-          className={`px-2 py-2 sticky left-0 z-[1] min-w-[140px] ${isBlock ? 'bg-sky-50/60' : 'bg-white'}`}
+          className={`px-2 py-2 sticky left-0 z-[1] min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)] ${isBlock ? 'bg-sky-50' : 'bg-white'}`}
         >
           <div className="font-medium text-gray-900 truncate max-w-[200px]" title={r.exerciseName}>
             {isBlock && (
@@ -1475,16 +1603,24 @@ export default function StudentProgressTableView({
         )}
 
         {/* Columnas dinámicas por fecha real */}
-        {allSessionDates.map((date, i) => {
+        {dates.map((date, i) => {
+          const isLatest = i === dates.length - 1
+          if (date == null) {
+            return (
+              <td
+                key={`sc-${r.id}-pad-${i}`}
+                className={`px-2 py-2 border-l border-gray-100 ${isLatest ? 'bg-primary-50/40' : ''}`}
+              />
+            )
+          }
           const log = getLogForDate(r, date)
-          const isLatest = i === allSessionDates.length - 1
           // Log previo: la fecha anterior en la que este ejercicio fue entrenado
           const prevDate =
             i > 0
-              ? allSessionDates
+              ? dates
                   .slice(0, i)
                   .reverse()
-                  .find((d) => getLogForDate(r, d) != null)
+                  .find((d) => d != null && getLogForDate(r, d) != null)
               : null
           const prevLog = prevDate ? getLogForDate(r, prevDate) : null
           const noteKey = `${r.id}-${date}`
@@ -1492,7 +1628,7 @@ export default function StudentProgressTableView({
           if (skipped) {
             return (
               <Fragment key={`sc-${r.id}-${date}`}>
-                {renderSkippedCell(skipped, isLatest, cutClass(i))}
+                {renderSkippedCell(skipped, isLatest, cut(i))}
               </Fragment>
             )
           }
@@ -1503,7 +1639,7 @@ export default function StudentProgressTableView({
                 prevLog,
                 isLatest,
                 noteKey,
-                cutClass(i),
+                cut(i),
                 effectiveRowMode === 'exercise' && !isBlock
                   ? logCountByExerciseAndDate.get(`${r.exerciseId}|${date}`) || 0
                   : 0,
@@ -1654,7 +1790,9 @@ export default function StudentProgressTableView({
       {/* ── Selector de cantidad de sesiones ── */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-500 font-medium">
-          {t('coach.students.table.sessionsLabel')}
+          {slotInfo
+            ? t('coach.students.table.sessionsLabelPerDay')
+            : t('coach.students.table.sessionsLabel')}
         </span>
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
           {SESSIONS_COUNT_OPTIONS.map((opt) => (
@@ -1861,10 +1999,15 @@ export default function StudentProgressTableView({
       )}
 
       {/* ── Tabla ── */}
+      {/* 2026-11-25 — la tabla scrollea por dentro (alto de pantalla como
+          máximo): la barra horizontal queda siempre a la vista, y el
+          encabezado y la fila del día quedan fijos al bajar. */}
       <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100dvh-7rem)]">
           <table className="w-full border-collapse">
-            <thead>{renderHeader()}</thead>
+            <thead ref={theadRef} className="sticky top-0 z-20">
+              {renderHeader()}
+            </thead>
             <tbody>
               {filteredRows.length === 0 && (
                 <tr>
@@ -1878,15 +2021,13 @@ export default function StudentProgressTableView({
                     const isCollapsed = collapsedSections.has(group.key)
                     return (
                       <Fragment key={group.key}>
-                        <tr
-                          className="bg-gray-100 cursor-pointer"
-                          onClick={() => toggleSection(group.key)}
-                        >
+                        <tr className="cursor-pointer" onClick={() => toggleSection(group.key)}>
                           <td
                             colSpan={visibleColCount}
-                            className="px-2 py-1.5 text-xs font-semibold text-gray-700"
+                            className="px-2 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 sticky z-10"
+                            style={{ top: theadHeight }}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 sticky left-2 w-max max-w-[calc(100vw-4rem)]">
                               {isCollapsed ? (
                                 <ChevronDown size={14} className="text-gray-400" />
                               ) : (
@@ -1923,11 +2064,12 @@ export default function StudentProgressTableView({
                             </div>
                           </td>
                         </tr>
-                        {!isCollapsed && group.rows.map(renderRow)}
+                        {!isCollapsed &&
+                          group.rows.map((row) => renderRow(row, slotInfo?.byGroup.get(group.key)))}
                       </Fragment>
                     )
                   })
-                : filteredRows.map(renderRow)}
+                : filteredRows.map((row) => renderRow(row))}
             </tbody>
           </table>
         </div>

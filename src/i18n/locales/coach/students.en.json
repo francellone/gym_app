@@ -599,6 +599,13 @@
       "better": "improving",
       "worse": "dropping",
       "noPrev": "no previous"
+    },
+    "sessionsLabelPerDay": "Last times for each day:",
+    "slots": {
+      "title": "The times this day came up, oldest to latest. Each cell shows its date.",
+      "last": "Latest",
+      "prev": "Previous",
+      "nth": "−{{n}}"
     }
   },
   "welcome": {

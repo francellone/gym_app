@@ -599,6 +599,13 @@
       "better": "mejora",
       "worse": "baja",
       "noPrev": "sin previo"
+    },
+    "sessionsLabelPerDay": "Últimas veces de cada día:",
+    "slots": {
+      "title": "Las veces que le tocó este día, de la más vieja a la última. La fecha está en cada celda.",
+      "last": "Última",
+      "prev": "Anterior",
+      "nth": "−{{n}}"
     }
   },
   "welcome": {
