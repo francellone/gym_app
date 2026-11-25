@@ -10,17 +10,20 @@ import { fetchNoteThreads } from '@/features/notes/api'
 import { attachNoteThreads } from '@/features/notes/notePreview'
 import NotePreviewLine from '@/features/notes/components/NoteThreadPreview'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
+import { credibleSessionMinutes } from '@/features/workouts/sessionDuration'
 
 function SessionGroup({ date, logs, session }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const completedCount = logs.filter((l) => l.completed).length
 
-  const sessionDuration = (() => {
-    if (!session?.started_at || !session?.finished_at) return null
-    const mins = Math.round((new Date(session.finished_at) - new Date(session.started_at)) / 60000)
-    return mins > 0 ? mins : null
-  })()
+  // Duración solo si es creíble (sessionDuration.js). Los horarios de
+  // inicio y fin se muestran igual porque son datos reales.
+  const sessionDuration = credibleSessionMinutes(
+    session?.started_at,
+    session?.finished_at,
+    logs.length || null
+  )
 
   return (
     <div className="card overflow-hidden">
@@ -70,16 +73,18 @@ function SessionGroup({ date, logs, session }) {
 
       {expanded && (
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-          {session?.started_at && session?.finished_at && sessionDuration !== null && (
+          {session?.started_at && session?.finished_at && (
             <div className="flex items-center gap-3 text-xs text-gray-400 pb-2 border-b border-gray-50">
               <span className="flex items-center gap-1">
                 <Clock size={11} />
                 {format(new Date(session.started_at), 'HH:mm')} →{' '}
                 {format(new Date(session.finished_at), 'HH:mm')}
               </span>
-              <span className="font-medium text-primary-500">
-                {t('workout.minutesShort', { value: sessionDuration })}
-              </span>
+              {sessionDuration !== null && (
+                <span className="font-medium text-primary-500">
+                  {t('workout.minutesShort', { value: sessionDuration })}
+                </span>
+              )}
             </div>
           )}
           {logs.map((log) => (

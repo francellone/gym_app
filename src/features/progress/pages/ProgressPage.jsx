@@ -31,6 +31,7 @@ import {
 } from '../exerciseSeries'
 import ChartHeader from '../components/ChartHeader'
 import RepsWeightChart from '../components/RepsWeightChart'
+import { credibleSessionMinutes } from '@/features/workouts/sessionDuration'
 
 const PERIODS = [
   { label: '1m', days: 30 },
@@ -363,10 +364,10 @@ export default function ProgressPage() {
     .filter((s) => s.started_at && s.finished_at)
     .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
     .map((s) => {
-      const mins = Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000)
+      const mins = credibleSessionMinutes(s.started_at, s.finished_at)
       return { date: format(parseISO(s.logged_date), 'dd/MM'), [sMinutes]: mins }
     })
-    .filter((d) => d[sMinutes] > 0)
+    .filter((d) => d[sMinutes] != null) // duraciones no creíbles fuera (sessionDuration.js)
 
   const medianDuration = (() => {
     if (!durationData.length) return null

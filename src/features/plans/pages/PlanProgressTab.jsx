@@ -31,6 +31,7 @@ import AvatarImage from '@/features/avatars/AvatarImage'
 import { fetchNoteThreads } from '@/features/notes/api'
 import { attachNoteThreads } from '@/features/notes/notePreview'
 import { isTrainingActivity } from '@/features/workouts/completionRules'
+import { credibleSessionMinutes } from '@/features/workouts/sessionDuration'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes
@@ -315,10 +316,9 @@ export default function PlanProgressTab({ planId, assignments }) {
         .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
         .map((s) => ({
           date: format(parseISO(s.logged_date), t('coach.plans.progress.chartDate')),
-          Minutos: Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000),
+          Minutos: credibleSessionMinutes(s.started_at, s.finished_at),
         }))
-        .filter((d) => d.Minutos > 0),
-    [sessions, t]
+        .filter((d) => d.Minutos != null)[(sessions, t)] // duraciones no creíbles fuera (sessionDuration.js),
   )
 
   const medianDuration = useMemo(() => {

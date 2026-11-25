@@ -15,6 +15,7 @@ import UpcomingAgenda from '../components/UpcomingAgenda'
 import useCoachAlerts from '../hooks/useCoachAlerts'
 import useCoachDashboardFilters from '../hooks/useCoachDashboardFilters'
 import { groupAlertsByStudent } from '../alerts'
+import { credibleSessionMinutes } from '@/features/workouts/sessionDuration'
 
 // ============================================================
 // CoachDashboard
@@ -150,15 +151,15 @@ export default function CoachDashboard() {
           borgValues.length > 0
             ? Math.round((borgValues.reduce((a, b) => a + b, 0) / borgValues.length) * 10) / 10
             : null
-        // Duración solo si empezó y terminó el mismo día y no es carga
-        // tardía (memoria 2026-05-23).
+        // Duración solo si empezó y terminó el mismo día, no es carga
+        // tardía (memoria 2026-05-23) y es creíble: ni carga al final ni
+        // sesión olvidada abierta (sessionDuration.js, 2026-11-25).
         let durationMin = null
         if (s.started_at && s.finished_at && !s.logged_late) {
           const startD = new Date(s.started_at)
           const endD = new Date(s.finished_at)
           if (startD.toDateString() === endD.toDateString()) {
-            const min = Math.round((endD.getTime() - startD.getTime()) / 60000)
-            if (min > 0 && min < 600) durationMin = min
+            durationMin = credibleSessionMinutes(s.started_at, s.finished_at, meta.total || null)
           }
         }
         return {

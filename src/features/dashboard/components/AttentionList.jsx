@@ -38,12 +38,13 @@ export default function AttentionList({ alerts, loading, studentId = null, avata
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
-  const { rows, quiet } = useMemo(() => {
+  const { rows, quiet, later } = useMemo(() => {
     const g = groupAlertsByStudent(alerts, t)
     if (!studentId) return g
     return {
       rows: g.rows.filter((r) => r.studentId === studentId),
       quiet: g.quiet.filter((q) => q.studentId === studentId),
+      later: g.later.filter((q) => q.studentId === studentId),
     }
   }, [alerts, studentId, t])
 
@@ -109,23 +110,35 @@ export default function AttentionList({ alerts, loading, studentId = null, avata
       )}
 
       {!loading && quiet.length > 0 && (
-        <p className="text-[13px] text-texto2 pt-2.5 mt-2 border-t border-dashed border-gray-300">
-          {t('coach.dashboard.attention.missedLastWeek')}{' '}
-          {joinNodes(
-            quiet.map((q) => (
-              <Link
-                key={q.studentId}
-                to={`/coach/students/${q.studentId}?tab=progress`}
-                className="hover:text-primary-700 hover:underline"
-              >
-                {q.name.split(' ')[0]}
-              </Link>
-            )),
-            t('coach.dashboard.listAnd')
-          )}
-          .
-        </p>
+        <FooterLine label={t('coach.dashboard.attention.missedLastWeek')} people={quiet} t={t} />
+      )}
+
+      {/* 2026-11-25: quien solo tiene "sin progreso" o "sin plan" no suma
+          en el contador; se nombra acá, sin urgencia. */}
+      {!loading && later.length > 0 && (
+        <FooterLine label={t('coach.dashboard.attention.laterLine')} people={later} t={t} />
       )}
     </section>
+  )
+}
+
+function FooterLine({ label, people, t }) {
+  return (
+    <p className="text-[13px] text-texto2 pt-2.5 mt-2 border-t border-dashed border-gray-300">
+      {label}{' '}
+      {joinNodes(
+        people.map((q) => (
+          <Link
+            key={q.studentId}
+            to={`/coach/students/${q.studentId}?tab=progress`}
+            className="hover:text-primary-700 hover:underline"
+          >
+            {q.name.split(' ')[0]}
+          </Link>
+        )),
+        t('coach.dashboard.listAnd')
+      )}
+      .
+    </p>
   )
 }

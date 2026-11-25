@@ -97,6 +97,7 @@ export default function useCoachAlerts() {
                   `id, student_id, logged_date, perceived_difficulty, actual_weight, plan_exercise_id,
                  status, skip_reason,
                  plan_exercise:plan_exercises!plan_exercise_id(
+                   suggested_pse,
                    exercise:exercises!exercise_id(id, name)
                  )`
                 )
@@ -140,10 +141,10 @@ export default function useCoachAlerts() {
               supabase
                 .from('intake_form_assignments')
                 .select(
-                  'id, student_id, status, sent_at, scheduled_for, completed_at, template:intake_form_templates!template_id(name)'
+                  'id, student_id, template_id, status, sent_at, scheduled_for, completed_at, template:intake_form_templates!template_id(name)'
                 )
-                .neq('status', 'completed')
-                .is('completed_at', null)
+                // Trae también los completados (2026-11-25): un formulario
+                // más nuevo de la misma plantilla apaga la alerta del viejo.
                 .order('id', { ascending: true })
                 .range(from, to)
             ).catch((err) => {

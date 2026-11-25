@@ -26,7 +26,8 @@
     "none": "Nobody needs attention right now.",
     "showLess": "Show less",
     "showMore": "Show {{count}} more",
-    "missedLastWeek": "Missed a session last week:"
+    "missedLastWeek": "Missed a session last week:",
+    "laterLine": "Worth a look, no rush:"
   },
   "alerts": {
     "overdueDays_one": "Payment overdue by {{count}} day",
@@ -51,8 +52,8 @@
     "adherenceDecline": "Adherence dropping: {{trend}} %",
     "fatigue": "Signs of fatigue",
     "lowMotivation": "Low motivation",
-    "highRpe_one": "High effort {{count}} time",
-    "highRpe_other": "High effort {{count}} times",
+    "highRpe_one": "Effort above prescribed in {{count}} session",
+    "highRpe_other": "Effort above prescribed in {{count}} sessions",
     "stagnationIn": "No progress in {{names}}",
     "stagnation": "No progress",
     "noActivePlan": "No active plan",
@@ -69,7 +70,7 @@
     "adherenceDecline": "Declining adherence",
     "lowAdherence": "Low adherence (last week)",
     "inactiveStudents": "No training for several days",
-    "highRpeStudents": "Sustained high effort",
+    "highRpeStudents": "Effort above prescribed",
     "noActivePlan": "No active plan",
     "fatigueStudents": "Fatigue / poor recovery",
     "lowMotivationStudents": "Low motivation",

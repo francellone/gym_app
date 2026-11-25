@@ -39,6 +39,7 @@ import {
   isTrainingActivity,
   summarizeEntries,
 } from '@/features/workouts/completionRules'
+import { credibleSessionMinutes } from '@/features/workouts/sessionDuration'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes estáticas fuera del componente
@@ -509,10 +510,9 @@ export default function StudentProgressTab({ studentId }) {
         .filter((s) => format(new Date(s.started_at), 'yyyy-MM-dd') === s.logged_date)
         .map((s) => ({
           date: format(parseISO(s.logged_date), 'dd/MM'),
-          Minutos: Math.round((new Date(s.finished_at) - new Date(s.started_at)) / 60000),
+          Minutos: credibleSessionMinutes(s.started_at, s.finished_at),
         }))
-        .filter((d) => d.Minutos > 0),
-    [sessions]
+        .filter((d) => d.Minutos != null)[sessions] // duraciones no creíbles fuera (sessionDuration.js),
   )
 
   const medianDuration = useMemo(() => {

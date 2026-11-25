@@ -451,8 +451,8 @@ describe('computeFormsUnanswered', () => {
     const out = computeFormsUnanswered(
       students,
       [
-        { student_id: 's1', status: 'pending', sent_at: '2026-09-20T15:00:00Z' }, // 7 días
-        { student_id: 's1', status: 'pending', sent_at: '2026-08-31T15:00:00Z' }, // 27 días
+        { student_id: 's1', template_id: 'x', status: 'pending', sent_at: '2026-09-20T15:00:00Z' }, // 7 días
+        { student_id: 's1', template_id: 'y', status: 'pending', sent_at: '2026-08-31T15:00:00Z' }, // 27 días, otra plantilla
         { student_id: 's2', status: 'pending', sent_at: '2026-09-22T15:00:00Z' }, // 5 días
         { student_id: 's2', status: 'completed', sent_at: '2026-08-01T15:00:00Z' },
       ],
@@ -517,5 +517,126 @@ describe('computeSkipUnclear', () => {
       tone: 'bad',
       text: 'No supo cómo hacer Sumo walk',
     })
+  })
+})
+
+// ============================================================
+// 2026-11-25 — alertas rehechas para que no marquen a casi todos
+// ============================================================
+import {
+  computeHighRpeStudents as highRpe,
+  prescribedPseCeiling,
+  isEffortAbovePrescribed,
+  computeFormsUnanswered as formsUnanswered,
+  groupAlertsByStudent as groupByStudent,
+} from './alerts'
+
+describe('esfuerzo por encima de lo indicado', () => {
+  const hoy = new Date(2026, 10, 25)
+  const students = [
+    { id: 'a', name: 'Ana' },
+    { id: 'b', name: 'Beto' },
+  ]
+  const log = (sid, date, pd, sp) => ({
+    student_id: sid,
+    logged_date: date,
+    perceived_difficulty: pd,
+    plan_exercise: { suggested_pse: sp },
+  })
+
+  it('lee el tope de cada opción de PSE', () => {
+    expect(prescribedPseCeiling('Duro (5-6)')).toBe(6)
+    expect(prescribedPseCeiling('Muy duro (7-9)')).toBe(9)
+    expect(prescribedPseCeiling('Moderado (4)')).toBe(4)
+    expect(prescribedPseCeiling('Esfuerzo máx (10)')).toBe(10)
+    expect(prescribedPseCeiling(null)).toBeNull()
+  })
+
+  it('PSE 8 o 9 con "Muy duro (7-9)" es lo pedido, no alerta', () => {
+    expect(isEffortAbovePrescribed(9, 'Muy duro (7-9)')).toBe(false)
+    expect(isEffortAbovePrescribed(10, 'Muy duro (7-9)')).toBe(true)
+    expect(isEffortAbovePrescribed(7, 'Duro (5-6)')).toBe(false)
+    expect(isEffortAbovePrescribed(8, 'Duro (5-6)')).toBe(true)
+    expect(isEffortAbovePrescribed(9, null)).toBe(false)
+    expect(isEffortAbovePrescribed(10, null)).toBe(true)
+    expect(isEffortAbovePrescribed(10, 'Esfuerzo máx (10)')).toBe(false)
+  })
+
+  it('cuenta sesiones, no ejercicios, y pide al menos 2', () => {
+    const out = highRpe(
+      students,
+      [
+        // Ana: 3 ejercicios pasados en UNA sesión → no alcanza
+        log('a', '2026-11-20', 9, 'Duro (5-6)'),
+        log('a', '2026-11-20', 9, 'Duro (5-6)'),
+        log('a', '2026-11-20', 10, null),
+        // Beto: dos sesiones distintas
+        log('b', '2026-11-18', 8, 'Duro (5-6)'),
+        log('b', '2026-11-24', 10, 'Muy duro (7-9)'),
+        // fuera de la ventana de 14 días
+        log('a', '2026-11-01', 10, null),
+      ],
+      hoy
+    )
+    expect(out).toEqual([
+      { studentId: 'b', name: 'Beto', highRpeCount: 2, peakRpe: 10, lastDate: '2026-11-24' },
+    ])
+  })
+})
+
+describe('formulario sin responder: caduca', () => {
+  const hoy = new Date(2026, 10, 25)
+  const students = [{ id: 'j', name: 'Jess' }]
+
+  it('deja de alertar pasados los 30 días', () => {
+    const out = formsUnanswered(
+      students,
+      [{ student_id: 'j', template_id: 'm', status: 'pending', sent_at: '2026-09-28T15:00:00Z' }],
+      hoy
+    )
+    expect(out).toEqual([])
+  })
+
+  it('uno nuevo de la misma plantilla apaga el viejo; de otra plantilla no', () => {
+    const out = formsUnanswered(
+      students,
+      [
+        { student_id: 'j', template_id: 'm', status: 'pending', sent_at: '2026-11-01T15:00:00Z' },
+        {
+          student_id: 'j',
+          template_id: 'm',
+          status: 'completed',
+          sent_at: '2026-11-10T15:00:00Z',
+          completed_at: '2026-11-11T15:00:00Z',
+        },
+        { student_id: 'j', template_id: 'd', status: 'pending', sent_at: '2026-11-05T15:00:00Z' },
+      ],
+      hoy
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ daysWaiting: 20, count: 1 })
+  })
+})
+
+describe('"necesitan atención" solo con motivos que piden atención', () => {
+  it('quien solo tiene "sin progreso" va al pie y no suma', () => {
+    const { rows, later } = groupByStudent(
+      {
+        stagnationStudents: [{ studentId: 's', name: 'Sol', stagnantExercises: [] }],
+        overdue: [{ studentId: 'm', name: 'Mara', daysOverdue: 3 }],
+        painStudents: [{ studentId: 'p', name: 'Pía', lastNoteSnippet: 'codo' }],
+        highRpeStudents: [{ studentId: 'h', name: 'Hugo', highRpeCount: 2 }],
+      },
+      t
+    )
+    expect(rows.map((r) => r.name)).toEqual(['Mara', 'Pía', 'Hugo'])
+    expect(later).toEqual([{ studentId: 's', name: 'Sol' }])
+  })
+
+  it('el dolor es de lo más grave', () => {
+    expect(describeAlertItem('painStudents', { lastNoteSnippet: 'codo' }, t).tone).toBe('bad')
+    expect(describeAlertItem('highRpeStudents', { highRpeCount: 3 }, t).text).toBe(
+      'PSE por encima de lo indicado en 3 sesiones'
+    )
   })
 })

@@ -26,7 +26,8 @@
     "none": "Nadie necesita atención ahora.",
     "showLess": "Ver menos",
     "showMore": "Ver {{count}} más",
-    "missedLastWeek": "La semana pasada faltaron a alguna sesión:"
+    "missedLastWeek": "La semana pasada faltaron a alguna sesión:",
+    "laterLine": "Para revisar sin apuro:"
   },
   "alerts": {
     "overdueDays_one": "Pago vencido hace {{count}} día",
@@ -51,8 +52,8 @@
     "adherenceDecline": "Cumplimiento en baja: {{trend}} %",
     "fatigue": "Señales de fatiga",
     "lowMotivation": "Motivación baja",
-    "highRpe_one": "Esfuerzo alto {{count}} vez",
-    "highRpe_other": "Esfuerzo alto {{count}} veces",
+    "highRpe_one": "PSE por encima de lo indicado en {{count}} sesión",
+    "highRpe_other": "PSE por encima de lo indicado en {{count}} sesiones",
     "stagnationIn": "Sin progreso en {{names}}",
     "stagnation": "Sin progreso",
     "noActivePlan": "Sin plan activo",
@@ -69,7 +70,7 @@
     "adherenceDecline": "Adherencia en declive",
     "lowAdherence": "Baja adherencia (semana pasada)",
     "inactiveStudents": "Sin entrenar hace varios días",
-    "highRpeStudents": "Esfuerzo alto sostenido",
+    "highRpeStudents": "Esfuerzo por encima de lo indicado",
     "noActivePlan": "Sin plan activo",
     "fatigueStudents": "Fatiga / recuperación mala",
     "lowMotivationStudents": "Baja motivación",

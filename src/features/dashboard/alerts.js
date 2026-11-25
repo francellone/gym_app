@@ -34,9 +34,18 @@ export const ALERT_THRESHOLDS = {
   ADHERENCE_LOW_PCT: 100, // dispara si pct última semana < N
   // Alerta "declive": N semanas cerradas consecutivas en baja estricta.
   ADHERENCE_DECLINE_WEEKS: 3, // 3 semanas → 2 caídas consecutivas
-  // RPE alto sostenido
-  HIGH_RPE_THRESHOLD: 8, // PSE >= N considerado alto
-  HIGH_RPE_MIN_OCCURRENCES: 3, // al menos N ocurrencias
+  // Esfuerzo por encima de lo indicado (rehecho 2026-11-25, decisión
+  // Franco). Antes contaba cada EJERCICIO con PSE >= 8 y alcanzaba con 3:
+  // como la coach suele indicar "Muy duro (7-9)", casi todas las personas
+  // aparecían ("Esfuerzo alto 20 veces") y la alerta dejó de servir.
+  // Ahora cuenta SESIONES en las que la persona reportó una PSE que
+  // supera lo indicado:
+  //   - con PSE indicada: N+ puntos por encima del tope del rango
+  //     ("Duro (5-6)" → desde 8), o llegar a 10 sin que se pidiera
+  //     esfuerzo máximo;
+  //   - sin PSE indicada: llegar a 10.
+  HIGH_RPE_OVER_PRESCRIBED: 2, // puntos por encima del tope indicado
+  HIGH_RPE_MIN_SESSIONS: 2, // al menos N sesiones distintas
   HIGH_RPE_WINDOW_DAYS: 14, // dentro de los últimos N días
 
   // ── G2 (Fase C.5 doc 19) ──
@@ -74,6 +83,10 @@ export const ALERT_THRESHOLDS = {
   PAIN_WINDOW_DAYS: 21,
   // Formulario enviado y sin responder hace N+ días (2026-09-27).
   FORM_UNANSWERED_DAYS: 7,
+  // Y deja de alertar a los N días, o cuando se manda uno nuevo de la
+  // misma plantilla (2026-11-25): un formulario de hace dos meses ya no
+  // es algo que la coach pueda resolver, y quedaba fijo en la lista.
+  FORM_UNANSWERED_MAX_DAYS: 30,
   // Omitió algo por "me molestaba algo" (v54). Ventana en días.
   SKIP_DISCOMFORT_WINDOW_DAYS: 14,
   // Estancamiento: sin subir max(actual_weight) en N días.
@@ -281,18 +294,39 @@ export function computePlanExpired(students, today = new Date()) {
 //   scheduled_for, completed_at, template?: { name } }.
 // Cuenta desde el día en que le llegó (programado o envío manual).
 // Uno por persona: el más viejo, con cuántos otros tiene pendientes.
+// 2026-11-25: no alerta si pasaron más de FORM_UNANSWERED_MAX_DAYS, ni
+// si después le llegó otro de la misma plantilla (respondido o no). Por
+// eso `forms` trae también los completados: sirven para saber si hubo
+// uno más nuevo.
 // ============================================================
+function formArrival(f) {
+  const raw = f.scheduled_for || f.sent_at
+  if (!raw) return null
+  const d = startOfDay(new Date(raw))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 export function computeFormsUnanswered(students, forms, today = new Date()) {
   const todayD = startOfDay(today)
+  // Último formulario que ya le llegó, por persona y plantilla.
+  const latestArrival = new Map()
+  for (const f of forms || []) {
+    const d = formArrival(f)
+    if (!d || d > todayD) continue
+    const key = `${f.student_id}__${f.template_id ?? ''}`
+    const prev = latestArrival.get(key)
+    if (!prev || d > prev) latestArrival.set(key, d)
+  }
   const byStudent = new Map()
   for (const f of forms || []) {
     if (f.status === 'completed' || f.completed_at) continue
-    const raw = f.scheduled_for || f.sent_at
-    if (!raw) continue
-    const d = startOfDay(new Date(raw))
-    if (Number.isNaN(d.getTime()) || d > todayD) continue
+    const d = formArrival(f)
+    if (!d || d > todayD) continue
     const days = daysBetween(todayD, d)
     if (days < ALERT_THRESHOLDS.FORM_UNANSWERED_DAYS) continue
+    if (days > ALERT_THRESHOLDS.FORM_UNANSWERED_MAX_DAYS) continue
+    const newer = latestArrival.get(`${f.student_id}__${f.template_id ?? ''}`)
+    if (newer && newer > d) continue
     const acc = byStudent.get(f.student_id)
     const title = f.template?.name || null
     if (!acc) byStudent.set(f.student_id, { daysWaiting: days, count: 1, formTitle: title })
@@ -488,52 +522,64 @@ export function computeAdherenceDecline(students, weeklyByStudent) {
 }
 
 // ============================================================
-// 5. RPE alto sostenido
+// 5. Esfuerzo por encima de lo indicado (rehecho 2026-11-25)
 // ------------------------------------------------------------
-// Alumnos con HIGH_RPE_MIN_OCCURRENCES o más logs con
-// perceived_difficulty >= HIGH_RPE_THRESHOLD en los últimos
-// HIGH_RPE_WINDOW_DAYS días.
-//
-// Es señal temprana de sobrecarga → el coach debe revisar cargas.
+// Personas con HIGH_RPE_MIN_SESSIONS o más sesiones, en los últimos
+// HIGH_RPE_WINDOW_DAYS días, en las que algún ejercicio quedó con una
+// PSE por encima de lo que indicó la coach (ver ALERT_THRESHOLDS).
+// Señal de que la carga quedó pesada para esa persona.
 //
 // Inputs:
-//   students        activos
-//   recentLogs      [{ student_id, logged_date, perceived_difficulty }]
-//                     todos los logs en una ventana suficiente; la
-//                     función filtra a HIGH_RPE_WINDOW_DAYS internamente.
+//   students    activos
+//   recentLogs  [{ student_id, logged_date, perceived_difficulty,
+//                  plan_exercise: { suggested_pse } }]
 // ============================================================
+
+// Tope de cada opción de PSE indicada (plans/helpers PSE_OPTIONS).
+// Texto libre o vacío → null (sin indicación).
+export function prescribedPseCeiling(suggested) {
+  const m = /\((\d+)(?:-(\d+))?\)\s*$/.exec(String(suggested || '').trim())
+  if (!m) return null
+  return Number(m[2] ?? m[1])
+}
+
+export function isEffortAbovePrescribed(pse, suggested) {
+  const pd = Number(pse)
+  if (!Number.isFinite(pd)) return false
+  const ceiling = prescribedPseCeiling(suggested)
+  if (ceiling == null) return pd >= 10
+  if (pd >= 10 && ceiling < 10) return true
+  return pd >= ceiling + ALERT_THRESHOLDS.HIGH_RPE_OVER_PRESCRIBED
+}
+
 export function computeHighRpeStudents(students, recentLogs, today = new Date()) {
   const todayD = startOfDay(today)
   const windowStart = addDays(todayD, -ALERT_THRESHOLDS.HIGH_RPE_WINDOW_DAYS)
 
-  // Contamos por alumno los logs con RPE alto en la ventana.
-  const counts = new Map() // studentId → { count, peak, lastDate }
+  const byStudent = new Map() // studentId → { days: Set, peak, lastDate }
   for (const log of recentLogs || []) {
-    const pd = Number(log.perceived_difficulty)
-    if (!Number.isFinite(pd)) continue
-    if (pd < ALERT_THRESHOLDS.HIGH_RPE_THRESHOLD) continue
+    if (!isEffortAbovePrescribed(log.perceived_difficulty, log.plan_exercise?.suggested_pse)) {
+      continue
+    }
     const d = parseYMD(log.logged_date)
     if (!d || d < windowStart || d > todayD) continue
-
     const sid = log.student_id
-    const prev = counts.get(sid) || { count: 0, peak: 0, lastDate: null }
-    prev.count += 1
+    const prev = byStudent.get(sid) || { days: new Set(), peak: 0, lastDate: null }
+    prev.days.add(String(log.logged_date).slice(0, 10))
+    const pd = Number(log.perceived_difficulty)
     if (pd > prev.peak) prev.peak = pd
-    if (!prev.lastDate || d > parseYMD(prev.lastDate)) {
-      prev.lastDate = log.logged_date
-    }
-    counts.set(sid, prev)
+    if (!prev.lastDate || d > parseYMD(prev.lastDate)) prev.lastDate = log.logged_date
+    byStudent.set(sid, prev)
   }
 
   const out = []
   for (const s of students || []) {
-    const stats = counts.get(s.id)
-    if (!stats) continue
-    if (stats.count < ALERT_THRESHOLDS.HIGH_RPE_MIN_OCCURRENCES) continue
+    const stats = byStudent.get(s.id)
+    if (!stats || stats.days.size < ALERT_THRESHOLDS.HIGH_RPE_MIN_SESSIONS) continue
     out.push({
       studentId: s.id,
       name: s.name,
-      highRpeCount: stats.count,
+      highRpeCount: stats.days.size, // sesiones, no ejercicios
       peakRpe: stats.peak,
       lastDate: stats.lastDate,
     })
@@ -1087,8 +1133,10 @@ export function describeAlertItem(kind, it, t) {
             : t(A + 'inactiveDays', { count: it.daysSinceLastLog }),
       }
     case 'painStudents':
+      // 'bad' (2026-11-25): el dolor va arriba junto al pago vencido y la
+      // inactividad; antes quedaba debajo de señales menores.
       return {
-        tone: 'warn',
+        tone: 'bad',
         text: it.lastNoteSnippet
           ? t(A + 'painQuote', { snippet: it.lastNoteSnippet })
           : t(A + 'pain'),
@@ -1188,18 +1236,28 @@ export function groupAlertsByStudent(alerts, t) {
   }
   const count = (row, tone) => row.items.filter((i) => i.tone === tone).length
   const firstIdx = (row) => PERSON_ALERT_ORDER.indexOf(row.items[0]?.kind)
-  const rows = [...byId.values()].sort(
-    (a, b) =>
-      count(b, 'bad') - count(a, 'bad') ||
-      count(b, 'warn') - count(a, 'warn') ||
-      firstIdx(a) - firstIdx(b) ||
-      String(a.name).localeCompare(String(b.name))
-  )
+  // 2026-11-25: quien solo tiene motivos 'neutral' (sin progreso, sin plan)
+  // no "necesita atención": va a una línea discreta al pie (`later`) y no
+  // suma en el contador del encabezado.
+  const all = [...byId.values()]
+  const later = all
+    .filter((r) => count(r, 'bad') + count(r, 'warn') === 0)
+    .map((r) => ({ studentId: r.studentId, name: r.name }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+  const rows = all
+    .filter((r) => count(r, 'bad') + count(r, 'warn') > 0)
+    .sort(
+      (a, b) =>
+        count(b, 'bad') - count(a, 'bad') ||
+        count(b, 'warn') - count(a, 'warn') ||
+        firstIdx(a) - firstIdx(b) ||
+        String(a.name).localeCompare(String(b.name))
+    )
   const quiet = (alerts?.lowAdherence || []).map((it) => ({
     studentId: it.studentId,
     name: it.name,
   }))
-  return { rows, quiet }
+  return { rows, quiet, later }
 }
 
 // ============================================================
