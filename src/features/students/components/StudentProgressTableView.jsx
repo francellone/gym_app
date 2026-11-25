@@ -1118,7 +1118,7 @@ export default function StudentProgressTableView({
   // ── Header de la tabla ─────────────────────────────────────
   const renderHeader = () => (
     <tr className="text-[11px] uppercase tracking-wider text-gray-500 bg-gray-50">
-      <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)]">
+      <th className="text-left font-semibold px-2 py-2 sticky left-0 bg-gray-50 z-10 min-w-[120px] sm:min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)]">
         {t('coach.students.logs.exercise')}
       </th>
       {effectiveRowMode === 'exercise' && (
@@ -1436,9 +1436,12 @@ export default function StudentProgressTableView({
       >
         {/* Ejercicio (sticky) */}
         <td
-          className={`px-2 py-2 sticky left-0 z-[1] min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)] ${isBlock ? 'bg-sky-50' : 'bg-white'}`}
+          className={`px-2 py-2 sticky left-0 z-[1] min-w-[120px] sm:min-w-[140px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.12)] ${isBlock ? 'bg-sky-50' : 'bg-white'}`}
         >
-          <div className="font-medium text-gray-900 truncate max-w-[200px]" title={r.exerciseName}>
+          <div
+            className="font-medium text-gray-900 break-words line-clamp-2 max-w-[130px] sm:max-w-[220px]"
+            title={r.exerciseName}
+          >
             {isBlock && (
               <span className="mr-1" aria-hidden>
                 {blockTypeIcon(r.blockType)}
@@ -2027,7 +2030,7 @@ export default function StudentProgressTableView({
                             className="px-2 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 sticky z-10"
                             style={{ top: theadHeight }}
                           >
-                            <div className="flex items-center gap-2 sticky left-2 w-max max-w-[calc(100vw-4rem)]">
+                            <div className="flex items-center gap-2 sticky left-2 w-max whitespace-nowrap">
                               {isCollapsed ? (
                                 <ChevronDown size={14} className="text-gray-400" />
                               ) : (
@@ -2035,7 +2038,7 @@ export default function StudentProgressTableView({
                               )}
                               <span>{group.sectionLabel}</span>
                               {group.planTitle && orderedPlans.length > 1 && (
-                                <span className="text-gray-400 font-normal">
+                                <span className="text-gray-400 font-normal hidden sm:inline max-w-[22rem] truncate">
                                   · {group.planTitle}
                                 </span>
                               )}

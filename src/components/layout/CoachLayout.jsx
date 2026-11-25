@@ -229,7 +229,10 @@ export default function CoachLayout() {
       <PushPromptBanner userId={profile?.id} />
 
       {/* ── Main content ──────────────────────────────────── */}
-      <main className="flex-1 lg:ml-56 pt-16 lg:pt-0 min-h-screen">
+      {/* min-w-0: sin esto el main (ítem flex) se estira al ancho mínimo de su
+          contenido y una tabla ancha desbordaba toda la página en vez de
+          scrollear dentro de su caja (2026-11-25). */}
+      <main className="flex-1 min-w-0 lg:ml-56 pt-16 lg:pt-0 min-h-screen">
         <div className="max-w-5xl mx-auto px-4 py-6">
           <Outlet />
         </div>
