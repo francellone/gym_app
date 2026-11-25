@@ -110,7 +110,7 @@ export default function EvalWorkoutPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const [evalDate, setEvalDate] = useState(new Date().toISOString().slice(0, 10))
+  const [evalDate, setEvalDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [notes, setNotes] = useState('')
 
   // Protocolos enteros (power/cardio/body_comp/scored): jsonb en results.
@@ -207,7 +207,7 @@ export default function EvalWorkoutPage() {
           .maybeSingle()
         setStudentName(st?.name || '')
       }
-      const today = new Date().toISOString().slice(0, 10)
+      const today = format(new Date(), 'yyyy-MM-dd')
 
       if (isExerciseBasedEval(data.eval_type)) {
         // Leer plan_exercises de la eval (sin hardcodear day_a) + join ejercicio.
@@ -524,7 +524,7 @@ export default function EvalWorkoutPage() {
     setSavingSection(section)
     setError(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = format(new Date(), 'yyyy-MM-dd')
       const dayDate = dayDates[section] || today
       const newDayDates = { ...resultDayDates, [section]: dayDate }
 
@@ -620,7 +620,7 @@ export default function EvalWorkoutPage() {
     try {
       let resultId = existingResultId
       if (!resultId) {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = format(new Date(), 'yyyy-MM-dd')
         const { data: ins, error: insErr } = await supabase
           .from('evaluation_results')
           .insert({
@@ -756,7 +756,7 @@ export default function EvalWorkoutPage() {
             type="date"
             className="input"
             value={evalDate}
-            max={new Date().toISOString().slice(0, 10)}
+            max={format(new Date(), 'yyyy-MM-dd')}
             onChange={(e) => handleDateChange(e.target.value)}
           />
         </div>
@@ -778,7 +778,7 @@ export default function EvalWorkoutPage() {
             onSaveDay={handleSaveDay}
             savingSection={savingSection}
             savedSections={savedSections}
-            maxDate={new Date().toISOString().slice(0, 10)}
+            maxDate={format(new Date(), 'yyyy-MM-dd')}
             coachMode={coachMode}
           />
         ) : (

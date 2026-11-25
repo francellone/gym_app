@@ -130,7 +130,7 @@ export default function StudentEvaluationsTab({ studentId, assignments, allPlans
       await assignTemplateToStudent(supabase, {
         templateId: selectedPlanId,
         studentId,
-        startDate: new Date().toISOString().slice(0, 10),
+        startDate: format(new Date(), 'yyyy-MM-dd'),
         linkedAssignmentId: linkedAssignmentId || null,
       })
       setAssigning(false)

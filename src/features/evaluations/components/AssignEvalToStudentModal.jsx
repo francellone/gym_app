@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -55,7 +56,7 @@ export default function AssignEvalToStudentModal({ plan, onClose, onDone }) {
       await assignTemplateToStudent(supabase, {
         templateId: plan.id,
         studentId: selectedStudentId,
-        startDate: new Date().toISOString().slice(0, 10),
+        startDate: format(new Date(), 'yyyy-MM-dd'),
       })
       onDone()
     } catch (err) {

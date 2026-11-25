@@ -92,3 +92,20 @@ describe('getPlanExpiryInfo', () => {
     expect(info.isEstimated).toBe(false)
   })
 })
+
+describe('días que le quedan al plan, a cualquier hora del día', () => {
+  // 2026-11-25: a las 19:43 el plan que termina el sábado 28 figuraba
+  // "vence en 2d" porque differenceInDays cuenta horas y trunca.
+  it('cuenta días de calendario, no bloques de 24 h', () => {
+    const tarde = new Date(2026, 10, 25, 19, 43)
+    const info = getPlanExpiryInfo(asg({ expected_end_date: '2026-11-28' }), tarde)
+    expect(info.daysLeft).toBe(3)
+  })
+
+  it('el mismo día del fin queda en 0 y al día siguiente vence', () => {
+    const mediodia = new Date(2026, 10, 28, 12, 0)
+    expect(getPlanExpiryInfo(asg({ expected_end_date: '2026-11-28' }), mediodia).daysLeft).toBe(0)
+    const siguiente = new Date(2026, 10, 29, 9, 0)
+    expect(getPlanExpiryStatus(asg({ expected_end_date: '2026-11-28' }), siguiente)).toBe('expired')
+  })
+})

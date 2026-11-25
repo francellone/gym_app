@@ -1,4 +1,4 @@
-import { differenceInDays, parseISO, isValid } from 'date-fns'
+import { differenceInCalendarDays, parseISO, isValid } from 'date-fns'
 
 /**
  * Calcula el estado de pago de un alumno a partir de sus campos de perfil.
@@ -9,7 +9,7 @@ export function getPaymentStatus(student) {
   try {
     const dueDate = parseISO(student.next_payment_due)
     if (!isValid(dueDate)) return 'no_data'
-    const daysUntilDue = differenceInDays(dueDate, new Date())
+    const daysUntilDue = differenceInCalendarDays(dueDate, new Date())
     if (daysUntilDue < 0) return 'overdue'
     if (daysUntilDue <= 7) return 'due_soon'
     return 'up_to_date'
@@ -118,7 +118,7 @@ export function getPlanExpiryStatus(planAssignments, today = new Date()) {
   try {
     const end = parseISO(assignment.expected_end_date)
     if (!isValid(end)) return 'open'
-    const daysLeft = differenceInDays(end, today)
+    const daysLeft = differenceInCalendarDays(end, today)
     if (daysLeft < 0) return 'expired'
     if (daysLeft <= PLAN_EXPIRING_SOON_DAYS) return 'expiring_soon'
     return 'on_track'
@@ -135,7 +135,7 @@ export function getPlanExpiryInfo(planAssignments, today = new Date()) {
   let daysLeft = null
   if (endYmd) {
     const end = parseISO(endYmd)
-    if (isValid(end)) daysLeft = differenceInDays(end, today)
+    if (isValid(end)) daysLeft = differenceInCalendarDays(end, today)
   }
   return {
     status,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import { format, parseISO, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { exerciseDisplay } from '@/features/exercises/exercise-display'
@@ -163,12 +164,18 @@ export default function ProgressPage() {
     if (!profile?.id) return
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase
-        .from('workout_logs')
-        .select(
-          'plan:plans!plan_id(plan_type), plan_exercise:plan_exercises!plan_exercise_id(exercise:exercises!exercise_id(id, name, i18n))'
-        )
-        .eq('student_id', profile.id)
+      // Paginado: Supabase corta en 1000 filas sin avisar y quien entrena
+      // seguido supera ese número (2026-11-25: Franco tenía 1206).
+      const data = await fetchAllRows((from, to) =>
+        supabase
+          .from('workout_logs')
+          .select(
+            'id, plan:plans!plan_id(plan_type), plan_exercise:plan_exercises!plan_exercise_id(exercise:exercises!exercise_id(id, name, i18n))'
+          )
+          .eq('student_id', profile.id)
+          .order('id')
+          .range(from, to)
+      ).catch(() => [])
       if (cancelled) return
       const map = {}
       filterTrainingLogs(data || []).forEach((l) => {
@@ -207,22 +214,31 @@ export default function ProgressPage() {
       // Joineamos plan_type para excluir logs de evaluaciones de los
       // gráficos. Las evaluaciones no son sesiones de entrenamiento
       // y mezclar sus pesos/RPE/volumen distorsiona la progresión.
-      supabase
-        .from('workout_logs')
-        .select(
+      // Paginado: con el período "Todo" una persona constante supera las
+      // 1000 filas y, sin esto, se perdían las semanas más recientes.
+      fetchAllRows((from, to) =>
+        supabase
+          .from('workout_logs')
+          .select(
+            `
+            *,
+            plan:plans!plan_id(plan_type),
+            plan_exercise:plan_exercises!plan_exercise_id(
+              block_label, section, suggested_sets, suggested_weight,
+              weight_mode, unilateral, exercise_mode,
+              exercise:exercises!exercise_id(id, name, i18n, default_weight_mode, default_unilateral)
+            )
           `
-          *,
-          plan:plans!plan_id(plan_type),
-          plan_exercise:plan_exercises!plan_exercise_id(
-            block_label, section, suggested_sets, suggested_weight,
-            weight_mode, unilateral, exercise_mode,
-            exercise:exercises!exercise_id(id, name, i18n, default_weight_mode, default_unilateral)
           )
-        `
-        )
-        .eq('student_id', profile.id)
-        .gte('logged_date', since)
-        .order('logged_date'),
+          .eq('student_id', profile.id)
+          .gte('logged_date', since)
+          .order('logged_date')
+          .order('id')
+          .range(from, to)
+      ).then(
+        (data) => ({ data }),
+        (error) => ({ data: null, error })
+      ),
       supabase
         .from('v_workout_session_intensity')
         .select('*')
