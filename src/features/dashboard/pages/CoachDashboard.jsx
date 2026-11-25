@@ -68,7 +68,7 @@ export default function CoachDashboard() {
         return out
       }
 
-      const [sessionsRes, sessionLogsRes] = await Promise.all([
+      const [sessionsRes, sessionLogsRes, sessionBlockLogsRes] = await Promise.all([
         applyCommon(
           supabase.from('workout_sessions').select(
             `id, student_id, plan_id, logged_date, started_at, finished_at, borg_per_day, logged_late,
@@ -92,6 +92,16 @@ export default function CoachDashboard() {
         )
           .gte('logged_date', windowStart)
           .lte('logged_date', windowEnd),
+        // 2026-11-25 — los bloques aeróbicos registran en workout_block_logs;
+        // sin esto un día de solo aeróbico salía con 0 ejercicios.
+        applyCommon(
+          supabase.from('workout_block_logs').select(
+            `student_id, logged_date, completed, status, section, block_type,
+             plans!inner(plan_type)`
+          )
+        )
+          .gte('logged_date', windowStart)
+          .lte('logged_date', windowEnd),
       ])
 
       const byKey = new Map()
@@ -103,6 +113,20 @@ export default function CoachDashboard() {
         const section = l.plan_exercise?.section
         if (section && section.startsWith('day_')) {
           prev.sections.set(section, (prev.sections.get(section) || 0) + 1)
+        }
+        byKey.set(k, prev)
+      }
+      // Un circuito ya aporta un registro por ejercicio, así que su registro
+      // de bloque no se suma (mismo criterio que StudentProgressTab). Los
+      // omitidos tampoco: no son actividad.
+      for (const b of sessionBlockLogsRes.data || []) {
+        if (b.block_type === 'circuit' || b.status === 'skipped') continue
+        const k = `${b.student_id}__${String(b.logged_date).slice(0, 10)}`
+        const prev = byKey.get(k) || { total: 0, completed: 0, sections: new Map() }
+        prev.total += 1
+        if (b.completed) prev.completed += 1
+        if (b.section && b.section.startsWith('day_')) {
+          prev.sections.set(b.section, (prev.sections.get(b.section) || 0) + 1)
         }
         byKey.set(k, prev)
       }

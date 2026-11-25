@@ -30,6 +30,7 @@ import StudentProgressTableView from '@/features/students/components/StudentProg
 import AvatarImage from '@/features/avatars/AvatarImage'
 import { fetchNoteThreads } from '@/features/notes/api'
 import { attachNoteThreads } from '@/features/notes/notePreview'
+import { isTrainingActivity } from '@/features/workouts/completionRules'
 
 // ─────────────────────────────────────────────────────────────
 // Constantes
@@ -96,6 +97,12 @@ export default function PlanProgressTab({ planId, assignments }) {
 
   // ── Datos ────────────────────────────────────────────────
   const [progressLogs, setProgressLogs] = useState([])
+  // 2026-11-25 — registros de bloque (aeróbico / circuito) de este plan. Los
+  // bloques registran en workout_block_logs, no en workout_logs; sin esto la
+  // tabla mostraba las filas de AEROBICO / PRINCIPAL con lo prescripto pero
+  // vacías ("en los aeróbicos no me sale ningún dato"). Misma regla que v53
+  // en StudentProgressTab: solo hechos (los omitidos no son actividad).
+  const [progressBlockLogs, setProgressBlockLogs] = useState([])
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [progressExercises, setProgressExercises] = useState([])
@@ -155,11 +162,35 @@ export default function PlanProgressTab({ planId, assignments }) {
     if (until) sessionsQuery = sessionsQuery.lte('logged_date', until)
     sessionsQuery = sessionsQuery.order('logged_date')
 
-    const [logsRes, sessionsRes, studentRes] = await Promise.all([
+    let blockLogsQuery = supabase
+      .from('workout_block_logs')
+      .select(
+        `
+        *,
+        exercise:exercises!exercise_id(id, name, muscle_group),
+        block:plan_blocks!plan_block_id(
+          id, plan_id, section, block_type, order_index, title,
+          aerobic_format, aerobic_total_minutes, aerobic_zone, aerobic_intensity,
+          aerobic_work_seconds, aerobic_rest_seconds, aerobic_rounds,
+          circuit_type, circuit_total_minutes, circuit_rounds, circuit_intensity,
+          circuit_work_seconds, circuit_rest_seconds
+        )
+      `
+      )
+      .eq('student_id', selectedStudentId)
+      .eq('plan_id', planId)
+      .gte('logged_date', since)
+    if (until) blockLogsQuery = blockLogsQuery.lte('logged_date', until)
+    blockLogsQuery = blockLogsQuery.order('logged_date')
+
+    const [logsRes, sessionsRes, studentRes, blockLogsRes] = await Promise.all([
       logsQuery,
       sessionsQuery,
       supabase.from('profiles').select('weight_kg').eq('id', selectedStudentId).maybeSingle(),
+      blockLogsQuery,
     ])
+    if (blockLogsRes.error) console.error('PlanProgressTab: workout_block_logs', blockLogsRes.error)
+    const blockRows = (blockLogsRes.data || []).filter(isTrainingActivity)
 
     // 2026-10-04: las notas viven en `notes`, no en workout_logs.notes
     // (vacía); sin esto la tabla de este plan no mostraba ninguna.
@@ -169,7 +200,14 @@ export default function PlanProgressTab({ planId, assignments }) {
       viewerRole: 'coach',
     })
     const logData = attachNoteThreads(logsRes.data || [], logThreads)
+    // La nota del bloque vive en el panel (mirror), igual que la del ejercicio.
+    const blockThreads = await fetchNoteThreads({
+      contextType: 'workout_block_log',
+      contextIds: blockRows.map((b) => b.id),
+      viewerRole: 'coach',
+    })
     setProgressLogs(logData)
+    setProgressBlockLogs(attachNoteThreads(blockRows, blockThreads, { keepLegacy: false }))
     setSessions(sessionsRes.data || [])
     setStudentWeightKg(studentRes.data?.weight_kg ?? null)
 
@@ -236,19 +274,27 @@ export default function PlanProgressTab({ planId, assignments }) {
   }, [progressLogs, studentWeightKg, t])
 
   const pseData = useMemo(() => {
+    // Agrupado por fecha ISO y ordenado al final: un día de solo aeróbico
+    // llega por el segundo array y no puede quedar al final del gráfico.
     const byDate = {}
-    progressLogs.forEach((l) => {
+    const push = (l) => {
       if (l.perceived_difficulty) {
-        const date = format(parseISO(l.logged_date), t('coach.plans.progress.chartDate'))
-        if (!byDate[date]) byDate[date] = []
-        byDate[date].push(l.perceived_difficulty)
+        if (!byDate[l.logged_date]) byDate[l.logged_date] = []
+        byDate[l.logged_date].push(l.perceived_difficulty)
       }
-    })
-    return Object.entries(byDate).map(([date, vals]) => ({
-      date,
-      'PSE promedio': Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10,
-    }))
-  }, [progressLogs, t])
+    }
+    progressLogs.forEach(push)
+    progressBlockLogs.forEach(push)
+    return Object.keys(byDate)
+      .sort()
+      .map((iso) => {
+        const vals = byDate[iso]
+        return {
+          date: format(parseISO(iso), t('coach.plans.progress.chartDate')),
+          'PSE promedio': Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10,
+        }
+      })
+  }, [progressLogs, progressBlockLogs, t])
 
   const borgData = useMemo(
     () =>
@@ -296,10 +342,16 @@ export default function PlanProgressTab({ planId, assignments }) {
   )
 
   const stats = useMemo(() => {
-    const sessionDates = new Set(progressLogs.map((l) => l.logged_date))
+    const sessionDates = new Set([
+      ...progressLogs.map((l) => l.logged_date),
+      ...progressBlockLogs.map((b) => b.logged_date),
+    ])
     const totalSessions = sessionDates.size
-    const totalCompleted = progressLogs.filter((l) => l.completed).length
-    const withPSE = progressLogs.filter((l) => l.perceived_difficulty)
+    const totalCompleted =
+      progressLogs.filter((l) => l.completed).length +
+      progressBlockLogs.filter((b) => b.completed).length
+    // La PSE de los bloques (aeróbico / circuito) cuenta en el promedio
+    const withPSE = [...progressLogs, ...progressBlockLogs].filter((l) => l.perceived_difficulty)
     const avgPSE =
       withPSE.length > 0
         ? Math.round(
@@ -314,7 +366,7 @@ export default function PlanProgressTab({ planId, assignments }) {
       .filter((l) => l.plan_exercise?.exercise?.id === selectedExercise)
       .reduce((mx, l) => Math.max(mx, maxWeightOfLog(l)), 0)
     return { totalSessions, totalCompleted, avgPSE, avgBorg, maxWeight }
-  }, [progressLogs, borgData, selectedExercise])
+  }, [progressLogs, progressBlockLogs, borgData, selectedExercise])
 
   const weeks = useMemo(() => {
     const today = new Date()
@@ -324,7 +376,15 @@ export default function PlanProgressTab({ planId, assignments }) {
     }).reverse()
   }, [])
 
-  const logDates = useMemo(() => new Set(progressLogs.map((l) => l.logged_date)), [progressLogs])
+  // Un día de solo aeróbico también es un día entrenado.
+  const logDates = useMemo(
+    () =>
+      new Set([
+        ...progressLogs.map((l) => l.logged_date),
+        ...progressBlockLogs.map((b) => b.logged_date),
+      ]),
+    [progressLogs, progressBlockLogs]
+  )
   const today = new Date()
 
   // ── Sin asignaciones ─────────────────────────────────────
@@ -474,8 +534,12 @@ export default function PlanProgressTab({ planId, assignments }) {
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : viewMode === 'table' ? (
-        <StudentProgressTableView studentId={selectedStudentId} logs={progressLogs} />
-      ) : progressLogs.length === 0 ? (
+        <StudentProgressTableView
+          studentId={selectedStudentId}
+          logs={progressLogs}
+          blockLogs={progressBlockLogs}
+        />
+      ) : progressLogs.length === 0 && progressBlockLogs.length === 0 ? (
         <div className="card text-center py-8 text-gray-400">
           <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">{t('coach.plans.progress.noLogs')}</p>
