@@ -318,7 +318,9 @@ export default function PlanProgressTab({ planId, assignments }) {
           date: format(parseISO(s.logged_date), t('coach.plans.progress.chartDate')),
           Minutos: credibleSessionMinutes(s.started_at, s.finished_at),
         }))
-        .filter((d) => d.Minutos != null)[(sessions, t)] // duraciones no creíbles fuera (sessionDuration.js),
+        // duraciones no creíbles fuera (sessionDuration.js)
+        .filter((d) => d.Minutos != null),
+    [sessions, t]
   )
 
   const medianDuration = useMemo(() => {

@@ -512,7 +512,9 @@ export default function StudentProgressTab({ studentId }) {
           date: format(parseISO(s.logged_date), 'dd/MM'),
           Minutos: credibleSessionMinutes(s.started_at, s.finished_at),
         }))
-        .filter((d) => d.Minutos != null)[sessions] // duraciones no creíbles fuera (sessionDuration.js),
+        // duraciones no creíbles fuera (sessionDuration.js)
+        .filter((d) => d.Minutos != null),
+    [sessions]
   )
 
   const medianDuration = useMemo(() => {
