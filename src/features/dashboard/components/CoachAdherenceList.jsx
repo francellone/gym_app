@@ -49,6 +49,10 @@ export default function CoachAdherenceList({
   filterPlanId = null,
   filterPeriodRange = null,
   behind = null, // [{ studentId, completed, target, pct }] (alerts.lowAdherence)
+  // 2026-11-26: mientras las alertas cargan, `behind` todavía está vacío y
+  // los grupos salían "Al día 7" para pasar a "3 por debajo" un segundo
+  // después. Se espera a las dos fuentes antes de mostrar números.
+  behindLoading = false,
   className = '',
 }) {
   const { t } = useTranslation()
@@ -267,7 +271,7 @@ export default function CoachAdherenceList({
     return { late, ok, none }
   }, [rows, behind])
 
-  if (loading) {
+  if (loading || behindLoading) {
     return (
       <div className={className}>
         <p className="text-sm text-texto3 py-2">{t('common.loading')}</p>

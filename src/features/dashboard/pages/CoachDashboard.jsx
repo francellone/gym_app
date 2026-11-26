@@ -284,6 +284,7 @@ export default function CoachDashboard() {
             filterPlanId={filters.planId}
             filterPeriodRange={filters.periodRange}
             behind={alerts?.lowAdherence || []}
+            behindLoading={alertsLoading}
           />
         </section>
 
