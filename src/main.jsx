@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './components/errors/ErrorBoundary'
 import './index.css'
 import { initTheme } from './theme/theme'
 import './i18n' // i18n vista alumno (doc 46) — debe cargar antes que App
@@ -35,6 +36,8 @@ initTheme()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary variant="page" name="app">
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )

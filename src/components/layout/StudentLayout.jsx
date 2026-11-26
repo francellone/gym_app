@@ -1,4 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
+import RouteErrorBoundary from '@/components/errors/RouteErrorBoundary'
 import { useAuth } from '@/features/auth/AuthContext'
 import { Home, Dumbbell, BarChart2, Clock, User, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -55,7 +56,9 @@ export default function StudentLayout() {
           {/* Formularios pendientes: vive acá (y no en el Inicio) para que el
             alumno lo vea en cualquier pantalla. Ver PendingFormsBanner. */}
           <PendingFormsBanner studentId={profile?.id} />
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
 
         {/* Aviso de instalación en iOS (arriba de la bottom nav) */}

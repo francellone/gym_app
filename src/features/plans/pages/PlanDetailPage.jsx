@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ErrorBoundary from '@/components/errors/ErrorBoundary'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
@@ -1077,7 +1078,11 @@ export default function PlanDetailPage() {
       </div>
 
       {/* ── Tab: Progreso ─────────────────────────────────── */}
-      {mainTab === 'progress' && <PlanProgressTab planId={id} assignments={assignments} />}
+      {mainTab === 'progress' && (
+        <ErrorBoundary variant="section" name="plan-progress" resetKey={id}>
+          <PlanProgressTab planId={id} assignments={assignments} />
+        </ErrorBoundary>
+      )}
 
       {/* ── Tab: Estructura ───────────────────────────────── */}
       {mainTab === 'structure' && (

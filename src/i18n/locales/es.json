@@ -781,6 +781,15 @@
       "tooManyRequests": "Demasiadas solicitudes. Esperá unos segundos.",
       "serverSlow": "Servidor lento. Reintentá en un momento.",
       "genericFallback": "Algo salió mal. Probá de nuevo o avisá al coach."
+    },
+    "boundary": {
+      "sectionTitle": "No se pudo mostrar esta sección",
+      "pageTitle": "Algo salió mal",
+      "body": "Hubo un error al mostrar esta parte de la app. Tus datos no se perdieron. Probá de nuevo y, si sigue pasando, avisá.",
+      "staleTitle": "Hay una versión nueva de la app",
+      "staleBody": "Recargá para usar la última versión.",
+      "retry": "Reintentar",
+      "reload": "Recargar la app"
     }
   },
   "notes": {

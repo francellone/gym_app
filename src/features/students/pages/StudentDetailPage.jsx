@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ErrorBoundary from '@/components/errors/ErrorBoundary'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
@@ -395,49 +396,52 @@ export default function StudentDetailPage() {
       </div>
 
       {/* ── Contenido de cada tab ── */}
-      {activeTab === 'info' && (
-        <StudentInfoTab
-          student={student}
-          studentId={id}
-          coachId={profile.id}
-          formAssignment={formAssignment}
-          formSubmission={formSubmission}
-          assignments={assignments}
-          onRefresh={fetchStudentData}
-          onOpenNotesTab={() => navigate(`/coach/chat/${id}`)}
-          onOpenPlansTab={() => setActiveTab('plans')}
-        />
-      )}
+      {/* Si una pestaña falla, el error queda en la pestaña (ErrorBoundary). */}
+      <ErrorBoundary variant="section" name="student-tab" resetKey={`${id}:${activeTab}`}>
+        {activeTab === 'info' && (
+          <StudentInfoTab
+            student={student}
+            studentId={id}
+            coachId={profile.id}
+            formAssignment={formAssignment}
+            formSubmission={formSubmission}
+            assignments={assignments}
+            onRefresh={fetchStudentData}
+            onOpenNotesTab={() => navigate(`/coach/chat/${id}`)}
+            onOpenPlansTab={() => setActiveTab('plans')}
+          />
+        )}
 
-      {activeTab === 'plans' && (
-        <StudentPlansTab
-          assignments={assignments}
-          allPlans={allPlans}
-          studentId={id}
-          onRefresh={fetchStudentData}
-        />
-      )}
+        {activeTab === 'plans' && (
+          <StudentPlansTab
+            assignments={assignments}
+            allPlans={allPlans}
+            studentId={id}
+            onRefresh={fetchStudentData}
+          />
+        )}
 
-      {activeTab === 'evaluaciones' && (
-        <StudentEvaluationsTab
-          studentId={id}
-          assignments={assignments}
-          allPlans={allPlans}
-          onRefresh={fetchStudentData}
-        />
-      )}
+        {activeTab === 'evaluaciones' && (
+          <StudentEvaluationsTab
+            studentId={id}
+            assignments={assignments}
+            allPlans={allPlans}
+            onRefresh={fetchStudentData}
+          />
+        )}
 
-      {activeTab === 'formularios' && <StudentFormsTab studentId={id} />}
+        {activeTab === 'formularios' && <StudentFormsTab studentId={id} />}
 
-      {activeTab === 'wellbeing' && <StudentWellbeingTab studentId={id} />}
+        {activeTab === 'wellbeing' && <StudentWellbeingTab studentId={id} />}
 
-      {activeTab === 'actividad' && <StudentActivitiesTab studentId={id} />}
+        {activeTab === 'actividad' && <StudentActivitiesTab studentId={id} />}
 
-      {activeTab === 'progress' && <StudentProgressTab studentId={id} />}
+        {activeTab === 'progress' && <StudentProgressTab studentId={id} />}
 
-      {activeTab === 'logs' && <StudentLogsTab logs={logs} blockLogs={blockLogs} />}
+        {activeTab === 'logs' && <StudentLogsTab logs={logs} blockLogs={blockLogs} />}
 
-      {activeTab === 'history' && <StudentHistoryTab editHistory={editHistory} />}
+        {activeTab === 'history' && <StudentHistoryTab editHistory={editHistory} />}
+      </ErrorBoundary>
     </div>
   )
 }

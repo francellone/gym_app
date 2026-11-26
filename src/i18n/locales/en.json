@@ -781,6 +781,15 @@
       "tooManyRequests": "Too many requests. Wait a few seconds.",
       "serverSlow": "Server is slow. Retry in a moment.",
       "genericFallback": "Something went wrong. Try again or let your coach know."
+    },
+    "boundary": {
+      "sectionTitle": "This section couldn't be shown",
+      "pageTitle": "Something went wrong",
+      "body": "There was an error showing this part of the app. Your data is safe. Try again and, if it keeps happening, let us know.",
+      "staleTitle": "There's a new version of the app",
+      "staleBody": "Reload to use the latest version.",
+      "retry": "Try again",
+      "reload": "Reload the app"
     }
   },
   "notes": {

@@ -1,4 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
+import RouteErrorBoundary from '@/components/errors/RouteErrorBoundary'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
   LayoutDashboard,
@@ -234,7 +235,9 @@ export default function CoachLayout() {
           scrollear dentro de su caja (2026-11-25). */}
       <main className="flex-1 min-w-0 lg:ml-56 pt-16 lg:pt-0 min-h-screen">
         <div className="max-w-5xl mx-auto px-4 py-6">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </div>
       </main>
     </div>
