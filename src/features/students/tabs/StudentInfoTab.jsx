@@ -38,6 +38,7 @@ import {
   periodLength,
 } from '../payments'
 import PaymentModal from '../components/PaymentModal'
+import { syncAssignmentsWithActive } from '../deactivation'
 import { getFriendlyErrorMessage as errorHelpersGetFriendlyMessage } from '@/utils/errorHelpers'
 
 // ─────────────────────────────────────────────────────────────
@@ -233,6 +234,16 @@ export default function StudentInfoTab({
           new_value: displayValue(f, editData[f]),
         }))
         await supabase.from('student_edit_history').insert(historyInserts)
+
+        // 2026-11-26: desactivar pausa su plan vigente; reactivar ofrece reanudarlo.
+        if (changedFields.includes('active')) {
+          await syncAssignmentsWithActive(supabase, {
+            studentId,
+            newActive: editData.active !== false,
+            confirmResume: (plans) =>
+              window.confirm(t('coach.students.list.resumeConfirm', { name: student.name, plans })),
+          })
+        }
       }
 
       setEditMode(false)

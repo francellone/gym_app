@@ -218,18 +218,25 @@ export default function useCoachCalendarData(monthAnchor, selectedStudentIds, op
           trainedMap.get(ymd).add(r.student_id)
         }
 
+        // 2026-11-26: el calendario solo muestra personas ACTIVAS. Antes solo
+        // se filtraban "N entrenaron" y la lista de personas; los eventos
+        // (fin de plan, pagos, formularios...) de una persona desactivada
+        // seguían saliendo sin nombre ("Fin de plan · —").
+        const onlyActive = (rows) => (rows || []).filter((r) => activeIds.has(r.student_id))
+        const activeAssignments = onlyActive(assignmentsRes.data)
+
         setStudents(studentsData)
         // Solo TRAINING para los días por persona; las evaluaciones van
         // como eventos (eventAssignments).
-        setAssignments((assignmentsRes.data || []).filter(isTrainingAssignment))
-        setEventAssignments(assignmentsRes.data || [])
+        setAssignments(activeAssignments.filter(isTrainingAssignment))
+        setEventAssignments(activeAssignments)
         setTrainedByDate(trainedMap)
-        setEvalResults(evalResultsRows || [])
+        setEvalResults(onlyActive(evalResultsRows))
         setExtras({
-          forms: formRows || [],
-          payments: paymentRows || [],
-          activities: (activityRows || []).map(toActivityEvent),
-          milestones: milestoneRows || [],
+          forms: onlyActive(formRows),
+          payments: onlyActive(paymentRows),
+          activities: onlyActive(activityRows).map(toActivityEvent),
+          milestones: onlyActive(milestoneRows),
         })
       } catch (err) {
         // No reventamos el dashboard; logueamos.

@@ -26,6 +26,7 @@ import CoachInviteCard from '../components/CoachInviteCard'
 import DirectorySuggestionCard from '../components/DirectorySuggestionCard'
 import SelfRowCard from '../components/SelfRowCard'
 import LinkRequestsPanel from '../components/LinkRequestsPanel'
+import { syncAssignmentsWithActive } from '../deactivation'
 
 export default function StudentsPage() {
   const { profile } = useAuth()
@@ -180,6 +181,13 @@ export default function StudentsPage() {
         .update({ active: newActive })
         .eq('id', student.id)
       if (error) throw error
+      // 2026-11-26: desactivar pausa su plan vigente; reactivar ofrece reanudarlo.
+      await syncAssignmentsWithActive(supabase, {
+        studentId: student.id,
+        newActive,
+        confirmResume: (plans) =>
+          window.confirm(t('coach.students.list.resumeConfirm', { name: student.name, plans })),
+      })
       await supabase.from('student_edit_history').insert({
         student_id: student.id,
         changed_by: profile?.id,

@@ -195,7 +195,8 @@
     "unread_other": "{{count}} unread"
   },
   "list": {
-    "deactivateConfirm": "Mark {{name}} as inactive?\n\nThey'll stop showing up in the list, calendar, alerts and coach selectors. Their account and history stay untouched, and you can reactivate them anytime.",
+    "deactivateConfirm": "Mark {{name}} as inactive?\n\nThey'll stop showing up in the list, calendar, alerts and coach selectors. Their account and history stay untouched, and you can reactivate them anytime.\n\nTheir current plan is paused, and you can resume it when you reactivate them.",
+    "resumeConfirm": "Resume {{plans}} too?\n\nIt was paused when {{name}} was deactivated. If not, it stays paused and you can resume it from the Plans tab.",
     "toggleError": "Couldn't change the status",
     "title": "Students",
     "activeCount_one": "{{count}} active",

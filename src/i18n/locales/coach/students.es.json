@@ -195,7 +195,8 @@
     "unread_other": "{{count}} sin leer"
   },
   "list": {
-    "deactivateConfirm": "¿Marcar a {{name}} como inactiva?\n\nDeja de aparecer en la lista, el calendario, las alertas y los selectores del coach. Su cuenta y su historial no se tocan, y podés reactivarla cuando quieras.",
+    "deactivateConfirm": "¿Marcar a {{name}} como inactiva?\n\nDeja de aparecer en la lista, el calendario, las alertas y los selectores del coach. Su cuenta y su historial no se tocan, y podés reactivarla cuando quieras.\n\nSu plan vigente queda pausado, y al reactivarla podés reanudarlo.",
+    "resumeConfirm": "¿Reanudar también {{plans}}?\n\nSe pausó al desactivar a {{name}}. Si elegís que no, queda pausado y lo podés reanudar desde la pestaña Planes.",
     "toggleError": "No se pudo cambiar el estado",
     "title": "Personas",
     "activeCount_one": "{{count}} activa",
